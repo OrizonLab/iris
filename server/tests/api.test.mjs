@@ -27885,7 +27885,9 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Audit des montants d'AT-1 (auditeur-montants, R1, bloquante) : la clôture d'une affaire, qui la fait compter, une fois
-    // encaissée, dans le CA et la marge validés de son commercial, lui est refusée même titulaire (refuserAssistanteTechnique) ;
+    // encaissée, dans le CA et la marge validés de son commercial, lui est refusée même titulaire (refuserAssistanteTechniqueStatut,
+    // chantiers/routes.ts : depuis AT-2b, la garde, renommée, ne protège plus que PATCH /api/chantiers/:id/statut, au message
+    // « … n’est pas autorisé à clôturer ni à rouvrir une affaire. ») ;
     // le serveur ne la lui propose donc pas (peutCloturer, qui fait afficher le bouton « Clôturer » de la liste des chantiers ;
     // peutCloturerChantier exclut l'assistante technique, comme le commercial et le technicien). Le titulaire se choisit parmi
     // les conducteurs, mais un conducteur passé assistante technique garde ses affaires. Témoin : le même compte, conducteur
@@ -29014,7 +29016,7 @@ if (!TEST_DATABASE_URL) {
         assert.equal(ecrit.status, 200, JSON.stringify(ecrit.body));
         assert.equal(Number(ecrit.body.budgetGlobalVendu), 2004.13, 'réponse');
         assert.equal(enBase((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).budgetGlobalVendu), '2004.13');
-        // 303,18 + 4 × 37,85 = 454,58 € de dépenses ; lectures écartées : 1 701,95 € sans main-d'œuvre, 1 533,07 € l'ancien vendu.
+        // 303,18 + 4 × 37,85 = 454,58 € de dépenses ; lectures écartées : 1 700,95 € sans main-d'œuvre, 1 533,07 € l'ancien vendu.
         assert.equal((await lire(`/api/chantiers/${affaire.id}`, assistante)).body.metrics.margeBrute, 1549.55);
         // Affaire clôturée, réglage coché : refus de la fiche (403), avant celui du vendu.
         const cloturee = await chantierDe('vendu clôturée', comptes.conducteurTiers.id, { statut: 'TERMINE', dateFin: new Date('2026-10-20T00:00:00Z') });

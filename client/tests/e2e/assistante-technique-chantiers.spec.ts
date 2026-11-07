@@ -13,7 +13,9 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 //
 // Parcours dans Chromium, libellés français, dates JJ-MM-AAAA, montants au format français :
 //  1. sur une affaire en cours d'un conducteur, elle ouvre « Modifier » (sans « Budget Global », réglage décoché), change le
-//     nom, la date de fin, le budget matériel et le barème réduit, et l'API relit chaque champ ;
+//     nom, la date de fin, le budget matériel et le barème réduit, et réaffecte l'affaire à un second client par le sélecteur
+//     « Client du chantier » (v4, C1 ; T1 de l'audit des droits de #515) ; l'API relit chaque champ, le client et son libellé,
+//     et l'entrée CHANGEMENT_CLIENT à son nom ;
 //  2. elle saisit un achat dans le Journal des achats et un pointage dans le Journal des heures, sur cette affaire dont elle
 //     n'est pas titulaire, relus par l'API à son nom ; aucun coût interne ni taux à l'écran ;
 //  3. « Clôturer » ne lui est pas proposé, même titulaire ; un conducteur titulaire, témoin, se le voit proposer.
@@ -50,7 +52,9 @@ const menuDe = (page: Page) => page.locator('#menu-principal');
 
 test('assistante technique : elle modifie la fiche d’une affaire en cours d’un conducteur, y saisit un achat et des heures depuis les journaux Travaux, à son nom, sans coût interne ; « Clôturer » ne lui est pas proposé, même titulaire', async ({ connexion, request, session, creerClient }) => {
   test.slow();
-  const { headers, envoyer, suffixe, assistante, conducteur, commercial, chantierDe } = await preparer(request, session.token, creerClient);
+  const { headers, envoyer, suffixe, assistante, conducteur, commercial, client, chantierDe } = await preparer(request, session.token, creerClient);
+  // Second client, cible de la réaffectation de l'étape 1 (C1 du cadrage v4).
+  const second = await creerClient(`assistante technique chantiers second ${suffixe}`);
   const affaire = await chantierDe('Affaire du conducteur AT-2b', conducteur.id);
   const sienne = await chantierDe('Affaire de l’assistante AT-2b', assistante.id);
   const fournisseur = await envoyer('post', '/fournisseurs', { nom: `Fournisseur AT-2b ${suffixe}` }) as { id: string; nom: string };
@@ -76,16 +80,30 @@ test('assistante technique : elle modifie la fiche d’une affaire en cours d’
   await page.locator('input[name="dateFin"]').fill('27-02-2027');
   await page.locator('input[name="budgetMaterielVendu"]').fill('1234.56');
   await page.locator('input[name="baremeReduit"]').check();
+  // Client du chantier (cadrage v4, C1 ; réponse 3 du 07-11-2026, « comme l'administration ») : le sélecteur lui est ouvert ;
+  // réaffectation à un second client, retrouvé par la recherche.
+  const selecteurClient = page.getByRole('combobox', { name: 'Client du chantier' });
+  await expect(selecteurClient).toBeEnabled();
+  await expect(selecteurClient).toHaveValue(client.id);
+  await page.getByRole('searchbox', { name: 'Rechercher un client' }).fill(second.raisonSociale);
+  await expect(selecteurClient.locator(`option[value="${second.id}"]`)).toHaveCount(1);
+  await selecteurClient.selectOption(second.id);
+  await expect(selecteurClient).toHaveValue(second.id);
   const enregistrement = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname === `/api/chantiers/${affaire.id}`);
   await page.getByRole('button', { name: 'Enregistrer les modifications' }).click();
   const reponse = await enregistrement;
   expect(reponse.status()).toBe(200);
   expect(reponse.request().postDataJSON()).not.toHaveProperty('budgetGlobalVendu');
+  expect(reponse.request().postDataJSON().clientId).toBe(second.id);
   await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toHaveCount(0);
   // Elle reste sur la fiche (elle lit toutes les affaires), au nouveau nom, budget matériel au format français.
   await expect(page.getByRole('heading', { name: nouveauNom })).toBeVisible();
   await expect(page.getByText('Matériel Prévu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^1\s?234,56\s€$/);
   const relue = await relire(affaire.id);
+  // Client et libellé relus ; changement journalisé à son nom (CHANGEMENT_CLIENT).
+  expect([relue.clientId, relue.client]).toEqual([second.id, second.raisonSociale]);
+  const journalFiche = await (await request.get(`${api}/chantiers/${affaire.id}/journal-saisies`, { headers })).json() as { action: string; auteurId: string; apres: { clientId?: string } }[];
+  expect(journalFiche.filter((e) => e.action === 'CHANGEMENT_CLIENT').map((e) => [e.auteurId, e.apres.clientId])).toEqual([[assistante.id, second.id]]);
   expect([relue.nom, relue.dateFin.slice(0, 10), relue.budgetMaterielVendu, relue.baremeReduit, relue.statut, relue.responsable.id, relue.commercial.id]).toEqual([nouveauNom, '2027-02-27', 1234.56, true, 'EN_COURS', conducteur.id, commercial.id]);
 
   // 2. Journal des achats : achat au format français sur cette affaire, relu par l'API à son nom.
