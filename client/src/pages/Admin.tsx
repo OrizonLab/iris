@@ -228,6 +228,7 @@ const Admin = () => {
       rentabiliteHierarchie: formData.get('rentabiliteHierarchie') === 'on',
       // Case non modifiable par un directeur (refus du serveur) : il ne l'envoie pas.
       ...(estDirecteur ? {} : { rentabiliteDirecteurs: formData.get('rentabiliteDirecteurs') === 'on' }),
+      rentabiliteAssistantesTechniques: formData.get('rentabiliteAssistantesTechniques') === 'on',
     };
     const res = await apiFetch('/parametres', { method: 'PUT', body: JSON.stringify(payload) });
     if (res.ok) {

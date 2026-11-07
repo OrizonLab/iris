@@ -5,7 +5,7 @@ import { ArrowLeft, FileDown, Pencil } from 'lucide-react';
 import { apiFetch } from '../api';
 import type { ClientActuel } from '../components/SelecteurClient';
 import type { BreakdownRow } from '../components/BarBreakdown';
-import { isAdminRole, roleDuCompte, ROLE_TECHNICIEN, useCurrentUser } from '../roles';
+import { gereLesChantiersEnCours, litToutesLesAffaires, peutModifierChantier, roleDuCompte, ROLE_TECHNICIEN, useCurrentUser } from '../roles';
 import { useModules } from '../modules';
 import { useCompanyTimezone, useFuseauSocieteConnu } from '../companyTimezoneContext';
 import { jourCivilChantierIso, jourCivilEntrepriseIso, joursCivilsEntre } from '../lib/dateFormatting';
@@ -169,8 +169,9 @@ const ChantierDetail = () => {
     if (commerciaux.length === 0) fetchCommerciaux();
     // Le client lié reste proposé même au-delà des 200 premiers ou désactivé : sa fiche donne
     // sa raison sociale et son état. En attendant (ou si elle ne se charge pas), une étiquette
-    // neutre : le libellé historique du chantier peut désigner un ancien client.
-    if (isAdminRole(userRole)) {
+    // neutre : le libellé historique du chantier peut désigner un ancien client. Client modifiable par
+    // l'administration et l'assistante technique (cf. gereLesChantiersEnCours).
+    if (gereLesChantiersEnCours(userRole)) {
       const lie = chantier?.clientId || '';
       setEditClientId(lie);
       setClientActuel(lie ? { id: lie, raisonSociale: 'Client actuellement lié' } : null);
@@ -199,7 +200,7 @@ const ChantierDetail = () => {
     // désélectionne le client : on refuse alors l'envoi. Il n'est envoyé que s'il change.
     formData.delete('clientId');
     let clientChange: string | null = null;
-    if (isAdminRole(userRole)) {
+    if (gereLesChantiersEnCours(userRole)) {
       if (!editClientId) { alert('Choisissez un client.'); return; }
       if (editClientId !== (chantier?.clientId || '')) clientChange = editClientId;
     }
@@ -233,8 +234,9 @@ const ChantierDetail = () => {
       }
       setEditingChantier(false);
       // Un conducteur qui vient de confier son chantier à un autre n'y a plus accès : il
-      // retrouve sa liste au lieu d'une fiche « introuvable ».
-      if (!isAdminRole(userRole) && responsableId !== currentUser?.id) {
+      // retrouve sa liste au lieu d'une fiche « introuvable ». L'administration et l'assistante
+      // technique lisent toutes les affaires (cf. litToutesLesAffaires) : elles restent sur la fiche.
+      if (!litToutesLesAffaires(userRole) && responsableId !== currentUser?.id) {
         navigate('/chantiers');
         return;
       }
@@ -610,10 +612,11 @@ const ChantierDetail = () => {
   const isTermine = chantier.statut !== 'EN_COURS';
   const joursEcoules = Math.max(0, joursCivilsEntre(debutCivil, finCivile && isTermine ? finCivile : jourCivilEntrepriseIso(companyTimezone)));
 
-  // La fiche (nom, client, dates, budgets, devis, responsable) et le commercial rattaché sont modifiables par l'admin, ou par
-  // le conducteur responsable tant que le chantier est en cours (clôturé : admin seule, décision du 02-11-2026) ; jamais par
-  // le commercial, ni par un autre conducteur, et par personne sur une affaire annulée (le serveur refuse ces écritures).
-  const canEditChantier = chantier.statut !== 'ANNULE' && (isAdminRole(userRole) || (userRole === 'CONDUCTEUR_TRAVAUX' && chantier.responsable?.id === currentUser?.id && chantier.statut === 'EN_COURS'));
+  // La fiche (nom, client, dates, budgets, devis, responsable) et le commercial rattaché sont modifiables par l'admin, ou,
+  // tant que le chantier est en cours, par l'assistante technique et le conducteur responsable (clôturé : admin seule,
+  // décision du 02-11-2026) ; jamais par le commercial, ni par un autre conducteur, et par personne sur une affaire
+  // annulée (le serveur refuse ces écritures). Cf. peutModifierChantier.
+  const canEditChantier = peutModifierChantier(userRole, currentUser?.id, chantier);
   // Un technicien consulte sans modifier, et ne voit aucun montant (budgets par poste, coûts,
   // taux) : le serveur ne les lui envoie pas, la fiche n'en affiche pas les sections.
   const estTechnicien = userRole === ROLE_TECHNICIEN;

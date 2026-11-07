@@ -6,10 +6,10 @@ AT | devis | devis-signe | défaut | boutons : Créer le contrat, Créer l’int
 AT | devis | hors lignes | défaut | titre « Devis » ; boutons : Actualiser, Ajouter la ligne au jour ou à la demi-journée (désactivé), Ajouter une ligne, Créer le brouillon
 AT | factures | hors lignes | défaut | redirigé vers /
 AT | fiche chantier | chantier-annule | défaut | titre « Écrans annulé <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
-AT | fiche chantier | chantier-en-cours | défaut | titre « Écrans en cours <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
-AT | fiche chantier | chantier-termine | défaut | titre « Écrans terminé <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
-AT | fiche chantier | chantier-titulaire-dc | défaut | titre « Écrans titulaire DC <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
-AT | fiche chantier | chantier-titulaire-tech | défaut | titre « Écrans titulaire TECH <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
+AT | fiche chantier | chantier-en-cours | défaut | titre « Écrans en cours <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Modifier, Modifier, Rapport interne (PDF), Retour au tableau de bord
+AT | fiche chantier | chantier-termine | défaut | titre « Écrans terminé <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Rapport interne (PDF), Retour au tableau de bord
+AT | fiche chantier | chantier-titulaire-dc | défaut | titre « Écrans titulaire DC <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Modifier, Modifier, Rapport interne (PDF), Retour au tableau de bord
+AT | fiche chantier | chantier-titulaire-tech | défaut | titre « Écrans titulaire TECH <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Modifier, Modifier, Rapport interne (PDF), Retour au tableau de bord
 AT | fiche intervention | intervention-planifiee | défaut | titre « Fiche intervention » ; boutons : Annuler, Créer la suite, Démarrer, Enregistrer l’achat matériel, Remettre à planifier
 AT | fiche intervention | intervention-terminee | défaut | titre « Fiche intervention » ; boutons : Créer la suite, Enregistrer l’achat matériel, Envoyer le compte rendu de l’intervention <intervention-terminee>, Faire signer ce compte rendu, Marquer « à suivre », PDF du compte rendu de l’intervention <intervention-terminee>
 AT | liste des chantiers | chantier-annule | défaut | ligne absente
@@ -22,7 +22,7 @@ AT | liste des interventions | hors lignes | défaut | titre « Interventions SA
 AT | menu | — | défaut | sections : Accueil, Chantiers, Interventions, Référentiels, Réglages ; type affiché : Assistante technique
 AT | planning | hors lignes | défaut | titre « Planning d'intervention » ; boutons : Affectation, Semaine #, Semaine précédente, Semaine suivante, Types d'événements
 AT | route / | — | défaut | menu « Accueil › Tableau de bord » ; accessible
-AT | route /achats | — | défaut | hors menu ; redirigée vers /
+AT | route /achats | — | défaut | menu « Chantiers › Journal des achats » ; accessible
 AT | route /admin | — | défaut | menu « Réglages › Administration » ; accessible
 AT | route /administration/api | — | défaut | hors menu ; redirigée vers /
 AT | route /catalogue | — | défaut | hors menu ; redirigée vers /
@@ -35,7 +35,7 @@ AT | route /comptabilite | — | défaut | hors menu ; redirigée vers /
 AT | route /contrats-maintenance | — | défaut | menu « Interventions › Contrats de maintenance » ; accessible
 AT | route /devis | — | défaut | menu « Chantiers › Devis » ; accessible
 AT | route /factures | — | défaut | hors menu ; redirigée vers /
-AT | route /heures | — | défaut | hors menu ; redirigée vers /
+AT | route /heures | — | défaut | menu « Chantiers › Journal des heures » ; accessible
 AT | route /interventions | — | défaut | menu « Interventions › Interventions SAV » ; accessible
 AT | route /interventions/:id | intervention-planifiee | défaut | hors menu ; accessible
 AT | route /mentions-legales | — | défaut | hors menu ; redirigée vers /

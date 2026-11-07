@@ -13,7 +13,8 @@ export const ROLE_COMMERCIAL = 'COMMERCIAL';
 export const ROLE_ASSISTANTE_COMMERCIALE = 'ASSISTANTE_COMMERCIALE';
 /**
  * Assistante technique : la partie technique de toute la société (SAV, planning, suivi, chantiers en
- * lecture ; devis, clients et contrats depuis AT-2a), sans les droits de l'administration (décisions de
+ * lecture ; devis, clients et contrats depuis AT-2a ; fiche, commercial et saisies Travaux des affaires en
+ * cours depuis AT-2b), sans les droits de l'administration (décisions de
  * Nelson du 24-10-2026 et du 06-11-2026) : ses capacités sont ajoutées une à une aux aides qui les décident.
  * Distincte de l'assistante commerciale, qui reste sans planning. Même type que ROLE_ASSISTANTE_TECHNIQUE
  * côté serveur.
@@ -263,11 +264,42 @@ export function voitPrixAchatDevis(role?: string | null): boolean {
 
 /**
  * Chantiers en cours : ouverture d'un chantier avec ses attributions (titulaire, commercial, types, date de
- * début ; réponse 5), depuis l'onglet Administration > Chantiers. La clôture, la réouverture et
- * l'encaissement restent à l'administration. Même règle que gereLesChantiersEnCours côté serveur.
+ * début ; réponse 5), depuis l'onglet Administration > Chantiers ; puis, depuis AT-2b, fiche (client compris,
+ * hors statut), titulaire, commercial et saisies Travaux des affaires en cours de toute la société (réponses 5
+ * et 10, et réponse du 07-11-2026 sur la fiche). La clôture, la réouverture, l'encaissement et toute écriture
+ * sur une affaire clôturée restent à l'administration. Même règle que gereLesChantiersEnCours côté serveur.
  */
 export function gereLesChantiersEnCours(role?: string | null): boolean {
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
+}
+
+/**
+ * Bouton « Modifier » de la fiche d'un chantier (fiche et commercial) : jamais sur une affaire annulée ;
+ * l'administration sur toute affaire ; sur une affaire en cours seulement, l'assistante technique (toute la
+ * société, cf. gereLesChantiersEnCours) et le conducteur qui en est titulaire. Le serveur (refusEcritureChantier)
+ * refuse le reste, mais admet aussi tout autre titulaire, hors commercial et technicien, sur une affaire en cours,
+ * que l'écran ne propose pas (comportement d'avant AT-2b, gardé).
+ */
+export function peutModifierChantier(
+  role: string | null | undefined,
+  compteId: string | null | undefined,
+  chantier: { statut?: string | null; responsable?: { id?: string | null } | null },
+): boolean {
+  if (chantier.statut === 'ANNULE') return false;
+  if (isAdminRole(role)) return true;
+  if (chantier.statut !== 'EN_COURS') return false;
+  if (gereLesChantiersEnCours(role)) return true;
+  return role === ROLE_CONDUCTEUR && !!compteId && chantier.responsable?.id === compteId;
+}
+
+/**
+ * Écrans Travaux (journaux des achats et des heures, et leurs saisies) : l'administration, le conducteur, le
+ * responsable et, depuis AT-2b, l'assistante technique (réponse 10 du 06-11-2026). Même liste pour le menu et
+ * les routes /achats et /heures ; le serveur applique la permission chantiers:write et le périmètre.
+ */
+export const ROLES_TRAVAUX = [...TYPES_ADMINISTRATION, ROLE_CONDUCTEUR, ROLE_RESPONSABLE, ROLE_ASSISTANTE_TECHNIQUE];
+export function peutVoirTravaux(role?: string | null): boolean {
+  return !!role && ROLES_TRAVAUX.includes(role);
 }
 
 /** Accès interface aux devis ; le serveur applique toujours la permission réelle. */

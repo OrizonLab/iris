@@ -5,7 +5,7 @@ import { decimalToNumber } from '../../commun/montants';
 // --- Paramètres globaux (singleton) ---
 export interface Parametres {
   margeCommercialeActive: boolean; planningActif: boolean; tauxAcompteDefaut: number; seuilMargeFaible: number | null; joursSansSaisie: number | null;
-  rentabiliteConducteur: boolean; rentabiliteHierarchie: boolean; rentabiliteDirecteurs: boolean;
+  rentabiliteConducteur: boolean; rentabiliteHierarchie: boolean; rentabiliteDirecteurs: boolean; rentabiliteAssistantesTechniques: boolean;
   journalConservationJours: number; anticipationVisitesJours: number | null; pasTempsPasseMinutes: number | null;
   tempsMinimumMinutes: number; modeEnvoi: string;
 }

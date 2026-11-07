@@ -2,7 +2,7 @@ import express from 'express';
 import { Prisma } from '@prisma/client';
 import type { Express } from 'express';
 import { prisma, transactionVerifiee } from '../../db';
-import { ROLE_RESPONSABLE, isAdminRole } from '../../droits/roles';
+import { ROLE_RESPONSABLE, gereLesChantiersEnCours, isAdminRole } from '../../droits/roles';
 import { perimetreChantiers } from '../../droits/perimetres';
 import { voitMontantsChantier, sansMontantsSaisie, saisieSelonDroits } from '../../droits/visibilite';
 import { type AuthRequest, requireAuth } from '../../http/auth';
@@ -22,10 +22,13 @@ import { requireTravauxWrite, requireTravauxArchive, RefusChantier, REFUS_AFFAIR
 // Envoie la réponse d'erreur et retourne null si l'écriture est refusée.
 // Périmètre explicite : `responsableId` du chantier, et pour un compte Responsable sa
 // branche hiérarchique persistante (User.responsableHierarchiqueId) ; un intitulé de rôle
-// seul ne suffit jamais à élargir l'accès.
+// seul ne suffit jamais à élargir l'accès. L'assistante technique saisit sur les affaires en cours
+// de toute la société (réponse de Nelson du 06-11-2026, 10 ; cf. gereLesChantiersEnCours) ; après la
+// clôture, comme le conducteur, plus rien.
 async function assertChantierWritable(req: express.Request, res: express.Response, chantierId: string) {
   const user = (req as AuthRequest).user;
   const isAdmin = isAdminRole(user?.role);
+  const gereLesEnCours = gereLesChantiersEnCours(user?.role);
   const chantier = await prisma.chantier.findUnique({ where: { id: chantierId } });
   if (!chantier) {
     res.status(404).json({ error: 'Chantier introuvable' });
@@ -35,7 +38,7 @@ async function assertChantierWritable(req: express.Request, res: express.Respons
   const estResponsableDeLEquipe = user?.role === ROLE_RESPONSABLE
     && !!chantier.responsableId
     && (chantier.responsableId === user.id || user.equipeIds.includes(chantier.responsableId));
-  if (!isAdmin && !estConducteurDeLAffaire && !estResponsableDeLEquipe) {
+  if (!gereLesEnCours && !estConducteurDeLAffaire && !estResponsableDeLEquipe) {
     // Même réponse qu'un chantier absent afin de ne pas révéler une affaire hors périmètre.
     res.status(404).json({ error: 'Chantier introuvable' });
     return null;

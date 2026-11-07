@@ -15,6 +15,8 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // (date JJ-MM-AAAA, montant « 12,34 »), le voit cumulé au format français, puis la place au planning depuis la file.
 // PR AT-2a (réponses 3 et 9 du 06-11-2026) : Devis et Contrats de maintenance entrent à son menu, et l'onglet Chantiers à son
 // Administration ; leur parcours est celui de assistante-technique-devis-contrats.spec.ts.
+// PR AT-2b (réponse 10 du 06-11-2026) : Journal des achats et Journal des heures entrent à son menu ; leur parcours est celui
+// de assistante-technique-chantiers.spec.ts.
 
 test('assistante technique : autorisée dans l’administration, elle a son menu, crée une intervention, en saisit le matériel au format français et la place au planning', async ({ connexion, request, session, creerClient }) => {
   test.slow();
@@ -57,8 +59,8 @@ test('assistante technique : autorisée dans l’administration, elle a son menu
   const menu = page.locator('#menu-principal');
   await expect(menu.getByRole('link', { name: 'Interventions SAV' })).toBeVisible();
   const entrees = await menu.locator('a').evaluateAll((liens) => liens.map((lien) => (lien.textContent || '').trim()));
-  expect(entrees).toEqual(['Tableau de bord', 'Liste des chantiers', 'Devis', 'Planning', 'Interventions SAV', 'Contrats de maintenance', 'Clients', 'Administration']);
-  for (const ferme of ['Journal des achats', 'Journal des heures', 'Factures', 'Statistiques', 'Performances', 'Mes commerciaux', 'Catalogue']) {
+  expect(entrees).toEqual(['Tableau de bord', 'Liste des chantiers', 'Devis', 'Planning', 'Journal des achats', 'Journal des heures', 'Interventions SAV', 'Contrats de maintenance', 'Clients', 'Administration']);
+  for (const ferme of ['Factures', 'Statistiques', 'Performances', 'Mes commerciaux', 'Catalogue']) {
     await expect(menu.getByRole('link', { name: ferme, exact: true }), ferme).toHaveCount(0);
   }
   // Administration réduite aux référentiels des achats, avec le texte qui nomme le matériel des interventions SAV, et, depuis

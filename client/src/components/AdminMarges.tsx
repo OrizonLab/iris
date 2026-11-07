@@ -75,7 +75,8 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                 </p>
               </fieldset>
               {/* Destinataires de la rentabilité de chaque chantier : montant vendu global, marge du jour,
-                  marge estimée, alertes « en perte » et « marge faible », facturation de la fiche, sur la
+                  marge estimée, alertes « en perte » et « marge faible », facturation de la fiche (sauf pour
+                  les assistantes techniques, jusqu'à AT-3 ; cf. voitFacturationChantier côté serveur), sur la
                   liste, le tableau de bord et la fiche. Les dépassements, l'absence de saisie et les budgets
                   par poste restent visibles de tous ceux qui voient le chantier, sauf du technicien, qui ne
                   reçoit aucun montant (cf. voitMontantsChantier côté serveur). */}
@@ -83,7 +84,8 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                 <legend className="text-sm font-bold text-gray-700 px-1">Qui suit la rentabilité des chantiers&nbsp;?</legend>
                 <p className="text-xs text-gray-500 m-0">
                   Montant vendu global, marge du jour, marge estimée, alertes « en perte » ou « marge faible » et
-                  facturation de la fiche. L’administrateur et le super administrateur les voient toujours. Les budgets par poste (matériel,
+                  facturation de la fiche, sauf la facturation de la fiche pour les assistantes techniques.
+                  L’administrateur et le super administrateur les voient toujours. Les budgets par poste (matériel,
                   main-d’œuvre, heures) restent affichés pour suivre les dépassements : ils permettent d’en déduire le vendu,
                   donc la marge du jour. Exception : les techniciens ne voient aucun montant, ni les alertes de dépassement.
                 </p>
@@ -104,6 +106,11 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                 {estDirecteur && (
                   <p className="text-xs text-gray-500 m-0">Cette case est réglée par l’administrateur ou le super administrateur.</p>
                 )}
+                {/* Décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2). */}
+                <label className="flex items-center gap-2 cursor-pointer w-fit">
+                  <input type="checkbox" name="rentabiliteAssistantesTechniques" defaultChecked={parametres?.rentabiliteAssistantesTechniques ?? false} className="w-4 h-4" />
+                  <span className="text-sm text-gray-700">Les assistantes techniques (tous les chantiers, sans la facturation de la fiche)</span>
+                </label>
                 <p className="text-xs text-gray-500 m-0">
                   La chaîne hiérarchique se règle dans l’onglet « Utilisateurs », compte par compte.
                 </p>

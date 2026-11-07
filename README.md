@@ -66,7 +66,9 @@ alertes `EN_PERTE` et `MARGE_FAIBLE`, facturation de la fiche) est décidée cha
 chantier. Les administrateurs la voient toujours ; les autres destinataires, actifs par
 défaut, se retirent un par un dans **Administration > Marges** pour s'adapter à
 l'organisation : le conducteur du chantier, ses responsables hiérarchiques à tous les
-niveaux (comptes Responsable), les directeurs. La chaîne hiérarchique se règle compte par
+niveaux (comptes Responsable), les directeurs. Les assistantes techniques, sur tous les
+chantiers et sans la facturation de la fiche, ne la reçoivent que si la société coche leur
+case, décochée par défaut. La chaîne hiérarchique se règle compte par
 compte dans **Administration > Utilisateurs**. Les budgets par poste (matériel,
 main-d'œuvre, heures) restent visibles de tous ceux qui voient le chantier, pour suivre les
 dépassements (le technicien ne voit que le budget d'heures, voir ci-dessous) : ils permettent

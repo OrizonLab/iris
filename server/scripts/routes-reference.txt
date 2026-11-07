@@ -106,16 +106,16 @@ GET /api/me requireAuth#07b983da0ce5 > <anonymous>#eefe8f938bf2
 PUT /api/me/theme requireAuth#07b983da0ce5 > <anonymous>#16df72f47e17
 GET /api/chantiers requireAuth#07b983da0ce5 > listerChantiers#be67b1095dc1
 GET /api/v1/chantiers <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerChantiers#be67b1095dc1
-GET /api/chantiers/:id requireAuth#07b983da0ce5 > <anonymous>#2ae5d0d35c14
+GET /api/chantiers/:id requireAuth#07b983da0ce5 > <anonymous>#d86e36b999e2
 GET /api/chantiers/:id/journal-saisies requireAuth#07b983da0ce5 > <anonymous>#4373de266aea
 GET /api/chantiers/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > imprimerRapportChantier#a1c8ca5e6196
 GET /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > lireEnvoisRapportChantier#686d69fd2e44
 POST /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > envoyerRapportChantier#b8c79c1eee9b
 POST /api/chantiers requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#5a2a6ae542c5
-PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > refuserAssistanteTechnique#5580e039142c > <anonymous>#7562b7339ffa
+PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#80a71b1408eb
 DELETE /api/chantiers/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c4bcd35fe13f
-PATCH /api/chantiers/:id/statut requireAuth#07b983da0ce5 > blockCommercialSeulement#f36b50e5b6cd > refuserAssistanteTechnique#5580e039142c > <anonymous>#7e280a3c7ca9
-PATCH /api/chantiers/:id/commercial requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > refuserAssistanteTechnique#5580e039142c > <anonymous>#0c5a1625d12f
+PATCH /api/chantiers/:id/statut requireAuth#07b983da0ce5 > blockCommercialSeulement#f36b50e5b6cd > refuserAssistanteTechniqueStatut#cc5d47d07441 > <anonymous>#7e280a3c7ca9
+PATCH /api/chantiers/:id/commercial requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#6584b46898e4
 GET /api/users requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#25aa992576b7
 POST /api/users requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#495f3145dd83
 DELETE /api/users/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#b402a62e9497
@@ -240,7 +240,7 @@ PUT /api/company/logo requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 
 DELETE /api/company/logo requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 > <anonymous>#a0ed659f0e66
 GET /api/parametres/remuneration requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#61efeee81638
 PUT /api/parametres/remuneration requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 > <anonymous>#98b0a30737c8
-PUT /api/parametres requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#b866c440dc15
+PUT /api/parametres requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#3e4f74f328e1
 GET /api/modules requireAuth#07b983da0ce5 > <anonymous>#5ce022aee134
 PUT /api/modules requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 > <anonymous>#033ce6e42c33
 GET /api/journal-administration requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#38867022b71f

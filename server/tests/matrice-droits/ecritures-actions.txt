@@ -623,20 +623,20 @@ AT | DELETE /api/users/:id | compte-commercial | défaut | 403 « Accès réserv
 AT | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AT | DELETE /api/users/:id | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AT | DELETE /api/users/:id | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
-AT | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
+AT | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. » inchangé
 AT | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 200 écrit (Devis,DevisLigne)
 AT | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
 AT | PATCH /api/devis/:id | devis-signe | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
@@ -697,20 +697,20 @@ AT | PATCH /api/users/:id/role | compte-systeme | défaut, corps role=DIRECTEUR 
 AT | PATCH /api/users/:id/role | compte-systeme | défaut, corps role=SUPERADMIN | 403 « Accès réservé aux administrateurs » inchangé
 AT | PATCH /api/users/:id/role | compte-technicien | défaut, corps role=DIRECTEUR | 403 « Accès réservé aux administrateurs » inchangé
 AT | PATCH /api/users/:id/role | compte-technicien | défaut, corps role=SUPERADMIN | 403 « Accès réservé aux administrateurs » inchangé
-AT | POST /api/achats | chantierId=chantier-ac | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-ad | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-annule | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-autre | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-com | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-com-titulaire | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-cpt | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-ct | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-ct-branche-resp | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-dc | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-dir | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-resp | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-tech-branche-resp | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/achats | chantierId=chantier-termine | défaut, corps achat | 403 « Permission requise : chantiers:write » inchangé
+AT | POST /api/achats | chantierId=chantier-ac | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-ad | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-annule | défaut, corps achat | 409 « Cette affaire est annulée : plus aucune saisie n’y est possible. » inchangé
+AT | POST /api/achats | chantierId=chantier-autre | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-com | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-com-titulaire | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-cpt | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-ct | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-ct-branche-resp | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-dc | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-dir | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-resp | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-tech-branche-resp | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier)
+AT | POST /api/achats | chantierId=chantier-termine | défaut, corps achat | 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. » inchangé
 AT | POST /api/admin/api-keys/:id/revoke | cle-active | défaut | 403 « Accès réservé au super administrateur » inchangé
 AT | POST /api/clients/:clientId/equipements/:id/archiver | equipement-autre-client | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AT | POST /api/clients/:clientId/equipements/:id/archiver | equipement-client-actif | défaut | 403 « Accès réservé aux administrateurs » inchangé
@@ -735,20 +735,20 @@ AT | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,D
 AT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-autre | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-com | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-com-titulaire | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-cpt | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-ct | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-ct-branche-resp | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-dc | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-dir | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-resp | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-tech-branche-resp | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
-AT | POST /api/heures | chantierId=chantier-termine | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
+AT | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 409 « Cette affaire est annulée : plus aucune saisie n’y est possible. » inchangé
+AT | POST /api/heures | chantierId=chantier-autre | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-com | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-com-titulaire | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-cpt | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-ct | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-ct-branche-resp | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-dc | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-dir | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-resp | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-tech-branche-resp | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
+AT | POST /api/heures | chantierId=chantier-termine | défaut, corps heures | 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. » inchangé
 AT | POST /api/interventions/:id/envois | curative-sans-chantier-branche | défaut, corps destinataire, messagerie | 409 « Aucun compte rendu à envoyer. » inchangé
 AT | POST /api/interventions/:id/envois | intervention-affectee-tech | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AT | POST /api/interventions/:id/envois | intervention-annulee | défaut, corps destinataire, messagerie | 409 « Une intervention annulée ne s’envoie pas. » inchangé

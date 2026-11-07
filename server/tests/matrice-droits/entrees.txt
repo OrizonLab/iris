@@ -2442,42 +2442,42 @@ AT | GET /api/stats/global | — | défaut | 200
 AT | GET /api/stats/intervenants | — | défaut | 403 « Accès réservé au suivi Travaux. »
 AT | GET /api/stats/types-chantiers | — | défaut | 403 « Accès réservé au suivi Travaux. »
 AT | GET /api/users | — | défaut | 403 « Accès réservé aux administrateurs »
-AT | PATCH /api/achats/:id | achat-archive-chantier-ct | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/achats/:id | achat-chantier-autre | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/achats/:id | achat-chantier-ct | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/achats/:id | achat-chantier-ct-branche-resp | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/achats/:id | achat-chantier-termine | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/achats/:id | inexistant | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/chantiers/:id | chantier-ac | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-ad | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-annule | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-autre | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-com | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-com-titulaire | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-cpt | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-ct | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-ct-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-dc | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-dir | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-tech-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | chantier-termine | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id | inexistant | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-ac | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-ad | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-annule | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-autre | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-com | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-com-titulaire | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-cpt | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-ct-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-dc | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-dir | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
+AT | PATCH /api/achats/:id | achat-archive-chantier-ct | défaut | 409 « Un achat archivé ne peut plus être corrigé. »
+AT | PATCH /api/achats/:id | achat-chantier-autre | défaut | 400
+AT | PATCH /api/achats/:id | achat-chantier-ct | défaut | 400
+AT | PATCH /api/achats/:id | achat-chantier-ct-branche-resp | défaut | 400
+AT | PATCH /api/achats/:id | achat-chantier-termine | défaut | 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
+AT | PATCH /api/achats/:id | inexistant | défaut | 404 « Achat introuvable. »
+AT | PATCH /api/chantiers/:id | chantier-ac | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-ad | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-annule | défaut | 409 « Cette affaire est annulée : elle n’est plus modifiable. »
+AT | PATCH /api/chantiers/:id | chantier-autre | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-com | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-com-titulaire | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-cpt | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-ct | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-ct-branche-resp | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-dc | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-dir | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-resp | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-tech-branche-resp | défaut | 200
+AT | PATCH /api/chantiers/:id | chantier-termine | défaut | 403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. »
+AT | PATCH /api/chantiers/:id | inexistant | défaut | 404 « Chantier introuvable »
+AT | PATCH /api/chantiers/:id/commercial | chantier-ac | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-ad | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-annule | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-autre | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-com | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-com-titulaire | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-cpt | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-ct-branche-resp | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-dc | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-dir | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 400
+AT | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 404 « Chantier introuvable »
 AT | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/chantiers/:id/encaisse | chantier-annule | défaut | 403 « Accès réservé aux administrateurs »
@@ -2493,21 +2493,21 @@ AT | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 403 « Accès
 AT | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/chantiers/:id/encaisse | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-AT | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-annule | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-com | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-dir | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | chantier-termine | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
-AT | PATCH /api/chantiers/:id/statut | inexistant | défaut | 403 « Un compte assistante technique n’est pas autorisé à modifier une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-annule | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-com | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-dir | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | chantier-termine | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
+AT | PATCH /api/chantiers/:id/statut | inexistant | défaut | 403 « Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire. »
 AT | PATCH /api/comptabilite/comptes/:id | compte-comptable-clients | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/comptabilite/comptes/:id | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/comptabilite/comptes/:id/activation | compte-comptable-clients | défaut | 403 « Accès réservé aux administrateurs »
@@ -2520,12 +2520,12 @@ AT | PATCH /api/devis/:id | devis-brouillon | défaut | 400 validation-avant-dro
 AT | PATCH /api/devis/:id | devis-converti | défaut | 400 validation-avant-droit
 AT | PATCH /api/devis/:id | devis-signe | défaut | 400 validation-avant-droit
 AT | PATCH /api/devis/:id | inexistant | défaut | 400 validation-avant-droit
-AT | PATCH /api/heures/:id | heure-archivee-chantier-ct | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/heures/:id | heure-chantier-autre | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/heures/:id | heure-chantier-ct | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/heures/:id | heure-chantier-ct-branche-resp | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/heures/:id | heure-chantier-termine | défaut | 403 « Permission requise : chantiers:write »
-AT | PATCH /api/heures/:id | inexistant | défaut | 403 « Permission requise : chantiers:write »
+AT | PATCH /api/heures/:id | heure-archivee-chantier-ct | défaut | 409 « Un pointage archivé ne peut plus être corrigé. »
+AT | PATCH /api/heures/:id | heure-chantier-autre | défaut | 400
+AT | PATCH /api/heures/:id | heure-chantier-ct | défaut | 400
+AT | PATCH /api/heures/:id | heure-chantier-ct-branche-resp | défaut | 400
+AT | PATCH /api/heures/:id | heure-chantier-termine | défaut | 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
+AT | PATCH /api/heures/:id | inexistant | défaut | 404 « Pointage introuvable. »
 AT | PATCH /api/interventions/:id/couts/:type/:coutId | heures-tech-intervention-affectee | défaut | 403 « Accès non autorisé. »
 AT | PATCH /api/interventions/:id/couts/:type/:coutId | heures-tech-sous-intervention-autre | défaut | 403 « Accès non autorisé. »
 AT | PATCH /api/interventions/:id/couts/:type/:coutId | inexistant | défaut | 403 « Accès non autorisé. »
@@ -2560,7 +2560,7 @@ AT | PATCH /api/users/:id/role | compte-superadmin | défaut | 403 « Accès ré
 AT | PATCH /api/users/:id/role | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/role | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/role | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/achats | — | défaut | 403 « Permission requise : chantiers:write »
+AT | POST /api/achats | — | défaut | 400 validation-avant-droit
 AT | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut | 403 « Permission requise : chantiers:archive »
 AT | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut | 403 « Permission requise : chantiers:archive »
 AT | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut | 403 « Permission requise : chantiers:archive »
@@ -2665,7 +2665,7 @@ AT | POST /api/factures/:id/regler | facture-brouillon | défaut | 403 « Accès
 AT | POST /api/factures/:id/regler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
 AT | POST /api/factures/:id/regler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 AT | POST /api/fournisseurs | — | défaut | 400
-AT | POST /api/heures | — | défaut | 403 « Permission requise : chantiers:write »
+AT | POST /api/heures | — | défaut | 400 validation-avant-droit
 AT | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | défaut | 403 « Permission requise : chantiers:archive »
 AT | POST /api/heures/:id/restaurer | heure-chantier-autre | défaut | 403 « Permission requise : chantiers:archive »
 AT | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | 403 « Permission requise : chantiers:archive »
