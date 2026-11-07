@@ -75,7 +75,10 @@ export function litEtEcritPrixAchatDevis(role: string | undefined | null): boole
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
 }
 // - gereLesChantiersEnCours : ouverture d'un chantier avec ses attributions (titulaire, commercial, types, date
-//   de début), réponse 5 ; clôture, réouverture et encaissement restent à l'administration.
+//   de début), réponse 5 ; puis, depuis AT-2b, fiche (tous les champs que modifie l'administration, client
+//   compris, hors statut), titulaire, commercial et saisies Travaux des affaires en cours de toute la société
+//   (réponses 5 et 10, et réponse du 07-11-2026 sur la fiche). Clôture, réouverture, encaissement et toute
+//   écriture sur une affaire clôturée restent à l'administration ; rien ne s'écrit sur une affaire annulée.
 export function gereLesChantiersEnCours(role: string | undefined | null): boolean {
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
 }

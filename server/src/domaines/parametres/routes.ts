@@ -195,7 +195,7 @@ export function enregistrerRoutesRemunerationEtReglages(app: Express): void {
       // Destinataires du suivi de rentabilité (cf. voitRentabilite) : chaque case absente du
       // corps garde sa valeur ; une valeur présente doit être un vrai booléen, pour qu'une
       // chaîne « false » ne soit jamais lue comme une activation.
-      for (const champ of ['rentabiliteConducteur', 'rentabiliteHierarchie', 'rentabiliteDirecteurs'] as const) {
+      for (const champ of ['rentabiliteConducteur', 'rentabiliteHierarchie', 'rentabiliteDirecteurs', 'rentabiliteAssistantesTechniques'] as const) {
         if (!(champ in req.body)) continue;
         if (typeof req.body[champ] !== 'boolean') {
           return res.status(400).json({ error: 'Les destinataires du suivi de rentabilité se règlent par oui ou non.' });

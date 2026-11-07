@@ -1,5 +1,5 @@
 import express from 'express';
-import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, ROLE_DIRECTEUR, coutPrevuSuitRentabilite, isAdminRole, isSuperAdminRole } from '../../droits/roles';
+import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, ROLE_DIRECTEUR, coutPrevuSuitRentabilite, gereLesChantiersEnCours, isAdminRole, isSuperAdminRole } from '../../droits/roles';
 import { requirePermission } from '../../droits/permissions';
 import { voitMontantsChantier, voitPrixAchatDevis, sansMontantsSaisie, sansTauxHoraire } from '../../droits/visibilite';
 import type { AuthRequest } from '../../http/auth';
@@ -7,14 +7,17 @@ import type { ApiRequest } from '../../http/cles-api';
 import { type Parametres, getParametres } from '../parametres/metier';
 
 // Rentabilité d'un chantier — montant vendu global, marge du jour, marge estimée, alertes
-// « en perte » et « marge faible », facturation de la fiche : elle ne sort que pour ses
-// destinataires, décidés chantier par chantier. Les budgets par poste, eux, restent visibles
+// « en perte » et « marge faible », facturation de la fiche (sauf pour les assistantes techniques,
+// jusqu'à AT-3 ; cf. voitFacturationChantier) : elle ne sort que pour ses destinataires, décidés
+// chantier par chantier. Les budgets par poste, eux, restent visibles
 // (suivi des dépassements), sauf du technicien, à qui aucun montant n'est montré (cf.
 // voitMontantsChantier), et permettent d'en déduire le vendu, donc la marge du jour.
 // Côté clé d'intégration, le scope finances:read. Côté session :
 //  - un directeur, si la société laisse les directeurs destinataires, bien qu'il ait les droits de
 //    l'administration (décisions de Nelson du 24-10-2026, point 17, et du 06-11-2026, « Chantiers
 //    seulement ») : il est donc testé avant elle ;
+//  - une assistante technique, sur tous les chantiers, si la société laisse les assistantes techniques
+//    destinataires (réponses de Nelson du 06-11-2026, 1 et 2 ; décochée par défaut) ;
 //  - un administrateur, toujours ;
 //  - le conducteur (ou responsable) du chantier, si elle laisse le conducteur destinataire ;
 //  - un responsable dont la branche hiérarchique contient ce conducteur, à tout niveau, si
@@ -28,12 +31,21 @@ export function voitRentabilite(req: express.Request, chantier: { responsableId?
   const user = (req as AuthRequest).user;
   if (!user) return false;
   if (user.role === ROLE_DIRECTEUR) return params.rentabiliteDirecteurs;
+  if (user.role === ROLE_ASSISTANTE_TECHNIQUE) return params.rentabiliteAssistantesTechniques;
   if (isAdminRole(user.role)) return true;
   const responsableId = chantier.responsableId;
   if (!responsableId) return false;
   if (responsableId === user.id && (user.role === 'CONDUCTEUR_TRAVAUX' || user.role === ROLE_RESPONSABLE)) return params.rentabiliteConducteur;
   if (user.role === ROLE_RESPONSABLE && user.equipeIds.includes(responsableId)) return params.rentabiliteHierarchie;
   return false;
+}
+
+// Facturation de la fiche (factures émises, réglées ou annulées du chantier, total facturé et reste à
+// facturer) : aux destinataires de la rentabilité, sauf aux assistantes techniques, même destinataires,
+// jusqu'à la PR des factures de leur lot (AT-3). Elles ne voient que leurs propres factures (décisions
+// de Nelson du 24-10-2026, points 30 et 33) ; choix par défaut, le plus restrictif, à confirmer.
+export function voitFacturationChantier(req: express.Request, rentabilite: boolean): boolean {
+  return rentabilite && (req as AuthRequest).user?.role !== ROLE_ASSISTANTE_TECHNIQUE;
 }
 
 const ALERTES_DEPASSEMENT = new Set(['MATERIEL_DEPASSE', 'MAIN_OEUVRE_DEPASSEE', 'HEURES_DEPASSEES']);
@@ -99,16 +111,17 @@ export class RefusChantier extends Error {
 }
 
 // Modification de la fiche ou du commercial d'un chantier, dans cet ordre : 404 pour qui n'en est pas
-// titulaire (hors administration), 403 pour un technicien, 409 pour une affaire annulée, puis 403 hors
-// administration pour un chantier clôturé. Appliquée sur la ligne verrouillée, dans la transaction de
-// l'enregistrement : un changement de titulaire ou de statut validé pendant l'attente fait foi.
+// titulaire (hors administration et assistante technique, qui gèrent les affaires en cours de toute la
+// société, cf. gereLesChantiersEnCours), 403 pour un technicien, 409 pour une affaire annulée, puis 403
+// hors administration pour un chantier clôturé. Appliquée sur la ligne verrouillée, dans la transaction
+// de l'enregistrement : un changement de titulaire ou de statut validé pendant l'attente fait foi.
 export function refusEcritureChantier(
   user: { id: string; role: string },
   chantier: { statut: string; responsableId: string | null },
   refus: { technicien: string; annulee: string; cloture: string },
 ): RefusChantier | null {
   const admin = isAdminRole(user.role);
-  if (!admin && chantier.responsableId !== user.id) return new RefusChantier(404, 'Chantier introuvable');
+  if (!gereLesChantiersEnCours(user.role) && chantier.responsableId !== user.id) return new RefusChantier(404, 'Chantier introuvable');
   if (user.role === ROLE_TECHNICIEN) return new RefusChantier(403, refus.technicien);
   if (chantier.statut === 'ANNULE') return new RefusChantier(409, refus.annulee);
   if (!admin && chantier.statut !== 'EN_COURS') return new RefusChantier(403, refus.cloture);
@@ -124,8 +137,8 @@ export const REFUS_COMMERCIAL = { technicien: REFUS_TECHNICIEN_COMMERCIAL, annul
 export function peutCloturerChantier(user: AuthRequest['user'], chantier: { responsableId: string | null; responsableRole?: string | null }): boolean {
   if (!user) return false;
   if (isAdminRole(user.role)) return true;
-  // L'assistante technique ne modifie aucune affaire, même titulaire (lot « Assistante technique », première PR ; cf.
-  // refuserAssistanteTechnique, chantiers/routes.ts) : la clôture ne lui est pas proposée.
+  // L'assistante technique modifie la fiche des affaires en cours depuis AT-2b, mais ni ne clôture ni ne rouvre,
+  // même titulaire (cf. refuserAssistanteTechniqueStatut, chantiers/routes.ts) : la clôture ne lui est pas proposée.
   if (user.role === 'COMMERCIAL' || user.role === ROLE_TECHNICIEN || user.role === ROLE_ASSISTANTE_TECHNIQUE) return false;
   if (chantier.responsableId === user.id) return true;
   return user.role === ROLE_RESPONSABLE && !!chantier.responsableId

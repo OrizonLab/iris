@@ -2,7 +2,7 @@ import express from 'express';
 import type { Express } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma, transactionVerifiee } from '../../db';
-import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, isAdminRole, litToutesLesAffaires } from '../../droits/roles';
+import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, gereLesChantiersEnCours, isAdminRole, litToutesLesAffaires } from '../../droits/roles';
 import { perimetreChantiers } from '../../droits/perimetres';
 import { voitMontantsChantier, voitCoutMainOeuvre, saisieSelonDroits } from '../../droits/visibilite';
 import { type AuthRequest, requireAuth } from '../../http/auth';
@@ -17,7 +17,7 @@ import { getCompanySettings } from '../administration/metier';
 import { normaliserNumeroDevis, erreurNumeroDevis, numeroDevisDejaPris } from '../devis/metier';
 import { sanitizeTypes, refusTitulaire, refusCommercial, journaliserChangementChantier, compteAuJournal } from './metier';
 import {
-  voitRentabilite, REFUS_TECHNICIEN_COMMERCIAL, REFUS_TECHNICIEN_CLOTURE, peutCloturerChantier,
+  voitRentabilite, voitFacturationChantier, REFUS_TECHNICIEN_COMMERCIAL, REFUS_TECHNICIEN_CLOTURE, peutCloturerChantier,
   chantierSelonRentabilite, voitCoutPrevuParPrixAchat, RefusChantier, refusEcritureChantier, REFUS_FICHE, REFUS_COMMERCIAL, REFUS_AFFAIRE_ANNULEE_STATUT,
 } from './droits';
 import { contexteSuivi, serializeChantier } from './suivi';
@@ -104,13 +104,15 @@ const blockCommercialSeulement: express.RequestHandler = (req, res, next) => {
   next();
 };
 
-// L'assistante technique lit toutes les affaires sans en modifier aucune : ni fiche, ni statut, ni
-// commercial (lot « Assistante technique », première PR ; choix par défaut, le plus restrictif, à
-// confirmer). Le refus le lui dit en clair, plutôt qu'un 404 sur une fiche qu'elle lit.
-export const REFUS_ASSISTANTE_TECHNIQUE_MODIFICATION = 'Un compte assistante technique n’est pas autorisé à modifier une affaire.';
-const refuserAssistanteTechnique: express.RequestHandler = (req, res, next) => {
+// L'assistante technique modifie la fiche et le commercial des affaires en cours de toute la société
+// depuis AT-2b (réponse de Nelson du 06-11-2026, 5, et du 07-11-2026 sur la fiche, « Oui, comme
+// l'admin » ; cf. gereLesChantiersEnCours), mais ni ne clôture ni ne rouvre une affaire, même titulaire
+// (piège P2 : un titulaire non administrateur clôture sinon son affaire). Le refus le lui dit en clair,
+// plutôt qu'un 404 sur une fiche qu'elle lit. L'encaissement reste à l'administration (requireAdmin).
+export const REFUS_ASSISTANTE_TECHNIQUE_STATUT = 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.';
+const refuserAssistanteTechniqueStatut: express.RequestHandler = (req, res, next) => {
   if ((req as AuthRequest).user?.role === ROLE_ASSISTANTE_TECHNIQUE) {
-    res.status(403).json({ error: REFUS_ASSISTANTE_TECHNIQUE_MODIFICATION });
+    res.status(403).json({ error: REFUS_ASSISTANTE_TECHNIQUE_STATUT });
     return;
   }
   next();
@@ -177,7 +179,9 @@ export function enregistrerRoutesChantiers(app: Express): void {
       const [chantierAvecSuites] = await avecCoutsSuites([chantierSansFactures]);
       const contexte = await contexteSuivi(canSeeMarge && params.margeCommercialeActive);
       const detail = serializeChantier(avecDroitDeCloture(authUser, chantierAvecSuites), params, canSeeMarge, contexte, voitMontantsChantier(req), voitCoutMainOeuvre(req), voitCoutPrevuParPrixAchat(req)) as Record<string, unknown>;
-      if (canSeeMarge) {
+      // Facturation de la fiche : aux mêmes destinataires, sauf aux assistantes techniques jusqu'à AT-3
+      // (cf. voitFacturationChantier).
+      if (voitFacturationChantier(req, canSeeMarge)) {
         // Les montants sont positifs en base : seul le type AVOIR en inverse le sens. Une
         // facture annulée est visible mais ne contribue plus, son avoir la neutralise.
         // Sommes exactes, indépendantes de l'ordre des factures (#198).
@@ -232,7 +236,7 @@ export function enregistrerRoutesChantiers(app: Express): void {
     res.status(410).json({ error: 'Un chantier est créé uniquement par conversion d’un devis accepté.' });
   });
 
-  app.patch('/api/chantiers/:id', requireAuth, blockCommercial, refuserAssistanteTechnique, async (req, res) => {
+  app.patch('/api/chantiers/:id', requireAuth, blockCommercial, async (req, res) => {
     try {
       const authUser = (req as AuthRequest).user!;
       const existant = await prisma.chantier.findUnique({
@@ -255,12 +259,17 @@ export function enregistrerRoutesChantiers(app: Express): void {
 
       // 'statut' n'est modifiable ici que par un admin : la clôture et surtout la RÉOUVERTURE
       // d'un chantier obéissent à des règles propres (cf. PATCH /api/chantiers/:id/statut, où
-      // un conducteur peut clôturer mais jamais rouvrir). L'ouvrir ici les contournerait.
+      // un conducteur peut clôturer mais jamais rouvrir). L'ouvrir ici les contournerait. Envoyé par
+      // un autre compte, assistante technique comprise, il est ignoré en silence.
       // Les affaires historiques non appariées par la migration doivent pouvoir être réparées
       // sans modifier leur libellé client historique. Après la première facture, ce lien est figé.
+      // Le client du chantier se change aussi par l'assistante technique, sur une affaire en cours
+      // (réponse de Nelson du 07-11-2026 sur la fiche, « Oui, comme l'admin »), avec les mêmes refus.
       const allowed = isAdminRole(authUser.role)
         ? ['nom', 'numeroDevis', 'statut', 'responsableId', 'clientId']
-        : ['nom', 'numeroDevis', 'responsableId'];
+        : gereLesChantiersEnCours(authUser.role)
+          ? ['nom', 'numeroDevis', 'responsableId', 'clientId']
+          : ['nom', 'numeroDevis', 'responsableId'];
       const numericFields = ['budgetGlobalVendu', 'budgetMaterielVendu', 'budgetMainOeuvreVendu', 'heuresVendues'];
       const dateFields = ['dateDebut', 'dateFin'];
 
@@ -275,7 +284,7 @@ export function enregistrerRoutesChantiers(app: Express): void {
       // réparation d'une affaire héritée), le libellé et la trace sont décidés plus bas, dans la
       // transaction de l'enregistrement, sur la ligne verrouillée.
       let cibleClient: { id: string; raisonSociale: string } | null = null;
-      if (isAdminRole(authUser.role) && 'clientId' in req.body && String(req.body.clientId || '') !== existant.clientId) {
+      if (allowed.includes('clientId') && 'clientId' in req.body && String(req.body.clientId || '') !== existant.clientId) {
         cibleClient = await prisma.client.findFirst({ where: { id: String(req.body.clientId || ''), actif: true }, select: { id: true, raisonSociale: true } });
         if (!cibleClient) return res.status(404).json({ error: 'Client introuvable.' });
       }
@@ -421,7 +430,7 @@ export function enregistrerRoutesChantiers(app: Express): void {
     res.status(410).json({ error: 'Un chantier ne se supprime pas : annulez le devis dont il est issu (une note explicative est exigée).' });
   });
 
-  app.patch('/api/chantiers/:id/statut', requireAuth, blockCommercialSeulement, refuserAssistanteTechnique, async (req, res) => {
+  app.patch('/api/chantiers/:id/statut', requireAuth, blockCommercialSeulement, refuserAssistanteTechniqueStatut, async (req, res) => {
     try {
       const authUser = (req as AuthRequest).user!;
       const isAdmin = isAdminRole(authUser.role);
@@ -484,19 +493,19 @@ export function enregistrerRoutesChantiers(app: Express): void {
   });
 
   // Affectation du commercial sur un chantier déjà créé — modifiable par l'administration (directeur
-  // compris) ou par le conducteur responsable du chantier (pas par le commercial lui-même, ni par un
+  // compris), par l'assistante technique sur une affaire en cours (AT-2b, cf. gereLesChantiersEnCours)
+  // ou par le conducteur responsable du chantier (pas par le commercial lui-même, ni par un
   // tiers : le commercial rattaché alimente les commissions).
-  app.patch('/api/chantiers/:id/commercial', requireAuth, blockCommercial, refuserAssistanteTechnique, async (req, res) => {
+  app.patch('/api/chantiers/:id/commercial', requireAuth, blockCommercial, async (req, res) => {
     try {
       const authUser = (req as AuthRequest).user!;
-      const isAdmin = isAdminRole(authUser.role);
       const chantier = await prisma.chantier.findUnique({ where: { id: paramId(req) } });
       if (!chantier) {
         return res.status(404).json({ error: 'Chantier introuvable' });
       }
       // Hors de son périmètre, le chantier n'existe pas pour lui : 404, comme pour la
       // modification de la fiche, et non 403, qui en révélerait l'existence.
-      if (!isAdmin && chantier.responsableId !== authUser.id) {
+      if (!gereLesChantiersEnCours(authUser.role) && chantier.responsableId !== authUser.id) {
         return res.status(404).json({ error: 'Chantier introuvable' });
       }
       if (authUser.role === ROLE_TECHNICIEN) {

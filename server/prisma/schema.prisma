@@ -383,10 +383,13 @@ model Parametres {
   // société :
   //  - le conducteur (ou responsable) du chantier ;
   //  - la chaîne hiérarchique de ce conducteur, jusqu'au sommet (comptes Responsable) ;
-  //  - les comptes Directeur, qui voient tous les chantiers.
+  //  - les comptes Directeur, qui voient tous les chantiers ;
+  //  - les comptes Assistante technique, qui voient tous les chantiers, sans la facturation de la
+  //    fiche jusqu'à AT-3 ; décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2).
   rentabiliteConducteur  Boolean  @default(true)
   rentabiliteHierarchie  Boolean  @default(true)
   rentabiliteDirecteurs  Boolean  @default(true)
+  rentabiliteAssistantesTechniques Boolean @default(false)
   // Durée de conservation du journal des paramètres et des droits (JournalAdministration), en
   // jours. Décision de Nelson du 14-10-2026 : une durée conforme au RGPD, à faire valider par le
   // cabinet juridique ; à défaut, réglable, de 90 jours au plus (CHECK 1 à 90 en base). Réglée

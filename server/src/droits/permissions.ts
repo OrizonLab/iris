@@ -30,9 +30,11 @@ const DEFAULT_USER_PERMISSIONS: Record<string, string[]> = {
   // Droits de l'administration (décision de Nelson du 24-10-2026, point 14), comme l'ADMIN.
   [ROLE_DIRECTEUR]: DROITS_ADMINISTRATION,
   // Lecture des clients et des affaires de toute la société (lot « Assistante technique », première PR), puis
-  // devis (réponse de Nelson du 06-11-2026, 3 : « Tous, contrats compris ») depuis la deuxième ; cf.
-  // ROLE_ASSISTANTE_TECHNIQUE.
-  [ROLE_ASSISTANTE_TECHNIQUE]: ['clients:read', 'chantiers:read', 'devis:read', 'devis:write'],
+  // devis (réponse de Nelson du 06-11-2026, 3 : « Tous, contrats compris ») depuis la deuxième, et saisies
+  // Travaux des affaires en cours (réponse 10) depuis la troisième (AT-2b) ; cf. ROLE_ASSISTANTE_TECHNIQUE.
+  // L'archivage d'un achat ou d'heures d'un chantier (chantiers:archive) n'est pas donné par défaut, comme au
+  // conducteur : il peut l'être individuellement (choix par défaut, à confirmer).
+  [ROLE_ASSISTANTE_TECHNIQUE]: ['clients:read', 'chantiers:read', 'chantiers:write', 'devis:read', 'devis:write'],
 };
 
 // Droits jamais accordés à un technicien, ni par son type de compte ni individuellement : il ne
