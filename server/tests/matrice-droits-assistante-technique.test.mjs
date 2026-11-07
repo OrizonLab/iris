@@ -35,11 +35,31 @@
 //  - refus nommés au message exact (« Accès réservé aux administrateurs », sans écriture) : acompte et annulation d'un
 //    devis, création d'un contrat hors devis, couverture, réglages (anticipation), écriture du parc, routes du catalogue ;
 //  - droits individuels : ceux qu'elle porte désormais par son type (devis) ne lui ajoutent rien, comme à l'administration.
+//
+// PR AT-2b « Chantiers, saisies Travaux et rentabilité » (cadrage AT-2, versions 1 et 3, et version 4, qui fait foi : R1, C1,
+// C5 et N4 ; réponses de Nelson du 06-11-2026, 1, 2, 5 et 10, et du 07-11-2026, 1 à 3,
+// docs/HISTORIQUE-DECISIONS.md#décisions-du-07-11-2026-sur-at-2b). La règle fermée s'étend, route par route :
+//  - « comme AD sur une affaire en cours, comme CT sur une affaire clôturée » (ROUTES_EN_COURS_AT2B : fiche, commercial et
+//    saisies Travaux d'une affaire en cours de toute la société, client du chantier compris, gereLesChantiersEnCours) ; sur
+//    un chantier clôturé, AT a la ligne de CT, son titulaire (refus du conducteur : seule l'administration y écrit) ; une
+//    affaire annulée reste refusée comme à AD (409) ;
+//  - exceptions nommées : le statut envoyé à la fiche est ignoré en silence (R1 : « 200 inchangé », là où AD écrit) ; le
+//    vendu ne s'écrit que sous son réglage (C5 (a) : refus « Le montant vendu n’est modifiable… » hors du contexte
+//    RENTABILITE_AT) ;
+//  - refus nommé reformulé sur …/statut, même titulaire (piège P2) ; l'encaissement et l'archivage (chantiers:archive non donné,
+//    choix par défaut, à confirmer) gardent la ligne de CT ;
+//  - contexte RENTABILITE_AT (réglage rentabiliteAssistantesTechniques coché, N4) : la rentabilité et le coût prévu ne lui sont
+//    plus masqués (RENTABILITE_ASSISTANTES_TECHNIQUES.ouvre), la facturation de la fiche (R1 de la v3, jusqu'à AT-3) et le coût
+//    de main-d'œuvre, ses taux et les hypothèses de coût de l'estimation le restent (C5 (c)) ;
+//  - droits individuels : chantiers:write, porté par son type, ne lui ajoute rien ; chantiers:archive, donné individuellement,
+//    lui ouvre l'archivage et la restauration comme à AD sur une affaire en cours, et lui laisse le refus de CT sur une affaire
+//    clôturée.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test, { describe } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { RENTABILITE_ASSISTANTES_TECHNIQUES } from './matrice-droits/montants-masques.mjs';
 
 const DOSSIER = join(dirname(fileURLToPath(import.meta.url)), 'matrice-droits');
 const SEPARATEUR = ' | ';
@@ -88,11 +108,28 @@ const ROUTES_COMME_AD_AT2A = [
   'POST /api/contrats-maintenance/:id/generer-intervention',
 ];
 for (const route of ROUTES_COMME_AD_AT2A) ROUTES_COMME_AD.add(route);
+// AT-2b (cadrage v1, « Chantiers » et « Saisies Travaux » ; v3, réponse 3 du 07-11-2026 ; v4, C1) : fiche (client compris),
+// titulaire, commercial et saisies Travaux des affaires en cours de toute la société (gereLesChantiersEnCours).
+const ROUTES_EN_COURS_AT2B = ['PATCH /api/chantiers/:id', 'PATCH /api/chantiers/:id/commercial', 'POST /api/achats', 'POST /api/heures', 'PATCH /api/achats/:id', 'PATCH /api/heures/:id'];
+for (const route of ROUTES_EN_COURS_AT2B) ROUTES_COMME_AD.add(route);
+// Cibles portées par une affaire clôturée (chantier terminé, encaissé ou non ; ses achats et ses heures) : la ligne de CT, son
+// titulaire, refusé hors administration.
+const CIBLE_CLOTUREE = /(^|[=-])chantier-termine(-encaisse)?$/;
+const CIBLE_ANNULEE = /(^|[=-])chantier-annule$/;
+// Contexte de la matrice où le réglage de rentabilité des assistantes techniques est coché (N4 du contrôle d'AT-2b).
+const RENTABILITE_AT = RENTABILITE_ASSISTANTES_TECHNIQUES.contexte;
+const sousReglageAt = (contexte) => (contexte ?? '').startsWith(RENTABILITE_AT);
 // Droits individuels qu'elle porte par son type depuis AT-2a (DEFAULT_USER_PERMISSIONS) : ils ne lui ajoutent rien, comme à
 // l'administration ; ses lignes « type + droit » sont donc celles d'AD (aucune, sauf écart).
 const DROITS_PORTES_AT2A = ['droit devis', 'devis:read', 'devis:write'];
 
+// Refus d'AT-1 sur la fiche, le statut et le commercial, retiré par AT-2b : il ne doit plus figurer dans aucune référence.
 const REFUS_AFFAIRE = 'Un compte assistante technique n’est pas autorisé à modifier une affaire.';
+// AT-2b (cadrage v1, « Chantiers » ; piège P2) : la clôture et la réouverture lui restent refusées, même titulaire.
+const REFUS_STATUT = 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.';
+// Vendu écrit sans le réglage (chantiers/routes.ts, PATCH /api/chantiers/:id ; cadrage v4, C5 (a)).
+const REFUS_VENDU = 'Le montant vendu n’est modifiable que par qui suit la rentabilité de ce chantier.';
+const REFUS_CLOTURE_SAISIES = 'Ce chantier est clôturé : impossible d\'y ajouter une dépense ou des heures.';
 const REFUS_TRAVAUX = 'Accès réservé au suivi Travaux.';
 const REFUS_ECRITURE_TRAVAUX = 'Permission requise : chantiers:write';
 const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
@@ -101,19 +138,15 @@ const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
 const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistante technique.';
 // Refus nommés, route par route (message exact) : la ligne d'AT est ce refus, sans écriture, quel que soit le contexte par
 // défaut (les contextes « droit chantiers:… » suivent la règle d'AC, plus bas).
+// AT-2b retire la fiche, le commercial et les saisies Travaux de cette liste (ROUTES_EN_COURS_AT2B) et reformule le refus du
+// statut.
 const REFUS = {
-  'PATCH /api/chantiers/:id': REFUS_AFFAIRE,
-  'PATCH /api/chantiers/:id/statut': REFUS_AFFAIRE,
-  'PATCH /api/chantiers/:id/commercial': REFUS_AFFAIRE,
+  'PATCH /api/chantiers/:id/statut': REFUS_STATUT,
   'GET /api/stats/conducteurs': REFUS_TRAVAUX,
   'GET /api/stats/conducteurs/assiduite': REFUS_TRAVAUX,
   'GET /api/stats/fournisseurs': REFUS_TRAVAUX,
   'GET /api/stats/intervenants': REFUS_TRAVAUX,
   'GET /api/stats/types-chantiers': REFUS_TRAVAUX,
-  'POST /api/achats': REFUS_ECRITURE_TRAVAUX,
-  'POST /api/heures': REFUS_ECRITURE_TRAVAUX,
-  'PATCH /api/achats/:id': REFUS_ECRITURE_TRAVAUX,
-  'PATCH /api/heures/:id': REFUS_ECRITURE_TRAVAUX,
   // AT-2a, restés à l'administration (requireAdmin) : acompte et annulation d'un devis (cadrage, « Devis ») ; création hors
   // devis et couverture d'un contrat, réglage de l'anticipation (C1, choix par défaut, à confirmer) ; écriture du parc et
   // routes du catalogue (C2, choix par défaut, à confirmer).
@@ -131,8 +164,9 @@ const REFUS = {
 };
 // Suites d'une affaire clôturée : AT reçoit le refus de CT (verifierAffaireDeLaSuite), et non l'écriture d'AD.
 const CIBLES_AFFAIRE_CLOSE = ['suite-affaire-close', 'materiel-suite-affaire-close', 'heures-suite-affaire-close'];
-// Droit devis par son type depuis AT-2a (réponse 3 du 06-11-2026).
-const VALEURS_ME = 'role=ASSISTANTE_TECHNIQUE ; accesFinance=non ; permissions=chantiers:read+clients:read+devis:read+devis:write';
+// Droit devis par son type depuis AT-2a (réponse 3 du 06-11-2026), saisies Travaux (chantiers:write) depuis AT-2b (réponse 10) ;
+// jamais chantiers:archive (choix par défaut, à confirmer).
+const VALEURS_ME = 'role=ASSISTANTE_TECHNIQUE ; accesFinance=non ; permissions=chantiers:read+chantiers:write+clients:read+devis:read+devis:write';
 
 // --- Montants et clés que AD lit et que AT ne lit pas (liste fermée), sur les routes de ROUTES_COMME_AD ---
 // Rentabilité (voitRentabilite : vendu, marges, estimation, facturation), coût prévu (voitCoutPrevuParPrixAchat), taux et coût
@@ -147,11 +181,18 @@ const MONTANTS_MASQUES_AT = [
 ];
 // Un champ sous un objet masqué l'est avec lui (l'estimation entière, et ses coûts).
 const sousObjetMasque = (champ) => champ.startsWith('metrics.estimation.');
+// AT-2b, contexte RENTABILITE_AT : la rentabilité et le coût prévu lui sont ouverts ; restent masqués la facturation, le coût de
+// main-d'œuvre, ses taux et les hypothèses de coût de l'estimation (présente), soit RENTABILITE_ASSISTANTES_TECHNIQUES.masque
+// avec les autres montants de la liste d'AT-1 (marges du SAV, totaux des coûts d'une intervention).
+const MONTANTS_MASQUES_AT_REGLAGE = [...MONTANTS_MASQUES_AT.filter((c) => !RENTABILITE_ASSISTANTES_TECHNIQUES.ouvre.includes(c)), ...RENTABILITE_ASSISTANTES_TECHNIQUES.masque.filter((c) => !MONTANTS_MASQUES_AT.includes(c))];
+const masqueAt = (contexte, champ) => (sousReglageAt(contexte) ? MONTANTS_MASQUES_AT_REGLAGE.includes(champ) : MONTANTS_MASQUES_AT.includes(champ) || sousObjetMasque(champ));
 // Montants que AT lit comme AD et CT (budgets par poste, matériel, achats, matériel SAV) : jamais masqués pour elle. Leur
 // présence chez AT, là où AD les a, est vérifiée par la comparaison ; cette liste sert au témoin et au résumé.
 const MONTANTS_LUS_AT = ['budgetMaterielVendu', 'budgetMainOeuvreVendu', 'metrics.materielReel', 'metrics.pctMateriel', 'metrics.coutsSuites.materiel', 'metrics.coutsInterventionDevis.materiel', 'achats[].montantHT', 'montantHT', 'avant.montantHT', 'apres.montantHT', 'achats', 'totalMaterielHT'];
 const CLES_MASQUEES_AT = ['facturation', 'tauxHoraireApplique', 'tauxHoraireApplique?', 'tauxHoraireCharge', 'prixVenteHoraireApplique', 'prixVenteHoraireApplique?', 'margeDevis', 'margeSav'];
 const OBJETS_MASQUES_AT = ['.facturation', '[].metrics.estimation', '.metrics.estimation', '.margeSav', '.margeDevis', '.margeDevis.devis'];
+// Sous le réglage coché (AT-2b), l'estimation lui est ouverte : seuls ses coûts de main-d'œuvre restent masqués (champs).
+const OBJETS_MASQUES_AT_REGLAGE = OBJETS_MASQUES_AT.filter((o) => !o.endsWith('.metrics.estimation'));
 
 function lire(fichier) {
   return readFileSync(join(DOSSIER, fichier), 'utf8').split('\n').filter(Boolean);
@@ -171,6 +212,9 @@ function lignesDe(fichier, compte) {
   return lignes;
 }
 
+// Réponses à l'entrée d'AD et d'AT (entrees.txt), pour la règle nommée de chantiers:archive donné individuellement (AT-2b).
+const ENTREES = { AD: lignesDe('entrees.txt', 'AD'), AT: lignesDe('entrees.txt', 'AT') };
+
 // « par AD » ou « par CT » (et non « par AD-COM », « par CT-N1 ») lu « par AT ».
 const commeAt = (valeur, auteur) => valeur?.replace(new RegExp(`\\bpar ${auteur}(?![\\w-])`, 'g'), 'par AT');
 // « champ=état, champ=état, … » → Map.
@@ -179,11 +223,11 @@ const MASQUE = ['null', 'absent'];
 
 // Ligne attendue d'AT à partir de celle d'AD, sur une route de toute la société, pour donnees.txt : rend { attendu } (ligne
 // exacte, ou undefined pour une ligne absente) ou { verifier } (fonction qui rend la liste des défauts).
-function attenduDonneesCommeAd(objet, ad) {
+function attenduDonneesCommeAd(objet, ad, contexte = 'défaut') {
   if (ad === undefined) return { attendu: undefined };
   if (objet.startsWith('clés ')) {
     const chemin = objet.slice('clés '.length);
-    if (OBJETS_MASQUES_AT.includes(chemin)) return { attendu: undefined };
+    if ((sousReglageAt(contexte) ? OBJETS_MASQUES_AT_REGLAGE : OBJETS_MASQUES_AT).includes(chemin)) return { attendu: undefined };
     return { attendu: ad.split(', ').filter((cle) => !CLES_MASQUEES_AT.includes(cle)).join(', ') };
   }
   if (objet.startsWith('montants')) {
@@ -194,7 +238,7 @@ function attenduDonneesCommeAd(objet, ad) {
         const defauts = [];
         for (const champ of new Set([...a.keys(), ...t.keys()])) {
           const ea = a.get(champ) ?? 'absent'; const et = t.get(champ) ?? 'absent';
-          if (MONTANTS_MASQUES_AT.includes(champ) || sousObjetMasque(champ)) {
+          if (masqueAt(contexte, champ)) {
             if (!MASQUE.includes(et)) defauts.push(`${champ} devrait être masqué pour AT (${et})`);
           } else if (ea !== et) defauts.push(`${champ} différent hors des montants masqués (AD ${ea}, AT ${et})`);
         }
@@ -209,7 +253,7 @@ function attenduDonneesCommeAd(objet, ad) {
 // « réponse : champ état, … » des écritures, où chaque montant de MONTANTS_MASQUES_AT présent pour AD est nul ou absent pour
 // AT (AT-2a : coût prévu de la réponse de conversion, piège P1) ; tout le reste au caractère près. Rend une fonction qui
 // liste les défauts. Une ligne d'AD absente : la ligne d'AT doit l'être aussi.
-function verifierReponseCommeAd(ad) {
+function verifierReponseCommeAd(ad, contexte = 'défaut') {
   const parties = (ligne) => {
     const m = /^(.*? ; réponse : )(.*?)( ; .*)?$/.exec(ligne);
     return m ? { avant: m[1], champs: new Map(m[2].split(', ').map((x) => { const i = x.lastIndexOf(' '); return [x.slice(0, i), x.slice(i + 1)]; })), apres: m[3] ?? '' } : null;
@@ -224,7 +268,7 @@ function verifierReponseCommeAd(ad) {
     const defauts = [];
     for (const champ of new Set([...pa.champs.keys(), ...pt.champs.keys()])) {
       const ea = pa.champs.get(champ) ?? 'absent'; const et = pt.champs.get(champ) ?? 'absent';
-      if (MONTANTS_MASQUES_AT.includes(champ)) { if (!MASQUE.includes(et)) defauts.push(`${champ} devrait être masqué pour AT dans la réponse (${et})`); } else if (ea !== et) defauts.push(`${champ} différent dans la réponse (AD ${ea}, AT ${et})`);
+      if (masqueAt(contexte, champ)) { if (!MASQUE.includes(et)) defauts.push(`${champ} devrait être masqué pour AT dans la réponse (${et})`); } else if (ea !== et) defauts.push(`${champ} différent dans la réponse (AD ${ea}, AT ${et})`);
     }
     return defauts;
   };
@@ -239,16 +283,34 @@ function regle(fichier, cle, lignes) {
   const cible = individuel ? champs[2] : champs[1];
   const contexte = individuel ? champs[3] : champs[2];
   const objet = fichier === 'donnees.txt' ? champs[3] : null;
-  // Droits individuels : AT a les gains de CT, sauf sur les saisies Travaux, où elle a ceux d'AC (aucune affaire à elle) ;
-  // depuis AT-2a, le droit devis, qu'elle porte par son type, ne lui ajoute rien, comme au commercial, qui le porte aussi
-  // par son type sans lire les comptes (aucune ligne).
+  // Droits individuels : AT a les gains de CT ; depuis AT-2a, le droit devis, qu'elle porte par son type, ne lui ajoute rien,
+  // comme au commercial, qui le porte aussi par son type sans lire les comptes (aucune ligne). AT-2b : chantiers:write, porté par
+  // son type (réponse 10 du 06-11-2026), ne lui ajoute rien (aucune ligne, règle nommée) ; chantiers:archive, non
+  // donné par son type, lui ouvre, donné individuellement, l'archivage et la restauration sur les affaires en cours de toute la
+  // société (réponse d'AD à l'entrée), et la laisse refusée sur une affaire clôturée (refus de CT, titulaire) : règle nommée.
   if (individuel) {
     if (DROITS_PORTES_AT2A.includes(droit)) return { modele: 'COM', attendu: lignes.COM.get(cle) };
-    const modele = /^chantiers:(write|archive)$/.test(droit) ? 'AC' : 'CT';
-    return { modele, attendu: lignes[modele].get(cle) };
+    if (droit === 'chantiers:write') return { modele: 'nommé', attendu: undefined };
+    if (droit === 'chantiers:archive' && champs[4] === 'entrée') {
+      const cleEntree = [route, cible, contexte].join(SEPARATEUR);
+      const avant = ENTREES.AT.get(cleEntree);
+      const apres = CIBLE_CLOTUREE.test(cible) ? `403 « ${REFUS_CLOTURE_SAISIES} »` : ENTREES.AD.get(cleEntree);
+      // La ligne est dans individuels.txt (gain) ou individuels-sans-gain.txt (changement sans gain) : sa présence dans l'un
+      // des deux est vérifiée par le test « droits individuels d'AT-2b ».
+      return { modele: 'nommé', verifier: (at) => (at === undefined || at === `${avant} → ${apres}` ? [] : [`attendu « ${avant} → ${apres} » (AT « ${at} »)`]) };
+    }
+    return { modele: 'CT', attendu: lignes.CT.get(cle) };
   }
-  // Contextes « droit chantiers:… » des écritures (droits individuels sans gain rejoués) : comme AC.
-  if (/^droit chantiers:(write|archive)/.test(contexte ?? '')) return { modele: 'AC', attendu: lignes.AC.get(cle) };
+  // Contextes « droit chantiers:archive » des écritures (droits individuels sans gain rejoués) : depuis AT-2b, la réponse d'AD au
+  // même corps (contexte « défaut ») sur une affaire en cours, celle de CT sur une affaire clôturée. « droit chantiers:write »
+  // n'a plus de ligne pour elle (droit porté par son type) : une ligne est un écart.
+  if (/^droit chantiers:archive/.test(contexte ?? '') && !(LECTURES_DES_JOURNAUX.includes(fichier) && route.startsWith('GET '))) {
+    if (CIBLE_CLOTUREE.test(cible)) return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
+    const ad = commeAt(lignes.AD.get(cle.replace(/\| droit chantiers:archive,/, '| défaut,')), 'AD');
+    if (ECHANTILLONS.includes(fichier)) return { modele: 'AD', verifier: verifierReponseCommeAd(ad), absentAdmis: true };
+    return { modele: 'AD', attendu: ad };
+  }
+  if (/^droit chantiers:write/.test(contexte ?? '') && !route.startsWith('GET ')) return { modele: 'nommé', attendu: undefined };
   // Lectures des entrées de journal : comme AD, qui lit toutes les entrées.
   if (LECTURES_DES_JOURNAUX.includes(fichier) && route.startsWith('GET ')) {
     return { modele: 'AD', attendu: lignes.AD.get(cle), absentAdmis: true };
@@ -271,14 +333,35 @@ function regle(fichier, cle, lignes) {
   }
   if (ROUTES_COMME_AD.has(route)) {
     if (CIBLES_AFFAIRE_CLOSE.includes(cible)) return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
+    // AT-2b : sur une affaire clôturée, la ligne de CT, son titulaire (seule l'administration y écrit encore).
+    if (ROUTES_EN_COURS_AT2B.includes(route) && CIBLE_CLOTUREE.test(cible)) return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
+    // R1 du cadrage v4 : le statut envoyé à la fiche d'une affaire en cours est ignoré en silence (AD l'écrit).
+    if (route === 'PATCH /api/chantiers/:id' && /corps statut=TERMINE seul$/.test(contexte) && !CIBLE_ANNULEE.test(cible)) return { modele: 'nommé', attendu: '200 inchangé' };
+    // C5 (a) du cadrage v4 : le vendu ne s'écrit que sous son réglage ; hors du contexte RENTABILITE_AT, refusé sans écriture.
+    if (route === 'PATCH /api/chantiers/:id' && /corps montant vendu$/.test(contexte) && !sousReglageAt(contexte) && !CIBLE_ANNULEE.test(cible)) {
+      return { modele: 'nommé', verifier: (at) => (at?.startsWith(`403 « ${REFUS_VENDU} » inchangé ;`) ? [] : [`refus du vendu attendu (AT « ${at} »)`]) };
+    }
+    // Contexte RENTABILITE_AT (N4) : lignes « clés » et « éléments » écrites seulement si elles diffèrent de celles du contexte par
+    // défaut du même compte ; celle d'AT est celle d'AD dans ce contexte (ou, à défaut, par défaut), réduite par les masques du
+    // réglage, et absente si elle est celle d'AT par défaut.
+    if (fichier === 'donnees.txt' && sousReglageAt(contexte) && /^(clés|éléments) /.test(objet)) {
+      const cleDefaut = [route, cible, 'défaut', objet].join(SEPARATEUR);
+      const { attendu } = attenduDonneesCommeAd(objet, commeAt(lignes.AD.get(cle) ?? lignes.AD.get(cleDefaut), 'AD'), contexte);
+      return { modele: 'AD', attendu: attendu === lignes.AT.get(cleDefaut) ? undefined : attendu };
+    }
+    // Contexte RENTABILITE_AT des références échantillonnées, joué par AT seule (réponse de conversion, heures) : la ligne d'AD au
+    // même corps, contexte « défaut ».
+    if (ECHANTILLONS.includes(fichier) && sousReglageAt(contexte) && !lignes.AD.has(cle)) {
+      return { modele: 'AD', verifier: verifierReponseCommeAd(commeAt(lignes.AD.get(cle.replace(`${RENTABILITE_AT},`, 'défaut,')), 'AD'), contexte), absentAdmis: true };
+    }
     if (ECHANTILLONS.includes(fichier) && !lignes.AD.has(cle)) return { modele: 'SA', attendu: commeAt(lignes.SA.get(cle), 'SA'), absentAdmis: true };
     const ad = commeAt(lignes.AD.get(cle), 'AD');
     // factures.txt rejoue chaque corps de l'administration par les seuls comptes refusés à l'entrée : depuis AT-2a, elle
     // écrit les clients (écriture indirecte « client renommé ») et n'y est plus jouée ; une ligne d'AT, s'il y en a, est celle
     // d'AD.
     if (fichier === 'factures.txt' && ROUTES_COMME_AD_AT2A.includes(route)) return { modele: 'AD', attendu: ad, absentAdmis: true };
-    if (ECHANTILLONS.includes(fichier)) return { modele: 'AD', verifier: verifierReponseCommeAd(ad), absentAdmis: true };
-    if (fichier === 'donnees.txt') return { modele: 'AD', ...attenduDonneesCommeAd(objet, ad) };
+    if (ECHANTILLONS.includes(fichier)) return { modele: 'AD', verifier: verifierReponseCommeAd(ad, contexte), absentAdmis: true };
+    if (fichier === 'donnees.txt') return { modele: 'AD', ...attenduDonneesCommeAd(objet, ad, contexte) };
     return { modele: 'AD', attendu: ad };
   }
   return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
@@ -313,7 +396,7 @@ function comparer(fichier) {
   return { defauts, parModele, nombre: lignes.AT.size };
 }
 
-describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats', () => {
+describe('Assistante technique (AT-1, AT-2a, AT-2b) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats, et sur les affaires en cours (fiche, commercial, saisies Travaux), sa rentabilité selon son réglage', () => {
   test('références de la matrice : celles attendues, ni plus ni moins (une nouvelle référence doit être classée ici)', () => {
     assert.deepEqual(readdirSync(DOSSIER).filter((f) => f.endsWith('.txt')).sort(), [...REFERENCES].sort());
   });
@@ -331,18 +414,20 @@ describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référen
     const familles = new Set();
     for (const fichier of REFERENCES) {
       const at = lignesDe(fichier, 'AT'); const ct = lignesDe(fichier, 'CT');
-      // individuels.txt (gains) : depuis AT-2a, aucun droit individuel ne lui ajoute de gain. Le droit devis est porté par son
-      // type ; les saisies Travaux, une fois le droit donné, lui sont refusées plus loin (404, aucune affaire à elle :
-      // individuels-sans-gain.txt, règle d'AC), comme à l'assistante commerciale, qui n'y a pas de ligne non plus.
+      // individuels.txt (gains) : depuis AT-2a, le droit devis est porté par son type ; depuis AT-2b, chantiers:write aussi. Seul
+      // chantiers:archive, donné individuellement, lui ajoute un gain (archivage et restauration sur une affaire en cours de toute
+      // la société) ; l'assistante commerciale, sans affaire, n'y a toujours pas de ligne.
       if (fichier === 'individuels.txt') {
-        assert.equal(at.size, 0, `${fichier} : un gain d’AT est à classer`);
+        assert.ok(at.size > 0 && [...at.keys()].every((cle) => cle.startsWith('chantiers:archive | ')), `${fichier} : un gain d’AT est à classer (${[...at.keys()].join(' ; ')})`);
         assert.equal(lignesDe(fichier, 'AC').size, 0, `${fichier} : témoin, l’assistante commerciale n’y a pas de ligne`);
         continue;
       }
       if (ct.size) assert.ok(at.size > 0, `${fichier} : CT y est joué, AT non`);
       for (const [m, n] of Object.entries(comparer(fichier).parModele)) if (n) familles.add(m);
     }
-    assert.deepEqual([...familles].sort(), ['AC', 'AD', 'CT', 'SA', 'nommé', 'refus']);
+    // AT-2b : la règle d'AC (droits chantiers:write et chantiers:archive sans affaire à elle) ne s'applique plus ; ses saisies
+    // Travaux suivent AD ou CT selon l'affaire.
+    assert.deepEqual([...familles].sort(), ['AD', 'CT', 'SA', 'nommé', 'refus']);
     // Les onze types et les cinq variantes : seize comptes joués (cadrage, « 11 types, 16 comptes »).
     // PUBLIC : le lien public du planning, joué sans session.
     const comptes = new Set(lire('entrees.txt').map((ligne) => ligne.split(SEPARATEUR)[0]).filter((c) => !['ANONYME', 'JETON-INVALIDE', 'DESACTIVE', 'SYSTEME', 'SUPPRIME', 'PUBLIC'].includes(c)));
@@ -368,11 +453,15 @@ describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référen
       assert.ok(valeur !== undefined, `${route} ${cible ?? ''} : ligne absente`);
       assert.doesNotMatch(valeur, /^40[13]/, `${route} ${cible ?? ''} : ${valeur}`);
     }
-    // Refus du cadrage, message exact.
+    // Refus du cadrage, message exact. Ceux d'AT-1 sur la fiche et les saisies Travaux sont levés par AT-2b (réponses 5 et 10 du
+    // 06-11-2026) : la fiche d'une affaire en cours lui est ouverte (200), le 404 d'un chantier inexistant n'est plus précédé
+    // d'un refus de type, et la saisie d'un achat passe la garde des droits (400 du corps vide). Le statut garde son refus,
+    // reformulé (piège P2).
     assert.equal(ligne('GET /api/stats/conducteurs'), `403 « ${REFUS_TRAVAUX} »`);
-    assert.equal(ligne('PATCH /api/chantiers/:id', 'chantier-ct'), `403 « ${REFUS_AFFAIRE} »`);
-    assert.equal(ligne('PATCH /api/chantiers/:id', 'inexistant'), `403 « ${REFUS_AFFAIRE} »`, 'refus avant le 404');
-    assert.equal(ligne('POST /api/achats'), `403 « ${REFUS_ECRITURE_TRAVAUX} »`);
+    assert.equal(ligne('PATCH /api/chantiers/:id', 'chantier-ct'), '200');
+    assert.equal(ligne('PATCH /api/chantiers/:id', 'inexistant'), '404 « Chantier introuvable »', 'plus de refus de type avant le 404');
+    assert.equal(ligne('PATCH /api/chantiers/:id/statut', 'chantier-ct'), `403 « ${REFUS_STATUT} »`);
+    assert.equal(ligne('POST /api/achats'), '400 validation-avant-droit');
     assert.equal(ligne('GET /api/chantiers/:id/document.pdf', 'chantier-ct'), '403 « Accès réservé aux administrateurs »');
     assert.match(ligne('POST /api/planning/share'), /^403 « Accès réservé aux administrateurs »/);
     assert.match(ligne('PATCH /api/users/:id/est-commercial', 'inexistant'), /^403 « Accès réservé aux administrateurs »/);
@@ -430,6 +519,76 @@ describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référen
     for (const compte of ['CT', 'COM', 'AC', 'AT', 'AD']) for (const route of ROUTES_GARDEES) assert.ok(vues.has(`${compte} ${route}`), `${compte} ${route} : jouée`);
   });
 
+  // PR AT-2b (cadrage v1, « Chantiers » et « Saisies Travaux » ; v3, réponse 3 du 07-11-2026 ; v4, R1 et C1) : ouvertures et refus
+  // lus dans la référence des entrées et dans celle des écritures.
+  test('entrees.txt et ecritures-*.txt : fiche, client, titulaire, commercial et saisies Travaux d’une affaire en cours de toute la société ouverts à AT ; statut refusé au message reformulé, même titulaire ; affaire clôturée et archivage refusés ; affaire annulée refusée (409) ; statut de la fiche ignoré', () => {
+    const at = lignesDe('entrees.txt', 'AT');
+    const ligne = (route, cible = '—', contexte = 'défaut') => at.get([route, cible, contexte].join(SEPARATEUR));
+    // Ouvertures sur des affaires dont elle n'est pas titulaire (conducteur, responsable, directeur, commercial titulaire).
+    for (const cible of ['chantier-ct', 'chantier-autre', 'chantier-resp', 'chantier-dir', 'chantier-com-titulaire']) {
+      assert.equal(ligne('PATCH /api/chantiers/:id', cible), '200', `fiche de ${cible}`);
+      assert.equal(ligne('PATCH /api/chantiers/:id/commercial', cible), '400', `commercial de ${cible} : garde passée, corps vide refusé`);
+    }
+    for (const cible of ['achat-chantier-ct', 'achat-chantier-autre']) assert.equal(ligne('PATCH /api/achats/:id', cible), '400', cible);
+    for (const cible of ['heure-chantier-ct', 'heure-chantier-autre']) assert.equal(ligne('PATCH /api/heures/:id', cible), '400', cible);
+    for (const route of ['POST /api/achats', 'POST /api/heures']) assert.equal(ligne(route), '400 validation-avant-droit', route);
+    // Refus : statut (piège P2), même sur l'affaire d'un autre, avant le 404 ; affaire clôturée ; encaissement ; archivage.
+    for (const cible of ['chantier-ct', 'chantier-termine', 'inexistant']) assert.equal(ligne('PATCH /api/chantiers/:id/statut', cible), `403 « ${REFUS_STATUT} »`, cible);
+    assert.equal(ligne('PATCH /api/chantiers/:id', 'chantier-termine'), '403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. »');
+    assert.equal(ligne('PATCH /api/chantiers/:id', 'chantier-annule'), '409 « Cette affaire est annulée : elle n’est plus modifiable. »');
+    assert.equal(ligne('PATCH /api/achats/:id', 'achat-chantier-termine'), `403 « ${REFUS_CLOTURE_SAISIES} »`);
+    assert.equal(ligne('PATCH /api/heures/:id', 'heure-chantier-termine'), `403 « ${REFUS_CLOTURE_SAISIES} »`);
+    assert.equal(ligne('PATCH /api/chantiers/:id/encaisse', 'chantier-ct'), `403 « ${REFUS_ADMINISTRATION} »`);
+    for (const [route, cible] of [['DELETE /api/achats/:id', 'achat-chantier-ct'], ['DELETE /api/heures/:id', 'heure-chantier-ct'], ['POST /api/achats/:id/restaurer', 'achat-archive-chantier-ct'], ['POST /api/heures/:id/restaurer', 'heure-archivee-chantier-ct']]) {
+      assert.equal(ligne(route, cible), '403 « Permission requise : chantiers:archive »', `${route} ${cible} : chantiers:archive non donné`);
+    }
+    // Écritures réelles : saisies sur l'affaire d'autrui, refusées après clôture (403) ou sur une affaire annulée (409).
+    const actions = lignesDe('ecritures-actions.txt', 'AT');
+    const action = (route, cible, contexte) => actions.get([route, cible, contexte].join(SEPARATEUR));
+    for (const [route, corps, tables] of [['POST /api/achats', 'achat', 'AchatReel,JournalSaisieChantier'], ['POST /api/heures', 'heures', 'JournalSaisieChantier,PointageHeure']]) {
+      assert.equal(action(route, 'chantierId=chantier-ct', `défaut, corps ${corps}`), `200 écrit (${tables})`, route);
+      assert.equal(action(route, 'chantierId=chantier-termine', `défaut, corps ${corps}`), `403 « ${REFUS_CLOTURE_SAISIES} » inchangé`, route);
+      assert.equal(action(route, 'chantierId=chantier-annule', `défaut, corps ${corps}`), '409 « Cette affaire est annulée : plus aucune saisie n’y est possible. » inchangé', route);
+    }
+    assert.equal(action('PATCH /api/chantiers/:id/statut', 'chantier-ct', 'défaut, corps statut=TERMINE'), `403 « ${REFUS_STATUT} » inchangé`);
+    // Modifications : client changé (C1), statut ignoré (R1), commercial ; refus sur affaire clôturée ou annulée.
+    const modifs = lignesDe('ecritures-modifications.txt', 'AT');
+    const modif = (route, cible, contexte) => modifs.get([route, cible, contexte].join(SEPARATEUR));
+    assert.equal(modif('PATCH /api/chantiers/:id', 'chantier-autre', 'défaut, corps clientId=client-second seul'), '200 écrit (Chantier,JournalSaisieChantier)');
+    assert.equal(modif('PATCH /api/chantiers/:id', 'chantier-autre', 'défaut, corps statut=TERMINE seul'), '200 inchangé');
+    assert.equal(modif('PATCH /api/chantiers/:id', 'chantier-termine', 'défaut, corps nom, budgets par poste et heures vendues'), '403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. » inchangé');
+    assert.equal(modif('PATCH /api/chantiers/:id', 'chantier-annule', 'défaut, corps clientId=client-second seul'), '409 « Cette affaire est annulée : elle n’est plus modifiable. » inchangé');
+    assert.equal(modif('PATCH /api/chantiers/:id/commercial', 'chantier-autre', 'défaut, corps commercialId=COM'), '200 écrit (Chantier,JournalSaisieChantier)');
+    assert.equal(modif('PATCH /api/chantiers/:id/commercial', 'chantier-termine', 'défaut, corps commercialId=COM'), '403 « Ce chantier est clôturé : seul un administrateur peut encore en changer le commercial. » inchangé');
+    assert.equal(modif('PATCH /api/chantiers/:id/commercial', 'chantier-annule', 'défaut, corps commercialId=COM'), '409 « Cette affaire est annulée : son commercial ne change plus. » inchangé');
+    // Le refus d'AT-1 ne figure plus dans aucune référence.
+    for (const fichier of REFERENCES) assert.ok(!lire(fichier).some((l) => l.includes(REFUS_AFFAIRE)), `${fichier} : refus d’AT-1 encore présent`);
+  });
+
+  // PR AT-2b : chantiers:archive donné individuellement, dans les deux références des droits individuels : chaque route
+  // d'archivage et de restauration, sur chaque cible d'AD à l'entrée, a sa ligne dans l'une des deux, conforme à la règle nommée
+  // (réponse d'AD sur une affaire en cours, refus de CT sur une affaire clôturée).
+  test('droits individuels d’AT-2b : chantiers:archive ouvre l’archivage et la restauration sur une affaire en cours de toute la société, comme AD, et la laisse refusée sur une affaire clôturée ; chantiers:write, porté par son type, n’a aucune ligne', () => {
+    const lignesArchive = new Map();
+    for (const fichier of INDIVIDUELS) for (const [cle, valeur] of lignesDe(fichier, 'AT')) {
+      assert.ok(!cle.startsWith('chantiers:write | '), `${fichier} : ${cle} (chantiers:write porté par son type)`);
+      if (cle.startsWith('chantiers:archive | ') && cle.endsWith(' | entrée')) lignesArchive.set(cle, valeur);
+    }
+    const ROUTES_ARCHIVE = ['DELETE /api/achats/:id', 'DELETE /api/heures/:id', 'POST /api/achats/:id/restaurer', 'POST /api/heures/:id/restaurer'];
+    let ouvertes = 0;
+    for (const [cleEntree, reponseAd] of ENTREES.AD) {
+      const [route, cible, contexte] = cleEntree.split(SEPARATEUR);
+      if (!ROUTES_ARCHIVE.includes(route) || contexte !== 'défaut') continue;
+      const cle = ['chantiers:archive', route, cible, contexte, 'entrée'].join(SEPARATEUR);
+      const valeur = lignesArchive.get(cle);
+      assert.ok(valeur !== undefined, `${cle} : absente des deux références`);
+      const attendu = CIBLE_CLOTUREE.test(cible) ? `403 « ${REFUS_CLOTURE_SAISIES} »` : reponseAd;
+      assert.equal(valeur, `403 « Permission requise : chantiers:archive » → ${attendu}`, cle);
+      if (!CIBLE_CLOTUREE.test(cible) && /^(2|400)/.test(reponseAd)) ouvertes += 1;
+    }
+    assert.ok(ouvertes >= 6, `archivages et restaurations ouverts : ${ouvertes}`);
+  });
+
   test('témoins de la règle : un montant de rentabilité, de coût prévu ou de main-d’œuvre lu par AT, un budget par poste masqué, un refus changé ou une entrée à un autre nom sont des écarts', () => {
     const ad = 'budgetGlobalVendu=présent, budgetMaterielVendu=présent, coutMaterielPrevu=présent, metrics.moReel=présent, metrics.materielReel=présent, achats[].montantHT=présent';
     const at = 'budgetGlobalVendu=null, budgetMaterielVendu=présent, coutMaterielPrevu=null, metrics.moReel=null, metrics.materielReel=présent, achats[].montantHT=présent';
@@ -448,12 +607,13 @@ describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référen
     // Clés : la facturation et les taux ôtés, le reste gardé.
     assert.deepEqual(attenduDonneesCommeAd('clés .', 'achats, facturation, id, metrics').attendu, 'achats, id, metrics');
     assert.equal(attenduDonneesCommeAd('clés .margeSav', 'coutsHT, margeHT').attendu, undefined);
-    // Refus : message exact, sans écriture.
+    // Refus : message exact, sans écriture (AT-2b : le statut, au message reformulé ; l'ancien message d'AT-1 est un écart).
     const lignes = { AT: new Map(), AD: new Map(), CT: new Map(), AC: new Map(), SA: new Map() };
-    const refus = regle('entrees.txt', 'PATCH /api/chantiers/:id | chantier-ct | défaut', lignes);
-    assert.deepEqual(refus.verifier(`403 « ${REFUS_AFFAIRE} »`), []);
+    const refus = regle('entrees.txt', 'PATCH /api/chantiers/:id/statut | chantier-ct | défaut', lignes);
+    assert.deepEqual(refus.verifier(`403 « ${REFUS_STATUT} »`), []);
+    assert.equal(refus.verifier(`403 « ${REFUS_AFFAIRE} »`).length, 1, 'message d’AT-1');
     assert.equal(refus.verifier('404 « Chantier introuvable »').length, 1);
-    assert.equal(refus.verifier(`403 « ${REFUS_AFFAIRE} » écrit (Chantier)`).length, 1);
+    assert.equal(refus.verifier(`403 « ${REFUS_STATUT} » écrit (Chantier)`).length, 1);
     assert.equal(refus.verifier(undefined).length, 1, 'entrees.txt rejoue chaque compte');
     assert.equal(commeAt('entrées : JournalSaisieChantier COUT_INTERVENTION_ACHAT CREATION par CT', 'CT'), 'entrées : JournalSaisieChantier COUT_INTERVENTION_ACHAT CREATION par AT');
     assert.equal(commeAt('entrées : JournalSaisieChantier CHANTIER CHANGEMENT par CT-N1', 'CT'), 'entrées : JournalSaisieChantier CHANTIER CHANGEMENT par CT-N1', 'CT-N1 n’est pas CT');
@@ -476,5 +636,44 @@ describe('Assistante technique (AT-1, AT-2a) : la colonne AT de chaque référen
     const droitDevis = regle('individuels.txt', 'droit devis | GET /api/devis | — | défaut | entrée', { ...lignes, COM: new Map() });
     assert.equal(droitDevis.modele, 'COM');
     assert.equal(droitDevis.attendu, undefined);
+
+    // AT-2b. R1 : le statut écrit par la fiche (mutant « allowed lu par gereLesChantiersEnCours ») est un écart.
+    const statutSeul = regle('ecritures-modifications.txt', 'PATCH /api/chantiers/:id | chantier-ct | défaut, corps statut=TERMINE seul', { ...lignes, AD: new Map([['PATCH /api/chantiers/:id | chantier-ct | défaut, corps statut=TERMINE seul', '200 écrit (Chantier)']]) });
+    assert.equal(statutSeul.attendu, '200 inchangé');
+    assert.notEqual(statutSeul.attendu, '200 écrit (Chantier)');
+    // Affaire clôturée : la ligne de CT (refus), et non celle d'AD (écriture).
+    const cloture = regle('ecritures-modifications.txt', 'PATCH /api/chantiers/:id | chantier-termine | défaut, corps nom, budgets par poste et heures vendues', {
+      ...lignes, AD: new Map([['PATCH /api/chantiers/:id | chantier-termine | défaut, corps nom, budgets par poste et heures vendues', '200 écrit (Chantier)']]),
+      CT: new Map([['PATCH /api/chantiers/:id | chantier-termine | défaut, corps nom, budgets par poste et heures vendues', '403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. » inchangé']]),
+    });
+    assert.deepEqual([cloture.modele, cloture.attendu], ['CT', '403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. » inchangé']);
+    // C5 (a) : le vendu écrit sans son réglage est un écart ; refusé, conforme.
+    const vendu = regle('montants.txt', 'PATCH /api/chantiers/:id | chantier-ct | défaut, corps montant vendu', lignes);
+    assert.deepEqual(vendu.verifier(`403 « ${REFUS_VENDU} » inchangé ; aucune entrée ; montants inchangés en base`), []);
+    assert.equal(vendu.verifier('200 écrit (Chantier) ; aucune entrée ; réponse : budgetGlobalVendu présent ; montant vendu écrit relu en base').length, 1);
+    // Réglage coché (N4) : le vendu et le coût prévu lus, conformes ; la facturation ou le coût de main-d'œuvre lus, écarts
+    // (R1 de la v3 et C5 (c) : mutants « facturation sans exclusion d'AT » et « voitCoutMainOeuvre ouvert à qui voit la
+    // rentabilité »).
+    const adCoche = 'budgetGlobalVendu=présent, coutMaterielPrevu=présent, metrics.margeBrute=présent, facturation=présent, metrics.moReel=présent, metrics.estimation.coutEstime=présent';
+    const atCoche = 'budgetGlobalVendu=présent, coutMaterielPrevu=présent, metrics.margeBrute=présent, facturation=absent, metrics.moReel=null, metrics.estimation.coutEstime=null';
+    const { verifier: verifierCoche } = attenduDonneesCommeAd('montants', adCoche, RENTABILITE_AT);
+    assert.deepEqual(verifierCoche(atCoche), []);
+    assert.equal(verifierCoche(atCoche.replace('facturation=absent', 'facturation=présent')).length, 1, 'facturation lue réglage coché');
+    assert.equal(verifierCoche(atCoche.replace('metrics.moReel=null', 'metrics.moReel=présent')).length, 1, 'coût de main-d’œuvre lu réglage coché');
+    assert.equal(verifierCoche(atCoche.replace('metrics.estimation.coutEstime=null', 'metrics.estimation.coutEstime=présent')).length, 1, 'hypothèse de coût de l’estimation lue');
+    assert.equal(verifierCoche(atCoche.replace('budgetGlobalVendu=présent', 'budgetGlobalVendu=null')).length, 1, 'réglage sans effet : vendu toujours masqué');
+    // Réglage décoché, mêmes lignes : le vendu lu est un écart.
+    const { verifier: verifierDecoche } = attenduDonneesCommeAd('montants', adCoche, 'défaut');
+    assert.equal(verifierDecoche(atCoche).length, 3, 'vendu, coût prévu et marge lus réglage décoché');
+    // Réponse de conversion sous le réglage (C5 (b)) : coût prévu présent conforme, masqué écart ; décoché, l'inverse.
+    const conversionAdDefaut = '201 écrit (Chantier,DevisConversion) ; aucune entrée ; réponse : coutMaterielPrevu présent ; montants du chantier ouvert relus en base conformes';
+    assert.deepEqual(verifierReponseCommeAd(conversionAdDefaut, `${RENTABILITE_AT}, corps cible=CHANTIER`)(conversionAdDefaut), []);
+    assert.equal(verifierReponseCommeAd(conversionAdDefaut, `${RENTABILITE_AT}, corps cible=CHANTIER`)(conversionAdDefaut.replace('présent', 'null')).length, 1);
+    assert.equal(verifierReponseCommeAd(conversionAdDefaut, 'défaut, corps cible=CHANTIER')(conversionAdDefaut).length, 1);
+    // chantiers:archive individuel : une écriture sur une affaire clôturée est un écart.
+    const cleArchive = 'chantiers:archive | DELETE /api/achats/:id | achat-chantier-termine | défaut | entrée';
+    const archive = regle('individuels.txt', cleArchive, lignes);
+    assert.deepEqual(archive.verifier(`403 « Permission requise : chantiers:archive » → 403 « ${REFUS_CLOTURE_SAISIES} »`), []);
+    assert.equal(archive.verifier('403 « Permission requise : chantiers:archive » → 400').length, 1);
   });
 });

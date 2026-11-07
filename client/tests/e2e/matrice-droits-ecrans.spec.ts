@@ -408,7 +408,13 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
   // « Annuler » ni « Constater l’acompte », qui restent à l'administration ; l'onglet par défaut est celui d'AD sans les
   // onglets réservés à l'administration. Le conducteur et le responsable ne reçoivent pas l'onglet Chantiers (témoins
   // ci-dessous, et ecrans-CT.txt, ecrans-RESP.txt inchangés).
-  test('assistante technique : ecrans-AT.txt est ecrans-CT.txt, sauf la liste fermée des écarts (menu sans Pilotage, journaux Travaux et statistiques fermés, affaires de toute la société en lecture seule, sans filtres de rentabilité ; devis et contrats comme l’administration, sans acompte ni annulation ; onglet Chantiers par défaut)', () => {
+  // PR AT-2b (cadrage AT-2 v1, « Chantiers » et « Saisies Travaux », v3, liste C6 : « ecrans-AT.txt (Travaux) », v4, T1 ;
+  // réponses du 06-11-2026, 5 et 10, et du 07-11-2026, 3) : les journaux Travaux s'ouvrent comme au conducteur (écarts retirés),
+  // et la fiche d'une affaire, en cours ou terminée, a les boutons du conducteur titulaire (« Modifier » sur l'affaire en
+  // cours ; « Corriger » des journaux affiché sur l'affaire terminée, comportement existant des titulaires, refusé par le
+  // serveur : choix par défaut, à confirmer), y compris sur les affaires de toute la société, que le conducteur ne voit pas ;
+  // « Clôturer » lui reste absent de la liste (écart gardé, T1 du cadrage v4).
+  test('assistante technique : ecrans-AT.txt est ecrans-CT.txt, sauf la liste fermée des écarts (menu sans Pilotage, statistiques fermées, affaires de toute la société avec les boutons du conducteur titulaire, sans « Clôturer » ni filtres de rentabilité ; devis et contrats comme l’administration, sans acompte ni annulation ; onglet Chantiers par défaut)', () => {
     const parCle = (cle: string) => new Map(lireReference(`ecrans-${cle}.txt`).map((ligne) => {
       const champs = ligne.split(SEPARATEUR);
       expect(champs[0], ligne).toBe(cle);
@@ -425,21 +431,18 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
       const restants = ligne.slice(debut + 'boutons : '.length).split(', ').filter((nom) => !noms.includes(nom));
       return `${ligne.slice(0, debut)}boutons : ${restants.join(', ') || 'aucun'}`;
     };
-    const ECRITURES_AFFAIRE = ['Corriger ce pointage', 'Corriger cet achat', 'Modifier'];
     // Onglets d'Administration réservés à l'administration (AT-2a : l'assistante technique n'y ouvre que Chantiers,
     // Fournisseurs et Catégories).
     const ONGLETS_ADMINISTRATION = ['Intervenants', 'Journal', 'Marges & Commissions', 'Utilisateurs'];
-    const LECTURE_SEULE = 'boutons : Rapport interne (PDF), Retour au tableau de bord';
+    // AT-2b : la fiche d'une affaire en cours de toute la société a les boutons de celle du conducteur titulaire.
+    const boutonsEnCours = () => { const ligne = ct.get(cle('fiche chantier', 'chantier-en-cours', 'défaut'))!; return ligne.slice(ligne.indexOf('boutons : ')); };
     const ECARTS: Record<string, (ligne: string) => string> = {
       [cle('menu', '—', 'défaut')]: (ligne) => ligne.replace('Interventions, Pilotage, Référentiels', 'Interventions, Référentiels').replace('type affiché : Conducteur de travaux', 'type affiché : Assistante technique'),
-      [cle('route /achats', '—', 'défaut')]: () => 'hors menu ; redirigée vers /',
-      [cle('route /heures', '—', 'défaut')]: () => 'hors menu ; redirigée vers /',
       [cle('route /statistiques', '—', 'défaut')]: () => 'hors menu ; redirigée vers /',
-      [cle('fiche chantier', 'chantier-en-cours', 'défaut')]: sansBoutons(ECRITURES_AFFAIRE),
-      [cle('fiche chantier', 'chantier-termine', 'défaut')]: sansBoutons(ECRITURES_AFFAIRE),
-      // Toute la société : les affaires d'un autre titulaire lui sont lisibles (404 « Chantier introuvable » pour CT).
-      [cle('fiche chantier', 'chantier-titulaire-dc', 'défaut')]: () => `titre « Écrans titulaire DC <s> » ; ${LECTURE_SEULE}`,
-      [cle('fiche chantier', 'chantier-titulaire-tech', 'défaut')]: () => `titre « Écrans titulaire TECH <s> » ; ${LECTURE_SEULE}`,
+      // Toute la société : les affaires d'un autre titulaire lui sont lisibles (404 « Chantier introuvable » pour CT), et, en
+      // cours, modifiables comme par le conducteur titulaire (AT-2b).
+      [cle('fiche chantier', 'chantier-titulaire-dc', 'défaut')]: () => `titre « Écrans titulaire DC <s> » ; ${boutonsEnCours()}`,
+      [cle('fiche chantier', 'chantier-titulaire-tech', 'défaut')]: () => `titre « Écrans titulaire TECH <s> » ; ${boutonsEnCours()}`,
       [cle('liste des chantiers', 'chantier-en-cours', 'défaut')]: () => 'boutons : aucun',
       [cle('liste des chantiers', 'chantier-titulaire-dc', 'défaut')]: () => 'boutons : aucun',
       [cle('liste des chantiers', 'chantier-titulaire-tech', 'défaut')]: () => 'boutons : aucun',
@@ -466,6 +469,13 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
       if (at.get(cleLigne) !== attendu) ecarts.push(`${cleLigne}\n  attendu ${attendu}\n  AT      ${at.get(cleLigne)}`);
     }
     expect(ecarts, 'référence de l’assistante technique différente de celle du conducteur hors de la liste fermée').toEqual([]);
+    // AT-2b, lus dans la référence : journaux Travaux ouverts ; « Modifier » sur l'affaire en cours, la sienne comme celle
+    // d'autrui, jamais sur l'affaire terminée ; « Clôturer » absent de la liste, là où le conducteur titulaire l'a (témoin).
+    for (const route of ['/achats', '/heures']) expect(at.get(cle(`route ${route}`, '—', 'défaut')), route).toMatch(/^menu « Chantiers › Journal des (achats|heures) » ; accessible$/);
+    for (const cible of ['chantier-en-cours', 'chantier-titulaire-dc', 'chantier-titulaire-tech']) expect(at.get(cle('fiche chantier', cible, 'défaut')), cible).toContain('Modifier');
+    expect(at.get(cle('fiche chantier', 'chantier-termine', 'défaut'))).not.toContain('Modifier');
+    expect(at.get(cle('liste des chantiers', 'chantier-en-cours', 'défaut'))).toBe('boutons : aucun');
+    expect(ct.get(cle('liste des chantiers', 'chantier-en-cours', 'défaut')), 'témoin : le conducteur titulaire clôture').toBe('boutons : Clôturer');
     // Ouvertures du cadrage, lues dans la référence : SAV, planning, liste des chantiers, clients ; Administration réduite à
     // ses deux onglets (Fournisseurs et Catégories, T3 du contrôle), leurs lignes modifiables et supprimables.
     for (const route of ['/interventions', '/planning', '/chantiers', '/clients', '/admin']) {

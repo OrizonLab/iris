@@ -542,11 +542,20 @@ if (!TEST_DATABASE_URL) {
         ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-ct', 'défaut, corps statut=TERMINE', () => ({ statut: 'TERMINE' }), { source: 'sans entrée' });
       }
       for (const compte of [SA, 'AD', 'DIR']) ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-termine', 'défaut, corps statut=EN_COURS', () => ({ statut: 'EN_COURS' }), { source: 'sans entrée' });
+      // Lot « Assistante technique », PR AT-2b (cadrage v4, C1 ; réponse 5 de Nelson du 06-11-2026 et réponse 3 du 07-11-2026,
+      // « Oui, comme l'admin ») : elle change le client, le titulaire et le commercial d'une affaire en cours dont elle n'est pas
+      // titulaire, sur les cibles de l'administration ; chaque changement est journalisé à son nom. Elle ne clôture pas
+      // (piège P2 : refus, sans entrée, joué par entrees.txt et ecritures-actions.txt).
+      ajouter('AT', 'PATCH /api/chantiers/:id', 'chantier-autre', 'défaut, corps clientId=client-second seul', () => ({ clientId: d.clientSecond }));
+      ajouter('AT', 'PATCH /api/chantiers/:id', 'chantier-ct', 'défaut, corps responsableId=autre conducteur', () => ({ responsableId: C['CT-N1'].id }));
+      ajouter('AT', 'PATCH /api/chantiers/:id/commercial', 'chantier-ct', 'défaut, corps commercialId=COM', () => ({ commercialId: C.COM.id }), { refuses: { 'GET /api/chantiers/:id/journal-saisies': 'TECH' } });
 
-      // Saisies Travaux (montants relus en base, §2.4).
+      // Saisies Travaux (montants relus en base, §2.4). L'assistante technique (PR AT-2b ; réponse 10 de Nelson du 06-11-2026)
+      // saisit et corrige sur le chantier du conducteur, dont elle n'est pas titulaire, à son nom ; le taux relu en base est
+      // celui de la fiche, qu'elle ne lit pas (cadrage v4, C5 (c)).
       const achat = (nom) => id('achat', nom);
       const heure = (nom) => id('heure', nom);
-      for (const compte of [SA, 'AD', 'DIR', 'CT']) {
+      for (const compte of [SA, 'AD', 'DIR', 'CT', 'AT']) {
         ajouter(compte, 'POST /api/achats', 'chantierId=chantier-ct', 'défaut, corps achat', () => ({ chantierId: id('chantier', 'chantier-ct'), categorieId: d.categorie, fournisseurId: d.fournisseur, date: d.hier, description: 'TEST Achat de la matrice des journaux', montantHT: MONTANTS.achatCree }), {
           montant: montantTravaux('AchatReel', null, ['montantHT'], async () => ({ montantHT: MONTANTS.achatCree })),
         });

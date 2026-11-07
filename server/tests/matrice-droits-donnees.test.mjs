@@ -41,7 +41,7 @@ import {
 import { COMPTES_JOUES, COMPTE_SYSTEME_ID, creerComptes } from './matrice-droits/comptes.mjs';
 import { FAMILLES, INEXISTANT, cheminPour, cibleDe, ciblesDe, construireJeuDeDonnees, jourSociete } from './matrice-droits/donnees.mjs';
 import { ROUTES_CLES, ROUTES_SESSION } from './matrice-droits/routes.mjs';
-import { CHAMPS_MASQUES_HORS_MONTANTS, MONTANTS_MASQUES, MONTANTS_MIS_A_ZERO, TYPES_MONTANTS, VALEURS_DERIVEES } from './matrice-droits/montants-masques.mjs';
+import { CHAMPS_MASQUES_HORS_MONTANTS, MONTANTS_MASQUES, MONTANTS_MIS_A_ZERO, RENTABILITE_ASSISTANTES_TECHNIQUES, TYPES_MONTANTS, VALEURS_DERIVEES } from './matrice-droits/montants-masques.mjs';
 import {
   ABSENT, NUL, PRESENT, afficherChemin, cheminGenerique, clesDecrites, comparer, creerRegistre, listeDeNoms, listePremierNiveau, nommer,
   objetsAuChemin, parcourir, parentDe, presences, statut, valeurDecrite,
@@ -107,16 +107,21 @@ const VALEURS = {
 //    chantiers (chantiers/routes.ts:76 et :161), les statistiques des conducteurs (statistiques/routes.ts:184) ; les
 //    paramètres eux-mêmes. La jumelle /api/v1/chantiers lit les paramètres, mais voitRentabilite décide d'une clé par
 //    son seul scope (chantiers/droits.ts:24-25) : elle n'est pas rejouée ;
+//  - rentabiliteAssistantesTechniques (voitRentabilite, lot « Assistante technique », PR AT-2b ; réponses de Nelson du
+//    06-11-2026, 1 et 2) : décoché à l'installation, il est rejoué coché (N4 du contrôle de cohérence d'AT-2b, « un contexte
+//    assistantes techniques coché »), sur les mêmes lectures ;
 //  - planningActif : GET /api/modules (administration/routes.ts:141-147), et les lectures qui portent
 //    requirePlanningActif (planning/metier.ts:17), dont le super administrateur, exempté, lit encore les données ; le
 //    refus des autres comptes est dans entrees.txt.
 const LECTURES_MARGE = ['GET /api/chantiers', 'GET /api/chantiers/:id', 'GET /api/v1/chantiers', 'GET /api/stats/global', 'GET /api/stats/conducteurs', 'GET /api/stats/chantiers-repartition', 'GET /api/stats/commerciaux', 'GET /api/parametres'];
 const LECTURES_RENTABILITE = ['GET /api/chantiers', 'GET /api/chantiers/:id', 'GET /api/stats/conducteurs', 'GET /api/parametres'];
+const CONTEXTE_RENTABILITE_AT = RENTABILITE_ASSISTANTES_TECHNIQUES.contexte;
 const CONTEXTES_REGLAGE = [
   { contexte: 'margeCommercialeActive=non', route: '/api/parametres', corps: { margeCommercialeActive: false }, retour: { margeCommercialeActive: true }, lectures: LECTURES_MARGE },
   { contexte: 'rentabiliteConducteur=non', route: '/api/parametres', corps: { rentabiliteConducteur: false }, retour: { rentabiliteConducteur: true }, lectures: LECTURES_RENTABILITE },
   { contexte: 'rentabiliteHierarchie=non', route: '/api/parametres', corps: { rentabiliteHierarchie: false }, retour: { rentabiliteHierarchie: true }, lectures: LECTURES_RENTABILITE },
   { contexte: 'rentabiliteDirecteurs=non', route: '/api/parametres', corps: { rentabiliteDirecteurs: false }, retour: { rentabiliteDirecteurs: true }, lectures: LECTURES_RENTABILITE },
+  { contexte: CONTEXTE_RENTABILITE_AT, route: '/api/parametres', corps: { rentabiliteAssistantesTechniques: true }, retour: { rentabiliteAssistantesTechniques: false }, lectures: LECTURES_RENTABILITE },
   { contexte: 'planningActif=non', route: '/api/modules', corps: { planningActif: false }, retour: { planningActif: true }, lectures: null },
 ];
 
@@ -553,6 +558,47 @@ if (!TEST_DATABASE_URL) {
         for (const o of fuites) manques.push(`${nomEntree(entree)} : présent pour ${o.compte}, qui ne le voit pas (${o.route}, ${o.cible}${o.element ? `, ${o.element}` : ''})`);
       }
       assert.deepEqual(manques, [], 'liste fermée des montants masqués (matrice-droits/montants-masques.mjs)');
+    });
+
+    // Lot « Assistante technique », PR AT-2b (cadrage v4 : R1 de la v3, C5 (c) et N4 du contrôle de cohérence ; réponses de
+    // Nelson du 06-11-2026, 1, 2 et 4, et du 07-11-2026, 1). Réglage rentabiliteAssistantesTechniques coché : sur la liste et la
+    // fiche de tous les chantiers, l'assistante technique lit le vendu, les marges, l'estimation et le coût prévu ; elle ne lit
+    // jamais la facturation de la fiche (jusqu'à AT-3), ni le coût de main-d'œuvre, ses totaux, ses taux ou les hypothèses de coût
+    // de l'estimation. Lectures écartées : le réglage sans effet (vendu toujours masqué), la vue de l'administration (facturation
+    // et coût de main-d'œuvre lus), « voitCoutMainOeuvre ouvert à qui voit la rentabilité ». Témoins : réglage décoché (défaut),
+    // les champs ouverts restent nuls ou absents pour elle ; l'administration lit la facturation et le coût de main-d'œuvre dans
+    // le même contexte.
+    test('assistantes techniques coché : AT lit le vendu, les marges, l’estimation et le coût prévu de tous les chantiers, jamais la facturation de la fiche ni le coût de main-d’œuvre, ses taux ou les hypothèses de coût de l’estimation ; décoché, rien de la rentabilité', () => {
+      const { contexte, compte, ouvre, masque: fermes } = RENTABILITE_ASSISTANTES_TECHNIQUES;
+      const entreeDe = (chemin) => {
+        const entree = MONTANTS_MASQUES.find((e) => e.type === 'chantier' && e.chemins.includes(chemin));
+        assert.ok(entree, `${chemin} : absent de la liste fermée des montants masqués`);
+        return entree;
+      };
+      const masque = (o) => o.statuts.every((s) => s === NUL || s === ABSENT);
+      const manques = [];
+      const chantiersVus = new Set();
+      for (const chemin of ouvre) {
+        const vues = observations.filter((o) => o.entree === entreeDe(chemin) && o.compte === compte);
+        const presentes = vues.filter((o) => o.contexte === contexte && o.statuts.includes(PRESENT));
+        if (!presentes.length) manques.push(`${chemin} : jamais présent pour ${compte} sous ${contexte}`);
+        for (const o of presentes) chantiersVus.add(`${o.route} ${o.cible}`);
+        // Témoin : réglage décoché, jamais présent.
+        if (vues.some((o) => o.contexte === CONTEXTE_DEFAUT && o.statuts.includes(PRESENT))) manques.push(`${chemin} : présent pour ${compte} réglage décoché`);
+        if (!vues.some((o) => o.contexte === CONTEXTE_DEFAUT && masque(o))) manques.push(`${chemin} : jamais observé masqué pour ${compte} réglage décoché`);
+      }
+      for (const chemin of fermes) {
+        const entree = entreeDe(chemin);
+        const vues = observations.filter((o) => o.entree === entree && o.contexte === contexte);
+        for (const o of vues.filter((v) => v.compte === compte && v.statuts.includes(PRESENT))) manques.push(`${chemin} : présent pour ${compte} sous ${contexte} (${o.route}, ${o.cible})`);
+        if (!vues.some((o) => o.compte === compte && masque(o))) manques.push(`${chemin} : jamais observé nul ou absent pour ${compte} sous ${contexte}`);
+        // Témoin : dans le même contexte, l'administration le lit (le champ est porté, son masquage est propre à AT).
+        if (!vues.some((o) => o.compte === 'AD' && o.statuts.includes(PRESENT))) manques.push(`${chemin} : témoin, jamais présent pour AD sous ${contexte}`);
+      }
+      assert.deepEqual(manques, [], 'rentabilité des assistantes techniques (matrice-droits/montants-masques.mjs, RENTABILITE_ASSISTANTES_TECHNIQUES)');
+      // Tous les chantiers : la rentabilité lui sort sur la liste et sur la fiche, au-delà d'un seul chantier.
+      assert.ok([...chantiersVus].some((c) => c.startsWith('GET /api/chantiers/:id ')) && [...chantiersVus].some((c) => c.startsWith('GET /api/chantiers ')), [...chantiersVus].join(', '));
+      assert.ok(new Set([...chantiersVus].filter((c) => c.startsWith('GET /api/chantiers/:id ')).map((c) => c.split(' ')[2])).size >= 3, [...chantiersVus].join(', '));
     });
 
     // Cadrage §6 : un champ de montant masqué absent de la liste fermée est classé C. Ce test cherche, dans toutes les

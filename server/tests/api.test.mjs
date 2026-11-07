@@ -27313,7 +27313,11 @@ if (!TEST_DATABASE_URL) {
     let categorie = null;
     let fiche = null;
     let reglagesInitiaux = null;
-    const REFUS_AFFAIRE = 'Un compte assistante technique n’est pas autorisé à modifier une affaire.';
+    // AT-2b (cadrage AT-2, v1, « Chantiers ») : le refus d'AT-1 sur la fiche, le statut et le commercial (« … n’est pas autorisé à
+    // modifier une affaire. ») est retiré ; seul le statut reste refusé, au message reformulé (piège P2). Le vendu ne s'écrit que
+    // sous son réglage de rentabilité, décoché ici (cadrage v4, C5 (a)).
+    const REFUS_STATUT = 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.';
+    const REFUS_VENDU = 'Le montant vendu n’est modifiable que par qui suit la rentabilité de ce chantier.';
     const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
     const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
     const jetonBrut = (cle) => jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET);
@@ -27412,11 +27416,12 @@ if (!TEST_DATABASE_URL) {
         const [entree] = await prisma.journalAdministration.findMany({ where: { cibleId: relu.id, action: 'CREATION' } });
         assert.equal(entree.auteurId, auteurId, qui);
         // Droits du type : lecture des clients et des affaires (DEFAULT_USER_PERMISSIONS), et, depuis AT-2a, le droit devis
-        // (réponse 3 du 06-11-2026 : « Tous, contrats compris ») ; rien d'autre (ni chantiers:write ni finances:read).
+        // (réponse 3 du 06-11-2026 : « Tous, contrats compris »), puis, depuis AT-2b, les saisies Travaux (chantiers:write,
+        // réponse 10) ; rien d'autre (ni chantiers:archive, choix par défaut à confirmer, ni finances:read).
         const moi = await lire('/api/me', { Authorization: `Bearer ${jwt.sign({ id: relu.id }, process.env.JWT_SECRET)}` });
         assert.equal(moi.status, 200, JSON.stringify(moi.body));
         assert.equal(moi.body.role, 'ASSISTANTE_TECHNIQUE');
-        assert.deepEqual([...moi.body.permissions].sort(), ['chantiers:read', 'clients:read', 'devis:read', 'devis:write'], qui);
+        assert.deepEqual([...moi.body.permissions].sort(), ['chantiers:read', 'chantiers:write', 'clients:read', 'devis:read', 'devis:write'], qui);
       }
 
       // Changement de type : conducteur → assistante technique → conducteur, relu en base et journalisé (TYPE_COMPTE).
@@ -27452,19 +27457,23 @@ if (!TEST_DATABASE_URL) {
     // contrats et les devis (réponses 3 et 9 du 06-11-2026), et les écritures des clients (décision du 24-10-2026, point 24,
     // « gerer les client »), retirés d'ici et prouvés par le bloc
     // « Assistante technique (AT-2a) » ; la création d'un contrat hors devis reste refusée (choix par défaut, à confirmer).
-    test('refus : fiche, statut et commercial d’une affaire (403 « Un compte assistante technique… »), saisies Travaux, rapport de chantier, partage du planning, statistiques et performances, factures, contrat hors devis, comptes et catalogue ; rien n’est écrit', async () => {
+    // AT-2b (réponses 5 et 10 du 06-11-2026 ; cadrage v4) ouvre la fiche, le commercial et les saisies Travaux d'une affaire en
+    // cours, prouvés par le bloc « Assistante technique (AT-2b) » : leurs entrées d'AT-1 sont remplacées ici par les refus qui
+    // restent sur la même affaire (vendu sans réglage, statut au message reformulé, commercial vidé, archivage sans
+    // chantiers:archive) ; le chantier inexistant répond 404, sans refus de type avant.
+    test('refus : vendu sans réglage, statut d’une affaire (403 « … clôturer ni à rouvrir … »), commercial vidé, archivage des saisies Travaux, rapport de chantier, partage du planning, statistiques et performances, factures, contrat hors devis, comptes et catalogue ; rien n’est écrit', async () => {
       const assistante = jeton('assistante');
       const chantier = await chantierDe('refus', comptes.conducteur.id, { budgetGlobalVendu: 1000, budgetMaterielVendu: 300, budgetMainOeuvreVendu: 700, heuresVendues: 20, commercialId: comptes.commercial.id });
       assert.equal((await lire(`/api/chantiers/${chantier.id}`, assistante)).status, 200, 'elle lit la fiche');
       const date = await aujourdhui();
       const avant = await empreinte();
       const refus = [
-        ['fiche d’une affaire', () => envoyer('patch', `/api/chantiers/${chantier.id}`, assistante, { nom: `TEST AT-1 renommé ${suffixe}`, budgetMaterielVendu: 1 }), 403, REFUS_AFFAIRE],
-        ['fiche d’une affaire inexistante (refus avant le 404)', () => envoyer('patch', `/api/chantiers/${randomUUID()}`, assistante, { nom: 'TEST AT-1 inexistant' }), 403, REFUS_AFFAIRE],
-        ['statut d’une affaire', () => envoyer('patch', `/api/chantiers/${chantier.id}/statut`, assistante, { statut: 'TERMINE' }), 403, REFUS_AFFAIRE],
-        ['commercial d’une affaire', () => envoyer('patch', `/api/chantiers/${chantier.id}/commercial`, assistante, { commercialId: null }), 403, REFUS_AFFAIRE],
-        ['achat d’un chantier', () => envoyer('post', '/api/achats', assistante, { chantierId: chantier.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-1 achat refusé', montantHT: 12.5 }), 403, 'Permission requise : chantiers:write'],
-        ['heures d’un chantier', () => envoyer('post', '/api/heures', assistante, { chantierId: chantier.id, intervenantId: fiche.id, date, nbrHeures: 2 }), 403, 'Permission requise : chantiers:write'],
+        ['fiche d’une affaire, avec le vendu, sans sa rentabilité', () => envoyer('patch', `/api/chantiers/${chantier.id}`, assistante, { nom: `TEST AT-1 renommé ${suffixe}`, budgetGlobalVendu: 1 }), 403, REFUS_VENDU],
+        ['fiche d’une affaire inexistante (404, sans refus de type avant)', () => envoyer('patch', `/api/chantiers/${randomUUID()}`, assistante, { nom: 'TEST AT-1 inexistant' }), 404, 'Chantier introuvable'],
+        ['statut d’une affaire', () => envoyer('patch', `/api/chantiers/${chantier.id}/statut`, assistante, { statut: 'TERMINE' }), 403, REFUS_STATUT],
+        ['commercial d’une affaire, vidé', () => envoyer('patch', `/api/chantiers/${chantier.id}/commercial`, assistante, { commercialId: null }), 400, 'Un chantier doit toujours avoir un commercial rattaché.'],
+        ['archivage d’un achat (chantiers:archive non donné)', () => request(app).delete(`/api/achats/${randomUUID()}`).set(assistante).send({ motifArchivage: 'TEST AT-1 archivage refusé' }), 403, 'Permission requise : chantiers:archive'],
+        ['archivage d’heures (chantiers:archive non donné)', () => request(app).delete(`/api/heures/${randomUUID()}`).set(assistante).send({ motifArchivage: 'TEST AT-1 archivage refusé' }), 403, 'Permission requise : chantiers:archive'],
         ['rapport de chantier', () => lire(`/api/chantiers/${chantier.id}/document.pdf`, assistante), 403, REFUS_ADMINISTRATION],
         ['envoi du rapport de chantier', () => envoyer('post', `/api/chantiers/${chantier.id}/envois`, assistante, { destinataire: 'client@at1.test' }), 403, REFUS_ADMINISTRATION],
         ['encaissement', () => envoyer('patch', `/api/chantiers/${chantier.id}/encaisse`, assistante, { encaisse: true }), 403, REFUS_ADMINISTRATION],
@@ -27700,10 +27709,12 @@ if (!TEST_DATABASE_URL) {
     // vendu, ni marge, ni estimation, ni coût prévu, jusqu'au réglage propre d'AT-2. Même compte, même affaire, seul le type
     // change. Valeurs distinctes : vendu 1 234,57 €, budgets par poste 321,09 € et 456,78 € (somme 777,87 €), coût prévu
     // 87,65 €, achat 23,45 € : marge du jour 1 211,12 € lue par le conducteur (lectures écartées : 1 234,57 € sans l'achat,
-    // 456,78 € ou 777,87 € à partir des budgets). Aucune écriture de l'affaire ne lui est ouverte (refuserAssistanteTechnique).
+    // 456,78 € ou 777,87 € à partir des budgets). Depuis AT-2b (réponse 5 du 06-11-2026), la fiche d'une affaire en cours lui
+    // est ouverte, titulaire ou non ; le vendu, lui, ne s'écrit que sous son propre réglage (décoché ici ; cadrage v4, C5 (a)),
+    // jamais par le réglage du conducteur titulaire (même lecture écartée), et la clôture lui reste refusée (piège P2).
     // Témoins : le même compte, conducteur titulaire, lit vendu, coût prévu, marge et facturation ; puis un autre conducteur,
     // devenu titulaire de la même affaire, lit le vendu.
-    test('affaire dont elle est titulaire (conducteur passé assistante technique) : ni vendu, ni marge, ni estimation, ni coût prévu, ni facturation, malgré la rentabilité ouverte au conducteur titulaire ; budgets par poste et matériel gardés ; aucune écriture de l’affaire (403) ; le conducteur titulaire, témoin, lit le vendu', async () => {
+    test('affaire dont elle est titulaire (conducteur passé assistante technique) : ni vendu, ni marge, ni estimation, ni coût prévu, ni facturation, malgré la rentabilité ouverte au conducteur titulaire ; budgets par poste et matériel gardés ; ni vendu écrit, ni clôture, ni commercial vidé, sans écriture ; le conducteur titulaire, témoin, lit le vendu', async () => {
       const compte = await prisma.user.create({ data: { email: `at1.titulaire.${suffixe}@iris.test`, name: 'TEST AT-1 titulaire passée assistante technique', role: 'CONDUCTEUR_TRAVAUX' } });
       const auth = { Authorization: `Bearer ${jwt.sign({ id: compte.id }, process.env.JWT_SECRET)}` };
       const affaire = await chantierDe('titulaire', compte.id, { budgetGlobalVendu: 1234.57, budgetMaterielVendu: 321.09, budgetMainOeuvreVendu: 456.78, heuresVendues: 12, coutMaterielPrevu: 87.65 });
@@ -27731,11 +27742,16 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual([c.budgetMaterielVendu, c.budgetMainOeuvreVendu, c.metrics.materielReel], [321.09, 456.78, 23.45], ou);
       }
       assert.equal('facturation' in fiche, false);
-      // Aucune écriture de son affaire : fiche, statut et commercial refusés (403, message exact), rien n'est écrit.
+      // Refus sur son affaire (message exact), rien n'est écrit : le vendu, sans son réglage (le conducteur titulaire l'écrirait,
+      // rentabiliteConducteur coché) ; la clôture (piège P2) ; le commercial vidé (400, comme pour tout compte).
       const avant = await empreinte();
-      for (const [chemin, corps] of [[`/api/chantiers/${affaire.id}`, { nom: `TEST AT-1 titulaire renommé ${suffixe}` }], [`/api/chantiers/${affaire.id}/statut`, { statut: 'TERMINE' }], [`/api/chantiers/${affaire.id}/commercial`, { commercialId: null }]]) {
+      for (const [chemin, corps, code, message] of [
+        [`/api/chantiers/${affaire.id}`, { nom: `TEST AT-1 titulaire renommé ${suffixe}`, budgetGlobalVendu: 1300 }, 403, REFUS_VENDU],
+        [`/api/chantiers/${affaire.id}/statut`, { statut: 'TERMINE' }, 403, REFUS_STATUT],
+        [`/api/chantiers/${affaire.id}/commercial`, { commercialId: null }, 400, 'Un chantier doit toujours avoir un commercial rattaché.'],
+      ]) {
         const res = await envoyer('patch', chemin, auth, corps);
-        assert.deepEqual([res.status, res.body.error], [403, REFUS_AFFAIRE], chemin);
+        assert.deepEqual([res.status, res.body.error], [code, message], chemin);
       }
       assert.equal(await empreinte(), avant, 'aucune écriture');
       // Témoin : un autre conducteur, devenu titulaire de la même affaire, lit le vendu.
@@ -27884,7 +27900,7 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await proposee(), [false, false], 'assistante technique titulaire');
       const avant = await empreinte();
       const cloture = await envoyer('patch', `/api/chantiers/${affaire.id}/statut`, auth, { statut: 'TERMINE' });
-      assert.deepEqual([cloture.status, cloture.body.error], [403, REFUS_AFFAIRE]);
+      assert.deepEqual([cloture.status, cloture.body.error], [403, REFUS_STATUT]);
       assert.equal(await empreinte(), avant, 'aucune écriture');
       assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).statut, 'EN_COURS');
     });
@@ -28031,7 +28047,8 @@ if (!TEST_DATABASE_URL) {
     test('devis : créé, modifié, envoyé et signé par elle, à son nom ; prix d’achat prévu écrit et relu (réponse, liste, base) ; refusé au commercial et à l’assistante commerciale au message exact, masqué pour eux, rien n’est écrit', async () => {
       const assistante = jeton('assistante');
       const moi = await lire('/api/me', assistante);
-      assert.deepEqual([...moi.body.permissions].sort(), ['chantiers:read', 'clients:read', 'devis:read', 'devis:write']);
+      // AT-2b ajoute les saisies Travaux (chantiers:write, réponse 10 du 06-11-2026).
+      assert.deepEqual([...moi.body.permissions].sort(), ['chantiers:read', 'chantiers:write', 'clients:read', 'devis:read', 'devis:write']);
       const objet = `TEST AT-2a prix d’achat ${suffixe}`;
       const cree = await envoyer('post', '/api/devis', assistante, { clientId: client.id, objet, lignes: [LIGNES_COUT_PREVU[0], LIGNES_COUT_PREVU[3]] });
       assert.equal(cree.status, 201, JSON.stringify(cree.body));
@@ -28429,6 +28446,649 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual([etat.body.anticipationVisitesJours, etat.body.derniereExecution?.id], [30, execution.id]);
       } finally {
         assert.equal((await envoyer('put', '/api/parametres', sa, { anticipationVisitesJours: reglagesInitiaux.anticipationVisitesJours ?? '' })).status, 200);
+      }
+    });
+  });
+
+  // Lot « Assistante technique », PR AT-2b « Chantiers, saisies Travaux et rentabilité » (cadrage AT-2, version 4, qui fait foi :
+  // R1, C1, C5 (a) à (c) et N4 ; version 3, réponses de Nelson du 07-11-2026 et liste C6 ; version 1, « AT-2b »). Décisions :
+  // réponses de Nelson du 06-11-2026, 1 et 2 (rentabilité réglable, « Décochée (Recommandé) »), 4 (« Prix d'achat oui, coûts
+  // non »), 5 (« Oui, comme l'admin » : affaires en cours) et 10 (saisies Travaux) ; réponses du 07-11-2026, 1 (marge du jour
+  // réglage coché, « Accepter »), 2 (essais successifs, « Comme le titulaire ») et 3 (fiche, « Oui, comme l'admin »)
+  // (docs/HISTORIQUE-DECISIONS.md#décisions-du-07-11-2026-sur-at-2b). Choix par défaut, à confirmer, éprouvés tels quels :
+  // facturation de la fiche masquée jusqu'à AT-3, réglage coché compris ; statut de la fiche ignoré en silence ;
+  // chantiers:archive non donné.
+  //
+  // Montants (règle des montants du rédacteur des tests : chaque autre lecture plausible donne un résultat différent ; lecture
+  // écartée en commentaire de chaque attendu). Affaire « rentabilité » (titulaire : le conducteur tiers, dont elle n'est pas
+  // titulaire) : vendu 1 987,65 €, budgets matériel 612,34 € et main-d'œuvre 905,43 €, 24 h vendues, coût prévu 333,21 € ;
+  // achats 150,07 € et 89,96 € (240,03 €) ; 4 h à 37,85 € (151,40 €) ; une suite SAV, 1,5 h d'un technicien à 42,10 €
+  // (63,15 €) ; une facture émise de 400,00 € HT. D'où, lus par l'administration : main-d'œuvre 214,55 €, dépenses 454,58 €,
+  // marge du jour 1 533,07 € ; estimation : main-d'œuvre attendue 24 × 151,40 / 4 + 63,15 = 971,55 €, matériel attendu
+  // max(240,03 ; 333,21) = 333,21 €, coût estimé 1 304,76 €, marge estimée 682,89 € ; facturé 400,00 €, reste 1 587,65 €.
+  describe('Assistante technique (AT-2b) : fiche, client, commercial et saisies Travaux des affaires en cours de toute la société ; statut et clôture à l’administration ; rentabilité selon son réglage, décoché à l’installation, sans facturation de la fiche ni coût de main-d’œuvre', () => {
+    let sa = {};
+    let saId = '';
+    const comptes = {};
+    const suffixe = `${Date.now()}`;
+    let client = null;
+    let clientSecond = null;
+    let fournisseur = null;
+    let categorie = null;
+    let fiche = null;
+    let reglagesInitiaux = null;
+    const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
+    const REFUS_STATUT = 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.';
+    const REFUS_VENDU = 'Le montant vendu n’est modifiable que par qui suit la rentabilité de ce chantier.';
+    const REFUS_CLOTURE_FICHE = 'Ce chantier est clôturé : seul un administrateur peut encore le modifier.';
+    const REFUS_CLOTURE_COMMERCIAL = 'Ce chantier est clôturé : seul un administrateur peut encore en changer le commercial.';
+    const REFUS_ANNULEE_FICHE = 'Cette affaire est annulée : elle n’est plus modifiable.';
+    const REFUS_ANNULEE_COMMERCIAL = 'Cette affaire est annulée : son commercial ne change plus.';
+    const REFUS_CLOTURE_SAISIES = 'Ce chantier est clôturé : impossible d\'y ajouter une dépense ou des heures.';
+    const REFUS_ANNULEE_SAISIES = 'Cette affaire est annulée : plus aucune saisie n’y est possible.';
+    const REFUS_ARCHIVE = 'Permission requise : chantiers:archive';
+    const REFUS_REGLAGE_BOOLEEN = 'Les destinataires du suivi de rentabilité se règlent par oui ou non.';
+    const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
+    // Le corps est calculé avant la requête (cf. les autres blocs) : request(app) ouvre un serveur éphémère.
+    const envoyer = (methode, chemin, auth, corps) => request(app)[methode](chemin).set(auth).send(corps);
+    const lire = (chemin, auth) => request(app).get(chemin).set(auth);
+    const regler = async (reglages) => {
+      const res = await envoyer('put', '/api/parametres', sa, reglages);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+    };
+    const jourIso = async () => jourCivilEntreprise(new Date(), (await prisma.companySettings.findUnique({ where: { id: 'singleton' } }))?.fuseauHoraire || 'Europe/Paris');
+    const aujourdhui = async () => (await jourIso()).split('-').reverse().join('-');
+    const enBase = (valeur) => (valeur === null || valeur === undefined ? null : valeur.toString());
+    const reglageEnBase = async () => (await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } })).rentabiliteAssistantesTechniques;
+    const derniereEntreeReglages = () => prisma.journalAdministration.findFirstOrThrow({ where: { domaine: 'REGLAGES', type: 'PARAMETRES' }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    const chantierDe = (nom, responsableId, extra = {}) => prisma.chantier.create({ data: {
+      nom: `TEST AT-2b ${nom} ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-10-01T00:00:00Z'), responsableId,
+      commercialId: comptes.commercial.id, budgetGlobalVendu: 1000, ...extra,
+    } });
+    const numeroLibre = async () => {
+      for (;;) {
+        const numero = `A99-${String(randomInt(0, 10_000)).padStart(4, '0')}`;
+        if (!await prisma.chantier.findFirst({ where: { numeroDevis: numero }, select: { id: true } })) return numero;
+      }
+    };
+    // Instantané d'une affaire et de son journal : un refus ne doit rien y écrire.
+    const etatAffaire = async (id) => JSON.stringify([
+      await prisma.chantier.findUniqueOrThrow({ where: { id } }),
+      await prisma.journalSaisieChantier.findMany({ where: { chantierId: id }, orderBy: { id: 'asc' } }),
+      await prisma.achatReel.findMany({ where: { chantierId: id }, orderBy: { id: 'asc' } }),
+      await prisma.pointageHeure.findMany({ where: { chantierId: id }, orderBy: { id: 'asc' } }),
+    ]);
+    // Prérequis comptables de l'émission, posés s'ils manquent (même procédé que le bloc « Directeur aligné »).
+    const assurerFacturation = async () => {
+      const compte = async (code, nature) => (await prisma.compteComptable.upsert({ where: { code }, create: { code, nature, libelle: `TEST ${code}` }, update: { actif: true } })).id;
+      const regles = await prisma.regleComptable.findMany({ include: { compte: true } });
+      for (const [cle, code, nature] of [['CLIENT', '411372', 'ACTIF'], ['VENTE_PRESTATION', '706372', 'PRODUIT'], ['VENTE_ARTICLE', '707372', 'PRODUIT']]) {
+        const actuelle = regles.find((r) => r.cle === cle);
+        if (!actuelle?.compte?.actif || actuelle.compte.nature !== nature) await regleFixture(cle, await compte(code, nature));
+      }
+      if (!regles.find((r) => r.cle === 'JOURNAL_VENTES')?.journal) await regleFixture('JOURNAL_VENTES', 'VTE');
+      const tva = await prisma.regleTvaComptable.findUnique({ where: { taux: 20 }, include: { compte: true } });
+      if (!tva?.compte?.actif) await tvaFixture(20, await compte('445372', 'TVA'));
+    };
+    const factureEmise = async (chantierId, prixUnitaireHt, clientId = client.id) => {
+      await assurerFacturation();
+      const jour = await aujourdhui();
+      const facture = await envoyer('post', '/api/factures', sa, { clientId, origine: 'CHANTIER', chantierId, dateEmission: jour, dateEcheance: jour, lignes: [{ designation: 'TEST Situation AT-2b', quantite: 1, prixUnitaireHt, tauxTva: 20 }] });
+      assert.equal(facture.status, 201, JSON.stringify(facture.body));
+      const emission = await envoyer('post', `/api/factures/${facture.body.id}/emettre`, sa, {});
+      assert.equal(emission.status, 200, JSON.stringify(emission.body));
+      return facture.body;
+    };
+    // Technicien rattaché à une main d'œuvre du catalogue, sa fiche au taux donné (heures d'une suite SAV).
+    const technicien = async (cle, taux) => {
+      const mainOeuvre = await envoyer('post', '/api/catalogue/prestations', sa, {
+        estMainOeuvre: true, reference: `TEST-AT2B-${cle}-${suffixe}`, nom: `TEST Main d’œuvre AT-2b ${cle} ${suffixe}`, tauxTva: '20',
+        prixVenteHt: '52.30', prixJourHorsContratHt: '340', prixHeureSousContratHt: '47', prixJourSousContratHt: '320', heuresParJour: '7',
+      });
+      assert.equal(mainOeuvre.status, 201, JSON.stringify(mainOeuvre.body));
+      const compte = await prisma.user.create({ data: { email: `at2b.${cle}.${suffixe}@iris.test`, name: `TEST AT-2b technicien ${cle}`, role: 'TECHNICIEN' } });
+      const ficheTech = await prisma.intervenant.create({ data: { nom: `TEST AT-2b technicien ${cle} ${suffixe}`, role: 'Technicien', tauxHoraireCharge: taux, userId: compte.id } });
+      assert.equal((await envoyer('put', `/api/intervenants/${ficheTech.id}/main-oeuvre`, sa, { mainOeuvreId: mainOeuvre.body.id })).status, 200);
+      return { compte, fiche: ficheTech, auth: { Authorization: `Bearer ${jwt.sign({ id: compte.id }, process.env.JWT_SECRET)}` } };
+    };
+
+    before(async () => {
+      const secours = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(secours.status, 200);
+      sa = { Authorization: `Bearer ${secours.body.token}` };
+      saId = secours.body.user.id;
+      for (const [cle, role] of [
+        ['assistante', 'ASSISTANTE_TECHNIQUE'], ['assistanteTitulaire', 'ASSISTANTE_TECHNIQUE'], ['admin', 'ADMIN'], ['directeur', 'DIRECTEUR'], ['conducteur', 'CONDUCTEUR_TRAVAUX'],
+        ['conducteurTiers', 'CONDUCTEUR_TRAVAUX'], ['commercial', 'COMMERCIAL'], ['autreCommercial', 'COMMERCIAL'], ['assistanteCommerciale', 'ASSISTANTE_COMMERCIALE'],
+      ]) {
+        const email = `at2b.${cle}@iris.test`;
+        comptes[cle] = await prisma.user.upsert({ where: { email }, update: { role, actif: true, permissions: [], estCommercial: false, accesFinance: false, responsableHierarchiqueId: null }, create: { email, name: `TEST AT-2b ${cle}`, role } });
+      }
+      reglagesInitiaux = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } });
+      // Les trois autres destinataires cochés, le sien décoché (son état à l'installation, réponse 2 du 06-11-2026) : sa lecture
+      // se distingue de celle du conducteur titulaire et du directeur (lecture écartée : elle suivrait leur réglage).
+      await regler({ margeCommercialeActive: true, rentabiliteConducteur: true, rentabiliteHierarchie: true, rentabiliteDirecteurs: true, rentabiliteAssistantesTechniques: false, seuilMargeFaible: 15 });
+      for (const [cle, raisonSociale] of [['client', `TEST Client AT-2b ${suffixe}`], ['clientSecond', `TEST Client second AT-2b ${suffixe}`]]) {
+        const cree = await envoyer('post', '/api/clients', sa, { raisonSociale, siren: await sirenLibre() });
+        assert.equal(cree.status, 201, JSON.stringify(cree.body));
+        const site = await envoyer('post', `/api/clients/${cree.body.id}/sites`, sa, { nom: `TEST Facturation ${cle} AT-2b`, adresse: '7 rue des Affaires', codePostal: '14000', ville: 'Caen', estSiteFacturation: true });
+        assert.equal(site.status, 201, JSON.stringify(site.body));
+        if (cle === 'client') client = cree.body; else clientSecond = cree.body;
+      }
+      fournisseur = await prisma.fournisseur.create({ data: { nom: `TEST Fournisseur AT-2b ${suffixe}` } });
+      categorie = await prisma.categorie.create({ data: { nom: `TEST Catégorie AT-2b ${suffixe}` } });
+      fiche = await prisma.intervenant.create({ data: { nom: `TEST Intervenant AT-2b ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 37.85 } });
+    });
+
+    after(async () => {
+      if (reglagesInitiaux) await prisma.parametres.update({ where: { id: 'singleton' }, data: {
+        margeCommercialeActive: reglagesInitiaux.margeCommercialeActive, rentabiliteConducteur: reglagesInitiaux.rentabiliteConducteur,
+        rentabiliteHierarchie: reglagesInitiaux.rentabiliteHierarchie, rentabiliteDirecteurs: reglagesInitiaux.rentabiliteDirecteurs,
+        rentabiliteAssistantesTechniques: reglagesInitiaux.rentabiliteAssistantesTechniques, seuilMargeFaible: reglagesInitiaux.seuilMargeFaible,
+      } });
+      await prisma.user.updateMany({ where: { email: { startsWith: 'at2b.' } }, data: { permissions: [] } });
+    });
+
+    // C6 de la v3 (« réglage : journalisé, écrit par l'administration, refusé à elle ») ; réponses 1 et 2 du 06-11-2026 ; règle
+    // permanente 1 (un changement de paramètre est journalisé). Lectures écartées : la chaîne « true » ou 1 lues comme une
+    // activation ; une autre case qui écraserait la sienne ; le réglage ouvert à l'assistante technique elle-même.
+    test('réglage « Rentabilité : assistantes techniques » : écrit par le super administrateur et l’administrateur, relu en base et journalisé à leur nom dans les deux sens ; booléen strict (400) ; une autre case seule ne le change pas ; refusé à l’assistante technique (403), sans écriture ni entrée', async () => {
+      try {
+        for (const [qui, auth, auteurId, valeur] of [['super administrateur', sa, saId, true], ['administrateur', jeton('admin'), comptes.admin.id, false], ['administrateur', jeton('admin'), comptes.admin.id, true]]) {
+          const res = await envoyer('put', '/api/parametres', auth, { rentabiliteAssistantesTechniques: valeur });
+          assert.equal(res.status, 200, `${qui} : ${JSON.stringify(res.body)}`);
+          assert.equal(res.body.rentabiliteAssistantesTechniques, valeur, qui);
+          assert.equal(await reglageEnBase(), valeur, qui);
+          const entree = await derniereEntreeReglages();
+          assert.deepEqual([entree.action, entree.auteurId, entree.avant, entree.apres], ['MODIFICATION', auteurId, { rentabiliteAssistantesTechniques: !valeur }, { rentabiliteAssistantesTechniques: valeur }], qui);
+        }
+        // Lu par l'administration avec les autres réglages.
+        const lu = await lire('/api/parametres', jeton('admin'));
+        assert.equal(lu.status, 200, JSON.stringify(lu.body));
+        assert.equal(lu.body.rentabiliteAssistantesTechniques, true);
+        // Une autre case seule : la sienne garde sa valeur (cochée).
+        await regler({ rentabiliteConducteur: false });
+        assert.equal(await reglageEnBase(), true, 'une autre case ne la change pas');
+        await regler({ rentabiliteConducteur: true });
+        // Refus, sans écriture ni entrée : formes non booléennes (super administrateur) ; l'assistante technique, en écriture et en
+        // lecture.
+        const nbEntrees = await prisma.journalAdministration.count();
+        for (const valeur of ['false', 'true', 1, 0, null, 'oui']) {
+          const res = await envoyer('put', '/api/parametres', sa, { rentabiliteAssistantesTechniques: valeur });
+          assert.deepEqual([res.status, res.body.error], [400, REFUS_REGLAGE_BOOLEEN], JSON.stringify(valeur));
+        }
+        for (const valeur of [false, true]) {
+          const res = await envoyer('put', '/api/parametres', jeton('assistante'), { rentabiliteAssistantesTechniques: valeur });
+          assert.deepEqual([res.status, res.body.error], [403, REFUS_ADMINISTRATION], `assistante technique, ${valeur}`);
+        }
+        const lecture = await lire('/api/parametres', jeton('assistante'));
+        assert.deepEqual([lecture.status, lecture.body.error], [403, REFUS_ADMINISTRATION]);
+        assert.equal(await reglageEnBase(), true, 'aucun refus n’écrit');
+        assert.equal(await prisma.journalAdministration.count(), nbEntrees, 'aucun refus ne journalise');
+      } finally {
+        await regler({ rentabiliteAssistantesTechniques: false, rentabiliteConducteur: true });
+      }
+    });
+
+    // R1 du cadrage v4 : le champ statut de PATCH /api/chantiers/:id reste à l'administration ; envoyé par elle, il est ignoré en
+    // silence, comme pour tout compte qui n'est pas de l'administration (MODELE-DROITS-CIBLE.md). Mutant du cadrage : « allowed
+    // lu par gereLesChantiersEnCours » (le statut écrit). Témoin : l'administration clôture par la même route.
+    test('fiche : le statut envoyé par l’assistante technique (TERMINE, ANNULE ou inconnu) est ignoré en silence : 200, le nom est écrit, le statut reste EN_COURS et la date de fin inchangée en base ; l’administration, témoin, clôture par la même route', async () => {
+      const affaire = await chantierDe('statut ignoré', comptes.conducteur.id, { dateFin: new Date('2026-12-15T00:00:00Z') });
+      for (const [i, statut] of ['TERMINE', 'ANNULE', 'INVENTE'].entries()) {
+        const nom = `TEST AT-2b renommée ${i} ${suffixe}`;
+        const res = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('assistante'), { nom, statut });
+        assert.equal(res.status, 200, `${statut} : ${JSON.stringify(res.body)}`);
+        const relu = await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } });
+        assert.deepEqual([relu.nom, relu.statut, relu.dateFin.toISOString()], [nom, 'EN_COURS', '2026-12-15T00:00:00.000Z'], statut);
+        assert.equal(res.body.statut, 'EN_COURS', `${statut} : réponse`);
+      }
+      // Témoin : la même route écrit le statut de l'administration (le champ est effectif, son masquage est propre au compte).
+      const parAdmin = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('admin'), { statut: 'TERMINE' });
+      assert.equal(parAdmin.status, 200, JSON.stringify(parAdmin.body));
+      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).statut, 'TERMINE');
+      assert.equal((await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('admin'), { statut: 'EN_COURS' })).status, 200);
+    });
+
+    // C6 de la v3 (« fiche : modification des champs, barème réduit et date de fin compris, relue en base ») ; réponse 3 du
+    // 07-11-2026 (« Oui, comme l'admin ») ; réponse 5 du 06-11-2026 (toute la société). Saisies au format français (montants à la
+    // virgule, dates JJ-MM-AAAA). Lecture écartée : le périmètre du conducteur (404 sur une affaire d'autrui).
+    test('fiche d’une affaire en cours d’autrui : nom, référence d’affaire, dates de début et de fin, adresse, types, barème réduit, budgets par poste et heures vendues écrits par elle et relus en base ; titulaire changé, journalisé à son nom ; elle reste sur une affaire qu’elle ne suit pas ; le conducteur non titulaire refusé (404)', async () => {
+      const affaire = await chantierDe('fiche', comptes.conducteur.id, { budgetMaterielVendu: 100, budgetMainOeuvreVendu: 200, heuresVendues: 10 });
+      const numero = await numeroLibre();
+      const corps = {
+        nom: `TEST AT-2b fiche modifiée ${suffixe}`, numeroDevis: numero, dateDebut: '03-11-2026', dateFin: '27-02-2027', adresse: '12 rue des Chantiers, 14000 Caen',
+        types: ['Interphonie', 'Vidéo'], baremeReduit: true, budgetMaterielVendu: '1234,56', budgetMainOeuvreVendu: '789,01', heuresVendues: '35,5',
+      };
+      const res = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('assistante'), corps);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const relu = await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } });
+      assert.deepEqual(
+        [relu.nom, relu.numeroDevis, relu.dateDebut.toISOString(), relu.dateFin.toISOString(), relu.adresse, relu.types, relu.baremeReduit, enBase(relu.budgetMaterielVendu), enBase(relu.budgetMainOeuvreVendu), enBase(relu.heuresVendues), relu.statut],
+        [corps.nom, numero, '2026-11-03T00:00:00.000Z', '2027-02-27T00:00:00.000Z', corps.adresse, ['Vidéo', 'Interphonie'], true, '1234.56', '789.01', '35.5', 'EN_COURS'],
+      );
+      // Le vendu n'est pas touché (réglage décoché) : la fiche se modifie sans lui.
+      assert.equal(enBase(relu.budgetGlobalVendu), '1000');
+      // Titulaire changé par elle : journalisé à son nom.
+      const titulaire = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('assistante'), { responsableId: comptes.conducteurTiers.id });
+      assert.equal(titulaire.status, 200, JSON.stringify(titulaire.body));
+      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).responsableId, comptes.conducteurTiers.id);
+      const [changement] = await prisma.journalSaisieChantier.findMany({ where: { chantierId: affaire.id, action: 'CHANGEMENT_TITULAIRE' } });
+      assert.deepEqual([changement.cible, changement.auteurId, changement.auteurNom, changement.avant.responsableId, changement.apres.responsableId],
+        ['CHANTIER', comptes.assistante.id, comptes.assistante.name, comptes.conducteur.id, comptes.conducteurTiers.id]);
+      // Elle lit toujours la fiche (toute la société) ; l'ancien titulaire, conducteur, ne la voit plus et ne l'écrit plus (404).
+      assert.equal((await lire(`/api/chantiers/${affaire.id}`, jeton('assistante'))).status, 200);
+      const avant = await etatAffaire(affaire.id);
+      const refus = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('conducteur'), { nom: 'TEST AT-2b refusé' });
+      assert.deepEqual([refus.status, refus.body.error], [404, 'Chantier introuvable']);
+      assert.equal(await etatAffaire(affaire.id), avant);
+    });
+
+    // C1 du cadrage v4 (option A, réponse 3 du 07-11-2026 : « tous les champs de la fiche … comme l'administration ») : le client du
+    // chantier lui est ouvert, avec les refus et le journal existants. Valeurs : deux clients aux raisons sociales distinctes ; la
+    // réaffectation reprend la raison sociale du nouveau client (décision de Nelson du 16-10-2026). Lectures écartées : champ ignoré
+    // pour elle (client inchangé) ; journal au nom d'un autre ; refus sur une affaire facturée levé pour elle.
+    test('client du chantier : changé par elle sur une affaire en cours, relu en base (client et libellé), journalisé CHANGEMENT_CLIENT à son nom ; 409 sur une affaire facturée ou qui porte une intervention ; 403 sur une affaire clôturée, 409 sur une annulée ; chaque refus sans écriture ; le conducteur titulaire, témoin, ne change pas le client', async () => {
+      const assistante = jeton('assistante');
+      const affaire = await chantierDe('client changé', comptes.conducteur.id);
+      const res = await envoyer('patch', `/api/chantiers/${affaire.id}`, assistante, { clientId: clientSecond.id });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const relu = await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } });
+      assert.deepEqual([relu.clientId, relu.client], [clientSecond.id, clientSecond.raisonSociale]);
+      const journal = await prisma.journalSaisieChantier.findMany({ where: { chantierId: affaire.id, action: 'CHANGEMENT_CLIENT' } });
+      assert.equal(journal.length, 1);
+      assert.deepEqual([journal[0].cible, journal[0].auteurId, journal[0].auteurNom], ['CHANTIER', comptes.assistante.id, comptes.assistante.name]);
+      assert.deepEqual([journal[0].avant, journal[0].apres], [
+        { clientId: client.id, raisonSociale: client.raisonSociale, libelle: client.raisonSociale },
+        { clientId: clientSecond.id, raisonSociale: clientSecond.raisonSociale, libelle: clientSecond.raisonSociale },
+      ]);
+
+      // Refus : affaire facturée, affaire qui porte une intervention SAV, affaire clôturée, affaire annulée.
+      const facturee = await chantierDe('client facturée', comptes.conducteur.id);
+      await factureEmise(facturee.id, 123.45);
+      const avecIntervention = await chantierDe('client avec intervention', comptes.conducteur.id);
+      const intervention = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-2b intervention ${suffixe}`, chantierId: avecIntervention.id });
+      assert.equal(intervention.status, 201, JSON.stringify(intervention.body));
+      const cloturee = await chantierDe('client clôturée', comptes.conducteur.id, { statut: 'TERMINE', dateFin: new Date('2026-10-20T00:00:00Z') });
+      const annulee = await chantierDe('client annulée', comptes.conducteur.id, { statut: 'ANNULE', annuleLe: new Date(), annuleParId: saId, motifAnnulation: 'TEST AT-2b affaire annulée' });
+      for (const [cas, cible, code, message] of [
+        ['facturée', facturee, 409, 'Une affaire déjà facturée ne change pas de client.'],
+        ['avec intervention', avecIntervention, 409, 'Des interventions SAV sont rattachées à cette affaire : elle ne change pas de client.'],
+        ['clôturée', cloturee, 403, REFUS_CLOTURE_FICHE],
+        ['annulée', annulee, 409, REFUS_ANNULEE_FICHE],
+      ]) {
+        const avant = await etatAffaire(cible.id);
+        const refus = await envoyer('patch', `/api/chantiers/${cible.id}`, assistante, { clientId: clientSecond.id });
+        assert.deepEqual([refus.status, refus.body.error], [code, message], cas);
+        assert.equal(await etatAffaire(cible.id), avant, `${cas} : rien n’est écrit`);
+      }
+      // Témoin : le client reste à l'administration et à elle ; le conducteur titulaire l'envoie, il est ignoré (200, inchangé).
+      const parConducteur = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('conducteur'), { clientId: client.id });
+      assert.equal(parConducteur.status, 200, JSON.stringify(parConducteur.body));
+      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).clientId, clientSecond.id);
+    });
+
+    // Cadrage v1, « Chantiers » (commercial des affaires en cours, gereLesChantiersEnCours) ; T1 du cadrage v4 (commercial d'une
+    // affaire clôturée ou annulée refusé). Le commercial rattaché alimente les commissions : la réattribution est journalisée.
+    test('commercial d’une affaire en cours d’autrui : changé par elle, relu en base, journalisé CHANGEMENT_COMMERCIAL à son nom ; 403 sur une affaire clôturée, 409 sur une annulée, sans écriture', async () => {
+      const assistante = jeton('assistante');
+      const affaire = await chantierDe('commercial', comptes.conducteurTiers.id);
+      const res = await envoyer('patch', `/api/chantiers/${affaire.id}/commercial`, assistante, { commercialId: comptes.autreCommercial.id });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).commercialId, comptes.autreCommercial.id);
+      const [entree] = await prisma.journalSaisieChantier.findMany({ where: { chantierId: affaire.id, action: 'CHANGEMENT_COMMERCIAL' } });
+      assert.deepEqual([entree.auteurId, entree.auteurNom, entree.avant.commercialId, entree.apres.commercialId],
+        [comptes.assistante.id, comptes.assistante.name, comptes.commercial.id, comptes.autreCommercial.id]);
+      const cloturee = await chantierDe('commercial clôturée', comptes.conducteurTiers.id, { statut: 'TERMINE', dateFin: new Date('2026-10-20T00:00:00Z') });
+      const annulee = await chantierDe('commercial annulée', comptes.conducteurTiers.id, { statut: 'ANNULE', annuleLe: new Date(), annuleParId: saId, motifAnnulation: 'TEST AT-2b affaire annulée' });
+      for (const [cas, cible, code, message] of [['clôturée', cloturee, 403, REFUS_CLOTURE_COMMERCIAL], ['annulée', annulee, 409, REFUS_ANNULEE_COMMERCIAL]]) {
+        const avant = await etatAffaire(cible.id);
+        const refus = await envoyer('patch', `/api/chantiers/${cible.id}/commercial`, assistante, { commercialId: comptes.autreCommercial.id });
+        assert.deepEqual([refus.status, refus.body.error], [code, message], cas);
+        assert.equal(await etatAffaire(cible.id), avant, `${cas} : rien n’est écrit`);
+      }
+    });
+
+    // Piège P2 du cadrage (v1, v4) : un titulaire non administrateur clôture son affaire ; elle, même titulaire, ni ne clôture ni ne
+    // rouvre (refuserAssistanteTechniqueStatut, message reformulé), et la clôture ne lui est pas proposée (peutCloturer, bouton
+    // « Clôturer » de la liste ; T1 du cadrage v4). Mutant : le refus retiré de …/statut (elle clôturerait son affaire). Témoin : un
+    // conducteur titulaire se la voit proposer et clôture.
+    test('statut : clôture refusée à l’assistante technique titulaire de l’affaire (403, message reformulé), comme sur l’affaire d’autrui et pour la réouverture ; peutCloturer faux pour elle sur la fiche et la liste ; rien n’est écrit ; le conducteur titulaire, témoin, clôture', async () => {
+      const titulaire = jeton('assistanteTitulaire');
+      const sienne = await chantierDe('statut, titulaire assistante technique', comptes.assistanteTitulaire.id);
+      const dAutrui = await chantierDe('statut, affaire d’autrui', comptes.conducteur.id);
+      const cloturee = await chantierDe('statut, clôturée', comptes.assistanteTitulaire.id, { statut: 'TERMINE', dateFin: new Date('2026-10-20T00:00:00Z') });
+      const proposee = async (auth, id) => [(await lire(`/api/chantiers/${id}`, auth)).body.peutCloturer, (await lire('/api/chantiers', auth)).body.find((c) => c.id === id)?.peutCloturer];
+      assert.deepEqual(await proposee(titulaire, sienne.id), [false, false], 'titulaire assistante technique : clôture non proposée');
+      for (const [cas, cible, statut, attendu] of [['sienne', sienne, 'TERMINE', 'EN_COURS'], ['d’autrui', dAutrui, 'TERMINE', 'EN_COURS'], ['réouverture', cloturee, 'EN_COURS', 'TERMINE']]) {
+        const avant = await etatAffaire(cible.id);
+        const res = await envoyer('patch', `/api/chantiers/${cible.id}/statut`, titulaire, { statut });
+        assert.deepEqual([res.status, res.body.error], [403, REFUS_STATUT], cas);
+        assert.equal(await etatAffaire(cible.id), avant, `${cas} : rien n’est écrit`);
+        assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: cible.id } })).statut, attendu, cas);
+      }
+      // Elle modifie pourtant la fiche de son affaire (en cours) : le refus est propre à la clôture.
+      assert.equal((await envoyer('patch', `/api/chantiers/${sienne.id}`, titulaire, { nom: `TEST AT-2b sienne renommée ${suffixe}` })).status, 200);
+      // Témoin : le même geste du conducteur titulaire.
+      assert.deepEqual(await proposee(jeton('conducteur'), dAutrui.id), [true, true]);
+      const parConducteur = await envoyer('patch', `/api/chantiers/${dAutrui.id}/statut`, jeton('conducteur'), { statut: 'TERMINE' });
+      assert.equal(parConducteur.status, 200, JSON.stringify(parConducteur.body));
+      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: dAutrui.id } })).statut, 'TERMINE');
+    });
+
+    // C6 de la v3 (« saisies Travaux : sur le chantier d'autrui, relues en base, journal à son nom ; refus après clôture ; archivage
+    // refusé ») ; réponse 10 du 06-11-2026 ; C5 (c) du cadrage v4 (taux absents de ses saisies, de ses corrections et du journal).
+    // Valeurs : achat 47,33 € corrigé en 52,18 € ; 2,75 h corrigées en 3,25 h, au taux de la fiche 37,85 €, figé à la saisie
+    // (la fiche passe ensuite à 41,20 € : lecture écartée, le taux relu à la fiche). Lectures écartées : la saisie refusée hors du
+    // périmètre du conducteur (404) ; le taux rendu dans sa réponse ou dans le journal qu'elle lit.
+    test('saisies Travaux sur l’affaire d’autrui : achat et heures saisis puis corrigés par elle, relus en base, journalisés à son nom ; taux figé en base mais absent de ses réponses, du journal des heures et du journal qu’elle lit ; refusées après clôture (403) et sur une affaire annulée (409) ; archivage et restauration refusés sans chantiers:archive, sans écriture', async () => {
+      const assistante = jeton('assistante');
+      const date = await aujourdhui();
+      const ficheSaisie = await prisma.intervenant.create({ data: { nom: `TEST AT-2b intervenant saisi ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 37.85 } });
+      const affaire = await chantierDe('saisies', comptes.conducteurTiers.id, { budgetMaterielVendu: 500, budgetMainOeuvreVendu: 600, heuresVendues: 20 });
+      const achat = await envoyer('post', '/api/achats', assistante, { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat', montantHT: '47,33' });
+      assert.equal(achat.status, 200, JSON.stringify(achat.body));
+      assert.equal(Number(achat.body.montantHT), 47.33, 'montant rendu dans sa réponse');
+      const heures = await envoyer('post', '/api/heures', assistante, { chantierId: affaire.id, intervenantId: ficheSaisie.id, date, nbrHeures: '2,75' });
+      assert.equal(heures.status, 200, JSON.stringify(heures.body));
+      assert.equal('tauxHoraireApplique' in heures.body, false, 'réponse de la saisie sans taux');
+      assert.equal(Number(heures.body.nbrHeures), 2.75);
+      // Fiche changée après coup : le taux figé à la saisie reste celui du jour de la saisie.
+      await prisma.intervenant.update({ where: { id: ficheSaisie.id }, data: { tauxHoraireCharge: 41.2 } });
+      const correctionAchat = await envoyer('patch', `/api/achats/${achat.body.id}`, assistante, { montantHT: '52,18', motifCorrection: 'TEST AT-2b facture fournisseur corrigée' });
+      assert.equal(correctionAchat.status, 200, JSON.stringify(correctionAchat.body));
+      const correctionHeures = await envoyer('patch', `/api/heures/${heures.body.id}`, assistante, { nbrHeures: '3,25', motifCorrection: 'TEST AT-2b heures corrigées' });
+      assert.equal(correctionHeures.status, 200, JSON.stringify(correctionHeures.body));
+      assert.equal('tauxHoraireApplique' in correctionHeures.body, false, 'réponse de la correction sans taux');
+      const [achatEnBase] = await prisma.achatReel.findMany({ where: { chantierId: affaire.id } });
+      const [heuresEnBase] = await prisma.pointageHeure.findMany({ where: { chantierId: affaire.id } });
+      assert.deepEqual([enBase(achatEnBase.montantHT), achatEnBase.createdById, achatEnBase.archivedAt], ['52.18', comptes.assistante.id, null]);
+      assert.deepEqual([enBase(heuresEnBase.nbrHeures), enBase(heuresEnBase.tauxHoraireApplique), heuresEnBase.createdById], ['3.25', '37.85', comptes.assistante.id]);
+      // Journal des saisies : chaque geste à son nom ; en base, l'instantané des heures porte le taux (source de vérité).
+      const journal = await prisma.journalSaisieChantier.findMany({ where: { chantierId: affaire.id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+      assert.deepEqual(journal.map((e) => [e.cible, e.action, e.auteurId]), [
+        ['ACHAT', 'CREATION', comptes.assistante.id], ['HEURE', 'CREATION', comptes.assistante.id], ['ACHAT', 'CORRECTION', comptes.assistante.id], ['HEURE', 'CORRECTION', comptes.assistante.id],
+      ]);
+      const correctionJournal = journal.find((e) => e.cible === 'ACHAT' && e.action === 'CORRECTION');
+      assert.deepEqual([Number(correctionJournal.avant.montantHT), Number(correctionJournal.apres.montantHT), correctionJournal.motif], [47.33, 52.18, 'TEST AT-2b facture fournisseur corrigée']);
+      assert.equal(Number(journal.find((e) => e.cible === 'HEURE' && e.action === 'CORRECTION').apres.tauxHoraireApplique), 37.85);
+      // Ce qu'elle lit du journal, de la liste des heures et de la fiche : les montants des achats, les heures, jamais le taux.
+      // Témoin : l'administration lit le taux de l'instantané.
+      const luParElle = (await lire(`/api/chantiers/${affaire.id}/journal-saisies`, assistante)).body;
+      const luParAdmin = (await lire(`/api/chantiers/${affaire.id}/journal-saisies`, jeton('admin'))).body;
+      const heuresLues = (entrees) => entrees.filter((e) => e.cible === 'HEURE').flatMap((e) => [e.avant, e.apres]).filter(Boolean);
+      assert.ok(heuresLues(luParElle).length === 3 && heuresLues(luParElle).every((v) => !('tauxHoraireApplique' in v)), JSON.stringify(heuresLues(luParElle)));
+      assert.ok(heuresLues(luParAdmin).every((v) => Number(v.tauxHoraireApplique) === 37.85), 'témoin : l’administration lit le taux');
+      assert.equal(luParElle.find((e) => e.cible === 'ACHAT' && e.action === 'CORRECTION').apres.montantHT, 52.18);
+      const listeHeures = (await lire('/api/heures', assistante)).body.find((h) => h.id === heures.body.id);
+      assert.ok(listeHeures && !('tauxHoraireApplique' in listeHeures) && !('tauxHoraireCharge' in (listeHeures.intervenant ?? {})), JSON.stringify(listeHeures));
+      assert.equal((await lire('/api/achats', assistante)).body.find((a) => a.id === achat.body.id)?.montantHT, 52.18);
+      // Témoin du périmètre : le conducteur non titulaire ne saisit pas sur cette affaire (404).
+      const horsPerimetre = await envoyer('post', '/api/achats', jeton('conducteur'), { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat refusé', montantHT: 1 });
+      assert.deepEqual([horsPerimetre.status, horsPerimetre.body.error], [404, 'Chantier introuvable']);
+
+      // Archivage et restauration : chantiers:archive n'est pas donné par son type (choix par défaut, à confirmer).
+      let avant = await etatAffaire(affaire.id);
+      for (const [cas, appel] of [
+        ['archivage d’un achat', () => request(app).delete(`/api/achats/${achat.body.id}`).set(assistante).send({ motifArchivage: 'TEST AT-2b archivage refusé' })],
+        ['archivage d’heures', () => request(app).delete(`/api/heures/${heures.body.id}`).set(assistante).send({ motifArchivage: 'TEST AT-2b archivage refusé' })],
+        ['restauration d’un achat', () => envoyer('post', `/api/achats/${achat.body.id}/restaurer`, assistante, { motifRestauration: 'TEST AT-2b restauration refusée' })],
+        ['restauration d’heures', () => envoyer('post', `/api/heures/${heures.body.id}/restaurer`, assistante, { motifRestauration: 'TEST AT-2b restauration refusée' })],
+      ]) {
+        const res = await appel();
+        assert.deepEqual([res.status, res.body.error], [403, REFUS_ARCHIVE], cas);
+      }
+      assert.equal(await etatAffaire(affaire.id), avant, 'archivage refusé sans écriture');
+
+      // Après clôture (par l'administration) : saisie et correction refusées (403), sans écriture.
+      assert.equal((await envoyer('patch', `/api/chantiers/${affaire.id}/statut`, sa, { statut: 'TERMINE' })).status, 200);
+      avant = await etatAffaire(affaire.id);
+      for (const [cas, appel] of [
+        ['achat', () => envoyer('post', '/api/achats', assistante, { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat après clôture', montantHT: 9.99 })],
+        ['heures', () => envoyer('post', '/api/heures', assistante, { chantierId: affaire.id, intervenantId: ficheSaisie.id, date, nbrHeures: 1 })],
+        ['correction d’un achat', () => envoyer('patch', `/api/achats/${achat.body.id}`, assistante, { montantHT: 1, motifCorrection: 'TEST AT-2b correction refusée' })],
+        ['correction d’heures', () => envoyer('patch', `/api/heures/${heures.body.id}`, assistante, { nbrHeures: 1, motifCorrection: 'TEST AT-2b correction refusée' })],
+      ]) {
+        const res = await appel();
+        assert.deepEqual([res.status, res.body.error], [403, REFUS_CLOTURE_SAISIES], `après clôture, ${cas}`);
+      }
+      assert.equal(await etatAffaire(affaire.id), avant, 'après clôture : rien n’est écrit');
+      // Affaire annulée : 409, sans écriture.
+      const annulee = await chantierDe('saisies annulée', comptes.conducteurTiers.id, { statut: 'ANNULE', annuleLe: new Date(), annuleParId: saId, motifAnnulation: 'TEST AT-2b affaire annulée' });
+      const avantAnnulee = await etatAffaire(annulee.id);
+      for (const [cas, appel] of [
+        ['achat', () => envoyer('post', '/api/achats', assistante, { chantierId: annulee.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat annulée', montantHT: 9.99 })],
+        ['heures', () => envoyer('post', '/api/heures', assistante, { chantierId: annulee.id, intervenantId: ficheSaisie.id, date, nbrHeures: 1 })],
+      ]) {
+        const res = await appel();
+        assert.deepEqual([res.status, res.body.error], [409, REFUS_ANNULEE_SAISIES], `annulée, ${cas}`);
+      }
+      assert.equal(await etatAffaire(annulee.id), avantAnnulee, 'affaire annulée : rien n’est écrit');
+
+      // Témoin du choix par défaut : chantiers:archive donné individuellement par le super administrateur, elle archive sur une
+      // affaire en cours (le refus vient du droit, non du périmètre), puis le droit est retiré.
+      const autre = await chantierDe('archivage par droit individuel', comptes.conducteurTiers.id);
+      const achatAutre = await envoyer('post', '/api/achats', assistante, { chantierId: autre.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat archivable', montantHT: 11.11 });
+      assert.equal(achatAutre.status, 200, JSON.stringify(achatAutre.body));
+      try {
+        assert.equal((await envoyer('put', `/api/users/${comptes.assistante.id}/permissions`, sa, { permissions: ['chantiers:archive'] })).status, 200);
+        const archive = await request(app).delete(`/api/achats/${achatAutre.body.id}`).set(assistante).send({ motifArchivage: 'TEST AT-2b archivage par droit individuel' });
+        assert.equal(archive.status, 200, JSON.stringify(archive.body));
+        assert.notEqual((await prisma.achatReel.findUniqueOrThrow({ where: { id: achatAutre.body.id } })).archivedAt, null);
+      } finally {
+        assert.equal((await envoyer('put', `/api/users/${comptes.assistante.id}/permissions`, sa, { permissions: [] })).status, 200);
+      }
+    });
+
+    // Cadrage v4, C5 (a) à (c) (classés C) et R1 de la v3, sur l'affaire « rentabilité » décrite en tête du bloc ; C6 de la v3
+    // (« rentabilité, case cochée puis décochée, à valeurs distinctes, sur la liste, la fiche, le tableau de bord et les réponses
+    // d'écriture »). Le tableau de bord tire son encart « Rentabilité des chantiers en cours » de la liste (marge estimée) : il
+    // est prouvé par la liste ici, et à l'écran par l'E2E. Réglage décoché, puis coché, puis décoché de nouveau, sur la même
+    // affaire. Mutants : réglage sans effet (voitRentabilite sans sa branche) ; facturation sans l'exclusion d'AT
+    // (voitFacturationChantier rendant la rentabilité) ; « voitCoutMainOeuvre ouvert à qui voit la rentabilité ».
+    test('rentabilité selon son réglage, sur l’affaire d’autrui (liste, fiche, réponses d’écriture) : décochée, ni vendu, ni marge, ni estimation, ni coût prévu ; cochée, vendu 1 987,65 €, coût prévu 333,21 €, marge du jour 1 533,07 €, marge estimée 682,89 €, comme l’administration ; jamais la facturation (400,00 € facturés), ni le coût de main-d’œuvre, ses taux ou les hypothèses de coût de l’estimation ; décochée de nouveau, tout se referme', async () => {
+      const assistante = jeton('assistante');
+      const admin = jeton('admin');
+      const affaire = await chantierDe('rentabilité', comptes.conducteurTiers.id, { budgetGlobalVendu: 1987.65, budgetMaterielVendu: 612.34, budgetMainOeuvreVendu: 905.43, heuresVendues: 24, coutMaterielPrevu: 333.21 });
+      const date = await aujourdhui();
+      for (const montantHT of [150.07, 89.96]) {
+        const res = await envoyer('post', '/api/achats', sa, { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: `TEST AT-2b achat ${montantHT}`, montantHT });
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+      }
+      assert.equal((await envoyer('post', '/api/heures', sa, { chantierId: affaire.id, intervenantId: fiche.id, date, nbrHeures: 4 })).status, 200);
+      // Une suite SAV de l'affaire : 1,5 h d'un technicien à 42,10 € (63,15 €), dans la main-d'œuvre de l'affaire.
+      const tech = await technicien('suite', 42.1);
+      const initiale = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-2b initiale ${suffixe}`, chantierId: affaire.id });
+      assert.equal(initiale.status, 201, JSON.stringify(initiale.body));
+      const suite = await envoyer('post', `/api/interventions/${initiale.body.id}/suites`, sa, {});
+      assert.equal(suite.status, 201, JSON.stringify(suite.body));
+      await prisma.interventionAffectation.create({ data: { interventionId: suite.body.id, intervenantId: tech.fiche.id } });
+      const heuresSuite = await envoyer('post', `/api/interventions/${suite.body.id}/couts/heures`, tech.auth, { date, nbrHeures: 1.5 });
+      assert.equal(heuresSuite.status, 201, JSON.stringify(heuresSuite.body));
+      await factureEmise(affaire.id, 400);
+
+      const vue = async (auth) => {
+        const ficheLue = await lire(`/api/chantiers/${affaire.id}`, auth);
+        assert.equal(ficheLue.status, 200, JSON.stringify(ficheLue.body));
+        const liste = await lire('/api/chantiers', auth);
+        assert.equal(liste.status, 200, JSON.stringify(liste.body));
+        const ligne = liste.body.find((c) => c.id === affaire.id);
+        assert.ok(ligne, 'affaire listée');
+        return { fiche: ficheLue.body, ligne };
+      };
+      // Rentabilité : [vendu, coût prévu, marge du jour, marge commerciale, marge estimée, estimation présente].
+      const rentabilite = (c) => [c.budgetGlobalVendu, c.coutMaterielPrevu, c.metrics.margeBrute, c.metrics.margeCommerciale, c.metrics.margeEstimee, c.metrics.estimation !== null && c.metrics.estimation !== undefined];
+      // Coût de main-d'œuvre et ses dérivés : jamais pour elle (réponse 4, « coûts non »).
+      const mainOeuvre = (c) => [c.metrics.moReel, c.metrics.totalDepenses, c.metrics.pctMainOeuvre, c.metrics.coutsSuites?.coutMainOeuvre, c.metrics.coutsInterventionDevis?.coutMainOeuvre];
+      const reponsesEcriture = async () => {
+        const nom = await envoyer('patch', `/api/chantiers/${affaire.id}`, assistante, { nom: affaire.nom });
+        assert.equal(nom.status, 200, JSON.stringify(nom.body));
+        const commercial = await envoyer('patch', `/api/chantiers/${affaire.id}/commercial`, assistante, { commercialId: comptes.commercial.id });
+        assert.equal(commercial.status, 200, JSON.stringify(commercial.body));
+        return [nom.body, commercial.body].map((r) => [r.budgetGlobalVendu === null ? null : Number(r.budgetGlobalVendu), r.coutMaterielPrevu === null ? null : Number(r.coutMaterielPrevu), Number(r.budgetMaterielVendu), Number(r.budgetMainOeuvreVendu)]);
+      };
+      // Témoin : l'administration, quel que soit son réglage. Lectures écartées pour la marge du jour : sans main-d'œuvre
+      // (1 747,62 €), sans les suites (1 596,22 €), à partir des budgets (469,88 €) ; pour la marge estimée : matériel au budget
+      // (1 987,65 − 971,55 − 612,34 = 403,76 €), main-d'œuvre au budget, sans les suites (749,01 €), suites ignorées (746,04 €).
+      const deAdmin = await vue(admin);
+      assert.deepEqual(rentabilite(deAdmin.fiche), [1987.65, 333.21, 1533.07, 1533.07, 682.89, true]);
+      assert.deepEqual(mainOeuvre(deAdmin.fiche).slice(0, 2), [214.55, 454.58]);
+      assert.equal(deAdmin.fiche.metrics.coutsSuites.coutMainOeuvre, 63.15);
+      assert.equal(typeof deAdmin.fiche.metrics.coutsInterventionDevis?.coutMainOeuvre, 'number', 'témoin : le coût de main-d’œuvre de l’intervention du devis est porté');
+      assert.deepEqual([deAdmin.fiche.metrics.estimation.coutMainOeuvreAttendu, deAdmin.fiche.metrics.estimation.coutMaterielAttendu, deAdmin.fiche.metrics.estimation.coutEstime, deAdmin.fiche.metrics.estimation.coutHoraireReference], [971.55, 333.21, 1304.76, 37.85]);
+      assert.deepEqual([deAdmin.fiche.facturation.totalFactureHt, deAdmin.fiche.facturation.resteAFacturerHt, deAdmin.fiche.facturation.factures.length], [400, 1587.65, 1]);
+      try {
+        // Décochée (installation) : rien de la rentabilité, sur la fiche, la liste et les réponses d'écriture.
+        await regler({ rentabiliteAssistantesTechniques: false });
+        const decochee = await vue(assistante);
+        for (const [ou, c] of [['fiche', decochee.fiche], ['liste', decochee.ligne]]) {
+          assert.deepEqual(rentabilite(c), [null, null, null, null, null, false], `décochée, ${ou}`);
+          assert.deepEqual(mainOeuvre(c).slice(0, 4), [null, null, null, null], `décochée, ${ou}`);
+          // Les montants du conducteur restent (AT-1) : budgets par poste et matériel réel.
+          assert.deepEqual([c.budgetMaterielVendu, c.budgetMainOeuvreVendu, c.metrics.materielReel], [612.34, 905.43, 240.03], `décochée, ${ou}`);
+        }
+        assert.equal('facturation' in decochee.fiche, false);
+        assert.deepEqual(await reponsesEcriture(), [[null, null, 612.34, 905.43], [null, null, 612.34, 905.43]], 'décochée, réponses d’écriture');
+
+        // Cochée : la rentabilité de l'administration, au centime ; ni facturation, ni coût de main-d'œuvre.
+        await regler({ rentabiliteAssistantesTechniques: true });
+        const cochee = await vue(assistante);
+        for (const [ou, c, a] of [['fiche', cochee.fiche, deAdmin.fiche], ['liste', cochee.ligne, deAdmin.ligne]]) {
+          assert.deepEqual(rentabilite(c), rentabilite(a), `cochée, ${ou}, comme l’administration`);
+          assert.deepEqual(rentabilite(c), [1987.65, 333.21, 1533.07, 1533.07, 682.89, true], `cochée, ${ou}`);
+          assert.ok(Math.abs(c.metrics.margePct - 77.1296) < 0.001, `cochée, ${ou} : marge % ${c.metrics.margePct}`);
+          // C5 (c) : moReel, totalDepenses, pctMainOeuvre, coûts de main-d'œuvre des suites et de l'intervention du devis nuls.
+          assert.deepEqual(mainOeuvre(c), [null, null, null, null, null], `cochée, ${ou} : coût de main-d’œuvre`);
+          // Hypothèses de l'estimation : le matériel attendu (333,21 €, issu du coût prévu qu'elle lit) reste ; les coûts de
+          // main-d'œuvre, le coût estimé et le coût horaire de référence sont nuls (ils redonneraient le taux).
+          const e = c.metrics.estimation;
+          assert.deepEqual([e.coutMaterielAttendu, e.sourceMateriel, e.coutMainOeuvreAttendu, e.coutEstime, e.coutHoraireReference], [333.21, 'DEVIS', null, null, null], `cochée, ${ou} : estimation`);
+          assert.deepEqual([c.budgetMaterielVendu, c.budgetMainOeuvreVendu, c.metrics.materielReel], [612.34, 905.43, 240.03], `cochée, ${ou}`);
+        }
+        // Fiche : ni taux des heures ni taux de la fiche de l'intervenant.
+        assert.ok(cochee.fiche.pointages.length === 1 && cochee.fiche.pointages.every((p) => !('tauxHoraireApplique' in p) && !('tauxHoraireCharge' in (p.intervenant ?? {}))), JSON.stringify(cochee.fiche.pointages));
+        // R1 de la v3 : la facturation de la fiche reste masquée, réglage coché compris (400,00 € facturés, 1 587,65 € restants).
+        assert.equal('facturation' in cochee.fiche, false, 'cochée : facturation de la fiche masquée jusqu’à AT-3');
+        assert.deepEqual(await reponsesEcriture(), [[1987.65, 333.21, 612.34, 905.43], [1987.65, 333.21, 612.34, 905.43]], 'cochée, réponses d’écriture');
+        // Témoins du même contexte : le directeur et le conducteur titulaire, destinataires, lisent la facturation ; le réglage
+        // d'AT ne donne rien au directeur ni au conducteur dont le leur est décoché (lecture écartée : un réglage commun).
+        for (const cle of ['directeur', 'conducteurTiers']) {
+          const v = await vue(jeton(cle));
+          assert.deepEqual([v.fiche.facturation?.totalFactureHt, v.fiche.budgetGlobalVendu], [400, 1987.65], cle);
+        }
+        await regler({ rentabiliteDirecteurs: false, rentabiliteConducteur: false });
+        for (const cle of ['directeur', 'conducteurTiers']) {
+          const v = await vue(jeton(cle));
+          assert.deepEqual([v.fiche.budgetGlobalVendu, 'facturation' in v.fiche], [null, false], `${cle}, son réglage décoché, celui d’AT coché`);
+        }
+        assert.deepEqual(rentabilite((await vue(assistante)).fiche).slice(0, 3), [1987.65, 333.21, 1533.07], 'les autres réglages décochés ne lui retirent rien');
+        await regler({ rentabiliteDirecteurs: true, rentabiliteConducteur: true });
+
+        // Décochée de nouveau : tout se referme.
+        await regler({ rentabiliteAssistantesTechniques: false });
+        const refermee = await vue(assistante);
+        assert.deepEqual(rentabilite(refermee.fiche), [null, null, null, null, null, false]);
+        assert.deepEqual(rentabilite(refermee.ligne), [null, null, null, null, null, false]);
+      } finally {
+        await regler({ rentabiliteAssistantesTechniques: false, rentabiliteDirecteurs: true, rentabiliteConducteur: true });
+      }
+    });
+
+    // C5 (a) du cadrage v4 : le vendu écrit par elle sous réglage coché, relu en base ; refusé réglage décoché (403, rien
+    // d'écrit). Valeur : 2 004,13 € saisis au format français (lecture écartée : la virgule lue comme séparateur de milliers,
+    // 200 413 €) ; la marge du jour lue ensuite suit le vendu écrit (2 004,13 − 454,58 = 1 549,55 €, et non 1 533,07 €).
+    test('vendu : écrit par elle sous son réglage coché (2 004,13 €, relu en base, marge du jour 1 549,55 € relue), refusé décoché (403, rien n’est écrit) ; jamais sur une affaire clôturée', async () => {
+      const assistante = jeton('assistante');
+      const affaire = await chantierDe('vendu', comptes.conducteurTiers.id, { budgetGlobalVendu: 1987.65, budgetMaterielVendu: 612.34, budgetMainOeuvreVendu: 905.43, heuresVendues: 24 });
+      const date = await aujourdhui();
+      assert.equal((await envoyer('post', '/api/achats', sa, { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat vendu', montantHT: 303.18 })).status, 200);
+      assert.equal((await envoyer('post', '/api/heures', sa, { chantierId: affaire.id, intervenantId: fiche.id, date, nbrHeures: 4 })).status, 200);
+      try {
+        await regler({ rentabiliteAssistantesTechniques: false });
+        const avant = await etatAffaire(affaire.id);
+        const refus = await envoyer('patch', `/api/chantiers/${affaire.id}`, assistante, { budgetGlobalVendu: '2004,13' });
+        assert.deepEqual([refus.status, refus.body.error], [403, REFUS_VENDU]);
+        assert.equal(await etatAffaire(affaire.id), avant, 'décoché : rien n’est écrit');
+        await regler({ rentabiliteAssistantesTechniques: true });
+        const ecrit = await envoyer('patch', `/api/chantiers/${affaire.id}`, assistante, { budgetGlobalVendu: '2004,13' });
+        assert.equal(ecrit.status, 200, JSON.stringify(ecrit.body));
+        assert.equal(Number(ecrit.body.budgetGlobalVendu), 2004.13, 'réponse');
+        assert.equal(enBase((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).budgetGlobalVendu), '2004.13');
+        // 303,18 + 4 × 37,85 = 454,58 € de dépenses ; lectures écartées : 1 701,95 € sans main-d'œuvre, 1 533,07 € l'ancien vendu.
+        assert.equal((await lire(`/api/chantiers/${affaire.id}`, assistante)).body.metrics.margeBrute, 1549.55);
+        // Affaire clôturée, réglage coché : refus de la fiche (403), avant celui du vendu.
+        const cloturee = await chantierDe('vendu clôturée', comptes.conducteurTiers.id, { statut: 'TERMINE', dateFin: new Date('2026-10-20T00:00:00Z') });
+        const avantCloturee = await etatAffaire(cloturee.id);
+        const refusCloturee = await envoyer('patch', `/api/chantiers/${cloturee.id}`, assistante, { budgetGlobalVendu: '2004,13' });
+        assert.deepEqual([refusCloturee.status, refusCloturee.body.error], [403, REFUS_CLOTURE_FICHE]);
+        assert.equal(await etatAffaire(cloturee.id), avantCloturee);
+      } finally {
+        await regler({ rentabiliteAssistantesTechniques: false });
+      }
+    });
+
+    // C5 (b) du cadrage v4 : la réponse de la conversion d'un devis en chantier par elle rend le coût prévu sous son réglage coché
+    // (devis/routes.ts, coutPrevuSuitRentabilite) ; décoché, il reste masqué ; en base, il est écrit dans les deux cas. Lignes du
+    // devis d'AT-2a : 3 × 87,40 + 0,5 × 4,20 + 0,5 × 7,10 + 2,5 × 64,00 = 427,85 € HT ; coût prévu = Σ quantité × prix d'achat
+    // prévu, chaque ligne au centime, demi-centime supérieur : 156,45 + 1,51 + 2,52 = 160,48 €. Lectures écartées : arrondi du seul
+    // total (160,47 €), troncature par ligne (160,46 €), prix de vente des fournitures (267,85 €), vendu (427,85 €).
+    // Mutants : coût prévu toujours masqué pour elle ; toujours rendu ; réglage sans effet.
+    test('conversion d’un devis en chantier par elle : coût prévu 160,48 € rendu sous son réglage coché, masqué décoché, écrit en base dans les deux cas ; vendu 427,85 € rendu dans les deux cas', async () => {
+      const assistante = jeton('assistante');
+      const lignes = [
+        { designation: 'TEST Détecteur AT-2b', nature: 'FOURNITURE', quantite: '3', prixUnitaireHt: '87.40', tauxTva: 20, prixAchatUnitaireHt: '52.15' },
+        { designation: 'TEST Cosse AT-2b A', nature: 'FOURNITURE', quantite: '0.5', prixUnitaireHt: '4.20', tauxTva: 20, prixAchatUnitaireHt: '3.01' },
+        { designation: 'TEST Cosse AT-2b B', nature: 'FOURNITURE', quantite: '0.5', prixUnitaireHt: '7.10', tauxTva: 20, prixAchatUnitaireHt: '5.03' },
+        { designation: 'TEST Pose AT-2b', nature: 'MAIN_OEUVRE', quantite: '2.5', prixUnitaireHt: '64', tauxTva: 20 },
+      ];
+      const convertir = async (objet) => {
+        const devis = await envoyer('post', '/api/devis', assistante, { clientId: client.id, objet: `TEST AT-2b ${objet} ${suffixe}`, lignes });
+        assert.equal(devis.status, 201, JSON.stringify(devis.body));
+        assert.equal((await envoyer('put', `/api/devis/${devis.body.id}/statut`, assistante, { statut: 'ENVOYE' })).status, 200);
+        assert.equal((await envoyer('post', `/api/devis/${devis.body.id}/signature`, assistante, { signataire: 'TEST Signataire AT-2b', confirme: true })).status, 201);
+        const ouvert = await envoyer('post', `/api/devis/${devis.body.id}/convertir`, assistante, { cible: 'CHANTIER', responsableId: comptes.conducteur.id, commercialId: comptes.commercial.id });
+        assert.equal(ouvert.status, 201, JSON.stringify(ouvert.body));
+        const enBaseOuvert = await prisma.chantier.findUniqueOrThrow({ where: { id: ouvert.body.id } });
+        assert.deepEqual([enBase(enBaseOuvert.coutMaterielPrevu), enBase(enBaseOuvert.budgetGlobalVendu)], ['160.48', '427.85'], `${objet} : en base`);
+        return ouvert.body;
+      };
+      try {
+        await regler({ rentabiliteAssistantesTechniques: false });
+        const decoche = await convertir('conversion décochée');
+        assert.deepEqual([decoche.coutMaterielPrevu, decoche.budgetGlobalVendu], [null, 427.85], 'décoché : coût prévu masqué');
+        await regler({ rentabiliteAssistantesTechniques: true });
+        const coche = await convertir('conversion cochée');
+        assert.deepEqual([coche.coutMaterielPrevu, coche.budgetGlobalVendu], [160.48, 427.85], 'coché : coût prévu rendu');
+        // Le chantier ouvert décoché, relu coché : son coût prévu lui sort sur la fiche.
+        assert.equal((await lire(`/api/chantiers/${decoche.id}`, assistante)).body.coutMaterielPrevu, 160.48);
+      } finally {
+        await regler({ rentabiliteAssistantesTechniques: false });
+      }
+    });
+
+    // Réponse 2 du 07-11-2026 (« Comme le titulaire (Recommandé) ») et C6 de la v3 : l'alerte de dépassement de main-d'œuvre lui
+    // reste affichée réglage décoché ; les alertes de rentabilité (« en perte ») suivent son réglage. Affaire « perte » : vendu
+    // 250,00 €, budgets matériel 90,00 € et main-d'œuvre 100,00 €, 2 h vendues ; achat 150,07 € ; 3 h à 37,85 € (113,55 € >
+    // 100,00 €) : dépassements de matériel, de main-d'œuvre et d'heures ; marge du jour 250 − 263,62 = −13,62 € (en perte).
+    // Lecture écartée : la marge sans main-d'œuvre (+99,93 €), qui ne serait pas en perte.
+    test('alertes : dépassements de main-d’œuvre, de matériel et d’heures affichés pour elle réglage décoché, sans « en perte » ; « en perte » réglage coché (marge du jour −13,62 €)', async () => {
+      const assistante = jeton('assistante');
+      const affaire = await chantierDe('perte', comptes.conducteurTiers.id, { budgetGlobalVendu: 250, budgetMaterielVendu: 90, budgetMainOeuvreVendu: 100, heuresVendues: 2 });
+      const date = await aujourdhui();
+      assert.equal((await envoyer('post', '/api/achats', sa, { chantierId: affaire.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date, description: 'TEST AT-2b achat en perte', montantHT: 150.07 })).status, 200);
+      assert.equal((await envoyer('post', '/api/heures', sa, { chantierId: affaire.id, intervenantId: fiche.id, date, nbrHeures: 3 })).status, 200);
+      const alertes = async (reglage) => {
+        await regler({ rentabiliteAssistantesTechniques: reglage });
+        const ficheLue = (await lire(`/api/chantiers/${affaire.id}`, assistante)).body;
+        const ligne = (await lire('/api/chantiers', assistante)).body.find((c) => c.id === affaire.id);
+        assert.deepEqual([...ficheLue.metrics.alertes].sort(), [...ligne.metrics.alertes].sort(), 'fiche et liste');
+        return { alertes: [...ficheLue.metrics.alertes].sort(), marge: ficheLue.metrics.margeBrute };
+      };
+      try {
+        assert.deepEqual(await alertes(false), { alertes: ['HEURES_DEPASSEES', 'MAIN_OEUVRE_DEPASSEE', 'MATERIEL_DEPASSE'], marge: null });
+        assert.deepEqual(await alertes(true), { alertes: ['EN_PERTE', 'HEURES_DEPASSEES', 'MAIN_OEUVRE_DEPASSEE', 'MATERIEL_DEPASSE'], marge: -13.62 });
+      } finally {
+        await regler({ rentabiliteAssistantesTechniques: false });
       }
     });
   });

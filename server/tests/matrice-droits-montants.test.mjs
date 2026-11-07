@@ -13,7 +13,8 @@
 // de D1a-5d-1 (etatsMontants, memeValeur) et la liste fermée des montants masqués de D1a-3 (annotations posées ici).
 // Il enregistre :
 //  - §5.1 : PATCH /api/chantiers/:id (fiche), …/statut et …/commercial par chaque compte admis sur ses chantiers, sous
-//    les quatre contextes de la rentabilité (défaut, et chacun de ses trois destinataires coupé) ; la fiche avec le
+//    les cinq contextes de la rentabilité (défaut, chacun de ses trois premiers destinataires coupé, et le quatrième,
+//    les assistantes techniques, coché : lot « Assistante technique », PR AT-2b, N4 du contrôle) ; la fiche avec le
 //    montant vendu (12 345,67), relu écrit ou inchangé en base, et avec un nom pour DC, AC et CPT ; le chantier terminé
 //    (CT refusé, SA et AD écrivent) ; les refus de la hiérarchie et du directeur, état décrit ;
 //  - §5.2 : chaque couple (route, compte) des réponses 2xx de 5a et 5b sur les routes des 8 groupes, et chaque triplet
@@ -83,12 +84,17 @@ const DEVIS_HORS_ADMINISTRATION = ['COM', 'DC', 'AC', 'CPT', 'CPT-FINANCE'];
 // litEtEcritPrixAchatDevis), sans l'acompte ni l'annulation, qui restent à l'administration. Le coût prévu de la réponse
 // de conversion suit sa rentabilité (coutPrevuSuitRentabilite), fermée jusqu'à AT-2b : il lui est masqué (piège P1).
 const LISENT_PRIX_ACHAT = [...ADMINISTRATION, 'AT'];
-// Réglages de la rentabilité (chantiers/droits.ts:23-35), coupés un à un par SA en préalable (cadrage §5.1).
+// Réglages de la rentabilité (chantiers/droits.ts:23-35), coupés un à un par SA en préalable (cadrage §5.1). Le quatrième
+// destinataire, les assistantes techniques (PR AT-2b ; réponses de Nelson du 06-11-2026, 1 et 2), est décoché à
+// l'installation : son contexte le coche (N4 du contrôle de cohérence d'AT-2b, « un contexte assistantes techniques
+// coché »).
+const RENTABILITE_AT = 'rentabiliteAssistantesTechniques=oui';
 const CONTEXTES_RENTABILITE = [
   ['défaut', null],
   ['rentabiliteConducteur=non', { rentabiliteConducteur: false }],
   ['rentabiliteHierarchie=non', { rentabiliteHierarchie: false }],
   ['rentabiliteDirecteurs=non', { rentabiliteDirecteurs: false }],
+  [RENTABILITE_AT, { rentabiliteAssistantesTechniques: true }],
 ];
 // Droits individuels des triplets « droit … » de 5b (case « droit devis » de l'écran, ou un scope seul), donnés par SA
 // en préalable par la route d'administration, retirés par la remise en état.
@@ -590,8 +596,11 @@ if (!TEST_DATABASE_URL) {
     // droits/visibilite.ts:11-14, :36-57 et :63-70) ---
     // Le directeur est testé avant l'administration (chantiers/droits.ts, voitRentabilite ; réponse de Nelson du 06-11-2026,
     // « Chantiers seulement ») : le réglage lui retire la rentabilité des chantiers bien qu'il ait les droits de l'administration.
+    // L'assistante technique (PR AT-2b), sur tous les chantiers, par son seul réglage, décoché à l'installation : testée avant
+    // la branche du titulaire (une assistante technique titulaire ne lit pas la rentabilité par le réglage du conducteur).
     const voitRentabilite = (compte, chantier, contexte) => {
       if (compte === 'DIR') return !contexte.startsWith('rentabiliteDirecteurs=non');
+      if (compte === 'AT') return contexte.startsWith(RENTABILITE_AT);
       if (ADMINISTRATION.includes(compte)) return true;
       if (['CT', 'RESP'].includes(compte) && TITULAIRE[chantier] === compte) return !contexte.startsWith('rentabiliteConducteur=non');
       if (compte === 'RESP' && BRANCHE_DE_RESP.includes(chantier)) return !contexte.startsWith('rentabiliteHierarchie=non');
@@ -605,8 +614,9 @@ if (!TEST_DATABASE_URL) {
         if (champ === 'coutMaterielPrevu') return (ADMINISTRATION.includes(c.compte) && c.compte !== 'DIR') || voitRentabilite(c.compte, c.cible, c.contexte);
         return c.compte !== 'TECH';
       },
-      // Réponse de la conversion : coût prévu selon la même règle (devis/routes.ts, convertirDevis).
-      2: (c) => () => (ADMINISTRATION.includes(c.compte) && c.compte !== 'DIR') || (c.compte === 'DIR' && voitRentabilite(c.compte, c.cible, c.contexte.split(',')[0])),
+      // Réponse de la conversion : coût prévu selon la même règle (devis/routes.ts, convertirDevis) ; pour le directeur et, depuis
+      // AT-2b, l'assistante technique, il suit la rentabilité (coutPrevuSuitRentabilite ; C5 (b) du contrôle d'AT-2b).
+      2: (c) => () => (ADMINISTRATION.includes(c.compte) && c.compte !== 'DIR') || (['DIR', 'AT'].includes(c.compte) && voitRentabilite(c.compte, c.cible, c.contexte.split(',')[0])),
       // Prix d'achat prévu des lignes de devis : l'administration et, depuis AT-2a, l'assistante technique (voitPrixAchatDevis).
       3: (c) => () => LISENT_PRIX_ACHAT.includes(c.compte),
       4: (c) => () => ADMINISTRATION.includes(c.compte),
@@ -630,7 +640,7 @@ if (!TEST_DATABASE_URL) {
       };
       const motif = (quoi) => `TEST motif de ${quoi} par la matrice des montants`;
 
-      // §5.1 : montant vendu et réponses des trois routes de chantier, sous les quatre contextes de la rentabilité.
+      // §5.1 : montant vendu et réponses des trois routes de chantier, sous les cinq contextes de la rentabilité.
       const refusesCommercial = { 'GET /api/chantiers/:id/journal-saisies': 'TECH' };
       for (const [contexte, reglage] of CONTEXTES_RENTABILITE) {
         const prealables = prealableReglage(reglage);
@@ -640,10 +650,14 @@ if (!TEST_DATABASE_URL) {
         // l'administration, est joué comme AD (lot « Directeur aligné sur l'administration ») : il écrit le vendu avec le
         // réglage, et il lui est refusé sans lui (403), sur le chantier en cours comme sur le chantier terminé (réponses de
         // Nelson du 06-11-2026).
-        const vendu = [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp'], ['RESP', 'chantier-ct-branche-resp'], ['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt'], ['CT', 'chantier-termine'], ['SA', 'chantier-termine'], ['AD', 'chantier-termine'], ['DIR', 'chantier-termine']];
+        // L'assistante technique (PR AT-2b ; cadrage v4, C5 (a)) écrit le vendu d'une affaire en cours de toute la société sous
+        // son réglage, coché par le contexte RENTABILITE_AT ; il lui est refusé (403) sans lui, et sur le chantier terminé dans
+        // tous les contextes (affaire clôturée, refus de la fiche avant celui du vendu).
+        const vendu = [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp'], ['RESP', 'chantier-ct-branche-resp'], ['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt'], ['CT', 'chantier-termine'], ['SA', 'chantier-termine'], ['AD', 'chantier-termine'], ['DIR', 'chantier-termine'], ['AT', 'chantier-ct'], ['AT', 'chantier-termine']];
         for (const [compte, nom] of vendu) {
           let code = 403;
           if (compte === 'DIR') code = voitRentabilite(compte, nom, contexte) ? 200 : 403;
+          else if (compte === 'AT') code = nom !== 'chantier-termine' && voitRentabilite(compte, nom, contexte) ? 200 : 403;
           else if (ADMINISTRATION.includes(compte)) code = 200;
           else if (nom === 'chantier-ct-branche-resp') code = 404;
           else if (['CT', 'RESP'].includes(compte) && nom !== 'chantier-termine' && voitRentabilite(compte, nom, contexte)) code = 200;
@@ -652,15 +666,18 @@ if (!TEST_DATABASE_URL) {
         // Fiche, corps nom : DC, AC et CPT, dont la réponse masque le montant vendu (cadrage §5.1) ; AD et DIR, dont la
         // réponse le garde, sauf pour le directeur sans la rentabilité (lot « Directeur aligné sur l'administration »,
         // réponse de Nelson du 06-11-2026, « Chantiers seulement » : réponses de modification).
-        for (const [compte, nom] of [['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt'], ['AD', 'chantier-ct'], ['DIR', 'chantier-ct']]) {
+        // L'assistante technique (PR AT-2b) renomme une affaire en cours dont elle n'est pas titulaire : sa réponse masque le vendu
+        // et le coût prévu, sauf sous son réglage.
+        for (const [compte, nom] of [['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt'], ['AD', 'chantier-ct'], ['DIR', 'chantier-ct'], ['AT', 'chantier-ct']]) {
           ajouterGroupe(1, compte, 'PATCH /api/chantiers/:id', nom, ctx('nom'), `/api/chantiers/${chantier(nom)}`, () => ({ nom: `TEST ${nom} renommé par la matrice des montants` }), { prealables, code: 200, montant: null });
         }
         // Statut : chaque compte admis sur son chantier (5a), dont DIR et RESP par sa branche.
         for (const [compte, nom] of [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['CT', 'chantier-ct'], ['DIR', 'chantier-ct'], ['RESP', 'chantier-resp'], ['RESP', 'chantier-tech-branche-resp'], ['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt']]) {
           ajouterGroupe(1, compte, 'PATCH /api/chantiers/:id/statut', nom, ctx('statut=TERMINE'), `/api/chantiers/${chantier(nom)}/statut`, () => ({ statut: 'TERMINE' }), { prealables, code: 200, montant: null });
         }
-        // Commercial : chaque compte admis sur son chantier (5b), le directeur comme AD.
-        for (const [compte, nom] of [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp'], ['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt']]) {
+        // Commercial : chaque compte admis sur son chantier (5b), le directeur comme AD ; l'assistante technique (PR AT-2b) sur une
+        // affaire en cours dont elle n'est pas titulaire.
+        for (const [compte, nom] of [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp'], ['DC', 'chantier-dc'], ['AC', 'chantier-ac'], ['CPT', 'chantier-cpt'], ['AT', 'chantier-ct']]) {
           ajouterGroupe(1, compte, 'PATCH /api/chantiers/:id/commercial', nom, ctx('commercialId=COM'), `/api/chantiers/${chantier(nom)}/commercial`, () => ({ commercialId: comptes.COM.id }), { prealables, code: 200, montant: null, refuses: refusesCommercial });
         }
       }
@@ -668,6 +685,9 @@ if (!TEST_DATABASE_URL) {
       // §5.2, G2 : conversion en chantier de devis-signe-prix-achat (un cas par couple ; triplets « droit … »).
       const conversion = (compte, contexte, prealables = []) => ajouterGroupe(2, compte, 'POST /api/devis/:id/convertir', 'devis-signe-prix-achat', `${contexte}, corps cible=CHANTIER`, `/api/devis/${P['devis-signe-prix-achat']}/convertir`, () => ({ cible: 'CHANTIER' }), { prealables, code: 201, montant: { genre: 'conversion' } });
       for (const compte of [...ADMINISTRATION, ...DEVIS_HORS_ADMINISTRATION, 'AT']) conversion(compte, 'défaut');
+      // PR AT-2b (cadrage v4, C5 (b)) : sous son réglage coché, la réponse de sa conversion rend le coût prévu ; le contexte
+      // « défaut », plus haut, le masque.
+      conversion('AT', RENTABILITE_AT, [{ compte: SA, methode: 'PUT', chemin: '/api/parametres', corps: { rentabiliteAssistantesTechniques: true } }]);
       // §5.2, G3 : les sept routes des devis.
       const devisCree = (prixAchatUnitaireHt) => ({ totaux: { totalHt: MONTANTS.ligneHt, totalTva: MONTANTS.devisTva, totalTtc: MONTANTS.ligneTtc }, lignes: [{ ...MONTANTS.ligne, totalHt: MONTANTS.ligneHt, totalTtc: MONTANTS.ligneTtc, prixAchatUnitaireHt }] });
       const corpsDevisCatalogue = () => ({ clientId: d.clientActif, objet: 'TEST Devis du catalogue de la matrice des montants', lignes: [d.ligneCatalogue('TEST Ligne du catalogue copiée par la matrice des montants', MONTANTS.ligne.quantite, MONTANTS.ligne.prixUnitaireHt)] });
@@ -728,15 +748,22 @@ if (!TEST_DATABASE_URL) {
 
       // §5.2, G4 : heures d'un chantier (création, correction, restauration) ; montants relus par 5c.
       const corpsHeures = (nom) => () => ({ chantierId: chantier(nom), intervenantId: d.ficheLibre, date: d.hier, nbrHeures: 2.75 });
-      for (const [compte, nom] of [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp']]) {
-        ajouterGroupe(4, compte, 'POST /api/heures', `chantierId=${nom}`, 'défaut, corps heures', '/api/heures', corpsHeures(nom), { code: 200, montant: null });
+      // L'assistante technique (PR AT-2b ; réponse 10 de Nelson du 06-11-2026) saisit et corrige les heures d'une affaire en cours
+      // dont elle n'est pas titulaire, sans taux dans la réponse ; sous son réglage de rentabilité coché aussi (cadrage v4,
+      // C5 (c) : la rentabilité ne lui ouvre aucun coût de main-d'œuvre).
+      const contextesHeures = (compte) => (compte === 'AT' ? [['défaut', []], [RENTABILITE_AT, [{ compte: SA, methode: 'PUT', chemin: '/api/parametres', corps: { rentabiliteAssistantesTechniques: true } }]]] : [['défaut', []]]);
+      for (const [compte, nom] of [['SA', 'chantier-ct'], ['AD', 'chantier-ct'], ['AD-COM', 'chantier-ct'], ['DIR', 'chantier-ct'], ['CT', 'chantier-ct'], ['RESP', 'chantier-resp'], ['AT', 'chantier-ct']]) {
+        for (const [contexte, prealables] of contextesHeures(compte)) ajouterGroupe(4, compte, 'POST /api/heures', `chantierId=${nom}`, `${contexte}, corps heures`, '/api/heures', corpsHeures(nom), { prealables, code: 200, montant: null });
       }
-      for (const [compte, nom] of [['SA', 'heure-chantier-ct'], ['AD', 'heure-chantier-ct'], ['AD-COM', 'heure-chantier-ct'], ['DIR', 'heure-chantier-ct'], ['CT', 'heure-chantier-ct'], ['RESP', 'heure-chantier-ct-branche-resp']]) {
-        ajouterGroupe(4, compte, 'PATCH /api/heures/:id', nom, 'défaut, corps commentaire, heures et motif', `/api/heures/${id('heure', nom)}`, () => ({ motifCorrection: motif('correction'), commentaire: 'TEST Pointage corrigé par la matrice des montants', nbrHeures: 3.25 }), { code: 200, montant: null });
+      for (const [compte, nom] of [['SA', 'heure-chantier-ct'], ['AD', 'heure-chantier-ct'], ['AD-COM', 'heure-chantier-ct'], ['DIR', 'heure-chantier-ct'], ['CT', 'heure-chantier-ct'], ['RESP', 'heure-chantier-ct-branche-resp'], ['AT', 'heure-chantier-ct']]) {
+        for (const [contexte, prealables] of contextesHeures(compte)) ajouterGroupe(4, compte, 'PATCH /api/heures/:id', nom, `${contexte}, corps commentaire, heures et motif`, `/api/heures/${id('heure', nom)}`, () => ({ motifCorrection: motif('correction'), commentaire: 'TEST Pointage corrigé par la matrice des montants', nbrHeures: 3.25 }), { prealables, code: 200, montant: null });
       }
       const restaurer = (compte, contexte, prealables = []) => ajouterGroupe(4, compte, 'POST /api/heures/:id/restaurer', 'heure-archivee-chantier-ct', `${contexte}, corps motif de restauration`, `/api/heures/${id('heure', 'heure-archivee-chantier-ct')}/restaurer`, () => ({ motifRestauration: motif('restauration') }), { prealables, code: 200, montant: null });
       for (const compte of ADMINISTRATION) restaurer(compte, 'défaut');
       restaurer('CT', 'droit chantiers:archive', prealableDroit('CT', 'droit chantiers:archive'));
+      // PR AT-2b : chantiers:archive n'est pas donné à l'assistante technique par son type (choix par défaut, à confirmer) ; donné
+      // individuellement, il lui ouvre la restauration sur une affaire en cours de toute la société, sans taux dans la réponse.
+      restaurer('AT', 'droit chantiers:archive', prealableDroit('AT', 'droit chantiers:archive'));
       // §5.2, G5 : heures SAV du technicien affecté (création, correction).
       ajouterGroupe(5, 'TECH', 'POST /api/interventions/:id/couts/heures', 'intervention-affectee-tech', 'défaut, corps date et heures', `/api/interventions/${id('intervention', 'intervention-affectee-tech')}/couts/heures`, () => ({ date: d.aujourdhui, nbrHeures: 1.75 }), { code: 201, montant: null });
       ajouterGroupe(5, 'TECH', 'PATCH /api/interventions/:id/couts/:type/:coutId', 'heures-tech-intervention-affectee', 'défaut, corps nbrHeures et motif', cheminPour('/api/interventions/:id/couts/:type/:coutId', 'cout-sav', cibleDe('cout-sav', 'heures-tech-intervention-affectee')), () => ({ motifCorrection: motif('correction des heures'), nbrHeures: 2.25 }), { code: 200, montant: null });
@@ -985,8 +1012,10 @@ if (!TEST_DATABASE_URL) {
       // 21 : les 10 triplets du directeur (cinq routes des devis, droit devis et devis:write) ont quitté 5b avec le lot
       // « Directeur aligné sur l'administration », qui lui donne ces droits par son type (31 auparavant). 31 de nouveau avec
       // le lot « Assistante technique » (AT-1) : les 10 triplets de l'assistante technique, sans devis par son type. 21 de
-      // nouveau avec AT-2a, qui lui donne le droit devis par son type : ses couples sont joués au contexte « défaut ».
-      assert.equal(triplets.size, 21, 'triplets « droit … » de 5b sur les routes des 8 groupes');
+      // nouveau avec AT-2a, qui lui donne le droit devis par son type : ses couples sont joués au contexte « défaut ». 22 avec
+      // AT-2b : la restauration des heures par l'assistante technique à qui chantiers:archive est donné individuellement (sur une
+      // affaire en cours de toute la société, non donné par son type ; choix par défaut, à confirmer).
+      assert.equal(triplets.size, 22, 'triplets « droit … » de 5b sur les routes des 8 groupes');
       const parGroupe = [...couples.values()].reduce((a, g) => ({ ...a, [g]: (a[g] ?? 0) + 1 }), {});
       diagnostics.push(`couples (route, compte) des 8 groupes : ${couples.size} (${Object.entries(parGroupe).map(([g, n]) => `G${g} ${n}`).join(', ')}) ; triplets « droit … » : ${triplets.size}`);
       diagnostics.push(`cas : ${cas.length} (groupes ${cas.filter((c) => c.groupe).length}, planning ${cas.filter((c) => c.planning).length}, relecture propre d’un montant ${cas.filter((c) => c.montant).length}, refus du montant vendu compris)`);

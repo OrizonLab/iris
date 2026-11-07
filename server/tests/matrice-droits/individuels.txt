@@ -1,3 +1,11 @@
+AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
+AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
 CT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
 CT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400
 CT | chantiers:archive | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 400

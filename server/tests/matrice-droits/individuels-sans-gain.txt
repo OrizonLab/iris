@@ -72,46 +72,23 @@ AD | finances:read | GET /api/users | — | défaut | valeurs AD | permissions :
 AT | accesFinance | GET /api/me | — | défaut | valeurs . | accesFinance : non → oui ; permissions : + finances:read
 AT | catalogue:read | GET /api/me | — | défaut | valeurs . | permissions : + catalogue:read
 AT | catalogue:write | GET /api/me | — | défaut | valeurs . | permissions : + catalogue:write
-AT | chantiers:archive | DELETE /api/achats/:id | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
+AT | chantiers:archive | DELETE /api/achats/:id | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Cet achat est déjà archivé. »
+AT | chantiers:archive | DELETE /api/achats/:id | achat-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
 AT | chantiers:archive | DELETE /api/achats/:id | inexistant | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Achat introuvable. »
-AT | chantiers:archive | DELETE /api/heures/:id | heure-archivee-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
+AT | chantiers:archive | DELETE /api/heures/:id | heure-archivee-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Ce pointage est déjà archivé. »
+AT | chantiers:archive | DELETE /api/heures/:id | heure-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
 AT | chantiers:archive | DELETE /api/heures/:id | inexistant | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Pointage introuvable. »
 AT | chantiers:archive | GET /api/me | — | défaut | valeurs . | permissions : + chantiers:archive
-AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
+AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Cet achat est déjà actif. »
+AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Cet achat est déjà actif. »
+AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Cet achat est déjà actif. »
+AT | chantiers:archive | POST /api/achats/:id/restaurer | achat-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
 AT | chantiers:archive | POST /api/achats/:id/restaurer | inexistant | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Achat introuvable. »
-AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
-AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Chantier introuvable »
+AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Ce pointage est déjà actif. »
+AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Ce pointage est déjà actif. »
+AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:archive » → 409 « Ce pointage est déjà actif. »
+AT | chantiers:archive | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:archive » → 403 « Ce chantier est clôturé : impossible d'y ajouter une dépense ou des heures. »
 AT | chantiers:archive | POST /api/heures/:id/restaurer | inexistant | défaut | entrée | 403 « Permission requise : chantiers:archive » → 404 « Pointage introuvable. »
-AT | chantiers:write | GET /api/me | — | défaut | valeurs . | permissions : + chantiers:write
-AT | chantiers:write | PATCH /api/achats/:id | achat-archive-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/achats/:id | achat-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/achats/:id | achat-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/achats/:id | achat-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/achats/:id | achat-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/achats/:id | inexistant | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Achat introuvable. »
-AT | chantiers:write | PATCH /api/heures/:id | heure-archivee-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/heures/:id | heure-chantier-autre | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/heures/:id | heure-chantier-ct | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/heures/:id | heure-chantier-ct-branche-resp | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/heures/:id | heure-chantier-termine | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Chantier introuvable »
-AT | chantiers:write | PATCH /api/heures/:id | inexistant | défaut | entrée | 403 « Permission requise : chantiers:write » → 404 « Pointage introuvable. »
-AT | chantiers:write | POST /api/achats | — | défaut | entrée | 403 « Permission requise : chantiers:write » → 400 validation-avant-droit
-AT | chantiers:write | POST /api/heures | — | défaut | entrée | 403 « Permission requise : chantiers:write » → 400 validation-avant-droit
 AT | clients:write | GET /api/me | — | défaut | valeurs . | permissions : + clients:write
 AT | company:read | GET /api/me | — | défaut | valeurs . | permissions : + company:read
 AT | equipements:read | GET /api/me | — | défaut | valeurs . | permissions : + equipements:read

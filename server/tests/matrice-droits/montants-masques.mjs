@@ -70,6 +70,9 @@ const ADMIN = ['SA', 'AD', 'AD-COM', 'DIR'];
 // (réponses 4 et 8 du 06-11-2026 : « Prix d'achat oui, coûts non », catalogue et parc en lecture seule), elle lit aussi les
 // prix d'achat prévus des devis, ceux des fiches du catalogue des devis et ceux du parc (litEtEcritPrixAchatDevis), jamais
 // le coût prévu d'un chantier, qui suit sa rentabilité (coutPrevuSuitRentabilite, piège P1), ni les routes du catalogue.
+// Depuis AT-2b (réponses 1 et 2 du 06-11-2026 ; réponse 1 du 07-11-2026, « Accepter »), sa rentabilité suit un réglage propre,
+// rentabiliteAssistantesTechniques, décoché à l'installation : elle reste classée « masque » ci-dessous (état par défaut), et
+// RENTABILITE_ASSISTANTES_TECHNIQUES, plus bas, liste ce que ce réglage coché lui ouvre et ce qu'il lui laisse masqué.
 
 // Une entrée : type d'objet, chemins du champ dans l'objet (un seul, sauf les instantanés du journal, avant et
 // après), règle, source dans le code, comptes qui le voient (un au moins doit l'avoir présent) et comptes qui ne le
@@ -188,6 +191,24 @@ export const MONTANTS_MASQUES = [
   // Masquée par le seul réglage : un commercial ne lit que sa ligne, l'administration toutes (liste, et non champ).
   M('stats-commercial', 'chantiers[].margeCommerciale', 'margeCommercialeActive', 'commissions/routes.ts:66 et :95 ; chantiers/suivi.ts:139-141', { voit: [...ADMIN, 'COM'], reglages: ['margeCommercialeActive=non'] }),
 ];
+
+// Lot « Assistante technique », PR AT-2b (cadrage v4 : R1 de la v3, C5 (c) et N4 du contrôle de cohérence) : ce que le réglage
+// rentabiliteAssistantesTechniques coché ouvre à l'assistante technique, sur tous les chantiers (vendu, marges du jour et
+// estimée, estimation, coût prévu : voitRentabilite et coutPrevuSuitRentabilite), et ce qu'il lui laisse masqué : la
+// facturation de la fiche jusqu'à AT-3 (voitFacturationChantier, choix par défaut, le plus restrictif, à confirmer), le coût de
+// main-d'œuvre, ses totaux, ses taux et les hypothèses de coût de l'estimation (voitCoutMainOeuvre inchangé, réponse 4 du
+// 06-11-2026, « coûts non »). Observé par le test « assistantes techniques coché » de matrice-droits-donnees.test.mjs, sous le
+// contexte du même nom : chaque champ ouvert présent pour AT au moins une fois, chaque champ masqué jamais présent pour AT et
+// au moins une fois nul ou absent sur un objet qui le porte.
+export const RENTABILITE_ASSISTANTES_TECHNIQUES = {
+  contexte: 'rentabiliteAssistantesTechniques=oui',
+  compte: 'AT',
+  ouvre: ['budgetGlobalVendu', 'coutMaterielPrevu', 'metrics.margeBrute', 'metrics.margeCommerciale', 'metrics.margePct', 'metrics.margeEstimee', 'metrics.margeEstimeePct', 'metrics.estimation'],
+  masque: [
+    'facturation', 'metrics.moReel', 'metrics.totalDepenses', 'metrics.pctMainOeuvre', 'metrics.coutsSuites.coutMainOeuvre', 'metrics.coutsInterventionDevis.coutMainOeuvre',
+    'metrics.estimation.coutEstime', 'metrics.estimation.coutMainOeuvreAttendu', 'metrics.estimation.coutHoraireReference', 'pointages[].tauxHoraireApplique', 'pointages[].intervenant.tauxHoraireCharge',
+  ],
+};
 
 // Champs masqués selon le demandeur qui ne sont pas des montants : le test « aucun champ masqué hors de la liste »
 // les admet, avec leur raison. Clé : route, puis chemin du champ dans la réponse (« . » : la réponse elle-même) ou

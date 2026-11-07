@@ -56,3 +56,14 @@ test('au journal, le type de compte se lit sous son libellé ; un code inconnu r
   // Même tiret que les autres champs vides : une seule convention dans le journal.
   assert.equal(lisible('', 'role'), lisible('', 'nom'));
 });
+
+// Lot « Assistante technique », PR AT-2b (cadrage AT-2, v4, C3 : « Libellé du journal : « Rentabilité : assistantes
+// techniques », sur le modèle de journalAdministration.ts:25 ») : le quatrième destinataire de la rentabilité se lit en clair,
+// à côté des trois autres, et sa valeur en oui ou non.
+test('le réglage de rentabilité des assistantes techniques se lit en clair dans le journal d’administration, comme les trois autres destinataires (AT-2b)', () => {
+  assert.equal(CHAMPS_JOURNAL.rentabiliteAssistantesTechniques, 'Rentabilité : assistantes techniques');
+  assert.deepEqual([CHAMPS_JOURNAL.rentabiliteConducteur, CHAMPS_JOURNAL.rentabiliteHierarchie, CHAMPS_JOURNAL.rentabiliteDirecteurs],
+    ['Rentabilité : conducteur', 'Rentabilité : hiérarchie', 'Rentabilité : directeurs']);
+  assert.equal(lisible(true, 'rentabiliteAssistantesTechniques'), 'oui');
+  assert.equal(lisible(false, 'rentabiliteAssistantesTechniques'), 'non');
+});
