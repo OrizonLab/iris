@@ -3854,7 +3854,7 @@ Effets à connaître : « Créer l'intervention » montré à un conducteur port
 
 ## Décisions du 07-11-2026 sur AT-2b
 
-*Rédigé le 07-11-2026.* Quatre questions de Claude Code et les réponses de Nelson dans la session de travail du 07-11-2026, posées avant AT-2b, la troisième PR du lot « Assistante technique » (après AT-1, [#508](https://github.com/Noxia-Groupe/iris/pull/508), et AT-2a, [#512](https://github.com/Noxia-Groupe/iris/pull/512)). Elles étaient écrites « sans réponse consignée » dans la passation (voir « [Questions à poser avant AT-2b](#questions-à-poser-avant-at-2b) »). Les quatre questions ont été posées en une fois, le 07-11-2026 à 06:10:23 UTC, et les réponses reçues le 07-11-2026 à 18:12:14 UTC. Les citations sont reprises par programme du journal des questions de la session (questions, options, descriptions, heures) et comparées au caractère près. **Les descriptions des options sont des textes de Claude Code ; seul le choix d'une option est de Nelson.** Chaque réponse est consignée avec ce qu'elle applique à AT-2b et rien au-delà de son texte ; ce qui reste à décider est écrit comme tel.
+*Rédigé le 07-11-2026.* Quatre questions de Claude Code et les réponses de Nelson dans la session de travail du 07-11-2026, posées avant AT-2b, la troisième PR du lot « Assistante technique » (après AT-1, [#508](https://github.com/Noxia-Groupe/iris/pull/508), et AT-2a, [#512](https://github.com/Noxia-Groupe/iris/pull/512)). Elles figurent, telles qu'elles étaient avant les réponses, dans « [Questions à poser avant AT-2b](#questions-à-poser-avant-at-2b) » ; elles n'ont été portées comme questions ouvertes dans la passation d'aucun commit, les réponses étant arrivées avant le premier commit de la PR documentaire d'après #512. Les quatre questions ont été posées en une fois, le 07-11-2026 à 06:10:23 UTC, et les réponses reçues le 07-11-2026 à 18:12:14 UTC. Les citations sont reprises par programme du journal des questions de la session (questions, options, descriptions, heures) et comparées au caractère près. **Les descriptions des options sont des textes de Claude Code ; seul le choix d'une option est de Nelson.** Chaque réponse est consignée avec ce qu'elle applique à AT-2b et rien au-delà de son texte ; ce qui reste à décider est écrit comme tel.
 
 ### Les quatre réponses
 
@@ -3865,7 +3865,7 @@ Effets à connaître : « Créer l'intervention » montré à un conducteur port
 - **Options écartées**, avec leurs descriptions, mot pour mot :
   - « Masquer la marge du jour » : « Réglage coché, elle voit le vendu et l'estimation, mais pas la marge du jour. Il faut une exception de plus dans le masquage des chantiers, avec ses tests. » ;
   - « Vendu seulement » : « Le réglage ne lui ouvre que le montant vendu : ni marge du jour, ni marge estimée, ni alertes de marge. Le plus restrictif. »
-- **Ce que la réponse applique à AT-2b** : la société qui coche le réglage `rentabiliteAssistantesTechniques` donne à l'assistante technique la marge du jour, comme aux autres destinataires de la rentabilité ; le coût de main-d'œuvre reste déductible par calcul (limite déjà admise et documentée pour eux, à documenter pour elle). Le réglage reste décoché à l'installation (réponses 1 et 2 du 06-11-2026) et laisse ce choix à la société. Elle ne masque pas la marge du jour et ne se limite pas au vendu ; la réponse 4 du 06-11-2026 (« coûts non ») reste appliquée hors de ce cas, réglage décoché.
+- **Ce que la réponse applique à AT-2b** : la société qui coche le réglage `rentabiliteAssistantesTechniques` donne à l'assistante technique la marge du jour, comme aux autres destinataires de la rentabilité ; le coût de main-d'œuvre reste déductible par calcul (limite déjà admise et documentée pour eux, à documenter pour elle). Le réglage reste décoché à l'installation (réponses 1 et 2 du 06-11-2026) et laisse ce choix à la société. Elle ne masque pas la marge du jour et ne se limite pas au vendu ; la réponse 4 du 06-11-2026 (« coûts non ») reste appliquée, réglage coché comme décoché : la réponse n'accepte que la déduction du coût de main-d'œuvre par calcul, depuis la marge du jour, réglage coché.
 
 #### 2. Essais successifs
 
@@ -3897,13 +3897,13 @@ Effets à connaître : « Créer l'intervention » montré à un conducteur port
 
 - AT-2b reste **prévue** ; elle devient la prochaine PR, « Maintenant », par la réponse 4 ci-dessus.
 - Son cadrage, « pas go » au contrôle de cohérence de mode 1 (R1, C5, C6) avant ces réponses, est **à compléter** avec elles, puis **à revérifier par le `controleur-coherence` avant tout code**. Il n'est pas « go ».
-- Les choix par défaut d'AT-2b qui restent à confirmer (archivage et restauration des saisies Travaux, rapport de chantier et son envoi, autres champs de la fiche) ne sont pas touchés par ces réponses.
+- Les choix par défaut d'AT-2b qui restent à confirmer (archivage et restauration des saisies Travaux, rapport de chantier et son envoi) ne sont pas touchés par ces réponses. Les champs de la fiche d'une affaire en cours ne sont plus un choix par défaut : la réponse 3 ci-dessus les tranche (tous, comme l'administration).
 - La question à poser avant AT-3 (Q4 du cadrage, « [Question à poser avant AT-3](#question-à-poser-avant-at-3) ») reste ouverte.
 - Aucune de ces réponses ne vaut validation comptable ni « validé pour mise en service ».
 
-### Texte de la passation d'avant ces réponses, archivé
+### Texte du premier passage de la PR documentaire d'après #512, d'avant ces réponses
 
-*Archivé le 07-11-2026.* Texte déplacé ici sans changement de texte, remplacé dans la passation par les réponses ci-dessus.
+*Archivé le 07-11-2026.* Texte rédigé pour la passation par le premier passage de la PR documentaire d'après #512, avant ces réponses, puis remplacé ou complété par elles avant le premier commit de cette PR : il n'a figuré dans la passation d'aucun commit, ni de `main` ni de la branche. Il est gardé ici sans changement de texte, pour mémoire.
 
 - En-tête, prochaine PR, avant les réponses du 07-11-2026 :
 
@@ -4005,7 +4005,7 @@ Ordre de fusion : #507, #508, puis #511, #512.
 
 - `MODELE-DROITS-COMPTES.md`, ligne de la remise « à planifier » (N7 du contrôleur) : l'assistante technique est citée, comme le directeur, parmi les comptes admis, et le périmètre SAV est « tout le SAV » pour elle aussi.
 - Aucun changement nécessaire hors de `docs/` : `README.md`, `CLAUDE.md` et `.agents/AGENTS.md` ne parlent pas de l'assistante technique.
-- **Par la PR documentaire d'après #512.** Passages de la passation devenus faux depuis #512, vérifiés contre le code de `3ad3f99` (N7 du contrôle de cohérence de #512, qui en donnait six) : le coût prévu, section 1 (marge estimée, #368) et section 4 (« Exception du directeur », devenue « du directeur et de l'assistante technique ») ; les contrats et le technicien, section 4 (#381) ; l'écran Devis, section 4 ; l'envoi du contrat, section 4 (compte rendu) ; la case « pas de SIRET », section 4 (`requireGestionClients`). Trois autres passages de la même famille, que le contrôleur ne citait pas, sont aussi corrigés : le prix d'achat repris de la fiche du catalogue (section 2, #161), les droits de la création directe de la cible (section 4, #281) et les droits du devis au temps passé (section 4). Chaque ancien texte est archivé ci-dessous.
+- **Par la PR documentaire d'après #512.** Passages de la passation devenus faux depuis #512, vérifiés contre le code de `3ad3f99` (N7 du contrôle de cohérence de #512, qui en donnait six) : le coût prévu, section 1 (marge estimée, #368) et section 4 (« Exception du directeur », devenue « du directeur et de l'assistante technique ») ; les contrats et le technicien, section 4 (#381) ; l'écran Devis, section 4 ; l'envoi du contrat, section 4 (compte rendu) ; la case « pas de SIRET », section 4 (`requireGestionClients`). Trois autres passages de la même famille, que le contrôleur ne citait pas, sont aussi corrigés : le prix d'achat repris de la fiche du catalogue (section 2, #161), les droits de la création directe de la cible (section 4, #281) et les droits du devis au temps passé (section 4). Quatre autres, relevés par le contrôle de cohérence de cette PR, le sont aussi : le prix d'achat prévu des lignes reprises du catalogue (section 1, « Devis et affaire »), le passage manuel de la génération des visites (section 1), la recherche du catalogue pour un devis (section 4, #161) et les droits du PDF du contrat (section 4, #383). Chaque ancien texte est archivé ci-dessous.
 - **Hors de `docs/`** : `README.md`, l. 273, a été corrigé par #512 elle-même (C2 du contrôleur). Le paragraphe « Périmètre de lecture » du `README.md` (N3 de #511, versée à #477) reste à compléter ; `CLAUDE.md` et `.agents/AGENTS.md` ne parlent toujours pas de l'assistante technique.
 
 ### Texte de la passation d'avant la fusion de #508, archivé
@@ -4090,6 +4090,10 @@ Ordre de fusion : #507, #508, puis #511, #512.
   - Section 4, aides nommées, coût prévu : « pour le coût prévu (le directeur, avant `voitPrixAchatDevis`). »
   - Section 4, bloc AT-1, écritures d'une affaire : « le plus restrictif, jusqu'à AT-2) : `PATCH /api/chantiers/:id` »
   - Section 4, bloc AT-1, rapport de chantier : « jusqu'à ce qu'AT-2 tranche) : réservés »
+  - Section 1, « Devis et affaire », livré, prix d'achat prévu (relevé par le contrôle de cohérence de cette PR) : « lignes reprises du catalogue et copiées figées, prix d'achat prévu réservé à l'administration ; »
+  - Section 1, génération automatique des visites, passage manuel (même contrôle) : « passage manuel par l'administration ; »
+  - Section 4, catalogue dans les devis, recherche du catalogue (même contrôle) : « (fiches actives, 50 au plus, sans prix d'achat hors administration) »
+  - Section 4, PDF du contrat de maintenance, droits (même contrôle) : « `GET /api/contrats-maintenance/:id/document.pdf`, réservé à l'administration en session (`requireAdmin`), comme toutes les routes des contrats ; »
 
 ## En-tête de la passation au 30-10-2026
 
