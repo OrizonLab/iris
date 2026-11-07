@@ -23,6 +23,7 @@ export const CHAMPS_JOURNAL: Record<string, string> = {
   rentabiliteConducteur: 'Rentabilité : conducteur',
   rentabiliteHierarchie: 'Rentabilité : hiérarchie',
   rentabiliteDirecteurs: 'Rentabilité : directeurs',
+  rentabiliteAssistantesTechniques: 'Rentabilité : assistantes techniques',
   planningActif: 'Planning',
   // Mode d'envoi des documents (lot 6b-1b, C-N1 de #411).
   modeEnvoi: 'Mode d’envoi des documents',

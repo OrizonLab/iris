@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {
   gereLesContrats, isAdminRole, isSuperAdminRole, peutAccederAuxDevis, peutConsulterAnnuaire, peutConsulterPlanning, peutOuvrirAdministration, peutVoirInterventions,
-  peutVoirStatistiques, roleDuCompte, ROLE_COMMERCIAL, ROLE_CONDUCTEUR, ROLE_RESPONSABLE, ROLE_TECHNICIEN, type CurrentUser,
+  peutVoirStatistiques, peutVoirTravaux, roleDuCompte, ROLE_COMMERCIAL, ROLE_TECHNICIEN, type CurrentUser,
 } from './droits';
 
 export interface EntreeMenu {
@@ -32,7 +32,8 @@ export function sectionsMenu(user: CurrentUser | null | undefined, planningActif
   const role = roleDuCompte(user);
   const isCommercial = role === ROLE_COMMERCIAL;
   const isAdmin = isAdminRole(role);
-  const peutVoirTravaux = isAdmin || role === ROLE_CONDUCTEUR || role === ROLE_RESPONSABLE;
+  // Écrans Travaux : même liste que les routes /achats et /heures (ROLES_TRAVAUX, cf. peutVoirTravaux).
+  const travauxVisibles = peutVoirTravaux(role);
 
   const sections: { titre?: string; entrees: (EntreeMenu & { visible: boolean })[] }[] = [
     { entrees: [
@@ -47,8 +48,8 @@ export function sectionsMenu(user: CurrentUser | null | undefined, planningActif
       // commercial, à l'assistante commerciale et au comptable. Le directeur, qui a les droits de
       // l'administration, le consulte comme elle.
       { to: '/planning', libelle: 'Planning', icone: CalendarDays, visible: peutConsulterPlanning(role) && planningActif },
-      { to: '/achats', libelle: 'Journal des achats', icone: ShoppingCart, visible: peutVoirTravaux },
-      { to: '/heures', libelle: 'Journal des heures', icone: Clock, visible: peutVoirTravaux },
+      { to: '/achats', libelle: 'Journal des achats', icone: ShoppingCart, visible: travauxVisibles },
+      { to: '/heures', libelle: 'Journal des heures', icone: Clock, visible: travauxVisibles },
     ] },
     { titre: 'Interventions', entrees: [
       { to: '/interventions', libelle: 'Interventions SAV', icone: Wrench, visible: peutVoirInterventions(role) },

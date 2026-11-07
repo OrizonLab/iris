@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { SelecteurClient, type ClientActuel } from './SelecteurClient';
 import { TYPES_CHANTIER } from '../chantierTypes';
-import { isAdminRole } from '../roles';
+import { gereLesChantiersEnCours } from '../roles';
 import { jourCivilChantier } from '../lib/dateFormatting';
 
 export function ChantierModaleModification({ setEditingChantier, handleChantierSubmit, chantier, userRole, editClientId, setEditClientId, clientActuel, editResponsableId, setEditResponsableId, conducteurs, commerciaux, editCommercialId, setEditCommercialId, companyTimezone, fuseauConnu, libelleBaremeReduit, savingChantier }: {
@@ -38,8 +38,8 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
                 <input required name="nom" defaultValue={chantier.nom} className="form-input" />
               </div>
               <div className="form-group mb-0">
-                <label className="form-label" htmlFor={isAdminRole(userRole) ? 'client-chantier' : undefined}>Client</label>
-                {isAdminRole(userRole) ? (
+                <label className="form-label" htmlFor={gereLesChantiersEnCours(userRole) ? 'client-chantier' : undefined}>Client</label>
+                {gereLesChantiersEnCours(userRole) ? (
                   <SelecteurClient id="client-chantier" name="clientId" label="Client du chantier" required valeur={editClientId} onChange={(client) => setEditClientId(client?.id ?? '')} clientActuel={clientActuel} />
                 ) : <input readOnly value={chantier.client} className="form-input bg-gray-50" />}
               </div>
