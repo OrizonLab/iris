@@ -13,7 +13,8 @@ export const ROLE_COMMERCIAL = 'COMMERCIAL';
 export const ROLE_ASSISTANTE_COMMERCIALE = 'ASSISTANTE_COMMERCIALE';
 /**
  * Assistante technique : la partie technique de toute la société (SAV, planning, suivi, chantiers en
- * lecture ; devis, clients et contrats depuis AT-2a), sans les droits de l'administration (décisions de
+ * lecture ; devis, clients et contrats depuis AT-2a ; fiche, commercial et saisies Travaux des affaires en
+ * cours depuis AT-2b), sans les droits de l'administration (décisions de
  * Nelson du 24-10-2026 et du 06-11-2026) : ses capacités sont ajoutées une à une aux aides qui les décident.
  * Distincte de l'assistante commerciale, qui reste sans planning. Même type que ROLE_ASSISTANTE_TECHNIQUE
  * côté serveur.
@@ -275,8 +276,9 @@ export function gereLesChantiersEnCours(role?: string | null): boolean {
 /**
  * Bouton « Modifier » de la fiche d'un chantier (fiche et commercial) : jamais sur une affaire annulée ;
  * l'administration sur toute affaire ; sur une affaire en cours seulement, l'assistante technique (toute la
- * société, cf. gereLesChantiersEnCours) et le conducteur qui en est titulaire. Le serveur applique la même
- * règle (refusEcritureChantier) et refuse le reste.
+ * société, cf. gereLesChantiersEnCours) et le conducteur qui en est titulaire. Le serveur (refusEcritureChantier)
+ * refuse le reste, mais admet aussi tout autre titulaire, hors commercial et technicien, sur une affaire en cours,
+ * que l'écran ne propose pas (comportement d'avant AT-2b, gardé).
  */
 export function peutModifierChantier(
   role: string | null | undefined,
