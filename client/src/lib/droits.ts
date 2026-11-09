@@ -256,9 +256,9 @@ export const ROLES_CONTRATS = [...TYPES_ADMINISTRATION, ROLE_ASSISTANTE_TECHNIQU
 /**
  * Factures (AT-3) : l'administration et l'assistante technique, qui ne voit que les pièces de son poste (les
  * factures créées par une assistante technique et leurs avoirs), crée un brouillon de toute origine et émet
- * ceux d'une assistante technique. Avoirs, annulation, règlements, export comptable, prérequis de la
- * facturation, mentions légales et comptabilité restent à l'administration (isAdminRole). Même règle que
- * gereLesFactures côté serveur.
+ * ceux d'une assistante technique. Depuis AT-4, elle crée aussi des avoirs partiels, annule par l'avoir total
+ * et envoie tout avoir de son poste. Règlements, export comptable, prérequis de la facturation, mentions
+ * légales et comptabilité restent à l'administration (isAdminRole). Même règle que gereLesFactures côté serveur.
  */
 export function gereLesFactures(role?: string | null): boolean {
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;

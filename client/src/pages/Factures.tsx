@@ -10,6 +10,7 @@ import EnvoiDocument, { type DocumentAEnvoyer } from '../components/EnvoiDocumen
 import { nombreFr, totauxApercuAvoir, type AvoirPrecedent } from '../lib/apercuAvoir';
 import FactureTempsPasse from '../components/FactureTempsPasse';
 import ReglementsFacture from '../components/ReglementsFacture';
+import RepereDejaFacturee from '../components/RepereDejaFacturee';
 import { corpsFactureTempsPasse, type ApercuFactureTempsPasse } from '../lib/factureTempsPasse';
 import { sourcesFacturables } from '../lib/sourcesFacture';
 import { fmtEuroCentime } from '../lib/formats';
@@ -64,8 +65,9 @@ const avoirsPartiels = (facture: Facture) => (facture.avoirs || []).filter((avoi
 
 export default function Factures() {
   // L'administration gère toutes les pièces. L'assistante technique (AT-3) ne reçoit que celles de son poste, crée
-  // et émet ses brouillons, et lit avoirs et règlements : ni avoir, ni annulation, ni règlement, ni export
-  // comptable, ni envoi d'un avoir (le serveur les refuse, factures/droits.ts).
+  // et émet ses brouillons, et lit les règlements reçus ; depuis AT-4, elle crée des avoirs partiels, annule par
+  // l'avoir total et envoie tout avoir de son poste. Ni saisie de règlement, ni export comptable (le serveur les
+  // refuse, factures/droits.ts et requireAdmin).
   const administration = isAdminRole(useCurrentUser()?.role);
   const [factures, setFactures] = useState<Facture[]>([]);
   const [page, setPage] = useState(1);
@@ -107,6 +109,10 @@ export default function Factures() {
   const [relectureTempsPasse, setRelectureTempsPasse] = useState(0);
   // Un autre client ou une autre origine écarte l'intervention choisie, qui n'est plus dans la liste.
   useEffect(() => { setInterventionChoisie(''); }, [clientSelection, origine]);
+  // Affaire ou contrat choisi, pour le repère « déjà facturée » (AT-4) ; écarté de même, et à chaque ouverture.
+  const [rattachementChoisi, setRattachementChoisi] = useState('');
+  useEffect(() => { setRattachementChoisi(''); }, [clientSelection, origine, ouvert]);
+  const origineChoisie = origine === 'INTERVENTION' ? interventionChoisie : origine === 'HORS_AFFAIRE' ? '' : rattachementChoisi;
   const interventionTempsPasse = origine === 'INTERVENTION' && interventions.some((source) => source.id === interventionChoisie && source.auTempsPasse) ? interventionChoisie : '';
   // Fuseau de la société, lu avec la liste : tant qu'il n'est pas connu, les dates d'émission et
   // d'échéance ne sont pas préremplies (un jour d'Europe/Paris par défaut serait faux ailleurs).
@@ -561,12 +567,15 @@ export default function Factures() {
               <input required name="motifHorsAffaire" minLength={3} className="form-input" placeholder="Motif obligatoire" />
             ) : (
               <select key={origine} required name={origine === 'CHANTIER' ? 'chantierId' : origine === 'INTERVENTION' ? 'interventionId' : 'contratMaintenanceId'} className="form-input"
-                {...(origine === 'INTERVENTION' ? { value: interventionChoisie, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setInterventionChoisie(e.target.value), 'aria-label': 'Intervention facturée' } : {})}>
+                {...(origine === 'INTERVENTION'
+                  ? { value: interventionChoisie, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setInterventionChoisie(e.target.value), 'aria-label': 'Intervention facturée' }
+                  : { value: rattachementChoisi, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRattachementChoisi(e.target.value) })}>
                 <option value="">Rattachement…</option>
                 {sources.map((source) => <option key={source.id} value={source.id}>{sourceName(source)}{source.auTempsPasse ? ' — au temps passé' : ''}</option>)}
               </select>
             )}
           </div>
+          {origine !== 'HORS_AFFAIRE' && origineChoisie && <RepereDejaFacturee origine={origine} id={origineChoisie} />}
 
           {interventionTempsPasse ? (
             <FactureTempsPasse key={`${interventionTempsPasse}-${relectureTempsPasse}`} interventionId={interventionTempsPasse} onApercu={setApercuTempsPasse} />
@@ -622,9 +631,9 @@ export default function Factures() {
                   {facture.type === 'FACTURE' && facture.statut === 'BROUILLON' && (emissionImpossible(facture)
                     ? <span className="text-sm text-amber-700"><button className="btn btn-secondary" disabled><Send size={16} /> Émission impossible</button> Date antérieure à la dernière facture numérotée du {formatDate(derniereDateEmission!)}</span>
                     : <button className="btn btn-secondary" onClick={() => void emettre(facture)}><Send size={16} /> Émettre</button>)}
-                  {administration && facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
-                  {administration && facture.type === 'FACTURE' && facture.statut === 'EMISE' && <>
-                    {(facture.resteDu ?? 0) > 0 && <Link className="btn btn-secondary" to={`/reglements?facture=${facture.id}`}><HandCoins size={16} /> Enregistrer un règlement</Link>}
+                  {facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
+                  {facture.type === 'FACTURE' && facture.statut === 'EMISE' && <>
+                    {administration && (facture.resteDu ?? 0) > 0 && <Link className="btn btn-secondary" to={`/reglements?facture=${facture.id}`}><HandCoins size={16} /> Enregistrer un règlement</Link>}
                     {avoirsPartiels(facture).length
                       ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : {avoirsPartiels(facture).length} avoir(s) partiel(s) déjà émis</span>
                       : (facture.montantRegle ?? 0) > 0
@@ -633,7 +642,7 @@ export default function Factures() {
                   </>}
                   {facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" onClick={() => void telechargerDocument(facture)}><Download size={16} /> PDF</button>}
                   {facture.type === 'FACTURE' && facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" aria-expanded={factureReglements?.id === facture.id} aria-controls="reglements-facture" onClick={() => setFactureReglements(factureReglements?.id === facture.id ? null : facture)}><Receipt size={16} /> Règlements</button>}
-                  {facture.statut !== 'BROUILLON' && (administration || facture.type === 'FACTURE') && <button className="btn btn-secondary" aria-label={`Envoyer ${libellePiece(facture)}`} onClick={() => ouvrirEnvoi(facture)}><Mail size={16} /> Envoyer</button>}
+                  {facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" aria-label={`Envoyer ${libellePiece(facture)}`} onClick={() => ouvrirEnvoi(facture)}><Mail size={16} /> Envoyer</button>}
                 </div></td>
               </tr>
             ))}
