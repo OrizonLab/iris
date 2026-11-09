@@ -181,6 +181,7 @@ AC | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Accès
 AC | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 AC | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 AC | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 AC | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 AC | GET /api/fournisseurs | — | défaut | 200
 AC | GET /api/heures | — | défaut | 200
@@ -480,20 +481,20 @@ AC | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AC | POST /api/devis/:id/signature | devis-signe | défaut | 400
 AC | POST /api/devis/:id/signature | inexistant | défaut | 400
 AC | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-AC | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-AC | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+AC | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+AC | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 AC | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 AC | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 AC | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -877,6 +878,7 @@ AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | 200
 AD | GET /api/factures/:id/tracabilite | inexistant | défaut | 404 « Facture introuvable. »
 AD | GET /api/factures/a-regler | — | défaut | 200
 AD | GET /api/factures/chronologie | — | défaut | 200
+AD | GET /api/factures/deja-facturee | — | défaut | 400
 AD | GET /api/factures/export-comptable.csv | — | défaut | 200
 AD | GET /api/fournisseurs | — | défaut | 200
 AD | GET /api/heures | — | défaut | 200
@@ -1573,6 +1575,7 @@ AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | 200
 AD-COM | GET /api/factures/:id/tracabilite | inexistant | défaut | 404 « Facture introuvable. »
 AD-COM | GET /api/factures/a-regler | — | défaut | 200
 AD-COM | GET /api/factures/chronologie | — | défaut | 200
+AD-COM | GET /api/factures/deja-facturee | — | défaut | 400
 AD-COM | GET /api/factures/export-comptable.csv | — | défaut | 200
 AD-COM | GET /api/fournisseurs | — | défaut | 200
 AD-COM | GET /api/heures | — | défaut | 200
@@ -2141,6 +2144,7 @@ ANONYME | GET /api/factures/:id/reglements | inexistant | défaut | 401 « Authe
 ANONYME | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 « Authentification requise »
 ANONYME | GET /api/factures/a-regler | — | défaut | 401 « Authentification requise »
 ANONYME | GET /api/factures/chronologie | — | défaut | 401 « Authentification requise »
+ANONYME | GET /api/factures/deja-facturee | — | défaut | 401 « Authentification requise »
 ANONYME | GET /api/factures/export-comptable.csv | — | défaut | 401 « Authentification requise »
 ANONYME | GET /api/fournisseurs | — | défaut | 401 « Authentification requise »
 ANONYME | GET /api/heures | — | défaut | 401 « Authentification requise »
@@ -2461,6 +2465,7 @@ AT | GET /api/factures/:id/tracabilite | facture-emise | défaut | 404 « Factur
 AT | GET /api/factures/:id/tracabilite | inexistant | défaut | 404 « Facture introuvable. »
 AT | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 AT | GET /api/factures/chronologie | — | défaut | 200
+AT | GET /api/factures/deja-facturee | — | défaut | 400
 AT | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 AT | GET /api/fournisseurs | — | défaut | 200
 AT | GET /api/heures | — | défaut | 200
@@ -2760,20 +2765,20 @@ AT | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AT | POST /api/devis/:id/signature | devis-signe | défaut | 400
 AT | POST /api/devis/:id/signature | inexistant | défaut | 400
 AT | POST /api/factures | — | défaut | 400
-AT | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-AT | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+AT | POST /api/factures/:id/annuler | avoir-emis | défaut | 404 « Facture introuvable. »
+AT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 409 « Seule une facture émise peut être annulée. »
+AT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 409 « Seule une facture émise peut être annulée. »
+AT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 409 « Cette facture a reçu un règlement : elle ne peut plus être annulée en totalité. Émettez un avoir partiel, ou contre-passez d’abord un règlement saisi par erreur. »
+AT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 404 « Facture introuvable. »
+AT | POST /api/factures/:id/annuler | facture-emise | défaut | 404 « Facture introuvable. »
+AT | POST /api/factures/:id/annuler | inexistant | défaut | 404 « Facture introuvable. »
+AT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 400
+AT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 400
+AT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 400
+AT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 400
+AT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 400
+AT | POST /api/factures/:id/avoirs | facture-emise | défaut | 400
+AT | POST /api/factures/:id/avoirs | inexistant | défaut | 400
 AT | POST /api/factures/:id/emettre | inexistant | défaut | 404 « Facture introuvable. »
 AT | POST /api/factures/:id/envois | avoir-emis | défaut | 400
 AT | POST /api/factures/:id/envois | avoir-facture-at | défaut | 400
@@ -3157,6 +3162,7 @@ COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Accè
 COM | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 COM | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 COM | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 COM | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 COM | GET /api/fournisseurs | — | défaut | 200
 COM | GET /api/heures | — | défaut | 200
@@ -3456,20 +3462,20 @@ COM | POST /api/devis/:id/signature | devis-converti | défaut | 400
 COM | POST /api/devis/:id/signature | devis-signe | défaut | 400
 COM | POST /api/devis/:id/signature | inexistant | défaut | 400
 COM | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-COM | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-COM | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+COM | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+COM | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 COM | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 COM | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 COM | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -3853,6 +3859,7 @@ CPT | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Accè
 CPT | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 CPT | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 CPT | GET /api/fournisseurs | — | défaut | 200
 CPT | GET /api/heures | — | défaut | 200
@@ -4152,20 +4159,20 @@ CPT | POST /api/devis/:id/signature | devis-converti | défaut | 400
 CPT | POST /api/devis/:id/signature | devis-signe | défaut | 400
 CPT | POST /api/devis/:id/signature | inexistant | défaut | 400
 CPT | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-CPT | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CPT | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -4549,6 +4556,7 @@ CPT-FINANCE | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 
 CPT-FINANCE | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT-FINANCE | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT-FINANCE | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | GET /api/fournisseurs | — | défaut | 200
 CPT-FINANCE | GET /api/heures | — | défaut | 200
@@ -4848,20 +4856,20 @@ CPT-FINANCE | POST /api/devis/:id/signature | devis-converti | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/signature | devis-signe | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/signature | inexistant | défaut | 400
 CPT-FINANCE | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-CPT-FINANCE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CPT-FINANCE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CPT-FINANCE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT-FINANCE | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT-FINANCE | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CPT-FINANCE | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -5245,6 +5253,7 @@ CT | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Accès
 CT | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 CT | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 CT | GET /api/fournisseurs | — | défaut | 200
 CT | GET /api/heures | — | défaut | 200
@@ -5544,20 +5553,20 @@ CT | POST /api/devis/:id/signature | devis-converti | défaut | 403 « Permissio
 CT | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 CT | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 CT | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-CT | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CT | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -5941,6 +5950,7 @@ CT-N1 | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Acc
 CT-N1 | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT-N1 | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT-N1 | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | GET /api/fournisseurs | — | défaut | 200
 CT-N1 | GET /api/heures | — | défaut | 200
@@ -6240,20 +6250,20 @@ CT-N1 | POST /api/devis/:id/signature | devis-converti | défaut | 403 « Permis
 CT-N1 | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 CT-N1 | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 CT-N1 | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-CT-N1 | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-CT-N1 | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT-N1 | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT-N1 | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT-N1 | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT-N1 | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -6637,6 +6647,7 @@ DC | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Accès
 DC | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 DC | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 DC | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 DC | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 DC | GET /api/fournisseurs | — | défaut | 200
 DC | GET /api/heures | — | défaut | 200
@@ -6936,20 +6947,20 @@ DC | POST /api/devis/:id/signature | devis-converti | défaut | 400
 DC | POST /api/devis/:id/signature | devis-signe | défaut | 400
 DC | POST /api/devis/:id/signature | inexistant | défaut | 400
 DC | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-DC | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-DC | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+DC | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+DC | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 DC | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 DC | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 DC | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -7205,6 +7216,7 @@ DESACTIVE | GET /api/factures/:id/reglements | inexistant | défaut | 401 COMPTE
 DESACTIVE | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
 DESACTIVE | GET /api/factures/a-regler | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
 DESACTIVE | GET /api/factures/chronologie | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
+DESACTIVE | GET /api/factures/deja-facturee | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
 DESACTIVE | GET /api/factures/export-comptable.csv | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
 DESACTIVE | GET /api/fournisseurs | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
 DESACTIVE | GET /api/heures | — | défaut | 401 COMPTE_DESACTIVE « Ce compte est désactivé. »
@@ -7525,6 +7537,7 @@ DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | 200
 DIR | GET /api/factures/:id/tracabilite | inexistant | défaut | 404 « Facture introuvable. »
 DIR | GET /api/factures/a-regler | — | défaut | 200
 DIR | GET /api/factures/chronologie | — | défaut | 200
+DIR | GET /api/factures/deja-facturee | — | défaut | 400
 DIR | GET /api/factures/export-comptable.csv | — | défaut | 200
 DIR | GET /api/fournisseurs | — | défaut | 200
 DIR | GET /api/heures | — | défaut | 200
@@ -8093,6 +8106,7 @@ JETON-INVALIDE | GET /api/factures/:id/reglements | inexistant | défaut | 401 �
 JETON-INVALIDE | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 « Session expirée ou invalide »
 JETON-INVALIDE | GET /api/factures/a-regler | — | défaut | 401 « Session expirée ou invalide »
 JETON-INVALIDE | GET /api/factures/chronologie | — | défaut | 401 « Session expirée ou invalide »
+JETON-INVALIDE | GET /api/factures/deja-facturee | — | défaut | 401 « Session expirée ou invalide »
 JETON-INVALIDE | GET /api/factures/export-comptable.csv | — | défaut | 401 « Session expirée ou invalide »
 JETON-INVALIDE | GET /api/fournisseurs | — | défaut | 401 « Session expirée ou invalide »
 JETON-INVALIDE | GET /api/heures | — | défaut | 401 « Session expirée ou invalide »
@@ -8417,6 +8431,7 @@ RESP | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Acc�
 RESP | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 RESP | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 RESP | GET /api/fournisseurs | — | défaut | 200
 RESP | GET /api/heures | — | défaut | 200
@@ -8716,20 +8731,20 @@ RESP | POST /api/devis/:id/signature | devis-converti | défaut | 403 « Permiss
 RESP | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 RESP | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 RESP | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-RESP | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+RESP | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -9113,6 +9128,7 @@ RESP-SANS-BRANCHE | GET /api/factures/:id/tracabilite | facture-emise | défaut 
 RESP-SANS-BRANCHE | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP-SANS-BRANCHE | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP-SANS-BRANCHE | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | GET /api/fournisseurs | — | défaut | 200
 RESP-SANS-BRANCHE | GET /api/heures | — | défaut | 200
@@ -9412,20 +9428,20 @@ RESP-SANS-BRANCHE | POST /api/devis/:id/signature | devis-converti | défaut | 4
 RESP-SANS-BRANCHE | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 RESP-SANS-BRANCHE | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 RESP-SANS-BRANCHE | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+RESP-SANS-BRANCHE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP-SANS-BRANCHE | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 RESP-SANS-BRANCHE | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -9809,6 +9825,7 @@ SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | 200
 SA | GET /api/factures/:id/tracabilite | inexistant | défaut | 404 « Facture introuvable. »
 SA | GET /api/factures/a-regler | — | défaut | 200
 SA | GET /api/factures/chronologie | — | défaut | 200
+SA | GET /api/factures/deja-facturee | — | défaut | 400
 SA | GET /api/factures/export-comptable.csv | — | défaut | 200
 SA | GET /api/fournisseurs | — | défaut | 200
 SA | GET /api/heures | — | défaut | 200
@@ -10377,6 +10394,7 @@ SUPPRIME | GET /api/factures/:id/reglements | inexistant | défaut | 401 « Comp
 SUPPRIME | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 « Compte introuvable ou révoqué »
 SUPPRIME | GET /api/factures/a-regler | — | défaut | 401 « Compte introuvable ou révoqué »
 SUPPRIME | GET /api/factures/chronologie | — | défaut | 401 « Compte introuvable ou révoqué »
+SUPPRIME | GET /api/factures/deja-facturee | — | défaut | 401 « Compte introuvable ou révoqué »
 SUPPRIME | GET /api/factures/export-comptable.csv | — | défaut | 401 « Compte introuvable ou révoqué »
 SUPPRIME | GET /api/fournisseurs | — | défaut | 401 « Compte introuvable ou révoqué »
 SUPPRIME | GET /api/heures | — | défaut | 401 « Compte introuvable ou révoqué »
@@ -10569,6 +10587,7 @@ SYSTEME | GET /api/factures/:id/reglements | inexistant | défaut | 401 « Compt
 SYSTEME | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 « Compte introuvable ou révoqué »
 SYSTEME | GET /api/factures/a-regler | — | défaut | 401 « Compte introuvable ou révoqué »
 SYSTEME | GET /api/factures/chronologie | — | défaut | 401 « Compte introuvable ou révoqué »
+SYSTEME | GET /api/factures/deja-facturee | — | défaut | 401 « Compte introuvable ou révoqué »
 SYSTEME | GET /api/factures/export-comptable.csv | — | défaut | 401 « Compte introuvable ou révoqué »
 SYSTEME | GET /api/fournisseurs | — | défaut | 401 « Compte introuvable ou révoqué »
 SYSTEME | GET /api/heures | — | défaut | 401 « Compte introuvable ou révoqué »
@@ -10889,6 +10908,7 @@ TECH | GET /api/factures/:id/tracabilite | facture-emise | défaut | 403 « Acc�
 TECH | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 TECH | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 TECH | GET /api/fournisseurs | — | défaut | 200
 TECH | GET /api/heures | — | défaut | 200
@@ -11188,20 +11208,20 @@ TECH | POST /api/devis/:id/signature | devis-converti | défaut | 403 « Permiss
 TECH | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 TECH | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 TECH | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-TECH | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+TECH | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
@@ -11585,6 +11605,7 @@ TECH-SANS-FICHE | GET /api/factures/:id/tracabilite | facture-emise | défaut | 
 TECH-SANS-FICHE | GET /api/factures/:id/tracabilite | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH-SANS-FICHE | GET /api/factures/a-regler | — | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | GET /api/factures/chronologie | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | GET /api/factures/deja-facturee | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH-SANS-FICHE | GET /api/factures/export-comptable.csv | — | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | GET /api/fournisseurs | — | défaut | 200
 TECH-SANS-FICHE | GET /api/heures | — | défaut | 200
@@ -11884,20 +11905,20 @@ TECH-SANS-FICHE | POST /api/devis/:id/signature | devis-converti | défaut | 403
 TECH-SANS-FICHE | POST /api/devis/:id/signature | devis-signe | défaut | 403 « Permission requise : devis:write »
 TECH-SANS-FICHE | POST /api/devis/:id/signature | inexistant | défaut | 403 « Permission requise : devis:write »
 TECH-SANS-FICHE | POST /api/factures | — | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé aux administrateurs »
-TECH-SANS-FICHE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/annuler | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+TECH-SANS-FICHE | POST /api/factures/:id/avoirs | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH-SANS-FICHE | POST /api/factures/:id/emettre | inexistant | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH-SANS-FICHE | POST /api/factures/:id/envois | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 TECH-SANS-FICHE | POST /api/factures/:id/envois | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »

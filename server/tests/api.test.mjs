@@ -29114,6 +29114,13 @@ if (!TEST_DATABASE_URL) {
   // périmètre avant tout 409 ; 403 « L’envoi d’un avoir est réservé à l’administration. » ; GET /api/factures/:id/reglements ;
   // contre-passation lue sans le total du règlement ; refus du temps passé sans numéro pour elle.
   //
+  // PR AT-4 (cadrage AT-4, version 2, N11 du contrôle de mode 1 ; message de Nelson du 09-11-2026, « elle peut egalement faire
+  // un avoir, », et réponse 1, « Partiels et annulation (Recommandé) ») : ce bloc est mis à jour là où AT-4 change le contrat
+  // d'AT-3. Avoirs partiels et annulation lui sont ouverts sur les pièces de son poste (requireGestionFactures ; 404 sur celles de
+  // l'administration) ; l'envoi d'un avoir de son poste n'est plus refusé (choix par défaut 5 d'AT-3 remplacé) ; le refus d'une
+  // seconde facture au temps passé a un nouveau texte (choix par défaut 7 d'AT-3 modifié). Le détail est éprouvé par
+  // server/tests/assistante-technique-avoirs.test.mjs.
+  //
   // Montants (classés C : CLAUDE.md, « un test manquant qui touche un montant ») : aucun calcul ne change, seul l'auteur change.
   // Chaque valeur est choisie pour qu'une autre lecture plausible donne un autre résultat ; la lecture écartée est écrite près de
   // chaque attendu (calcul exact au centime, moitié vers le haut, refait hors de l'application).
@@ -29128,11 +29135,16 @@ if (!TEST_DATABASE_URL) {
     const ROLE_AT = 'ASSISTANTE_TECHNIQUE';
     const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
     const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistante technique.';
-    const REFUS_ENVOI_AVOIR = 'L’envoi d’un avoir est réservé à l’administration.';
+    // AT-4 : le refus de l'envoi d'un avoir (choix par défaut 5 d'AT-3) est retiré ; il ne doit plus être servi.
+    const REFUS_ENVOI_AVOIR_AT3 = 'L’envoi d’un avoir est réservé à l’administration.';
+    // Envoi par Microsoft 365 : la connexion Microsoft n'est pas configurée dans l'environnement de ce fichier (AZURE_TENANT_ID et
+    // AZURE_CLIENT_ID absents, comme en CI ; cf. le bloc du lot 6a-3) : le refus de la configuration, sans écriture.
+    const M365_NON_CONFIGURE = 'L’envoi par Microsoft 365 n’est pas configuré : préparez l’envoi par la messagerie.';
     const INTROUVABLE = 'Facture introuvable.';
-    // Audit des montants de #517, N5 : son refus distingue le brouillon, qui s'émet d'abord, de la facture émise, que
-    // l'administration annule par son avoir total ou corrige par des avoirs partiels ; il ne cite aucun numéro.
-    const REFUS_TEMPS_PASSE_AT = 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord ; pour refaire une facture émise, adressez-vous à l’administration, qui l’annule par son avoir total ou la corrige par des avoirs partiels.';
+    // Audit des montants de #517, N5 : son refus distingue le brouillon, qui s'émet d'abord, de la facture émise ; il ne cite aucun
+    // numéro. AT-4 (cadrage v2, § 1 ; choix par défaut 7 d'AT-3 modifié, à confirmer) : elle annule elle-même une facture émise de
+    // son poste, et n'est renvoyée à l'administration que pour une facture absente de sa liste.
+    const REFUS_TEMPS_PASSE_AT = 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord. Pour refaire une facture émise de votre poste, annulez-la d’abord par son avoir total ; une facture qui a reçu un avoir partiel, ou un règlement qui n’est pas contre-passé, ne s’annule plus en totalité et se corrige par des avoirs partiels. Si la facture n’apparaît pas dans votre liste, adressez-vous à l’administration.';
     const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
     const jetonDe = (compte) => ({ Authorization: `Bearer ${jwt.sign({ id: compte.id }, process.env.JWT_SECRET)}` });
     // Le corps est calculé avant la requête (cf. les autres blocs) : request(app) ouvre un serveur éphémère.
@@ -29446,12 +29458,15 @@ if (!TEST_DATABASE_URL) {
     });
 
     // C5 (« avoir partiel de l'administration sur sa facture : montantAvoirs et resteDu lus par elle égaux à ceux de
-    // l'administration ») ; T2 (creeParType d'un avoir : le type de l'administrateur, par /avoirs comme par /annuler) ; C4 (envoi
-    // d'un avoir fermé). Sa facture : 81,57 TTC (test précédent). Avoir partiel du directeur : 0,5 × 36,97 = 18,49 HT, TVA 3,698
-    // arrondie à 3,70, TTC 22,19. Reste dû 81,57 − 22,19 = 59,38. Lectures écartées : avoir non déduit (81,57) ; avoir déduit hors
-    // taxes (81,57 − 18,49 = 63,08). Avoir total du super administrateur sur une autre de ses factures (1 × 10 à 20 %, 12 TTC) :
-    // annulée, sans solde (comportement existant), comme pour l'administration.
-    test('montants : avoir partiel du directeur sur sa facture (22,19 € TTC) : montant des avoirs 22,19 € et reste dû 59,38 € lus par elle comme par l’administration ; avoir total du super administrateur ; type du créateur de chaque avoir figé (DIRECTEUR, SUPERADMIN) ; avoirs lus par elle (liste, PDF, journal, envois), leur envoi refusé (403) sans écriture, admis à l’administration', async () => {
+    // l'administration ») ; T2 (creeParType d'un avoir : le type de l'administrateur, par /avoirs comme par /annuler). Sa facture :
+    // 81,57 TTC (test précédent). Avoir partiel du directeur : 0,5 × 36,97 = 18,49 HT, TVA 3,698 arrondie à 3,70, TTC 22,19. Reste
+    // dû 81,57 − 22,19 = 59,38. Lectures écartées : avoir non déduit (81,57) ; avoir déduit hors taxes (81,57 − 18,49 = 63,08).
+    // Avoir total du super administrateur sur une autre de ses factures (1 × 10 à 20 %, 12 TTC) : annulée, sans solde
+    // (comportement existant), comme pour l'administration. L'envoi d'un avoir, fermé par AT-3 (C4), lui est ouvert par AT-4 pour
+    // les avoirs que l'administration porte sur les factures de son poste (cadrage AT-4 v2, § 1, « Envoi d'un avoir », choix par
+    // défaut, à confirmer) : par la messagerie, noté à son nom ; par Microsoft 365, le refus de la configuration absente de cet
+    // environnement, et non plus celui de l'avoir.
+    test('montants : avoir partiel du directeur sur sa facture (22,19 € TTC) : montant des avoirs 22,19 € et reste dû 59,38 € lus par elle comme par l’administration ; avoir total du super administrateur ; type du créateur de chaque avoir figé (DIRECTEUR, SUPERADMIN) ; avoirs lus par elle (liste, PDF, journal, envois) et envoyés par elle par la messagerie, à son nom (AT-4)', async () => {
       const assistante = jeton('assistante');
       const lignes = [ligne('pose de la centrale', 0.5, 36.97, 20), ligne('fourniture des détecteurs', 1, 10.10, 5.5, 'ARTICLE'), ligne('mise en service', 2.25, 14.10, 20), ligne('fourniture des sirènes', 1, 10.10, 5.5, 'ARTICLE')];
       const facture = await factureEmise(assistante, 'avoir partiel', lignes);
@@ -29501,24 +29516,30 @@ if (!TEST_DATABASE_URL) {
       for (const id of [avoir.body.id, avoirTotal.id]) {
         for (const chemin of ['document.pdf', 'journal', 'tracabilite', 'envois']) assert.equal((await lire(`/api/factures/${id}/${chemin}`, assistante)).status, 200, `${chemin} de l’avoir ${id}`);
       }
-      // Envoi d'un avoir : 403, par la messagerie comme par Microsoft 365, sans écriture ; l'administration, témoin, l'envoie.
+      // Envoi d'un avoir de son poste (AT-4) : par Microsoft 365, le refus de la configuration absente, sans écriture (et non plus
+      // le refus d'AT-3) ; par la messagerie, admis et noté à son nom ; l'administration l'envoie de même.
       const avant = await etatFactures();
       for (const id of [avoir.body.id, avoirTotal.id]) {
-        for (const canal of [undefined, 'MICROSOFT_365']) {
-          const refus = await envoyer('post', `/api/factures/${id}/envois`, assistante, { destinataire: 'client@at3.test', ...(canal ? { canal } : {}) });
-          assert.deepEqual([refus.status, refus.body.error], [403, REFUS_ENVOI_AVOIR], `${id} ${canal ?? 'MESSAGERIE'}`);
-        }
+        const refus = await envoyer('post', `/api/factures/${id}/envois`, assistante, { destinataire: 'client@at3.test', canal: 'MICROSOFT_365' });
+        assert.deepEqual([refus.status, refus.body.error], [409, M365_NON_CONFIGURE], `${id} MICROSOFT_365`);
+        assert.notEqual(refus.body.error, REFUS_ENVOI_AVOIR_AT3);
       }
-      assert.equal(await etatFactures(), avant, 'aucun envoi d’avoir écrit');
+      assert.equal(await etatFactures(), avant, 'aucun envoi écrit par Microsoft 365 non configuré');
+      for (const id of [avoir.body.id, avoirTotal.id]) {
+        const parElle = await envoyer('post', `/api/factures/${id}/envois`, assistante, { destinataire: 'client@at3.test' });
+        assert.equal(parElle.status, 201, `${id} : ${JSON.stringify(parElle.body)}`);
+        assert.deepEqual([parElle.body.envoi.auteurNom, parElle.body.envoi.destinataire], [comptes.assistante.name, 'client@at3.test']);
+        assert.deepEqual((await prisma.envoiDocument.findMany({ where: { factureId: id } })).map((e) => [e.canal, e.auteurId]), [['MESSAGERIE', comptes.assistante.id]], id);
+      }
       const parAdministration = await envoyer('post', `/api/factures/${avoir.body.id}/envois`, jeton('admin'), { destinataire: 'client@at3.test' });
       assert.equal(parAdministration.status, 201, JSON.stringify(parAdministration.body));
       // Ses factures, elle les envoie : 201, à son nom.
       const sienne = await envoyer('post', `/api/factures/${facture.id}/envois`, assistante, { destinataire: 'client@at3.test' });
       assert.equal(sienne.status, 201, JSON.stringify(sienne.body));
       assert.equal(sienne.body.envoi.auteurNom, comptes.assistante.name);
-      // Lecture des envois de l'avoir par elle : l'envoi de l'administration y figure.
+      // Lecture des envois de l'avoir par elle : son envoi, puis celui de l'administration (du plus récent au plus ancien).
       const envoisAvoir = await lire(`/api/factures/${avoir.body.id}/envois`, assistante);
-      assert.deepEqual(envoisAvoir.body.envois.map((e) => e.auteurNom), [comptes.admin.name]);
+      assert.deepEqual(envoisAvoir.body.envois.map((e) => e.auteurNom), [comptes.admin.name, comptes.assistante.name]);
     });
 
     // C1 et C5 (« règlement partiel de l'administration sur sa facture, réparti avec une facture de l'administration, puis un second
@@ -29696,8 +29717,9 @@ if (!TEST_DATABASE_URL) {
 
     // T4 (« ordre des refus : périmètre d'abord (404) ») : chaque route ouverte, sur une pièce de l'administration (brouillon,
     // émise, avoir) ou absente, lui répond 404 « Facture introuvable. », avant le 409 que l'administration reçoit sur la même
-    // pièce ; rien n'est écrit. Témoins : sur ses pièces, les refus du document (409) restent ceux de l'administration.
-    test('hors de son périmètre : brouillon, facture émise et avoir de l’administration, et pièce absente : 404 « Facture introuvable. » sur chaque route ouverte (PDF, envois lus et enregistrés, journal, règlements, origine, émission), avant le 409 de l’administration, sans écriture ; sur son brouillon, le refus du document (409) de l’administration', async () => {
+    // pièce ; rien n'est écrit. Témoins : sur ses pièces, les refus du document (409) restent ceux de l'administration. AT-4 (cadrage
+    // v2, § 1, C2 du contrôle de mode 1) : l'avoir partiel (lignes valides) et l'annulation, ouverts depuis, suivent la même règle.
+    test('hors de son périmètre : brouillon, facture émise et avoir de l’administration, et pièce absente : 404 « Facture introuvable. » sur chaque route ouverte (PDF, envois lus et enregistrés, journal, règlements, origine, émission, et depuis AT-4 avoir partiel et annulation), avant le 409 de l’administration, sans écriture ; sur son brouillon, le refus du document (409) de l’administration', async () => {
       const assistante = jeton('assistante');
       const brouillonAdmin = await brouillonCree(jeton('admin'), 'hors périmètre, brouillon');
       const emiseAdmin = await factureEmise(jeton('admin'), 'hors périmètre, émise');
@@ -29707,6 +29729,7 @@ if (!TEST_DATABASE_URL) {
         ['GET', `/api/factures/${id}/document.pdf`], ['GET', `/api/factures/${id}/envois`], ['POST', `/api/factures/${id}/envois`, { destinataire: 'client@at3.test' }],
         ['POST', `/api/factures/${id}/envois`, { destinataire: 'client@at3.test', canal: 'MICROSOFT_365' }], ['GET', `/api/factures/${id}/journal`],
         ['GET', `/api/factures/${id}/reglements`], ['GET', `/api/factures/${id}/tracabilite`], ['POST', `/api/factures/${id}/emettre`, {}],
+        ['POST', `/api/factures/${id}/avoirs`, { lignes: [ligne('hors périmètre, avoir refusé', 1, 1, 20)] }], ['POST', `/api/factures/${id}/annuler`, {}],
       ];
       const avant = await etatFactures();
       for (const id of [brouillonAdmin.id, emiseAdmin.id, avoirAdmin.body.id, randomUUID()]) {
@@ -29719,6 +29742,11 @@ if (!TEST_DATABASE_URL) {
       // Témoins de l'ordre : l'administration reçoit le 409 sur les mêmes pièces.
       const admin = jeton('admin');
       assert.deepEqual([(await envoyer('post', `/api/factures/${emiseAdmin.id}/emettre`, admin, {})).body.error], ['Seul un brouillon peut être émis.']);
+      for (const id of [brouillonAdmin.id, avoirAdmin.body.id]) {
+        assert.deepEqual([(await envoyer('post', `/api/factures/${id}/annuler`, admin, {})).body.error], ['Seule une facture émise peut être annulée.'], id);
+        assert.deepEqual([(await envoyer('post', `/api/factures/${id}/avoirs`, admin, { lignes: [ligne('témoin', 1, 1, 20)] })).body.error], ['Seule une facture émise ou réglée peut recevoir un avoir partiel.'], id);
+      }
+      assert.equal(await etatFactures(), avant, 'les refus de l’administration n’écrivent pas non plus');
       for (const chemin of ['document.pdf', 'envois']) assert.equal((await lire(`/api/factures/${brouillonAdmin.id}/${chemin}`, admin)).status, 409, chemin);
       assert.equal((await envoyer('post', `/api/factures/${brouillonAdmin.id}/envois`, admin, { destinataire: 'client@at3.test' })).status, 409);
       // Sur son propre brouillon : le refus du document, comme pour l'administration ; ses lectures admises.
@@ -29768,8 +29796,10 @@ if (!TEST_DATABASE_URL) {
 
     // Points 30 et 36 ; cadrage v1 « Restent à l'administration » ; contrat livré (requireAdmin). Chaque route fermée, jouée sur
     // ses propres pièces (et non sur celles de l'administration, qui répondraient 404 ailleurs), répond 403 au message de
-    // l'administration ; rien n'est écrit.
-    test('routes de l’administration fermées : à régler, prêt à facturer, export comptable, mentions légales, réglée à la main, annulation, avoirs partiels, règlements (liste, saisie, contre-passation), comptabilité : 403 « Accès réservé aux administrateurs », sur ses propres pièces, sans écriture', async () => {
+    // l'administration ; rien n'est écrit. AT-4 lui ouvre l'annulation et les avoirs partiels (réponse 1 du 09-11-2026, « Les
+    // règlements lui restent fermés ») : ils sortent de cette liste ; « réglée » à la main garde son 403, avant le 410 de
+    // l'administration (N10 du contrôle de mode 1).
+    test('routes de l’administration fermées : à régler, prêt à facturer, export comptable, mentions légales, réglée à la main, règlements (liste, saisie, contre-passation), comptabilité : 403 « Accès réservé aux administrateurs », sur ses propres pièces, sans écriture', async () => {
       const assistante = jeton('assistante');
       const sienne = await factureEmise(assistante, 'routes fermées');
       const r = await envoyer('post', '/api/reglements', jeton('admin'), { clientId: client.id, dateReglement: await aujourdhui(), montant: 1, moyen: 'VIREMENT', affectations: [{ factureId: sienne.id, montant: 1 }] });
@@ -29779,8 +29809,7 @@ if (!TEST_DATABASE_URL) {
       const fermees = [
         ['GET', '/api/factures/a-regler'], ['GET', '/api/facturation/prete-a-facturer'], ['GET', '/api/factures/export-comptable.csv'],
         ['GET', '/api/mentions-legales'], ['POST', '/api/mentions-legales', { mentions: 'TEST AT-3', cgv: 'TEST AT-3', penalites: 'TEST AT-3' }], ['POST', `/api/mentions-legales/${version}/publier`, {}],
-        ['POST', `/api/factures/${sienne.id}/regler`, {}], ['POST', `/api/factures/${sienne.id}/annuler`, {}],
-        ['POST', `/api/factures/${sienne.id}/avoirs`, { lignes: [ligne('avoir refusé', 1, 1, 20)] }],
+        ['POST', `/api/factures/${sienne.id}/regler`, {}],
         ['GET', '/api/reglements'], ['POST', '/api/reglements', { clientId: client.id, dateReglement: await aujourdhui(), montant: 1, moyen: 'VIREMENT', affectations: [{ factureId: sienne.id, montant: 1 }] }],
         ['POST', `/api/reglements/${r.body.id}/contrepasser`, { motif: 'TEST AT-3 contre-passation refusée' }],
         ['GET', '/api/comptabilite'], ['POST', '/api/comptabilite/comptes', { code: '445999', libelle: 'TEST AT-3 refusé', nature: 'TVA' }],
@@ -29792,13 +29821,16 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual([res.status, res.body?.error], [403, REFUS_ADMINISTRATION], `${methode} ${chemin}`);
       }
       assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
-      // Témoin : l'administration lit la facture à régler.
+      // Témoin : l'administration lit la facture à régler, et reçoit le 410 de « réglée » à la main.
       assert.ok((await lire('/api/factures/a-regler', jeton('admin'))).body.factures.some((f) => f.id === sienne.id));
+      assert.equal((await envoyer('post', `/api/factures/${sienne.id}/regler`, jeton('admin'), {})).status, 410);
     });
 
     // Contrat livré (requireGestionFactures) : les autres types de compte gardent leur refus sur chaque route ouverte, au message
     // de la garde ; la chronologie lui est ouverte (C2, la date de la dernière facture numérotée) ; aucune clé d'intégration.
-    test('routes ouvertes : 403 « Accès réservé à l’administration et à l’assistante technique. » pour les sept autres types (conducteur, responsable, technicien, commercial, directeur commercial, assistante commerciale, comptable), sans écriture ; 401 sans session ou par une clé d’intégration ; chronologie : la même date pour elle et pour l’administration', async () => {
+    // AT-4 (cadrage v2, § 1, N5 ; § 2) : l'avoir partiel, l'annulation et le repère « déjà facturée » s'ajoutent aux routes
+    // ouvertes, au même refus pour les sept autres types (et non plus « Accès réservé aux administrateurs »).
+    test('routes ouvertes : 403 « Accès réservé à l’administration et à l’assistante technique. » pour les sept autres types (conducteur, responsable, technicien, commercial, directeur commercial, assistante commerciale, comptable), avoir partiel, annulation et repère compris (AT-4), sans écriture ; 401 sans session ou par une clé d’intégration ; chronologie : la même date pour elle et pour l’administration', async () => {
       const sienne = await factureEmise(jeton('assistante'), 'routes ouvertes');
       const jour = await aujourdhui();
       const intervention = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-3 routes ouvertes ${suffixe}` });
@@ -29809,6 +29841,8 @@ if (!TEST_DATABASE_URL) {
         ['POST', '/api/factures', { clientId: client.id, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST AT-3 refusé', dateEmission: jour, dateEcheance: jour, lignes: [ligne('refusée', 1, 1, 20)] }],
         ['POST', `/api/factures/${sienne.id}/emettre`, {}], ['GET', `/api/interventions/${intervention.body.id}/facture-temps-passe`],
         ['POST', `/api/interventions/${intervention.body.id}/facture-temps-passe`, { dateEmission: jour, dateEcheance: jour, totalHtAttendu: 1 }],
+        ['POST', `/api/factures/${sienne.id}/avoirs`, { lignes: [ligne('refusé', 1, 1, 20)] }], ['POST', `/api/factures/${sienne.id}/annuler`, {}],
+        ['GET', `/api/factures/deja-facturee?origine=INTERVENTION&id=${intervention.body.id}`],
       ];
       const cle = await envoyer('post', '/api/admin/api-keys', sa, { nom: `TEST AT-3 clé ${suffixe}`, scopes: ['finances:read', 'clients:read'] });
       assert.equal(cle.status, 201, JSON.stringify(cle.body));

@@ -64,8 +64,16 @@ const ADMINISTRATION = ['SA', 'AD', 'AD-COM', 'DIR'];
 // poste (Facture.creeParType) ; avoirs, annulation, règlements et « réglée » à la main restent à l'administration. Elle rejoue
 // chaque cas de SA, un à un (elle écrit), avec son attendu (attenduAssistante, plus bas) et la relecture des montants de ses
 // écritures admises.
+// PR AT-4 (cadrage AT-4 v2, § 1 ; réponse 1 du 09-11-2026, « Partiels et annulation (Recommandé) ») : l'avoir partiel et
+// l'annulation s'ouvrent à elle sur les pièces de son poste (requireGestionFactures) ; les cas de SA portent sur des pièces de
+// l'administration, qui lui répondent 404, sans écriture, avant tout refus propre à la pièce (taux absent compris). Les sept
+// autres types reçoivent le refus de requireGestionFactures. Ses avoirs et annulations admis, et leurs montants, sont éprouvés
+// par assistante-technique-avoirs.test.mjs. Règlements et « réglée » à la main restent à l'administration.
 const ASSISTANTE = 'AT';
-const ROUTES_OUVERTES_AT3 = ['POST /api/factures', 'POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois', 'POST /api/interventions/:id/facture-temps-passe'];
+const ROUTES_OUVERTES_AT3 = [
+  'POST /api/factures', 'POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois', 'POST /api/interventions/:id/facture-temps-passe',
+  'POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs',
+];
 // Les 11 autres comptes, refusés à l'entrée de chaque route des factures (entrees.txt, vérifié par le test de couverture), au
 // message de la garde de la route.
 const REFUSES = COMPTES_JOUES.filter((c) => !ADMINISTRATION.includes(c) && c !== ASSISTANTE);
@@ -721,10 +729,11 @@ if (!TEST_DATABASE_URL) {
       // 403 ; sur une pièce de l'administration (émission du brouillon de SA, envois), 404 « Facture introuvable. », avant tout 409
       // (T4) ; ailleurs (création d'un brouillon de toute origine, émission de son brouillon, facture au temps passé), la
       // réponse de SA et la relecture de ses montants (classées C : ses montants sont ceux de l'administration).
+      // AT-4 : avoir partiel et annulation, sur les pièces de SA, 404 comme l'envoi.
       const attenduAssistante = (c) => {
         if (!ROUTES_OUVERTES_AT3.includes(c.route)) return { code: 403, montant: null };
         if (c.route === 'POST /api/factures/:id/emettre') return c.cible === 'facture-brouillon-deux-taux-at' ? { code: c.code, montant: c.montant } : { code: 404, montant: null };
-        if (c.route === 'POST /api/factures/:id/envois') return { code: 404, montant: null };
+        if (['POST /api/factures/:id/envois', 'POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs'].includes(c.route)) return { code: 404, montant: null };
         return { code: c.code, montant: c.montant };
       };
       for (const c of casDeSa) cas.push({ ...c, compte: ASSISTANTE, ...attenduAssistante(c) });
@@ -947,7 +956,7 @@ if (!TEST_DATABASE_URL) {
         else if (c.code >= 300 && !c.reponse.includes(' inchangé ; aucune entrée ; ')) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} (${c.contexte}) : refus qui écrit`);
         else if (c.enLot && !c.reponse.startsWith(`${refusEntree(c.route)} inchangé ; `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : refus à l’entrée attendu`);
         else if (c.compte === ASSISTANTE && c.code === 403 && !c.reponse.startsWith(`${REFUS_ADMINISTRATION_ENTREE} inchangé ; `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : refus de l’administration attendu`);
-        else if (c.compte === ASSISTANTE && c.code === 404 && ['POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois'].includes(c.route) && !c.reponse.startsWith('404 « Facture introuvable. » inchangé ; ')) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : « Facture introuvable. » attendu (pièce de l’administration)`);
+        else if (c.compte === ASSISTANTE && c.code === 404 && ['POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois', 'POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs'].includes(c.route) && !c.reponse.startsWith('404 « Facture introuvable. » inchangé ; ')) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : « Facture introuvable. » attendu (pièce de l’administration)`);
       }
       assert.deepEqual(ecarts, [], 'réponses différentes du tableau 4.1');
     });
