@@ -645,8 +645,9 @@ if (!TEST_DATABASE_URL) {
       for (const cle of ['AT', 'AD']) assert.deepEqual(await soldes(fa.id, par(cle)), ['EMISE', 48.14, 0, 100], `(a) lu par ${cle}`);
       assert.deepEqual((await enBase(fa.id)).journal.map((j) => j.action), ['CREATION_BROUILLON', 'EMISSION'], '(a) aucune entrée de règlement');
 
-      // (b) réglée en partie par l'administration, soldée par son avoir.
-      const fb = await factureEmise(par('AT'), 'reste dû, réglée en partie', LIGNES_SOLDE);
+      // (b) réglée en partie par l'administration, soldée par son avoir. Audit des montants de #520 (T1) : la facture est créée
+      // par l'autre assistante, pour que l'entrée REGLEMENT désigne l'auteur de l'avoir, et non le créateur de la facture.
+      const fb = await factureEmise(par('AT2'), 'reste dû, réglée en partie', LIGNES_SOLDE);
       await regler(fb.id, 100);
       assert.deepEqual(await soldes(fb.id, par('AT')), ['EMISE', 0, 100, 48.14]);
       const avoirB = await avoirCree(fb.id, AVOIR_SOLDE, par('AT'));
@@ -699,6 +700,31 @@ if (!TEST_DATABASE_URL) {
         const relu = await enBase(piece.id);
         assert.deepEqual([relu.creeParType, relu.createdById, relu.journal.map((j) => j.acteurId)], [type, acteur, [acteur]], piece.numero);
       }
+    });
+
+    // Audit des droits d'AT-4, T1 : le poste n'est pas nominatif (point 33, « non nomminative ») ; une assistante technique annule
+    // ou solde par son avoir une facture créée par une autre. Chaque entrée du journal est au nom de qui agit, et non de la
+    // créatrice de la facture (mutants « journal de l'annulation, de l'avoir total ou du passage à « réglée » au nom du créateur »,
+    // qui survivaient : toutes les annulations par elle portaient sur ses propres factures). Montants repris de LIGNES_SOLDE et
+    // AVOIR_SOLDE (148,14 € TTC, réglée de 100,00 €, avoir de 48,14 € : reste dû 0,00 €), déjà vérifiés plus haut.
+    test('journal : la seconde assistante annule une facture créée par la première, puis solde par son avoir une facture de la première réglée en partie : ANNULATION, CREATION_AVOIR, CREATION_AVOIR_PARTIEL et REGLEMENT à son nom, et non à celui de la créatrice', async () => {
+      const annulee = await factureEmise(par('AT'), 'journal, annulée par la seconde assistante', LIGNES_SOLDE);
+      const annulation = await ok(annuler(annulee.id, par('AT2')));
+      const facture = await enBase(annulee.id);
+      assert.deepEqual([facture.createdById, facture.statut], [comptes.AT.id, 'ANNULEE']);
+      assert.deepEqual(facture.journal.filter((j) => j.action === 'ANNULATION').map((j) => [j.acteurId, j.detail]), [[comptes.AT2.id, `Transition EMISE → ANNULEE ; avoir total ${annulation.avoir.numero}`]]);
+      const avoirTotal = await enBase(annulation.avoir.id);
+      assert.deepEqual([avoirTotal.creeParType, avoirTotal.createdById], [ROLE_AT, comptes.AT2.id]);
+      assert.deepEqual(avoirTotal.journal.map((j) => [j.action, j.acteurId]), [['CREATION_AVOIR', comptes.AT2.id]]);
+
+      const soldee = await factureEmise(par('AT'), 'journal, soldée par la seconde assistante', LIGNES_SOLDE);
+      await regler(soldee.id, 100);
+      const avoirSolde = await avoirCree(soldee.id, AVOIR_SOLDE, par('AT2'));
+      assert.deepEqual((await enBase(avoirSolde.id)).journal.map((j) => [j.action, j.acteurId]), [['CREATION_AVOIR_PARTIEL', comptes.AT2.id]]);
+      const relue = await enBase(soldee.id);
+      assert.deepEqual([relue.createdById, relue.statut], [comptes.AT.id, 'REGLEE']);
+      assert.deepEqual(relue.journal.filter((j) => j.action === 'REGLEMENT').map((j) => [j.acteurId, j.detail]),
+        [[comptes.AT2.id, `Transition EMISE → REGLEE (avoir partiel ${avoirSolde.numero}) : réglé 100,00 €, reste dû 0,00 €`]]);
     });
 
     // C2 et T1 du contrôle de mode 1 ; cadrage v2, § 1 (« Ce 404 passe avant tout refus propre à la pièce … Seul le 400 de lignes
@@ -830,6 +856,36 @@ if (!TEST_DATABASE_URL) {
       }
       // Sur une facture réglée en partie, l'avoir partiel lui reste ouvert (le refus ne vaut que pour l'annulation).
       assert.equal((await avoir(reglee.id, AVOIR_TROP_PERCU, at)).status, 201);
+    });
+
+    // Audit des montants de #520 (C1) : la règle « une facture qui porte un avoir partiel ne s'annule plus en totalité » vaut quel
+    // que soit l'auteur de l'avoir partiel, comme les plafonds et la TVA différentielle (cadrage v2, § 1 : « refus existants (avoirs
+    // partiels déjà émis, règlement reçu, statut) : inchangés, communs aux deux types de compte » ; « Les plafonds et la TVA
+    // différentielle se calculent sur tous les avoirs émis de la facture, quel qu'en soit l'auteur »). Chaque facture ne porte que
+    // l'avoir partiel d'un autre auteur que celui qui l'annule. Montants : facture 1 × 123,45 € à 20 % (TTC 148,14 €), avoir partiel
+    // 1 × 10,00 € à 20 % (TTC 12,00 €) ; après le refus, avoirs 12,00 €, reste dû 136,14 €, « émise ». Lectures écartées : seuls les
+    // avoirs partiels du même type d'auteur, ou du même compte, comptés ; l'annulation passerait alors le contrôle de l'application
+    // et créerait un avoir total de 148,14 € (160,14 € crédités pour 148,14 € facturés), arrêté par le seul garde de la base, sans
+    // le refus attendu.
+    test('montants : annulation refusée (409, avoirs partiels déjà émis) sur une facture de son poste qui ne porte que l’avoir partiel d’un autre auteur (l’administration, l’autre assistante), et à l’administration sur une facture qui ne porte que le sien ; sans écriture ni numéro ; avoirs 12,00 €, reste dû 136,14 €, toujours émise', async () => {
+      const at = par('AT'); const at2 = par('AT2'); const ad = par('AD');
+      const cas = [
+        ['avoir partiel de l’administration, annulation par elle', ad, at],
+        ['avoir partiel de l’autre assistante, annulation par elle', at2, at],
+        ['avoir partiel d’elle, annulation par l’administration', at, ad],
+      ];
+      for (const [quoi, auteurAvoir, auteurAnnulation] of cas) {
+        const facture = await factureEmise(at, `annulation après l’avoir d’un autre auteur, ${quoi}`, LIGNES_SOLDE);
+        assert.deepEqual(nombres([facture.totalHt, facture.totalTva, facture.totalTtc]), [123.45, 24.69, 148.14], quoi);
+        const avoirPartiel = await avoirCree(facture.id, AVOIR_TROP_PERCU, auteurAvoir);
+        assert.deepEqual(nombres([avoirPartiel.totalHt, avoirPartiel.totalTva, avoirPartiel.totalTtc]), [10, 2, 12], quoi);
+        const sequenceAvant = await sequenceAvoirs();
+        await refuse(() => annuler(facture.id, auteurAnnulation), 409, REFUS.avoirsPartiels, quoi);
+        assert.equal(await sequenceAvoirs(), sequenceAvant, `${quoi} : aucun numéro consommé`);
+        assert.deepEqual(await soldes(facture.id, ad), ['EMISE', 12, 0, 136.14], `${quoi} : avoirs 12,00 €, reste dû 136,14 €`);
+        const relue = await enBase(facture.id);
+        assert.deepEqual([relue.statut, relue.journal.map((j) => j.action)], ['EMISE', ['CREATION_BROUILLON', 'EMISSION']], quoi);
+      }
     });
 
     // T1 du contrôle de mode 1 (« pour chacun des sept autres types, refus de /avoirs et /annuler au message de

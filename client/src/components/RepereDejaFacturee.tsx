@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 
-export type OrigineRepere = 'CHANTIER' | 'INTERVENTION' | 'CONTRAT';
+type OrigineRepere = 'CHANTIER' | 'INTERVENTION' | 'CONTRAT';
 
 // Texte de l'avertissement, qui nomme l'origine choisie.
-export const texteRepereDejaFacturee: Record<OrigineRepere, string> = {
+const texteRepereDejaFacturee: Record<OrigineRepere, string> = {
   CHANTIER: 'Cette affaire a déjà une facture non annulée : vérifiez avant d’en créer une autre.',
   INTERVENTION: 'Cette intervention a déjà une facture non annulée : vérifiez avant d’en créer une autre.',
   CONTRAT: 'Ce contrat a déjà une facture non annulée : vérifiez avant d’en créer une autre.',

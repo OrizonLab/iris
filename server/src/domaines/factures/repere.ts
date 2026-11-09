@@ -6,7 +6,7 @@ type Db = Prisma.TransactionClient | typeof prisma;
 // Facture « vivante » : une facture (et non un avoir) qui n'est pas annulée, brouillon, émise ou réglée.
 // Définition commune au contrôle d'unicité de la facture au temps passé (./tempsPasse.ts) et au repère
 // « déjà facturée » ci-dessous. Une facture couverte, en tout ou en partie, par des avoirs partiels n'est pas
-// annulée : elle reste vivante (décision 4 du 09-11-2026 sur AT-4).
+// annulée : elle reste vivante (lecture retenue de la réponse 4 du 09-11-2026 sur AT-4).
 export const FACTURE_VIVANTE = { type: 'FACTURE', statut: { not: 'ANNULEE' } } satisfies Prisma.FactureWhereInput;
 
 // Repère « déjà facturée » (lot « Assistante technique », AT-4 ; message de Nelson du 09-11-2026, « Oui il faut

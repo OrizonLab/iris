@@ -66,8 +66,8 @@ const avoirsPartiels = (facture: Facture) => (facture.avoirs || []).filter((avoi
 export default function Factures() {
   // L'administration gère toutes les pièces. L'assistante technique (AT-3) ne reçoit que celles de son poste, crée
   // et émet ses brouillons, et lit les règlements reçus ; depuis AT-4, elle crée des avoirs partiels, annule par
-  // l'avoir total et envoie tout avoir de son poste. Ni saisie de règlement, ni export comptable (le serveur les
-  // refuse, factures/droits.ts et requireAdmin).
+  // l'avoir total et envoie tout avoir de son poste (périmètre : factures/droits.ts). Ni saisie de règlement, ni
+  // export comptable (le serveur les refuse : requireAdmin).
   const administration = isAdminRole(useCurrentUser()?.role);
   const [factures, setFactures] = useState<Facture[]>([]);
   const [page, setPage] = useState(1);
