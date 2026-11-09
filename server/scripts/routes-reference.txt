@@ -31,6 +31,7 @@ USE /api/company/logo jsonParser{readOptions.defaultCharset="utf-8",readOptions.
 USE / jsonParser{readOptions.defaultCharset="utf-8",readOptions.inflate=true,readOptions.limit=102400,readOptions.verify=false}#223e9f48a546
 USE / <anonymous>#aad6e7e7a45c
 GET /api/factures/chronologie requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#d089685a5f45
+GET /api/factures/deja-facturee requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#88f220e35727
 GET /api/factures/a-regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#da27e52f58a3
 GET /api/factures requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#17132a351056
 GET /api/factures/:id/document.pdf requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#c294f7d1d5db
@@ -58,8 +59,8 @@ POST /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab 
 GET /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#dcdb04c92920
 POST /api/factures/:id/emettre requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#05d1ef8eec83
 POST /api/factures/:id/regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#7c4c1669baf6
-POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#184a5e832f6e
-POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#ede42ed0383b
+POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#b9a97c7aeda8
+POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#f959808d37c0
 GET /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#e75e8b253ce9
 POST /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#960cb2d49dfe
 GET /api/reglements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c8df78a7855a

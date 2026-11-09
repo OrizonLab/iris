@@ -13,16 +13,27 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // reglement »), 33 (ses factures, leurs avoirs et leurs règlements en lecture) et 36 (export comptable retiré) ; réponse 6 du
 // 06-11-2026 ; réponse 1 du 09-11-2026. Choix par défaut, à confirmer, éprouvés tels quels : envoi d'un avoir fermé (C4).
 //
+// PR AT-4 (cadrage AT-4 v2, § 3, et N11 du contrôle de mode 1 ; message de Nelson du 09-11-2026, « elle peut egalement faire un
+// avoir, », et réponse 1, « Partiels et annulation (Recommandé) » : « Elle envoie ces avoirs. Les règlements lui restent
+// fermés. ») : ce parcours est mis à jour. « Créer un avoir partiel » et « Annuler la facture » lui sont montrés aux mêmes
+// conditions qu'à l'administration (« Annulation totale impossible : … » compris), « Envoyer » sur un avoir aussi (choix par
+// défaut, à confirmer, pour l'avoir de l'administration) ; « Enregistrer un règlement » et « Export comptable » restent masqués.
+// Ses propres avoirs, l'aperçu et l'annulation depuis l'écran : assistante-technique-avoirs.spec.ts.
+//
 // Parcours dans Chromium, libellés français, dates JJ-MM-AAAA, montants au format français :
 //  1. connectée, elle ouvre « Factures » depuis son menu (section Facturation réduite à cette entrée) : l'écran se charge sans
 //     erreur ni refus d'API, avec « Dernière facture numérotée » au jour de la société, sans « Export comptable » ;
 //  2. elle crée un brouillon hors affaire (1,5 × 12,33 € HT à 20 % : 18,495 arrondi à 18,50 € HT, TTC 22,20 € ; lecture écartée :
 //     troncature, 18,49 € et 22,19 € ; l'arrondi au pair donne aussi 18,50 € et n'est pas écarté ici : il l'est par le bloc
 //     « Assistante technique (AT-3) » de server/tests/api.test.mjs), relu par l'API à son type, puis l'émet ;
-//  3. elle télécharge le PDF de sa facture, puis l'envoie par la messagerie : l'envoi est noté à son nom ;
+//  3. elle télécharge le PDF de sa facture, puis l'envoie par la messagerie : l'envoi est noté à son nom ; sur sa facture émise,
+//     sans avoir ni règlement, « Créer un avoir partiel » et « Annuler la facture » lui sont proposés (AT-4), « Enregistrer un
+//     règlement » non ;
 //  4. l'administration crée un avoir partiel (5,00 € HT, 6,00 € TTC) et enregistre un règlement de 10,00 € sur sa facture : elle
-//     lit l'avoir (PDF, sans « Envoyer »), le reste dû 6,20 € (22,20 − 6,00 − 10,00 ; lecture écartée : avoir déduit hors taxes,
-//     7,20 €), et la part du règlement dans « Règlements de la facture » ; ni avoir partiel, ni règlement, ni annulation proposés ;
+//     lit l'avoir (PDF), et l'envoie par la messagerie, noté à son nom (AT-4) ; le reste dû 6,20 € (22,20 − 6,00 − 10,00 ; lecture
+//     écartée : avoir déduit hors taxes, 7,20 €), et la part du règlement dans « Règlements de la facture » ; un autre avoir
+//     partiel lui est proposé, l'annulation non (« Annulation totale impossible : 1 avoir(s) partiel(s) déjà émis »), le règlement
+//     non ;
 //  5. la facture de l'administration au même client ne lui apparaît sur aucune page de la liste.
 
 type Compte = { id: string; name: string };
@@ -89,7 +100,7 @@ async function preparer(request: APIRequestContext, token: string, creerClient: 
   return { assistante, client, courriel, factureAdmin, envoyer };
 }
 
-test('assistante technique : écran Factures sans erreur, brouillon créé et émis par elle, PDF et envoi à son nom ; avoir et règlement de l’administration lus, sans avoir, règlement, annulation ni envoi d’un avoir ; la facture de l’administration ne lui apparaît pas', async ({ connexion, request, session, creerClient }) => {
+test('assistante technique : écran Factures sans erreur, brouillon créé et émis par elle, PDF et envoi à son nom ; avoir partiel et annulation proposés sur sa facture (AT-4) ; avoir et règlement de l’administration lus, l’avoir envoyé par elle, sans saisie de règlement ; la facture de l’administration ne lui apparaît pas', async ({ connexion, request, session, creerClient }) => {
   test.slow();
   await horsDuPassageDeMinuit();
   const { assistante, client, courriel, factureAdmin, envoyer } = await preparer(request, session.token, creerClient);
@@ -154,8 +165,10 @@ test('assistante technique : écran Factures sans erreur, brouillon créé et é
   // 3. PDF et envoi de sa facture.
   const ligne = await ligneDe(page, client.raisonSociale, emise.numero!);
   await expect(ligne).toContainText('EMISE');
-  for (const absent of ['Créer un avoir partiel', 'Enregistrer un règlement', 'Annuler la facture']) await expect(ligne.getByText(absent), absent).toHaveCount(0);
-  for (const present of ['PDF', 'Règlements', 'Voir l’origine']) await expect(ligne.getByRole('button', { name: present, exact: true }), present).toBeVisible();
+  // AT-4 : avoir partiel et annulation proposés sur sa facture émise sans avoir ni règlement ; la saisie d'un règlement, non.
+  await expect(ligne.getByText('Enregistrer un règlement'), 'Enregistrer un règlement').toHaveCount(0);
+  await expect(ligne.getByText(/Annulation totale impossible/)).toHaveCount(0);
+  for (const present of ['PDF', 'Règlements', 'Voir l’origine', 'Créer un avoir partiel', 'Annuler la facture']) await expect(ligne.getByRole('button', { name: present, exact: true }), present).toBeVisible();
   const telechargement = page.waitForEvent('download');
   await ligne.getByRole('button', { name: 'PDF', exact: true }).click();
   const fichier = await telechargement;
@@ -176,7 +189,8 @@ test('assistante technique : écran Factures sans erreur, brouillon créé et é
   await dialogue.getByTestId('fermer-envoi').click();
   await expect(dialogue).toHaveCount(0);
 
-  // 4. L'administration crée un avoir partiel et enregistre un règlement ; elle les lit, sans pouvoir agir.
+  // 4. L'administration crée un avoir partiel et enregistre un règlement ; elle les lit, envoie l'avoir (AT-4), sans saisir de
+  //    règlement.
   const avoir = await envoyer('post', `/factures/${emise.id}/avoirs`, { lignes: [{ designation: 'Reprise partielle', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 5, tauxTva: 20 }] }) as Facture;
   expect([avoir.type, avoir.totalTtc, avoir.creeParType]).toEqual(['AVOIR', 6, 'SUPERADMIN']);
   await envoyer('post', '/reglements', { clientId: client.id, dateReglement: dateDuJour(), montant: 10, moyen: 'VIREMENT', reference: 'VIR-AT3', affectations: [{ factureId: emise.id, montant: 10 }] });
@@ -185,12 +199,30 @@ test('assistante technique : écran Factures sans erreur, brouillon créé et é
   const ligneAvoir = await ligneDe(page, client.raisonSociale, `Origine : ${emise.numero}`);
   await expect(ligneAvoir).toContainText('Avoir');
   await expect(ligneAvoir.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
-  await expect(ligneAvoir.getByRole('button', { name: /^Envoyer/ })).toHaveCount(0);
   await expect(ligneAvoir.getByRole('button', { name: 'Règlements', exact: true })).toHaveCount(0);
+  // Un avoir ne reçoit ni avoir, ni annulation, ni règlement.
+  for (const absent of ['Créer un avoir partiel', 'Annuler la facture', 'Enregistrer un règlement']) await expect(ligneAvoir.getByText(absent), absent).toHaveCount(0);
+  // AT-4 : l'avoir que l'administration porte sur sa facture, elle l'envoie par la messagerie ; l'envoi est noté à son nom
+  // (choix par défaut, à confirmer, cadrage v2, § 1, « Envoi d'un avoir »).
+  await ligneAvoir.getByRole('button', { name: `Envoyer l’avoir ${avoir.numero}`, exact: true }).click();
+  const dialogueAvoir = page.getByRole('dialog', { name: `Envoyer l’avoir ${avoir.numero}` });
+  await expect(dialogueAvoir.getByRole('textbox', { name: 'Destinataire' })).toHaveValue(courriel);
+  const pdfAvoir = page.waitForEvent('download');
+  await dialogueAvoir.getByRole('button', { name: 'Préparer l’envoi' }).click();
+  expect((await pdfAvoir).suggestedFilename()).toBe(`${avoir.numero}.pdf`);
+  await expect(dialogueAvoir.getByRole('region', { name: 'Envois' }).getByRole('listitem')).toHaveCount(1);
+  await expect(dialogueAvoir.getByRole('region', { name: 'Envois' })).toContainText(assistante.name);
+  const envoisAvoir = await (await request.get(`${api}/factures/${avoir.id}/envois`, { headers: { Authorization: `Bearer ${session.token}` } })).json() as { envois: { destinataire: string; auteurNom: string }[] };
+  expect(envoisAvoir.envois.map((e) => [e.destinataire, e.auteurNom])).toEqual([[courriel, assistante.name]]);
+  await dialogueAvoir.getByTestId('fermer-envoi').click();
+  await expect(dialogueAvoir).toHaveCount(0);
   await revenirEnPremierePage(page);
   const ligneReglee = (await ligneDe(page, client.raisonSociale, emise.numero!)).filter({ hasNotText: 'Origine :' });
   await expect(ligneReglee).toContainText(/6,20\s€/);
-  for (const absent of ['Créer un avoir partiel', 'Enregistrer un règlement', 'Annuler la facture']) await expect(ligneReglee.getByText(absent), absent).toHaveCount(0);
+  // AT-4 : un autre avoir partiel lui est proposé ; l'annulation, non, avec le texte de l'administration ; le règlement, non.
+  await expect(ligneReglee.getByRole('button', { name: 'Créer un avoir partiel', exact: true })).toBeVisible();
+  await expect(ligneReglee).toContainText('Annulation totale impossible : 1 avoir(s) partiel(s) déjà émis');
+  for (const absent of ['Enregistrer un règlement', 'Annuler la facture']) await expect(ligneReglee.getByText(absent, { exact: true }), absent).toHaveCount(0);
   await expect(ligneReglee.getByRole('button', { name: `Envoyer la facture ${emise.numero}`, exact: true })).toBeVisible();
   await ligneReglee.getByRole('button', { name: 'Règlements', exact: true }).click();
   const reglements = page.getByRole('region', { name: 'Règlements de la facture' });

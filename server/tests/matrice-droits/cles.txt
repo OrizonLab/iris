@@ -1063,6 +1063,7 @@ CLE-TOUS-SCOPES | GET /api/factures/:id/reglements | inexistant | défaut | 401 
 CLE-TOUS-SCOPES | GET /api/factures/:id/tracabilite | inexistant | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/factures/a-regler | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/factures/chronologie | — | défaut | 401 « Session expirée ou invalide »
+CLE-TOUS-SCOPES | GET /api/factures/deja-facturee | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/factures/export-comptable.csv | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/fournisseurs | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/heures | — | défaut | 401 « Session expirée ou invalide »

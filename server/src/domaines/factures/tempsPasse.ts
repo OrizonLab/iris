@@ -4,6 +4,7 @@ import { PLAFOND_MONTANT, arrondiCommercialLigneHt, centimes, centimesTtcLigne }
 import { dateEmissionEstFuture, dateIsoStricte } from '../../commun/dates';
 import { estTauxTvaFrancais } from '../../commun/tva';
 import { ventilationTvaDerivee } from './metier';
+import { FACTURE_VIVANTE } from './repere';
 import { isAdminRole } from '../../droits/roles';
 
 // --- Facture au temps passé (lot « facture au temps passé », seconde PR) ---
@@ -130,8 +131,9 @@ export type LigneFactureTempsPasse = {
 };
 
 // role : celui du lecteur. Une assistante technique ne voit pas les factures de l'administration : le refus
-// d'une facture déjà créée ne lui en donne pas les numéros, et la renvoie à l'administration, seule à
-// annuler ou à créer un avoir (AT-3 ; choix par défaut, le plus restrictif, à confirmer).
+// d'une facture déjà créée ne lui en donne pas les numéros (AT-3). Depuis AT-4, elle annule elle-même une
+// facture émise de son poste ou la corrige par des avoirs partiels ; le refus ne la renvoie à l'administration
+// que pour une facture absente de sa liste (choix par défaut, à confirmer).
 export async function preparerFactureTempsPasse(db: Db, interventionId: string, verrouiller: boolean, role?: string | null) {
   const idsSuites = verrouiller ? await verrouillerChaine(db, interventionId) : null;
   const intervention = await db.intervention.findUnique({
@@ -185,11 +187,11 @@ export async function preparerFactureTempsPasse(db: Db, interventionId: string, 
 
   const chaine = [intervention.id, ...suites.map((suite) => suite.id)];
   const existantes = await db.facture.findMany({
-    where: { type: 'FACTURE', statut: { not: 'ANNULEE' }, interventionId: { in: chaine } },
+    where: { ...FACTURE_VIVANTE, interventionId: { in: chaine } },
     select: { numero: true }, orderBy: { createdAt: 'asc' },
   });
   if (existantes.length && !isAdminRole(role)) {
-    throw new RefusFactureTempsPasse(409, 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord ; pour refaire une facture émise, adressez-vous à l’administration, qui l’annule par son avoir total ou la corrige par des avoirs partiels.');
+    throw new RefusFactureTempsPasse(409, 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord. Pour refaire une facture émise de votre poste, annulez-la d’abord par son avoir total ; une facture qui a reçu un avoir partiel, ou un règlement qui n’est pas contre-passé, ne s’annule plus en totalité et se corrige par des avoirs partiels. Si la facture n’apparaît pas dans votre liste, adressez-vous à l’administration.');
   }
   if (existantes.length) {
     throw new RefusFactureTempsPasse(409, `Cette intervention ou l’une de ses suites a déjà une facture (${libelles(existantes.map((f) => f.numero ?? 'brouillon'))}) : la facture au temps passé est unique. Pour la refaire, annulez d’abord la facture émise par son avoir total (un brouillon s’émet d’abord) ; une facture qui a reçu un avoir partiel, ou un règlement qui n’est pas contre-passé, ne s’annule plus en totalité et se corrige par des avoirs partiels.`);

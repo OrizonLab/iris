@@ -39,6 +39,9 @@ const VAD = { validationAvantDroit: true };
 export const ROUTES_SESSION = {
   // --- Factures, comptabilité, règlements (administration) ---
   'GET /api/factures/chronologie': L(),
+  // Repère « déjà facturée » (AT-4 : l'administration et l'assistante technique) : sans paramètre de requête fixe, la route
+  // répond 400 « Origine invalide. » à qui passe sa garde ; ses réponses sont éprouvées par assistante-technique-avoirs.test.mjs.
+  'GET /api/factures/deja-facturee': L(),
   'GET /api/factures/a-regler': L(),
   'GET /api/factures': L(),
   'GET /api/factures/:id/document.pdf': L('facture'),

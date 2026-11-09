@@ -67,6 +67,18 @@
 //  - liste des factures (donnees.txt, « éléments ») : la ligne d'AD réduite à ses pièces et à leurs avoirs ;
 //  - routes restées à l'administration (points 30 et 36 ; cadrage v1 « Restent à l'administration ») : refus nommés, « 403
 //    « Accès réservé aux administrateurs » », sans écriture.
+//
+// PR AT-4 « Avoirs et repère « déjà facturée » » (cadrage AT-4, version 2 ; N11 du contrôle de cohérence de mode 1 ; message de
+// Nelson du 09-11-2026, « Oui il faut un repere deja facturer, elle peut egalement faire un avoir, », et réponses 1 à 4 du même
+// jour). La règle fermée s'étend, route par route :
+//  - l'avoir partiel et l'annulation (POST /api/factures/:id/avoirs et /annuler, requireGestionFactures) rejoignent les routes
+//    ouvertes : la ligne d'AD sur une pièce de son poste ; sur une pièce de l'administration ou absente, « 404 « Facture
+//    introuvable. » », sans écriture, avant tout refus propre à la pièce (C2), sauf le 400 du corps vide d'entrees.txt, lu avant
+//    la pièce ; dans factures.txt, où le corps est valide, un 400 de l'administration (taux absent de la facture) est propre à
+//    la pièce, et elle reçoit le 404 ;
+//  - le repère « déjà facturée » (GET /api/factures/deja-facturee, requireGestionFactures) : la ligne d'AD ;
+//  - l'envoi d'un avoir de son poste n'est plus refusé (choix par défaut 5 d'AT-3 remplacé) : la ligne d'AD ;
+//  - les sept autres types reçoivent le refus de requireGestionFactures sur ces trois routes.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -155,7 +167,9 @@ const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistan
 // statut.
 const REFUS = {
   // AT-3 : routes des factures restées à l'administration (requireAdmin ; points 30 et 36, cadrage v1 « Restent à
-  // l'administration », choix par défaut à confirmer pour « à régler » et « Prêt à facturer »).
+  // l'administration », choix par défaut à confirmer pour « à régler » et « Prêt à facturer »). AT-4 en retire l'annulation et
+  // les avoirs partiels (ROUTES_FACTURES_AT4) ; « réglée » à la main et les règlements restent ici (réponse 1 du 09-11-2026,
+  // « Les règlements lui restent fermés »).
   'GET /api/factures/a-regler': REFUS_ADMINISTRATION,
   'GET /api/facturation/prete-a-facturer': REFUS_ADMINISTRATION,
   'GET /api/factures/export-comptable.csv': REFUS_ADMINISTRATION,
@@ -163,8 +177,6 @@ const REFUS = {
   'POST /api/mentions-legales': REFUS_ADMINISTRATION,
   'POST /api/mentions-legales/:version/publier': REFUS_ADMINISTRATION,
   'POST /api/factures/:id/regler': REFUS_ADMINISTRATION,
-  'POST /api/factures/:id/annuler': REFUS_ADMINISTRATION,
-  'POST /api/factures/:id/avoirs': REFUS_ADMINISTRATION,
   'GET /api/reglements': REFUS_ADMINISTRATION,
   'POST /api/reglements': REFUS_ADMINISTRATION,
   'POST /api/reglements/:id/contrepasser': REFUS_ADMINISTRATION,
@@ -196,12 +208,15 @@ const ROUTES_FACTURES_AT3 = new Set([
   'GET /api/factures/:id/journal', 'GET /api/factures/:id/reglements', 'GET /api/factures/:id/tracabilite', 'POST /api/factures', 'POST /api/factures/:id/emettre',
   'GET /api/interventions/:id/facture-temps-passe', 'POST /api/interventions/:id/facture-temps-passe',
 ]);
+// AT-4 (cadrage v2, § 1 et 2) : avoir partiel, annulation et repère « déjà facturée », ouverts comme les routes d'AT-3.
+const ROUTES_FACTURES_AT4 = ['POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs', 'GET /api/factures/deja-facturee'];
+for (const route of ROUTES_FACTURES_AT4) ROUTES_FACTURES_AT3.add(route);
 const PIECES_AT = ['facture-at-brouillon', 'facture-at-emise', 'avoir-facture-at', 'facture-brouillon-deux-taux-at'];
-const AVOIRS_AT = ['avoir-facture-at'];
 // Routes des pièces (paramètre :id de la famille « facture ») : sur une pièce hors de son poste, 404 avant tout refus du document.
 const ROUTES_PIECE_AT3 = [...ROUTES_FACTURES_AT3].filter((route) => route.includes('/api/factures/:id/'));
 const INTROUVABLE = '404 « Facture introuvable. »';
-const REFUS_ENVOI_AVOIR = 'L’envoi d’un avoir est réservé à l’administration.';
+// Refus de l'envoi d'un avoir d'AT-3 (choix par défaut 5), retiré par AT-4 : il ne doit plus figurer dans aucune référence.
+const REFUS_ENVOI_AVOIR_AT3 = 'L’envoi d’un avoir est réservé à l’administration.';
 // Liste des factures lue par AT (donnees.txt, lignes « éléments ») : les éléments d'AD qui sont des pièces de son poste, leurs
 // avoirs, leurs lignes et leur ventilation, nommés par leur cible ou par un libellé de l'assistante. « (sans libellé) » nomme la
 // ventilation d'une pièce sans cible : AD en lit deux (facture-avoir et facture-at-avoir, « ×2 »), AT une seule, celle de
@@ -369,14 +384,14 @@ function regle(fichier, cle, lignes) {
     const ad = commeAt(lignes.AD.get(cle), 'AD');
     if (ROUTES_PIECE_AT3.includes(route) && !PIECES_AT.includes(cible)) {
       // Hors de son poste : aucune donnée ; 404 à l'entrée et aux écritures, sauf le 400 du corps vide (contrôlé avant la pièce).
+      // factures.txt joue des corps valides : un 400 de l'administration y est propre à la pièce (taux absent de la facture,
+      // AT-4), et le 404 le précède (C2 du contrôle de mode 1 d'AT-4).
       if (fichier === 'donnees.txt') return { modele: 'nommé', attendu: undefined };
-      if (ad?.startsWith('400')) return { modele: 'AD', attendu: ad };
+      if (ad?.startsWith('400') && fichier !== 'factures.txt') return { modele: 'AD', attendu: ad };
       // Références échantillonnées (journaux, montants) : AT n'y joue pas ces cas ; une ligne d'elle, s'il y en a, est ce 404.
       return { modele: 'nommé', verifier: (at) => ((at === undefined && ECHANTILLONS.includes(fichier)) || at === INTROUVABLE || at?.startsWith(`${INTROUVABLE} inchangé`) ? [] : [`404 « Facture introuvable. » attendu (AT « ${at} »)`]) };
     }
-    if (route === 'POST /api/factures/:id/envois' && AVOIRS_AT.includes(cible) && /^2/.test(ad ?? '')) {
-      return { modele: 'nommé', verifier: (at) => (at?.startsWith(`403 « ${REFUS_ENVOI_AVOIR} » inchangé`) ? [] : [`refus de l’envoi d’un avoir attendu (AT « ${at} »)`]) };
-    }
+    // AT-4 : l'envoi d'un avoir de son poste suit la ligne d'AD (le refus d'AT-3 est retiré ; règle commune ci-dessous).
     if (fichier === 'donnees.txt' && route === 'GET /api/factures' && objet.startsWith('éléments ')) return { modele: 'nommé', attendu: ad === undefined ? undefined : elementsDeSonPoste(ad) };
     if (fichier === 'donnees.txt') return { modele: 'AD', ...attenduDonneesCommeAd(objet, ad, contexte) };
     // journaux.txt : elle émet le brouillon de son poste (facture-at-brouillon), là où l'administration émet le sien
@@ -467,7 +482,7 @@ function comparer(fichier) {
   return { defauts, parModele, nombre: lignes.AT.size };
 }
 
-describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats, sur les affaires en cours (fiche, commercial, saisies Travaux) et sur les factures de son poste, sa rentabilité selon son réglage', () => {
+describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3, AT-4) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats, sur les affaires en cours (fiche, commercial, saisies Travaux) et sur les factures de son poste, avoirs et annulation compris, sa rentabilité selon son réglage', () => {
   test('références de la matrice : celles attendues, ni plus ni moins (une nouvelle référence doit être classée ici)', () => {
     assert.deepEqual(readdirSync(DOSSIER).filter((f) => f.endsWith('.txt')).sort(), [...REFERENCES].sort());
   });
@@ -666,7 +681,7 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de cha
   // PR AT-3 (cadrage AT-3 v2 ; T4 et T6 du contrôle de cohérence ; points 27, 30, 33 et 36 du 24-10-2026, réponse 6 du 06-11-2026,
   // réponses 1 et 2 du 09-11-2026) : ouvertures et refus lus dans les références des entrées et des écritures ; le refus de la garde
   // requireGestionFactures, au message exact, pour chaque autre compte hors administration.
-  test('entrees.txt, ecritures-actions.txt et factures.txt : factures de son poste ouvertes à AT (lecture, PDF, envois, journal, règlements, origine, émission, création, temps passé), 404 sur les pièces de l’administration, routes des avoirs, des règlements, de l’export, des mentions et de la comptabilité refusées ; refus de la garde pour les autres comptes', () => {
+  test('entrees.txt, ecritures-actions.txt et factures.txt : factures de son poste ouvertes à AT (lecture, PDF, envois, journal, règlements, origine, émission, création, temps passé), 404 sur les pièces de l’administration, routes des règlements, de l’export, des mentions et de la comptabilité refusées (avoirs et annulation ouverts par AT-4, test suivant) ; refus de la garde pour les autres comptes', () => {
     const at = lignesDe('entrees.txt', 'AT');
     const ligne = (route, cible = '—', contexte = 'défaut') => at.get([route, cible, contexte].join(SEPARATEUR));
     // Ouvertures sur ses pièces : 200 (ou le refus du document sur un brouillon, 409, celui de l'administration).
@@ -694,21 +709,22 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de cha
     assert.equal(action('facture-at-brouillon'), '200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)');
     for (const cible of ['facture-brouillon', 'facture-emise', 'avoir-emis']) assert.equal(action(cible), `${INTROUVABLE} inchangé`, cible);
     for (const cible of ['facture-at-emise', 'avoir-facture-at']) assert.equal(action(cible), '409 « Seul un brouillon peut être émis. » inchangé', cible);
-    // Routes restées à l'administration, sur ses propres pièces : 403, message exact.
+    // Routes restées à l'administration, sur ses propres pièces : 403, message exact (AT-4 en retire l'annulation et les avoirs).
     for (const [route, cible] of [
       ['GET /api/factures/a-regler'], ['GET /api/facturation/prete-a-facturer'], ['GET /api/factures/export-comptable.csv'], ['GET /api/mentions-legales'], ['POST /api/mentions-legales'],
-      ['POST /api/factures/:id/regler', 'facture-at-emise'], ['POST /api/factures/:id/annuler', 'facture-at-emise'], ['POST /api/factures/:id/avoirs', 'facture-at-emise'],
+      ['POST /api/factures/:id/regler', 'facture-at-emise'],
       ['GET /api/reglements'], ['POST /api/reglements'], ['GET /api/comptabilite'],
     ]) assert.equal(ligne(route, cible), `403 « ${REFUS_ADMINISTRATION} »`, `${route} ${cible ?? ''}`);
     // factures.txt : elle crée, émet son brouillon et la facture au temps passé, montants relus conformes ; ses écritures sur les
-    // pièces de l'administration (émission, envois) 404 ; avoirs, annulation, règlements et contre-passation 403.
+    // pièces de l'administration (émission, envois) 404 ; règlements, contre-passation et « réglée » à la main 403 (avoirs et
+    // annulation : test suivant).
     const factures = lignesDe('factures.txt', 'AT');
     const cas = (route, cible, contexte) => factures.get([route, cible, contexte].join(SEPARATEUR));
     assert.match(cas('POST /api/factures', 'clientId=client-actif', 'défaut, corps trois lignes à deux taux'), /^201 écrit \(.*\) ; entrées : JournalFacture nouvelle facture CREATION_BROUILLON par AT ; pièces émises figées ; montants de la pièce créée relus en base conformes$/);
     assert.match(cas('POST /api/factures/:id/emettre', 'facture-brouillon-deux-taux-at', 'défaut'), /^200 écrit .* ; écritures et montants de la pièce relus en base conformes$/);
     assert.equal(cas('POST /api/factures/:id/emettre', 'facture-brouillon-deux-taux', 'défaut'), `${INTROUVABLE} inchangé ; aucune entrée ; pièces émises figées ; montants inchangés en base`);
     assert.match(cas('POST /api/interventions/:id/facture-temps-passe', 'intervention-temps-passe', 'défaut, corps dates et total de l’aperçu'), /^201 écrit .* par AT ; pièces émises figées ; montants de la pièce créée relus en base conformes$/);
-    for (const route of ['POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs', 'POST /api/reglements', 'POST /api/reglements/:id/contrepasser', 'POST /api/factures/:id/regler']) {
+    for (const route of ['POST /api/reglements', 'POST /api/reglements/:id/contrepasser', 'POST /api/factures/:id/regler']) {
       const lignesRoute = [...factures].filter(([cle]) => cle.startsWith(`${route}${SEPARATEUR}`));
       assert.ok(lignesRoute.length > 0, `${route} : jouée`);
       for (const [cle, valeur] of lignesRoute) assert.ok(valeur.startsWith(`403 « ${REFUS_ADMINISTRATION} » inchangé ; aucune entrée ;`), `${cle} : ${valeur}`);
@@ -723,6 +739,67 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de cha
       else if (['CT', 'CT-N1', 'RESP', 'RESP-SANS-BRANCHE', 'TECH', 'TECH-SANS-FICHE', 'COM', 'DC', 'AC', 'CPT', 'CPT-FINANCE'].includes(compte)) assert.equal(reponse, `403 « ${REFUS_GESTION} »`, `${compte} ${route}`);
     }
     for (const compte of ['CT', 'CPT', 'CPT-FINANCE', 'AT', 'AD', 'DIR']) for (const route of ROUTES_FACTURES_AT3) assert.ok(vues.has(`${compte} ${route}`), `${compte} ${route} : jouée`);
+  });
+
+  // PR AT-4 (cadrage AT-4 v2, § 1 et 2 ; C2, T1 et N11 du contrôle de cohérence de mode 1 ; réponse 1 du 09-11-2026, « Partiels et
+  // annulation (Recommandé) ») : avoir partiel, annulation et repère lus dans les références des entrées et des factures.
+  test('entrees.txt et factures.txt (AT-4) : avoir partiel et annulation ouverts à AT sur les pièces de son poste (refus de la pièce, ceux d’AD), 404 sur celles de l’administration et une pièce absente, 400 du corps vide avant la pièce ; repère « déjà facturée » admis ; refus de requireGestionFactures pour les autres comptes ; l’ancien refus de l’envoi d’un avoir et « Accès réservé aux administrateurs » sur ces routes n’apparaissent plus', () => {
+    const entrees = { AT: lignesDe('entrees.txt', 'AT'), AD: lignesDe('entrees.txt', 'AD') };
+    const ligne = (compte, route, cible = '—', contexte = 'défaut') => entrees[compte].get([route, cible, contexte].join(SEPARATEUR));
+    const ANNULER = 'POST /api/factures/:id/annuler'; const AVOIRS = 'POST /api/factures/:id/avoirs'; const REPERE = 'GET /api/factures/deja-facturee';
+    // Ses pièces : les refus propres à la pièce, ceux d'AD (règlement reçu sur facture-at-emise, avoir, brouillon).
+    for (const cible of ['facture-at-emise', 'avoir-facture-at', 'facture-at-brouillon']) assert.equal(ligne('AT', ANNULER, cible), ligne('AD', ANNULER, cible), `${ANNULER} ${cible}`);
+    assert.equal(ligne('AT', ANNULER, 'facture-at-emise'), '409 « Cette facture a reçu un règlement : elle ne peut plus être annulée en totalité. Émettez un avoir partiel, ou contre-passez d’abord un règlement saisi par erreur. »');
+    for (const cible of ['avoir-facture-at', 'facture-at-brouillon']) assert.equal(ligne('AT', ANNULER, cible), '409 « Seule une facture émise peut être annulée. »', cible);
+    // Pièces de l'administration et pièce absente : 404, là où AD reçoit le refus de la pièce.
+    for (const cible of ['facture-brouillon', 'facture-emise', 'avoir-emis', 'inexistant']) assert.equal(ligne('AT', ANNULER, cible), INTROUVABLE, `${ANNULER} ${cible}`);
+    assert.match(ligne('AD', ANNULER, 'facture-emise'), /^409 /, 'témoin : AD reçoit le refus de la pièce');
+    // Avoir partiel à corps vide : 400, lu avant la pièce, pour AT comme pour AD, sur toute cible.
+    for (const cible of ['facture-at-emise', 'avoir-facture-at', 'facture-at-brouillon', 'facture-brouillon', 'facture-emise', 'avoir-emis', 'inexistant']) {
+      for (const compte of ['AT', 'AD']) assert.equal(ligne(compte, AVOIRS, cible), '400', `${compte} ${AVOIRS} ${cible}`);
+    }
+    // Repère : la garde passée, 400 sans paramètre (assistante-technique-avoirs.test.mjs en éprouve les réponses).
+    for (const compte of ['AT', 'AD']) assert.equal(ligne(compte, REPERE), '400', `${compte} ${REPERE}`);
+    // Les autres comptes : le refus de requireGestionFactures sur chaque cible des trois routes ; l'administration et le directeur
+    // y entrent.
+    const autres = ['CT', 'CT-N1', 'RESP', 'RESP-SANS-BRANCHE', 'TECH', 'TECH-SANS-FICHE', 'COM', 'DC', 'AC', 'CPT', 'CPT-FINANCE'];
+    const vues = new Map();
+    for (const [compte, route, cible, contexte, reponse] of lire('entrees.txt').map((l) => l.split(SEPARATEUR))) {
+      if (![ANNULER, AVOIRS, REPERE].includes(route) || contexte !== 'défaut') continue;
+      vues.set(`${compte} ${route}`, (vues.get(`${compte} ${route}`) ?? 0) + 1);
+      if (autres.includes(compte)) assert.equal(reponse, `403 « ${REFUS_GESTION} »`, `${compte} ${route} ${cible}`);
+      if (['SA', 'AD', 'AD-COM', 'DIR', 'AT'].includes(compte)) assert.doesNotMatch(reponse, /^40[13]/, `${compte} ${route} ${cible} : ${reponse}`);
+    }
+    for (const compte of [...autres, 'SA', 'AD', 'AD-COM', 'DIR', 'AT']) {
+      for (const route of [ANNULER, AVOIRS]) assert.equal(vues.get(`${compte} ${route}`), 7, `${compte} ${route} : sept cibles jouées`);
+      assert.equal(vues.get(`${compte} ${REPERE}`), 1, `${compte} ${REPERE} : jouée`);
+    }
+    // factures.txt : elle rejoue chaque cas de SA ; sur les pièces de l'administration, 404 sans écriture, avant le 400 du taux
+    // absent et les 409 que l'administration reçoit (C2) ; les autres comptes, le refus de la garde.
+    const factures = lignesDe('factures.txt', 'AT');
+    for (const route of [ANNULER, AVOIRS]) {
+      const lignesRoute = [...factures].filter(([cle]) => cle.startsWith(`${route}${SEPARATEUR}`));
+      assert.ok(lignesRoute.length >= 7, `${route} : jouée par AT (${lignesRoute.length})`);
+      for (const [cle, valeur] of lignesRoute) assert.ok(valeur.startsWith(`${INTROUVABLE} inchangé ; aucune entrée ;`), `AT ${cle} : ${valeur}`);
+      for (const compte of ['CT', 'COM', 'CPT', 'AC', 'TECH', 'RESP', 'DC']) {
+        const refus = [...lignesDe('factures.txt', compte)].filter(([cle]) => cle.startsWith(`${route}${SEPARATEUR}`));
+        assert.equal(refus.length, lignesRoute.length, `${compte} ${route} : les cas de SA rejoués`);
+        for (const [cle, valeur] of refus) assert.ok(valeur.startsWith(`403 « ${REFUS_GESTION} » inchangé ; aucune entrée ;`), `${compte} ${cle} : ${valeur}`);
+      }
+    }
+    const tauxAbsent = [AVOIRS, 'facture-emise', 'défaut, corps taux absent de la facture'].join(SEPARATEUR);
+    assert.match(lignesDe('factures.txt', 'AD').get(tauxAbsent) ?? '', /^400 /, 'témoin : AD reçoit le 400 du taux absent');
+    assert.ok(factures.get(tauxAbsent)?.startsWith(`${INTROUVABLE} inchangé`), `AT : le 404 avant le 400 du taux absent (${factures.get(tauxAbsent)})`);
+    // Plus aucune trace des refus retirés : l'envoi d'un avoir refusé à AT (AT-3), et le refus de l'administration sur l'avoir
+    // partiel et l'annulation, pour quelque compte que ce soit.
+    for (const fichier of REFERENCES) {
+      for (const l of lire(fichier)) {
+        assert.ok(!l.includes(REFUS_ENVOI_AVOIR_AT3), `${fichier} : refus de l’envoi d’un avoir encore présent : ${l}`);
+        const champs = l.split(SEPARATEUR);
+        const route = INDIVIDUELS.includes(fichier) ? champs[2] : champs[1];
+        if ([ANNULER, AVOIRS].includes(route)) assert.ok(!l.includes(`403 « ${REFUS_ADMINISTRATION} »`), `${fichier} : refus de l’administration sur ${route} : ${l}`);
+      }
+    }
   });
 
   test('témoins de la règle : un montant de rentabilité, de coût prévu ou de main-d’œuvre lu par AT, un budget par poste masqué, un refus changé ou une entrée à un autre nom sont des écarts', () => {
@@ -829,10 +906,11 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de cha
     const emissionAdmin = regle('ecritures-actions.txt', 'POST /api/factures/:id/emettre | facture-brouillon | défaut', lignesAt3);
     assert.deepEqual(emissionAdmin.verifier(`${INTROUVABLE} inchangé`), []);
     assert.equal(emissionAdmin.verifier('200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)').length, 1, 'brouillon de l’administration émis par elle');
-    // Envoi d'un avoir de son poste : 403 conforme, l'envoi d'AD (201) un écart (mutant « envoiAvoirRefuse toujours faux »).
+    // AT-4 : l'envoi d'un avoir de son poste suit la ligne d'AD (201) ; le refus d'AT-3 rétabli serait un écart (mutant
+    // « envoiAvoirRefuse rétabli »).
     const envoiAvoir = regle('factures.txt', 'POST /api/factures/:id/envois | avoir-facture-at | défaut, corps destinataire', lignesAt3);
-    assert.deepEqual(envoiAvoir.verifier(`403 « ${REFUS_ENVOI_AVOIR} » inchangé ; aucune entrée`), []);
-    assert.equal(envoiAvoir.verifier('201 écrit (EnvoiDocument)').length, 1);
+    assert.deepEqual([envoiAvoir.modele, envoiAvoir.attendu], ['AD', '201 écrit (EnvoiDocument)']);
+    assert.notEqual(envoiAvoir.attendu, `403 « ${REFUS_ENVOI_AVOIR_AT3} » inchangé ; aucune entrée`);
     // Le 400 d'un corps vide, contrôlé avant la pièce, reste celui d'AD.
     assert.deepEqual(regle('entrees.txt', 'POST /api/factures/:id/envois | facture-emise | défaut', lignesAt3).attendu, '400');
     // Liste : ses éléments seulement ; une pièce de l'administration dans sa liste est un écart.
@@ -840,9 +918,27 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de cha
       'avoir-facture-at, facture-at-emise, « TEST facture avoir de l’assistante matrice »');
     assert.equal(elementsDeSonPoste('(sans libellé) ×2, facture avoir-emis, facture facture-at-emise'), '(sans libellé), facture facture-at-emise');
     assert.equal(elementsDeSonPoste('avoir-emis, facture-emise'), '(aucun)');
-    // Route restée à l'administration : l'écriture d'un avoir par elle est un écart.
-    const avoirsAt = regle('entrees.txt', 'POST /api/factures/:id/avoirs | facture-at-emise | défaut', lignes);
-    assert.deepEqual(avoirsAt.verifier(`403 « ${REFUS_ADMINISTRATION} »`), []);
-    assert.equal(avoirsAt.verifier('400').length, 1, 'route des avoirs ouverte');
+    // AT-4. Avoir partiel et annulation ouverts : sur sa pièce, la ligne d'AD (le refus de l'administration rétabli serait un
+    // écart) ; sur une pièce de l'administration, 404 (mutants « avoirs ou annulation sans périmètre » et « périmètre relu après
+    // le statut ») ; le 400 du corps vide, lu avant la pièce, celui d'AD (mutant « lignes lues après la pièce ») ; dans
+    // factures.txt, le 404 avant le 400 du taux absent (mutant « périmètre relu après le taux »).
+    const tauxAbsent = 'POST /api/factures/:id/avoirs | facture-emise | défaut, corps taux absent de la facture';
+    const lignesAt4 = { ...lignes, AD: new Map([
+      ['POST /api/factures/:id/avoirs | facture-at-emise | défaut', '400'],
+      ['POST /api/factures/:id/avoirs | facture-emise | défaut', '400'],
+      ['POST /api/factures/:id/annuler | facture-emise | défaut', '409 « Cette facture a reçu un règlement : elle ne peut plus être annulée en totalité. »'],
+      [tauxAbsent, '400 « Le taux de TVA d’une ligne d’avoir doit être présent sur la facture d’origine. » inchangé ; aucune entrée ; pièces émises figées ; montants inchangés en base'],
+    ]) };
+    const avoirsAt = regle('entrees.txt', 'POST /api/factures/:id/avoirs | facture-at-emise | défaut', lignesAt4);
+    assert.deepEqual([avoirsAt.modele, avoirsAt.attendu], ['AD', '400'], 'route des avoirs ouverte sur sa pièce');
+    assert.notEqual(avoirsAt.attendu, `403 « ${REFUS_ADMINISTRATION} »`);
+    assert.equal(regle('entrees.txt', 'POST /api/factures/:id/avoirs | facture-emise | défaut', lignesAt4).attendu, '400', 'corps vide : 400 avant la pièce');
+    const annulationAdmin = regle('entrees.txt', 'POST /api/factures/:id/annuler | facture-emise | défaut', lignesAt4);
+    assert.deepEqual(annulationAdmin.verifier(INTROUVABLE), []);
+    assert.equal(annulationAdmin.verifier(lignesAt4.AD.get('POST /api/factures/:id/annuler | facture-emise | défaut')).length, 1, 'refus de la pièce avant le périmètre');
+    assert.equal(annulationAdmin.verifier(`403 « ${REFUS_ADMINISTRATION} »`).length, 1, 'refus de l’administration rétabli');
+    const tauxAbsentAdmin = regle('factures.txt', tauxAbsent, lignesAt4);
+    assert.deepEqual(tauxAbsentAdmin.verifier(`${INTROUVABLE} inchangé ; aucune entrée ; pièces émises figées ; montants inchangés en base`), []);
+    assert.equal(tauxAbsentAdmin.verifier(lignesAt4.AD.get(tauxAbsent)).length, 1, 'le 400 du taux absent avant le périmètre');
   });
 });
