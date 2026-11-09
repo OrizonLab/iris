@@ -48,21 +48,28 @@ export async function avecSoldes<T extends { id: string; type: string; statut: s
   return factures.map(facture => ({ ...facture, ...(soldes.get(facture.id) ?? { montantAvoirs: null, montantRegle: null, resteDu: null }) }));
 }
 
-// « Réglée » se déduit (choix par défaut, à confirmer) : reste dû nul ou négatif ET au moins un
-// règlement non contre-passé ; une facture soldée par ses seuls avoirs reste « émise ». Recalculé
-// après chaque événement qui change le reste dû (règlement, contre-passation, avoir partiel),
-// sous le verrou de la facture déjà pris par l'appelant ; le trigger `facture_statut_reglements`
-// refuse toute autre transition.
+// « Réglée » se déduit : reste dû nul ou négatif ET un montant positif enregistré sur elle, règlements non
+// contre-passés et avoirs partiels émis (règles de montants du 17-10-2026 ; depuis le 09-11-2026, une facture couverte en totalité par
+// ses avoirs partiels est réglée, lecture retenue de la réponse de Nelson, à corriger par lui si besoin ; elle
+// remplace « une facture soldée par ses seuls avoirs reste émise »). La seconde condition ne joue que pour une
+// facture à 0,00 €, qui reste « émise ». Recalculé après chaque événement qui change le reste dû (règlement,
+// contre-passation, avoir partiel), sous le verrou de la facture déjà pris par l'appelant ; les gardes
+// `facture_statut_reglements` et `facture_statut_reglement_differe` portent la même règle en base. L'entrée
+// REGLEMENT du journal désigne le passage à « réglée », et non une saisie de règlement (REGLEMENT_AFFECTE) :
+// elle est au nom de l'auteur de l'événement, assistante technique comprise pour son avoir.
 export async function synchroniserStatutReglement(tx: Prisma.TransactionClient, factureId: string, acteurId: string, cause: string) {
   const facture = await tx.facture.findUnique({ where: { id: factureId }, select: { id: true, type: true, statut: true, totalTtc: true } });
   if (!facture || facture.type !== 'FACTURE' || (facture.statut !== 'EMISE' && facture.statut !== 'REGLEE')) return;
   const solde = (await soldesFactures(tx, [facture])).get(facture.id)!;
-  const cible = solde.resteDu <= 0 && solde.montantRegle > 0 ? 'REGLEE' : 'EMISE';
+  const cible = solde.resteDu <= 0 && (solde.montantRegle > 0 || solde.montantAvoirs > 0) ? 'REGLEE' : 'EMISE';
   if (cible === facture.statut) return;
   const maj = await tx.facture.updateMany({ where: { id: facture.id, type: 'FACTURE', statut: facture.statut }, data: { statut: cible } });
   if (maj.count !== 1) throw new Error('Statut de facture modifié pendant la transaction.');
   const reste = solde.resteDu < 0 ? `trop-perçu ${formatMontantFacture(-solde.resteDu)}` : `reste dû ${formatMontantFacture(solde.resteDu)}`;
-  await tx.journalFacture.create({ data: { factureId: facture.id, acteurId, action: cible === 'REGLEE' ? 'REGLEMENT' : 'RETOUR_EMISE', detail: `Transition ${facture.statut} → ${cible} (${cause}) : réglé ${formatMontantFacture(solde.montantRegle)}, ${reste}` } });
+  // Le montant des avoirs n'est écrit que s'il y en a (choix par défaut, à confirmer) : le détail reste celui d'avant
+  // pour une facture sans avoir.
+  const avoirs = solde.montantAvoirs > 0 ? `, avoirs ${formatMontantFacture(solde.montantAvoirs)}` : '';
+  await tx.journalFacture.create({ data: { factureId: facture.id, acteurId, action: cible === 'REGLEE' ? 'REGLEMENT' : 'RETOUR_EMISE', detail: `Transition ${facture.statut} → ${cible} (${cause}) : réglé ${formatMontantFacture(solde.montantRegle)}${avoirs}, ${reste}` } });
 }
 
 // Centimes entiers : la somme des affectations se compare au montant sans erreur binaire.

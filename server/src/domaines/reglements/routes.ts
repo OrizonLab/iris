@@ -92,8 +92,10 @@ export function enregistrerRoutesReglements(app: Express): void {
         }
         // Une part peut dépasser le reste dû (décision de Nelson du 17-10-2026) : la facture est
         // réglée dès que le montant reçu l'atteint ou le dépasse, et le surplus devient un trop-perçu.
-        // Choix par défaut, à confirmer : une facture déjà soldée (par avoir) ne reçoit plus rien, et
-        // un surplus ne va sur une facture que si les autres factures du règlement sont couvertes.
+        // Une facture soldée par ses avoirs est « réglée » depuis le 09-11-2026 : le contrôle de statut ci-dessus la
+        // refuse déjà ; le refus « déjà soldée » ne reste atteint que par une facture émise à 0,00 €, ou déjà
+        // soldée par ses avoirs avant la migration 20261110090000. Choix par défaut, à confirmer (#155) : un
+        // surplus ne va sur une facture que si les autres factures du règlement sont couvertes.
         const soldes = await soldesFactures(tx, factures);
         const resteApresPart = (affectation: { factureId: string; montant: number }) => centimesEntiers(soldes.get(affectation.factureId)!.resteDu) - centimesEntiers(affectation.montant);
         for (const affectation of affectations) {

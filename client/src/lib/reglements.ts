@@ -41,13 +41,16 @@ export function repartirReglement(montantCentimes: number, factures: { id: strin
   return parts;
 }
 
-type SoldeAffiche = { type: string; statut: string; montantRegle?: number | null; resteDu?: number | null };
+type SoldeAffiche = { type: string; statut: string; montantRegle?: number | null; montantAvoirs?: number | null; resteDu?: number | null };
 
 // Précision affichée sous le statut stocké : elle se déduit des règlements et des avoirs.
 export function situationReglement(facture: SoldeAffiche, formatMontant: (montant: number) => string): string {
   if (facture.type !== 'FACTURE' || facture.resteDu === null || facture.resteDu === undefined) return '';
   if (facture.resteDu < 0) return `Trop-perçu : ${formatMontant(-facture.resteDu)}`;
-  if (facture.statut === 'EMISE' && facture.resteDu === 0) return 'Soldée par avoir';
-  if (facture.statut === 'EMISE' && (facture.montantRegle ?? 0) > 0) return 'Partiellement réglée';
+  // Une facture couverte en totalité par ses avoirs est « réglée », en partie « partiellement réglée » (lecture
+  // retenue de la réponse de Nelson du 09-11-2026) ; la précision « Soldée par avoir » reste affichée sous « réglée »
+  // quand aucun règlement ne la couvre (choix par défaut, à confirmer).
+  if (facture.statut === 'REGLEE' && facture.resteDu === 0 && (facture.montantRegle ?? 0) === 0 && (facture.montantAvoirs ?? 0) > 0) return 'Soldée par avoir';
+  if (facture.statut === 'EMISE' && ((facture.montantRegle ?? 0) > 0 || (facture.montantAvoirs ?? 0) > 0)) return 'Partiellement réglée';
   return '';
 }
