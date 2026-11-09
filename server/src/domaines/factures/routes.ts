@@ -31,6 +31,7 @@ import { produirePdf, repondrePdf } from '../documents/productionPdf';
 import { lireFacturePdf, rendreFichierFacturePdf } from './productionPdf';
 import { envoiFacture } from './envois';
 import { facturesVisibles, journalPourLeLecteur, pieceVisible } from './droits';
+import { lireOrigineRepere, origineDejaFacturee } from './repere';
 
 export function enregistrerRoutesFactures(app: Express): void {
   // Date de la dernière facture numérotée, que l'écran compare aux brouillons : ouverte à l'assistante technique
@@ -40,6 +41,19 @@ export function enregistrerRoutesFactures(app: Express): void {
       const derniere = await derniereDateFactureNumerotee(prisma);
       res.json({ derniereDateEmission: derniere?.dateEmission ?? null });
     } catch { res.status(500).json({ error: 'Lecture de la chronologie impossible.' }); }
+  });
+
+  // Repère « déjà facturée » (AT-4, ./repere.ts) : une facture vivante porte-t-elle déjà cette origine, de qui
+  // qu'elle soit ? Le formulaire de création l'affiche comme un avertissement, sans rien bloquer. Ni montant, ni
+  // numéro, ni nombre : l'assistante technique ne voit pas les pièces de l'administration.
+  app.get('/api/factures/deja-facturee', requireAuth, requireGestionFactures, async (req, res) => {
+    try {
+      const demande = lireOrigineRepere(req.query.origine, req.query.id);
+      if (!demande) return res.status(400).json({ error: 'Origine invalide.' });
+      const dejaFacturee = await origineDejaFacturee(prisma, demande.origine, demande.id);
+      if (dejaFacturee === null) return res.status(404).json({ error: 'Origine introuvable.' });
+      return res.json({ dejaFacturee });
+    } catch { return res.status(500).json({ error: 'Lecture du repère impossible.' }); }
   });
 
   // Factures qui attendent un règlement : émises, non soldées, de tous les clients. Le formulaire
@@ -97,7 +111,7 @@ export function enregistrerRoutesFactures(app: Express): void {
 
   // Envoi d'une facture ou d'un avoir émis par la messagerie de l'utilisateur, et journal des envois
   // (lot 6a-3) : en session, comme le PDF des factures, pour l'administration et, sur les pièces de son
-  // poste, l'assistante technique (AT-3 ; elle lit les envois d'un avoir sans l'envoyer, factures/droits.ts),
+  // poste, l'assistante technique (AT-3 ; avoirs compris depuis AT-4, factures/droits.ts),
   // et refusés comme le PDF pour une pièce sans document. Lecture : destinataire, objet et texte proposés,
   // et envois déjà préparés, du plus récent au plus ancien, dans une même photo de la base ; microsoft365 :
   // l'envoi par Microsoft 365 est proposé (lot 6b-1b).
@@ -414,14 +428,16 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
 
   // L’annulation d’une facture émise est une transition métier atomique : elle conserve la
   // facture historique, crée son unique avoir total et lie les deux documents dans la même TX.
-  app.post('/api/factures/:id/annuler', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  // Administration, et assistante technique sur les factures de son poste (AT-4 ; décisions du 09-11-2026) :
+  // une facture hors de son périmètre lui répond 404, relue sous le verrou, avant tout autre refus.
+  app.post('/api/factures/:id/annuler', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const resultat = await transactionVerifiee(async (tx) => {
         // Toute décision qui crée un avoir ou annule la facture source acquiert ce verrou
         // d'abord. Même ordre que POST /avoirs : facture puis séquence, afin d'éviter à la
         // fois un reliquat lu périmé et les interblocages entre annulation et avoir partiel.
         await tx.$queryRaw`SELECT 1 FROM "Facture" WHERE "id" = ${paramId(req)} FOR UPDATE`;
-        const facture = await tx.facture.findUnique({ where: { id: paramId(req) }, include: { lignes: { orderBy: { ordre: 'asc' } }, ventilationTva: true, avoirs: { select: { id: true } } } });
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), include: { lignes: { orderBy: { ordre: 'asc' } }, ventilationTva: true, avoirs: { select: { id: true } } } });
         if (!facture) return { erreur: 'NOT_FOUND' as const };
         if (facture.statut !== 'EMISE' || facture.type !== 'FACTURE') return { erreur: 'NOT_EMITTED' as const };
         if (facture.avoirs.length) return { erreur: 'PARTIAL_CREDITS_EXIST' as const };
@@ -473,15 +489,18 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
 
   // Un avoir partiel est un document émis immédiatement : il n’annule jamais la facture
   // source et reprend tous ses snapshots. Le verrou SQL de la source sérialise les créations
-  // concurrentes avant le contrôle cumulatif des plafonds HT, TVA et TTC.
-  app.post('/api/factures/:id/avoirs', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  // concurrentes avant le contrôle cumulatif des plafonds HT, TVA et TTC, quel que soit l'auteur des avoirs.
+  // Administration, et assistante technique sur les factures de son poste (AT-4 ; décisions du 09-11-2026) :
+  // une facture hors de son périmètre lui répond 404, relue sous le verrou, avant tout refus propre à la pièce ;
+  // seul le 400 de lignes mal formées, lu avant la transaction et indépendant de la pièce, le précède.
+  app.post('/api/factures/:id/avoirs', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const lignes = lignesAvoirPartiel(req.body?.lignes);
       const resultat = await transactionVerifiee(async (tx) => {
         // PostgreSQL verrouille la facture source jusqu’à la fin de la transaction ; sans ce
-        // verrou, deux administrateurs pourraient chacun lire le même reliquat puis le dépasser.
+        // verrou, deux auteurs pourraient chacun lire le même reliquat puis le dépasser.
         await tx.$queryRaw`SELECT 1 FROM "Facture" WHERE "id" = ${paramId(req)} FOR UPDATE`;
-        const facture = await tx.facture.findUnique({ where: { id: paramId(req) }, include: { lignes: true, ventilationTva: true, avoirs: { include: { lignes: true, ventilationTva: true } } } });
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), include: { lignes: true, ventilationTva: true, avoirs: { include: { lignes: true, ventilationTva: true } } } });
         if (!facture) return { erreur: 'NOT_FOUND' as const };
         if (facture.type !== 'FACTURE' || !['EMISE', 'REGLEE'].includes(facture.statut)) return { erreur: 'NOT_CREDITABLE' as const };
         const tauxSource = new Set(tauxUtilises(facture.lignes));

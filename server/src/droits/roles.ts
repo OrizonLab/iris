@@ -85,9 +85,11 @@ export function gereLesChantiersEnCours(role: string | undefined | null): boolea
 // - gereLesFactures : factures, depuis AT-3 (décisions du 24-10-2026, points 27, 30, 33 et 34 ; réponse 6 du
 //   06-11-2026 ; réponses 1 et 2 du 09-11-2026) : liste, document, journal, origine, règlements reçus et envois
 //   des pièces qu'elle voit (factures/droits.ts, facturesVisibles), création d'un brouillon de toute origine,
-//   facture au temps passé comprise, et émission des brouillons créés par une assistante technique. Avoirs,
-//   annulation, règlements, factures à régler, export comptable, mentions légales, prérequis de la facturation
-//   et comptabilité restent à l'administration.
+//   facture au temps passé comprise, et émission des brouillons créés par une assistante technique. Depuis
+//   AT-4 (décisions du 09-11-2026 sur AT-4) : avoirs partiels et annulation par l'avoir total des factures de
+//   son poste, envoi de tout avoir de son poste, et repère « déjà facturée » (factures/repere.ts). Règlements,
+//   factures à régler, export comptable, mentions légales, prérequis de la facturation et comptabilité restent
+//   à l'administration.
 export function gereLesFactures(role: string | undefined | null): boolean {
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
 }
