@@ -32,7 +32,7 @@ import Comptabilite from './pages/Comptabilite';
 import MentionsLegales from './pages/MentionsLegales';
 import PreteAFacturer from './pages/PreteAFacturer';
 import { ErrorBoundary } from './ErrorBoundary';
-import { useCurrentUser, peutAccederAuxDevis, peutConsulterPlanning, peutOuvrirAdministration, ROLES_ANNUAIRE, ROLES_CONTRATS, ROLES_INTERVENTIONS, ROLES_TRAVAUX, ROLE_COMMERCIAL, ROLE_CONDUCTEUR, ROLE_RESPONSABLE, ROLE_SUPERADMIN, ROLE_TECHNICIEN, TYPES_ADMINISTRATION } from './roles';
+import { useCurrentUser, peutAccederAuxDevis, peutConsulterPlanning, peutOuvrirAdministration, ROLES_ANNUAIRE, ROLES_CONTRATS, ROLES_FACTURES, ROLES_INTERVENTIONS, ROLES_TRAVAUX, ROLE_COMMERCIAL, ROLE_CONDUCTEUR, ROLE_RESPONSABLE, ROLE_SUPERADMIN, ROLE_TECHNICIEN, TYPES_ADMINISTRATION } from './roles';
 import { useModules } from './modules';
 import { CompanyTimezoneProvider } from './companyTimezone';
 
@@ -164,8 +164,10 @@ function App() {
             <ContratsMaintenance />
           </PrivateRoute>
         } />
+        {/* Factures : l'administration et l'assistante technique (ROLES_FACTURES, même liste que le menu ;
+            cf. gereLesFactures). */}
         <Route path="/factures" element={
-          <PrivateRoute requiredRoles={ROLES_ADMIN}>
+          <PrivateRoute requiredRoles={ROLES_FACTURES}>
             <Factures />
           </PrivateRoute>
         } />

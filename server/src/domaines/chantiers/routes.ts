@@ -179,7 +179,7 @@ export function enregistrerRoutesChantiers(app: Express): void {
       const [chantierAvecSuites] = await avecCoutsSuites([chantierSansFactures]);
       const contexte = await contexteSuivi(canSeeMarge && params.margeCommercialeActive);
       const detail = serializeChantier(avecDroitDeCloture(authUser, chantierAvecSuites), params, canSeeMarge, contexte, voitMontantsChantier(req), voitCoutMainOeuvre(req), voitCoutPrevuParPrixAchat(req)) as Record<string, unknown>;
-      // Facturation de la fiche : aux mêmes destinataires, sauf aux assistantes techniques jusqu'à AT-3
+      // Facturation de la fiche : aux mêmes destinataires, sauf aux assistantes techniques
       // (cf. voitFacturationChantier).
       if (voitFacturationChantier(req, canSeeMarge)) {
         // Les montants sont positifs en base : seul le type AVOIR en inverse le sens. Une
@@ -356,6 +356,8 @@ export function enregistrerRoutesChantiers(app: Express): void {
         if (refusSousVerrou) throw refusSousVerrou;
         if (cibleClient) {
           if (verrouille.clientId !== cibleClient.id) {
+            // Toutes les factures de l'affaire comptent, celles de l'administration comprises : le refus apprend
+            // à une assistante technique qu'une facture existe, sans la lui montrer (effet à connaître, AT-3).
             if (await tx.facture.count({ where: { OR: [
               { chantierId: existant.id },
               { intervention: { is: { chantierId: existant.id } } },

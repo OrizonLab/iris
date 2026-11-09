@@ -82,6 +82,15 @@ export function litEtEcritPrixAchatDevis(role: string | undefined | null): boole
 export function gereLesChantiersEnCours(role: string | undefined | null): boolean {
   return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
 }
+// - gereLesFactures : factures, depuis AT-3 (décisions du 24-10-2026, points 27, 30, 33 et 34 ; réponse 6 du
+//   06-11-2026 ; réponses 1 et 2 du 09-11-2026) : liste, document, journal, origine, règlements reçus et envois
+//   des pièces qu'elle voit (factures/droits.ts, facturesVisibles), création d'un brouillon de toute origine,
+//   facture au temps passé comprise, et émission des brouillons créés par une assistante technique. Avoirs,
+//   annulation, règlements, factures à régler, export comptable, mentions légales, prérequis de la facturation
+//   et comptabilité restent à l'administration.
+export function gereLesFactures(role: string | undefined | null): boolean {
+  return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
+}
 // Coût matériel prévu d'un chantier qui suit sa rentabilité, et non la lecture des prix d'achat prévus des
 // devis : le directeur (réponse de Nelson du 06-11-2026, « Chantiers seulement ») et l'assistante technique,
 // qui lisent ces prix mais dont un réglage décide de la rentabilité des chantiers (choix par défaut, à confirmer).

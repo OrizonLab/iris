@@ -30,15 +30,16 @@ USE /api/comptabilite/importer jsonParser{readOptions.defaultCharset="utf-8",rea
 USE /api/company/logo jsonParser{readOptions.defaultCharset="utf-8",readOptions.inflate=true,readOptions.limit=1048576,readOptions.verify=false}#223e9f48a546
 USE / jsonParser{readOptions.defaultCharset="utf-8",readOptions.inflate=true,readOptions.limit=102400,readOptions.verify=false}#223e9f48a546
 USE / <anonymous>#aad6e7e7a45c
-GET /api/factures/chronologie requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#d089685a5f45
+GET /api/factures/chronologie requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#d089685a5f45
 GET /api/factures/a-regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#da27e52f58a3
-GET /api/factures requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#bb316d5281c8
-GET /api/factures/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#7f2413f4ae09
-GET /api/factures/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#79ccafa7712f
-POST /api/factures/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#966e52bd8dc9
-GET /api/factures/:id/journal requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#90d251d8d096
-GET /api/factures/:id/tracabilite requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#4d3a959b39f5
-POST /api/factures requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#b51a3d739f0d
+GET /api/factures requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#17132a351056
+GET /api/factures/:id/document.pdf requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#c294f7d1d5db
+GET /api/factures/:id/envois requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#fb775d5f8531
+POST /api/factures/:id/envois requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#b64d41a67d7d
+GET /api/factures/:id/journal requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#328a38ce51e7
+GET /api/factures/:id/reglements requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#c757cd4a44db
+GET /api/factures/:id/tracabilite requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#9f9ecd969491
+POST /api/factures requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#91a0a0ab2057
 GET /api/facturation/prete-a-facturer requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#be63c1fffb33
 GET /api/comptabilite requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#13e90d7b003f
 POST /api/comptabilite/comptes requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#6b69dfe1117a
@@ -55,12 +56,12 @@ GET /api/factures/export-comptable.csv requireAuth#07b983da0ce5 > requireAdmin#7
 POST /api/mentions-legales/:version/publier requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#1b5902ebb285
 POST /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#80030fa61cd1
 GET /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#dcdb04c92920
-POST /api/factures/:id/emettre requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#94697d81a064
+POST /api/factures/:id/emettre requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#05d1ef8eec83
 POST /api/factures/:id/regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#7c4c1669baf6
-POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#9ae7ad2b98c2
-POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#4527855323e1
-GET /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#1d9e6104d40b
-POST /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c1b8cb53998b
+POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#184a5e832f6e
+POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#ede42ed0383b
+GET /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#e75e8b253ce9
+POST /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#960cb2d49dfe
 GET /api/reglements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c8df78a7855a
 POST /api/reglements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#51f9704bcdc4
 POST /api/reglements/:id/contrepasser requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#f9592331ed59
@@ -106,13 +107,13 @@ GET /api/me requireAuth#07b983da0ce5 > <anonymous>#eefe8f938bf2
 PUT /api/me/theme requireAuth#07b983da0ce5 > <anonymous>#16df72f47e17
 GET /api/chantiers requireAuth#07b983da0ce5 > listerChantiers#be67b1095dc1
 GET /api/v1/chantiers <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerChantiers#be67b1095dc1
-GET /api/chantiers/:id requireAuth#07b983da0ce5 > <anonymous>#d86e36b999e2
+GET /api/chantiers/:id requireAuth#07b983da0ce5 > <anonymous>#591e47468d4a
 GET /api/chantiers/:id/journal-saisies requireAuth#07b983da0ce5 > <anonymous>#4373de266aea
 GET /api/chantiers/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > imprimerRapportChantier#a1c8ca5e6196
 GET /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > lireEnvoisRapportChantier#686d69fd2e44
 POST /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > envoyerRapportChantier#b8c79c1eee9b
 POST /api/chantiers requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#5a2a6ae542c5
-PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#80a71b1408eb
+PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#398836ff7ee0
 DELETE /api/chantiers/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c4bcd35fe13f
 PATCH /api/chantiers/:id/statut requireAuth#07b983da0ce5 > blockCommercialSeulement#f36b50e5b6cd > refuserAssistanteTechniqueStatut#cc5d47d07441 > <anonymous>#7e280a3c7ca9
 PATCH /api/chantiers/:id/commercial requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#6584b46898e4

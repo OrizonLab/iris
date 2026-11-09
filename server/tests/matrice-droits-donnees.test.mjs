@@ -563,7 +563,8 @@ if (!TEST_DATABASE_URL) {
     // Lot « Assistante technique », PR AT-2b (cadrage v4 : R1 de la v3, C5 (c) et N4 du contrôle de cohérence ; réponses de
     // Nelson du 06-11-2026, 1, 2 et 4, et du 07-11-2026, 1). Réglage rentabiliteAssistantesTechniques coché : sur la liste et la
     // fiche de tous les chantiers, l'assistante technique lit le vendu, les marges, l'estimation et le coût prévu ; elle ne lit
-    // jamais la facturation de la fiche (jusqu'à AT-3), ni le coût de main-d'œuvre, ses totaux, ses taux ou les hypothèses de coût
+    // jamais la facturation de la fiche (permanent depuis AT-3, choix par défaut, le plus restrictif, à confirmer), ni le coût de
+    // main-d'œuvre, ses totaux, ses taux ou les hypothèses de coût
     // de l'estimation. Lectures écartées : le réglage sans effet (vendu toujours masqué), la vue de l'administration (facturation
     // et coût de main-d'œuvre lus), « voitCoutMainOeuvre ouvert à qui voit la rentabilité ». Témoins : réglage décoché (défaut),
     // les champs ouverts restent nuls ou absents pour elle ; l'administration lit la facturation et le coût de main-d'œuvre dans
@@ -737,12 +738,13 @@ if (!TEST_DATABASE_URL) {
 
     // GET /api/interventions/:id/facture-temps-passe ne répond 200 sur aucune cible du jeu de données (aucune
     // intervention au temps passé : 409 partout dans entrees.txt) : sa réponse n'est décrite pour aucun compte. Une
-    // intervention au temps passé, terminée, est créée ici, après la comparaison à la référence : l'aperçu, réservé à
-    // l'administration, doit avoir la même forme (clés, montants présents ou nuls) pour chaque administrateur, et être
-    // refusé (403) à tout autre compte. Le statut « terminée » est écrit en base : terminer par l'API exige un compte
+    // intervention au temps passé, terminée, est créée ici, après la comparaison à la référence : l'aperçu, ouvert à
+    // l'administration et, depuis AT-3, à l'assistante technique (tout le SAV ; point 27 et C3 du contrôle de cohérence
+    // d'AT-3), doit avoir la même forme (clés, montants présents ou nuls) pour chaque compte admis, et être refusé (403) à
+    // tout autre compte. Le statut « terminée » est écrit en base : terminer par l'API exige un compte
     // rendu signé, sans rapport avec ce qui est lu ici. Le pas du temps passé, vide par défaut, est réglé puis remis ;
     // l'aperçu reprend les heures saisies : le technicien affecté en saisit une.
-    test('aperçu de la facture au temps passé : même réponse pour chaque administrateur, refus pour les autres comptes', async () => {
+    test('aperçu de la facture au temps passé : même réponse pour chaque administrateur et pour l’assistante technique, refus pour les autres comptes', async () => {
       const prestations = await api(SA, 'GET', '/api/catalogue/prestations');
       const mainOeuvre = prestations.find((fiche) => fiche.reference === 'TEST-MATRICE-MO');
       assert.ok(mainOeuvre, 'main d’œuvre du jeu de données');
@@ -770,8 +772,12 @@ if (!TEST_DATABASE_URL) {
       const formes = new Map();
       for (const compte of COMPTES_JOUES) {
         const res = await appeler(appli.adresse, 'GET', `/api/interventions/${intervention.id}/facture-temps-passe`, { jeton: comptes[compte].jeton });
-        // Le directeur a les droits de l'administration (lot « Directeur aligné sur l'administration »).
-        if (!['SA', 'AD', 'AD-COM', 'DIR'].includes(compte)) { assert.equal(res.status, 403, `${compte} : ${res.status}`); continue; }
+        // Le directeur a les droits de l'administration (lot « Directeur aligné sur l'administration ») ; l'assistante technique,
+        // l'aperçu depuis AT-3 (requireGestionFactures).
+        if (!['SA', 'AD', 'AD-COM', 'DIR', 'AT'].includes(compte)) {
+          assert.deepEqual([res.status, res.body?.error], [403, 'Accès réservé à l’administration et à l’assistante technique.'], `${compte} : ${res.status}`);
+          continue;
+        }
         assert.equal(res.status, 200, `${compte} : ${res.status} ${JSON.stringify(res.body)?.slice(0, 200)}`);
         const { objets } = parcourir(res.body, registre);
         const { champs } = presences(res.body, registre);
@@ -780,7 +786,8 @@ if (!TEST_DATABASE_URL) {
           presences: [...champs].map(([chemin, statuts]) => `${chemin}=${[...statuts].sort(comparer).join('/')}`).sort(comparer),
         }));
       }
-      assert.equal(new Set(formes.values()).size, 1, 'l’aperçu diffère d’un administrateur à l’autre');
+      assert.deepEqual([...formes.keys()].sort(), ['AD', 'AD-COM', 'AT', 'DIR', 'SA']);
+      assert.equal(new Set(formes.values()).size, 1, 'l’aperçu diffère d’un compte admis à l’autre');
       assert.ok(JSON.parse(formes.get('SA')).cles.length > 0, 'aperçu décrit');
     });
   });

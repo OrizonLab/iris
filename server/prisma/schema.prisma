@@ -385,7 +385,8 @@ model Parametres {
   //  - la chaîne hiérarchique de ce conducteur, jusqu'au sommet (comptes Responsable) ;
   //  - les comptes Directeur, qui voient tous les chantiers ;
   //  - les comptes Assistante technique, qui voient tous les chantiers, sans la facturation de la
-  //    fiche jusqu'à AT-3 ; décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2).
+  //    fiche, y compris depuis AT-3 (elles ne voient que les factures de leur poste ; choix par défaut,
+  //    à confirmer) ; décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2).
   rentabiliteConducteur  Boolean  @default(true)
   rentabiliteHierarchie  Boolean  @default(true)
   rentabiliteDirecteurs  Boolean  @default(true)
@@ -733,6 +734,11 @@ model Facture {
   // arrondies au pas au-delà du minimum figé, avec au moins ce minimum. Posée à la création et figée ;
   // une seule facture vivante par intervention (gardes de la migration 20261028180000_facture_temps_passe).
   tempsPasse           Boolean   @default(false)
+  // Type du compte qui a créé la pièce (brouillon ou avoir), posé à sa création puis figé (lot « Assistante
+  // technique », AT-3, migration 20261109120000_facture_cree_par_type) : une facture créée par un compte
+  // ASSISTANTE_TECHNIQUE, et ses avoirs, sont visibles des assistantes techniques (factures/droits.ts).
+  // Nul pour les pièces antérieures, visibles de la seule administration.
+  creeParType          String?
   mentionsLegalesVersionId String?
   mentionsLegalesVersion   MentionsLegalesVersion? @relation(fields: [mentionsLegalesVersionId], references: [id], onDelete: Restrict)
   // Identité de l'émetteur copiée à l'émission (lot 6a-1, décision 6) ; absente des pièces

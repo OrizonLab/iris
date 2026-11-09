@@ -4,6 +4,7 @@ import { PLAFOND_MONTANT, arrondiCommercialLigneHt, centimes, centimesTtcLigne }
 import { dateEmissionEstFuture, dateIsoStricte } from '../../commun/dates';
 import { estTauxTvaFrancais } from '../../commun/tva';
 import { ventilationTvaDerivee } from './metier';
+import { isAdminRole } from '../../droits/roles';
 
 // --- Facture au temps passé (lot « facture au temps passé », seconde PR) ---
 // Décisions de Nelson de la nuit du 26 au 27-10-2026 (points 3 et 8 à 12) et du 28-10-2026
@@ -128,7 +129,10 @@ export type LigneFactureTempsPasse = {
   totalHt: number; totalTtc: number; tempsPasse: boolean;
 };
 
-export async function preparerFactureTempsPasse(db: Db, interventionId: string, verrouiller: boolean) {
+// role : celui du lecteur. Une assistante technique ne voit pas les factures de l'administration : le refus
+// d'une facture déjà créée ne lui en donne pas les numéros, et la renvoie à l'administration, seule à
+// annuler ou à créer un avoir (AT-3 ; choix par défaut, le plus restrictif, à confirmer).
+export async function preparerFactureTempsPasse(db: Db, interventionId: string, verrouiller: boolean, role?: string | null) {
   const idsSuites = verrouiller ? await verrouillerChaine(db, interventionId) : null;
   const intervention = await db.intervention.findUnique({
     where: { id: interventionId },
@@ -184,6 +188,9 @@ export async function preparerFactureTempsPasse(db: Db, interventionId: string, 
     where: { type: 'FACTURE', statut: { not: 'ANNULEE' }, interventionId: { in: chaine } },
     select: { numero: true }, orderBy: { createdAt: 'asc' },
   });
+  if (existantes.length && !isAdminRole(role)) {
+    throw new RefusFactureTempsPasse(409, 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord ; pour refaire une facture émise, adressez-vous à l’administration, qui l’annule par son avoir total ou la corrige par des avoirs partiels.');
+  }
   if (existantes.length) {
     throw new RefusFactureTempsPasse(409, `Cette intervention ou l’une de ses suites a déjà une facture (${libelles(existantes.map((f) => f.numero ?? 'brouillon'))}) : la facture au temps passé est unique. Pour la refaire, annulez d’abord la facture émise par son avoir total (un brouillon s’émet d’abord) ; une facture qui a reçu un avoir partiel, ou un règlement qui n’est pas contre-passé, ne s’annule plus en totalité et se corrige par des avoirs partiels.`);
   }

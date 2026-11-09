@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { sectionsMenu } from '../src/lib/menu.ts';
 import {
-  estEncadrementSav, estEncadrementSuivi, estExcluDesOperations, gereLesChantiersEnCours, gereLesClients, gereLesContrats, isAdminRole, isSuperAdminRole,
+  estEncadrementSav, estEncadrementSuivi, estExcluDesOperations, gereLesChantiersEnCours, gereLesClients, gereLesContrats, gereLesFactures, isAdminRole, isSuperAdminRole,
   litToutesLesAffaires, peutAccederAuxDevis, peutConsulterAnnuaire, peutConsulterPlanning, peutEtreAussiCommercial, peutModifierChantier, peutOuvrirAdministration, peutVoirFinance,
-  peutVoirInterventions, peutVoirStatistiques, peutVoirTravaux, roleLabel, ROLES_ANNUAIRE, ROLES_CONTRATS, ROLES_INTERVENTIONS, ROLES_TRAVAUX, TYPES_ADMINISTRATION, TYPES_COMPTE,
+  peutVoirInterventions, peutVoirStatistiques, peutVoirTravaux, roleLabel, ROLES_ANNUAIRE, ROLES_CONTRATS, ROLES_FACTURES, ROLES_INTERVENTIONS, ROLES_TRAVAUX, TYPES_ADMINISTRATION, TYPES_COMPTE,
   voitPrixAchatDevis,
 } from '../src/lib/droits.ts';
 
@@ -22,8 +22,9 @@ const liens = (role: string, planningActif = true, permissions: string[] = []) =
 // « Assistante technique », PR AT-1, cadrage v2.1, « Écran ») : interventions SAV, planning, liste des chantiers, clients
 // et administration réduite, sans devis (sauf permission), journaux Travaux, contrats, facturation, statistiques,
 // performances ni catalogue ; puis, avec la PR AT-2a (réponses 3 et 9 de Nelson du 06-11-2026), les contrats de maintenance,
-// comme l'administration (gereLesContrats, ROLES_CONTRATS) ; enfin, avec la PR AT-2b (réponse 10 du 06-11-2026), les journaux
-// des achats et des heures (peutVoirTravaux, ROLES_TRAVAUX), sans les statistiques Travaux.
+// comme l'administration (gereLesContrats, ROLES_CONTRATS) ; avec la PR AT-2b (réponse 10 du 06-11-2026), les journaux
+// des achats et des heures (peutVoirTravaux, ROLES_TRAVAUX), sans les statistiques Travaux ; enfin, avec la PR AT-3 (décisions
+// du 24-10-2026, points 27, 30 et 36), l'entrée « Factures » seule de la section Facturation (gereLesFactures, ROLES_FACTURES).
 function attendu(role: string, planningActif: boolean, permissions: string[]) {
   const admin = role === 'ADMIN' || role === 'SUPERADMIN' || role === 'DIRECTEUR';
   const commercial = role === 'COMMERCIAL';
@@ -35,7 +36,7 @@ function attendu(role: string, planningActif: boolean, permissions: string[]) {
     ['/', true], ['/chantiers', true],
     ['/devis', role === 'SUPERADMIN' || permissions.includes('devis:read')],
     ['/interventions', travaux || role === 'TECHNICIEN' || role === 'ASSISTANTE_TECHNIQUE'],
-    ['/contrats-maintenance', admin || role === 'ASSISTANTE_TECHNIQUE'], ['/prete-a-facturer', admin], ['/factures', admin], ['/reglements', admin], ['/mentions-legales', admin],
+    ['/contrats-maintenance', admin || role === 'ASSISTANTE_TECHNIQUE'], ['/prete-a-facturer', admin], ['/factures', admin || role === 'ASSISTANTE_TECHNIQUE'], ['/reglements', admin], ['/mentions-legales', admin],
     ['/comptabilite', admin], ['/clients', admin || role === 'TECHNICIEN' || role === 'CONDUCTEUR_TRAVAUX' || role === 'ASSISTANTE_TECHNIQUE'], ['/catalogue', admin],
     ['/achats', travaux || role === 'ASSISTANTE_TECHNIQUE'], ['/heures', travaux || role === 'ASSISTANTE_TECHNIQUE'], ['/statistiques', travaux],
     ['/planning', !exclu && !sansPlanning && planningActif], ['/resultat-commercial', commercial],
@@ -231,11 +232,13 @@ test('le directeur commercial, l’assistante commerciale et le comptable n’on
 
 // Lot « Assistante technique », PR AT-1 (cadrage v2.1, « Écran » et « Fermé à AT-1 » ; décisions de Nelson du 24-10-2026,
 // points 15, 16, 18 et 28, réponse 7 du 06-11-2026). Menu : Interventions SAV, Planning, Liste des chantiers, Clients et
-// Administration ; ni facturation (AT-3), ni Statistiques, Performances, Mes commerciaux (fermés, choix par défaut, à
-// confirmer), ni catalogue (administration). PR AT-2a (réponses 3 et 9 du 06-11-2026 : « Tous, contrats compris ») : Devis,
-// ouvert par la permission devis:read que son type porte désormais, et Contrats de maintenance (gereLesContrats). PR AT-2b
-// (réponse 10 du 06-11-2026) : Journal des achats et Journal des heures (peutVoirTravaux).
-test('assistante technique : menu exact (Liste des chantiers, Devis, Planning, Journal des achats, Journal des heures, Interventions SAV, Contrats de maintenance, Clients, Administration), sans facturation, statistiques ni catalogue', () => {
+// Administration ; ni Statistiques, Performances, Mes commerciaux (fermés, choix par défaut, à confirmer), ni catalogue
+// (administration). PR AT-2a (réponses 3 et 9 du 06-11-2026 : « Tous, contrats compris ») : Devis, ouvert par la permission
+// devis:read que son type porte désormais, et Contrats de maintenance (gereLesContrats). PR AT-2b (réponse 10 du 06-11-2026) :
+// Journal des achats et Journal des heures (peutVoirTravaux). PR AT-3 (points 27, 30 et 36 du 24-10-2026 ; T7 du contrôle de
+// cohérence) : la section Facturation, réduite à « Factures » (gereLesFactures) ; « Prêt à facturer », « Règlements »,
+// « Mentions & CGV » et « Plan comptable » restent à l'administration.
+test('assistante technique : menu exact (Liste des chantiers, Devis, Planning, Journal des achats, Journal des heures, Interventions SAV, Contrats de maintenance, Factures, Clients, Administration), sans prêt à facturer, règlements, mentions, plan comptable, statistiques ni catalogue', () => {
   // Permissions par défaut du type (DEFAULT_USER_PERMISSIONS côté serveur) depuis AT-2b.
   const permissions = ['clients:read', 'chantiers:read', 'chantiers:write', 'devis:read', 'devis:write'];
   const sections = sectionsMenu({ role: 'ASSISTANTE_TECHNIQUE', permissions }, true);
@@ -243,12 +246,13 @@ test('assistante technique : menu exact (Liste des chantiers, Devis, Planning, J
     ['Accueil', ['Tableau de bord']],
     ['Chantiers', ['Liste des chantiers', 'Devis', 'Planning', 'Journal des achats', 'Journal des heures']],
     ['Interventions', ['Interventions SAV', 'Contrats de maintenance']],
+    ['Facturation', ['Factures']],
     ['Référentiels', ['Clients']],
     ['Réglages', ['Administration']],
   ]);
   const visibles = liens('ASSISTANTE_TECHNIQUE', true, permissions);
-  for (const to of ['/devis', '/contrats-maintenance', '/interventions', '/planning', '/chantiers', '/clients', '/admin', '/achats', '/heures']) assert.equal(visibles.includes(to), true, to);
-  for (const to of ['/prete-a-facturer', '/factures', '/reglements', '/mentions-legales', '/comptabilite',
+  for (const to of ['/devis', '/contrats-maintenance', '/interventions', '/planning', '/chantiers', '/clients', '/admin', '/achats', '/heures', '/factures']) assert.equal(visibles.includes(to), true, to);
+  for (const to of ['/prete-a-facturer', '/reglements', '/mentions-legales', '/comptabilite',
     '/statistiques', '/resultat-commercial', '/performances', '/commerciaux', '/catalogue', '/societe', '/administration/api']) {
     assert.equal(visibles.includes(to), false, to);
   }
@@ -338,6 +342,45 @@ test('aides de capacité d’AT-2a (gereLesClients, gereLesContrats, voitPrixAch
     for (const [nom, aide] of Object.entries(aides)) assert.equal(aide(role), false, `${nom}(${String(role)})`);
   }
   assert.deepEqual([...ROLES_CONTRATS].sort(), ['ADMIN', 'ASSISTANTE_TECHNIQUE', 'DIRECTEUR', 'SUPERADMIN']);
+});
+
+// Lot « Assistante technique », PR AT-3 (cadrage AT-3 v1, « Écrans » : « préférer une aide de droits.ts (gereLesFactures) à des
+// conditions dans l'écran » ; T7 du contrôle de cohérence de mode 1 ; décisions de Nelson du 24-10-2026, points 27, 30 et 36) :
+// gereLesFactures, miroir client de la garde requireGestionFactures, et ROLES_FACTURES, liste de la route /factures (App.tsx),
+// la même que le menu. Attendus écrits ici à part, type par type, et non relus du code. Les quatre autres entrées de la section
+// Facturation restent à l'administration seule (isAdminRole) : « Prêt à facturer », « Règlements », « Mentions & CGV »,
+// « Plan comptable ».
+test('factures (gereLesFactures, ROLES_FACTURES) : l’administration et l’assistante technique, type par type ; l’entrée « Factures » du menu suit la même liste, les autres entrées de la facturation restent à l’administration', () => {
+  const OUVERTS = ['SUPERADMIN', 'ADMIN', 'DIRECTEUR', 'ASSISTANTE_TECHNIQUE'];
+  const ADMINISTRATION = ['SUPERADMIN', 'ADMIN', 'DIRECTEUR'];
+  assert.deepEqual([...ROLES_FACTURES].sort(), [...OUVERTS].sort());
+  assert.equal(TYPES_COMPTE.length, 11);
+  for (const { valeur } of TYPES_COMPTE) {
+    const attendu = OUVERTS.includes(valeur);
+    assert.equal(gereLesFactures(valeur), attendu, `gereLesFactures(${valeur})`);
+    assert.equal(ROLES_FACTURES.includes(valeur), attendu, `ROLES_FACTURES, ${valeur}`);
+    for (const permissions of [[], ['devis:read', 'devis:write'], ['clients:read', 'chantiers:read', 'chantiers:write', 'devis:read', 'devis:write']]) {
+      for (const planningActif of [true, false]) {
+        const vus = liens(valeur, planningActif, permissions);
+        assert.equal(vus.includes('/factures'), attendu, `menu des factures, ${valeur} ${permissions.join(',')} planning=${planningActif}`);
+        for (const to of ['/prete-a-facturer', '/reglements', '/mentions-legales', '/comptabilite']) assert.equal(vus.includes(to), ADMINISTRATION.includes(valeur), `${to}, ${valeur}`);
+      }
+    }
+  }
+  // Section Facturation de l'assistante technique : « Factures » seule ; de l'administration : les cinq entrées.
+  const section = (role: string) => sectionsMenu({ role, permissions: [] }, true).find((s) => s.titre === 'Facturation')?.entrees.map((e) => e.libelle);
+  assert.deepEqual(section('ASSISTANTE_TECHNIQUE'), ['Factures']);
+  for (const role of ADMINISTRATION) assert.deepEqual(section(role), ['Prêt à facturer', 'Factures', 'Règlements', 'Mentions & CGV', 'Plan comptable'], role);
+  for (const role of ['CONDUCTEUR_TRAVAUX', 'COMPTABLE', 'ASSISTANTE_COMMERCIALE', 'TECHNICIEN']) assert.equal(section(role), undefined, `${role} : aucune section Facturation`);
+  // Lectures écartées, nommées : isAdminRole (sans l'assistante technique), l'encadrement SAV (avec le conducteur) et la case
+  // « Finance » (accesFinance, sans effet ici : N8 du contrôle de cohérence).
+  assert.notEqual(gereLesFactures('ASSISTANTE_TECHNIQUE'), isAdminRole('ASSISTANTE_TECHNIQUE'));
+  assert.notEqual(gereLesFactures('CONDUCTEUR_TRAVAUX'), estEncadrementSav('CONDUCTEUR_TRAVAUX'));
+  assert.equal(peutVoirFinance({ role: 'ASSISTANTE_TECHNIQUE', permissions: [] }), false, 'la case « Finance » n’entre pas dans les factures');
+  assert.equal(gereLesFactures('COMPTABLE'), false, 'le comptable, même type « finance », n’a pas les factures');
+  // Rôle absent ou inconnu, ou écrit dans une autre casse : rien n'est ouvert (#206).
+  for (const role of ['', null, undefined, 'INCONNU', 'assistante_technique']) assert.equal(gereLesFactures(role), false, String(role));
+  assert.equal(gereLesFactures(), false, 'sans argument');
 });
 
 // Lot « Assistante technique », PR AT-2b (cadrage AT-2, v1, « Saisies Travaux » et « Chantiers » ; v4, T1 : « tests unitaires du

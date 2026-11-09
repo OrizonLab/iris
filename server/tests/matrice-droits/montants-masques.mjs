@@ -195,7 +195,8 @@ export const MONTANTS_MASQUES = [
 // Lot « Assistante technique », PR AT-2b (cadrage v4 : R1 de la v3, C5 (c) et N4 du contrôle de cohérence) : ce que le réglage
 // rentabiliteAssistantesTechniques coché ouvre à l'assistante technique, sur tous les chantiers (vendu, marges du jour et
 // estimée, estimation, coût prévu : voitRentabilite et coutPrevuSuitRentabilite), et ce qu'il lui laisse masqué : la
-// facturation de la fiche jusqu'à AT-3 (voitFacturationChantier, choix par défaut, le plus restrictif, à confirmer), le coût de
+// facturation de la fiche, permanente depuis AT-3 (voitFacturationChantier : elle ne voit que les factures de son poste, et la
+// fiche montre toutes celles de l'affaire ; choix par défaut, le plus restrictif, à confirmer), le coût de
 // main-d'œuvre, ses totaux, ses taux et les hypothèses de coût de l'estimation (voitCoutMainOeuvre inchangé, réponse 4 du
 // 06-11-2026, « coûts non »). Observé par le test « assistantes techniques coché » de matrice-droits-donnees.test.mjs, sous le
 // contexte du même nom : chaque champ ouvert présent pour AT au moins une fois, chaque champ masqué jamais présent pour AT et

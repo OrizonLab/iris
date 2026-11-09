@@ -7,8 +7,8 @@ import type { ApiRequest } from '../../http/cles-api';
 import { type Parametres, getParametres } from '../parametres/metier';
 
 // Rentabilité d'un chantier — montant vendu global, marge du jour, marge estimée, alertes
-// « en perte » et « marge faible », facturation de la fiche (sauf pour les assistantes techniques,
-// jusqu'à AT-3 ; cf. voitFacturationChantier) : elle ne sort que pour ses destinataires, décidés
+// « en perte » et « marge faible », facturation de la fiche (sauf pour les assistantes techniques ;
+// cf. voitFacturationChantier) : elle ne sort que pour ses destinataires, décidés
 // chantier par chantier. Les budgets par poste, eux, restent visibles
 // (suivi des dépassements), sauf du technicien, à qui aucun montant n'est montré (cf.
 // voitMontantsChantier), et permettent d'en déduire le vendu, donc la marge du jour.
@@ -41,9 +41,10 @@ export function voitRentabilite(req: express.Request, chantier: { responsableId?
 }
 
 // Facturation de la fiche (factures émises, réglées ou annulées du chantier, total facturé et reste à
-// facturer) : aux destinataires de la rentabilité, sauf aux assistantes techniques, même destinataires,
-// jusqu'à la PR des factures de leur lot (AT-3). Elles ne voient que leurs propres factures (décisions
-// de Nelson du 24-10-2026, points 30 et 33) ; choix par défaut, le plus restrictif, à confirmer.
+// facturer) : aux destinataires de la rentabilité, sauf aux assistantes techniques, même destinataires.
+// Elles ne voient que les factures de leur poste (décisions de Nelson du 24-10-2026, points 30 et 33 ;
+// factures/droits.ts, depuis AT-3), et la fiche montre toutes celles de l'affaire : n'en montrer que les
+// leurs fausserait le total facturé et le reste à facturer. Choix par défaut, le plus restrictif, à confirmer.
 export function voitFacturationChantier(req: express.Request, rentabilite: boolean): boolean {
   return rentabilite && (req as AuthRequest).user?.role !== ROLE_ASSISTANTE_TECHNIQUE;
 }

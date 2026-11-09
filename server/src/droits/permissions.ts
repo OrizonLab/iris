@@ -33,7 +33,8 @@ const DEFAULT_USER_PERMISSIONS: Record<string, string[]> = {
   // devis (réponse de Nelson du 06-11-2026, 3 : « Tous, contrats compris ») depuis la deuxième, et saisies
   // Travaux des affaires en cours (réponse 10) depuis la troisième (AT-2b) ; cf. ROLE_ASSISTANTE_TECHNIQUE.
   // L'archivage d'un achat ou d'heures d'un chantier (chantiers:archive) n'est pas donné par défaut, comme au
-  // conducteur : il peut l'être individuellement (choix par défaut, à confirmer).
+  // conducteur : il peut l'être individuellement (choix par défaut, à confirmer). Ses factures (AT-3) ne passent
+  // par aucune permission : gereLesFactures et factures/droits.ts.
   [ROLE_ASSISTANTE_TECHNIQUE]: ['clients:read', 'chantiers:read', 'chantiers:write', 'devis:read', 'devis:write'],
 };
 

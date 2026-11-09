@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Ban, Download, FilePlus2, HandCoins, Mail, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { Ban, Download, FilePlus2, HandCoins, Mail, Plus, Receipt, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { apiFetch } from '../api';
+import { isAdminRole, useCurrentUser } from '../roles';
 import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { situationReglement } from '../lib/reglements';
 import { telechargerPdf } from '../lib/documentPdf';
 import EnvoiDocument, { type DocumentAEnvoyer } from '../components/EnvoiDocument';
 import { nombreFr, totauxApercuAvoir, type AvoirPrecedent } from '../lib/apercuAvoir';
 import FactureTempsPasse from '../components/FactureTempsPasse';
+import ReglementsFacture from '../components/ReglementsFacture';
 import { corpsFactureTempsPasse, type ApercuFactureTempsPasse } from '../lib/factureTempsPasse';
 import { sourcesFacturables } from '../lib/sourcesFacture';
 import { fmtEuroCentime } from '../lib/formats';
@@ -61,6 +63,10 @@ const formatDate = (date: string) => formatDateOnly(date);
 const avoirsPartiels = (facture: Facture) => (facture.avoirs || []).filter((avoir) => !avoir.estAvoirAnnulation);
 
 export default function Factures() {
+  // L'administration gère toutes les pièces. L'assistante technique (AT-3) ne reçoit que celles de son poste, crée
+  // et émet ses brouillons, et lit avoirs et règlements : ni avoir, ni annulation, ni règlement, ni export
+  // comptable, ni envoi d'un avoir (le serveur les refuse, factures/droits.ts).
+  const administration = isAdminRole(useCurrentUser()?.role);
   const [factures, setFactures] = useState<Facture[]>([]);
   const [page, setPage] = useState(1);
   // Inconnu (null) jusqu'à la première réponse : la pagination ne donne pas de compte qu'elle n'a pas
@@ -119,6 +125,8 @@ export default function Factures() {
   // « Actualiser », le libère.
   const [relectureRequise, setRelectureRequise] = useState(false);
   const [factureTraceId, setFactureTraceId] = useState<string | null>(null);
+  // Facture dont les règlements reçus sont affichés, en lecture, sous la liste.
+  const [factureReglements, setFactureReglements] = useState<Facture | null>(null);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [traceErreur, setTraceErreur] = useState('');
   const [traceCharge, setTraceCharge] = useState(false);
@@ -203,6 +211,7 @@ export default function Factures() {
     setPage(nouvellePage);
     setFactures([]);
     fermerTrace();
+    setFactureReglements(null);
     setFactureAvoir(null);
     void charger(nouvellePage);
   };
@@ -462,7 +471,7 @@ export default function Factures() {
         </div>
         <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
           <button className="btn btn-secondary" onClick={() => void charger()}><RefreshCw size={16} /> Actualiser</button>
-          <button className="btn btn-secondary" onClick={() => void exporter()}><Download size={16} /> Export comptable</button>
+          {administration && <button className="btn btn-secondary" onClick={() => void exporter()}><Download size={16} /> Export comptable</button>}
           <button className="btn btn-primary" onClick={ouvrirFormulaire}><FilePlus2 size={16} /> Nouvelle facture</button>
         </div>
       </div>
@@ -613,8 +622,8 @@ export default function Factures() {
                   {facture.type === 'FACTURE' && facture.statut === 'BROUILLON' && (emissionImpossible(facture)
                     ? <span className="text-sm text-amber-700"><button className="btn btn-secondary" disabled><Send size={16} /> Émission impossible</button> Date antérieure à la dernière facture numérotée du {formatDate(derniereDateEmission!)}</span>
                     : <button className="btn btn-secondary" onClick={() => void emettre(facture)}><Send size={16} /> Émettre</button>)}
-                  {facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
-                  {facture.type === 'FACTURE' && facture.statut === 'EMISE' && <>
+                  {administration && facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
+                  {administration && facture.type === 'FACTURE' && facture.statut === 'EMISE' && <>
                     {(facture.resteDu ?? 0) > 0 && <Link className="btn btn-secondary" to={`/reglements?facture=${facture.id}`}><HandCoins size={16} /> Enregistrer un règlement</Link>}
                     {avoirsPartiels(facture).length
                       ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : {avoirsPartiels(facture).length} avoir(s) partiel(s) déjà émis</span>
@@ -623,7 +632,8 @@ export default function Factures() {
                         : <button className="btn btn-secondary" onClick={() => void annuler(facture)}><Ban size={16} /> Annuler la facture</button>}
                   </>}
                   {facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" onClick={() => void telechargerDocument(facture)}><Download size={16} /> PDF</button>}
-                  {facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" aria-label={`Envoyer ${libellePiece(facture)}`} onClick={() => ouvrirEnvoi(facture)}><Mail size={16} /> Envoyer</button>}
+                  {facture.type === 'FACTURE' && facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" aria-expanded={factureReglements?.id === facture.id} aria-controls="reglements-facture" onClick={() => setFactureReglements(factureReglements?.id === facture.id ? null : facture)}><Receipt size={16} /> Règlements</button>}
+                  {facture.statut !== 'BROUILLON' && (administration || facture.type === 'FACTURE') && <button className="btn btn-secondary" aria-label={`Envoyer ${libellePiece(facture)}`} onClick={() => ouvrirEnvoi(facture)}><Mail size={16} /> Envoyer</button>}
                 </div></td>
               </tr>
             ))}
@@ -637,6 +647,7 @@ export default function Factures() {
         <span>{total === null ? `Page ${page}` : `Page ${page} sur ${nombrePages} — ${total} document(s)`}</span>
         <button type="button" className="btn btn-secondary" disabled={page >= nombrePages} onClick={() => changerPage(page + 1)}>Page suivante</button>
       </nav>
+      {factureReglements && <ReglementsFacture key={factureReglements.id} factureId={factureReglements.id} numero={factureReglements.numero} fuseauHoraire={fuseauHoraire} onFermer={() => setFactureReglements(null)} />}
       {factureTraceId && (
         <section id="origine-facture" role="region" aria-label="Origine de la facture" className="rounded-xl border bg-white p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">

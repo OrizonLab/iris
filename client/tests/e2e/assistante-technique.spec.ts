@@ -17,6 +17,8 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // Administration ; leur parcours est celui de assistante-technique-devis-contrats.spec.ts.
 // PR AT-2b (réponse 10 du 06-11-2026) : Journal des achats et Journal des heures entrent à son menu ; leur parcours est celui
 // de assistante-technique-chantiers.spec.ts.
+// PR AT-3 (décisions du 24-10-2026, points 27, 30 et 36) : la section Facturation entre à son menu, réduite à « Factures » ; son
+// parcours est celui de assistante-technique-factures.spec.ts.
 
 test('assistante technique : autorisée dans l’administration, elle a son menu, crée une intervention, en saisit le matériel au format français et la place au planning', async ({ connexion, request, session, creerClient }) => {
   test.slow();
@@ -59,8 +61,8 @@ test('assistante technique : autorisée dans l’administration, elle a son menu
   const menu = page.locator('#menu-principal');
   await expect(menu.getByRole('link', { name: 'Interventions SAV' })).toBeVisible();
   const entrees = await menu.locator('a').evaluateAll((liens) => liens.map((lien) => (lien.textContent || '').trim()));
-  expect(entrees).toEqual(['Tableau de bord', 'Liste des chantiers', 'Devis', 'Planning', 'Journal des achats', 'Journal des heures', 'Interventions SAV', 'Contrats de maintenance', 'Clients', 'Administration']);
-  for (const ferme of ['Factures', 'Statistiques', 'Performances', 'Mes commerciaux', 'Catalogue']) {
+  expect(entrees).toEqual(['Tableau de bord', 'Liste des chantiers', 'Devis', 'Planning', 'Journal des achats', 'Journal des heures', 'Interventions SAV', 'Contrats de maintenance', 'Factures', 'Clients', 'Administration']);
+  for (const ferme of ['Prêt à facturer', 'Règlements', 'Mentions & CGV', 'Plan comptable', 'Statistiques', 'Performances', 'Mes commerciaux', 'Catalogue']) {
     await expect(menu.getByRole('link', { name: ferme, exact: true }), ferme).toHaveCount(0);
   }
   // Administration réduite aux référentiels des achats, avec le texte qui nomme le matériel des interventions SAV, et, depuis
@@ -72,8 +74,8 @@ test('assistante technique : autorisée dans l’administration, elle a son menu
   await expect(principal.getByRole('button', { name: 'Catégories', exact: true })).toBeVisible();
   await expect(principal.getByRole('button', { name: 'Utilisateurs', exact: true })).toHaveCount(0);
   await expect(principal).toContainText('les fournisseurs servent aussi au matériel des interventions SAV');
-  // Une route fermée la ramène à l'accueil (les factures : AT-3).
-  await page.goto('/factures', { waitUntil: 'networkidle' });
+  // Une route fermée la ramène à l'accueil (les règlements, restés à l'administration depuis AT-3 ; les factures lui sont ouvertes).
+  await page.goto('/reglements', { waitUntil: 'networkidle' });
   await expect.poll(() => new URL(page.url()).pathname).toBe('/');
 
   // 3. Nouvelle intervention, pour un client retrouvé par la recherche.

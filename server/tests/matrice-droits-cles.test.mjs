@@ -417,7 +417,8 @@ if (!TEST_DATABASE_URL) {
     // tout jeton qui n'est pas un jeton de session signé.
     test('aucune clé n’ouvre une route de session : la clé qui porte les 13 scopes reçoit 401 sur chaque route de session, sans rien écrire', async () => {
       const routesSession = Object.keys(ROUTES_SESSION);
-      assert.equal(routesSession.length, 191, 'routes de session de la table de D1a-1');
+      // 191, plus GET /api/factures/:id/reglements (AT-3 : règlements reçus par une pièce, en lecture).
+      assert.equal(routesSession.length, 192, 'routes de session de la table de D1a-1');
       const cas = routesSession.map((cle) => {
         const [methode, chemin] = cle.split(' ');
         const definition = ROUTES_SESSION[cle];

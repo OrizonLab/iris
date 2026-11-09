@@ -45,6 +45,8 @@ export const ROUTES_SESSION = {
   'GET /api/factures/:id/envois': L('facture'),
   'POST /api/factures/:id/envois': A('facture'),
   'GET /api/factures/:id/journal': L('facture'),
+  // Règlements reçus par une pièce, en lecture (AT-3 : l'administration, et l'assistante technique sur les pièces de son poste).
+  'GET /api/factures/:id/reglements': L('facture'),
   'GET /api/factures/:id/tracabilite': L('facture'),
   'POST /api/factures': A(),
   'GET /api/facturation/prete-a-facturer': L(),

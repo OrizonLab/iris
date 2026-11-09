@@ -1,6 +1,6 @@
 import express from 'express';
 import type { AuthRequest } from './auth';
-import { ROLE_ASSISTANTE_COMMERCIALE, ROLE_COMPTABLE, ROLE_DIRECTEUR_COMMERCIAL, ROLE_RESPONSABLE, ROLE_TECHNICIEN, gereLesClients, gereLesContrats, isAdminRole, isSuperAdminRole } from '../droits/roles';
+import { ROLE_ASSISTANTE_COMMERCIALE, ROLE_COMPTABLE, ROLE_DIRECTEUR_COMMERCIAL, ROLE_RESPONSABLE, ROLE_TECHNICIEN, gereLesClients, gereLesContrats, gereLesFactures, isAdminRole, isSuperAdminRole } from '../droits/roles';
 
 export const requireAdmin: express.RequestHandler = (req, res, next) => {
   if (!isAdminRole((req as AuthRequest).user?.role)) {
@@ -10,9 +10,9 @@ export const requireAdmin: express.RequestHandler = (req, res, next) => {
   next();
 };
 
-// Gestion des clients et des contrats de maintenance : l'administration et l'assistante technique (clients :
-// décision de Nelson du 24-10-2026, point 24, « gerer les client » ; contrats : réponses du 06-11-2026, 3 et 9 ;
-// cf. gereLesClients, gereLesContrats). Le refus le dit en clair.
+// Gestion des clients, des contrats de maintenance et des factures : l'administration et l'assistante technique
+// (clients : décision de Nelson du 24-10-2026, point 24, « gerer les client » ; contrats : réponses du 06-11-2026,
+// 3 et 9 ; factures : AT-3 ; cf. gereLesClients, gereLesContrats, gereLesFactures). Le refus le dit en clair.
 export const REFUS_GESTION_ADMINISTRATION_ASSISTANTE = 'Accès réservé à l’administration et à l’assistante technique.';
 export const requireGestionClients: express.RequestHandler = (req, res, next) => {
   if (!gereLesClients((req as AuthRequest).user?.role)) {
@@ -23,6 +23,16 @@ export const requireGestionClients: express.RequestHandler = (req, res, next) =>
 };
 export const requireGestionContrats: express.RequestHandler = (req, res, next) => {
   if (!gereLesContrats((req as AuthRequest).user?.role)) {
+    res.status(403).json({ error: REFUS_GESTION_ADMINISTRATION_ASSISTANTE });
+    return;
+  }
+  next();
+};
+
+// Factures (AT-3, cf. gereLesFactures) : l'administration et l'assistante technique, qui ne voit que les pièces
+// de son poste (factures/droits.ts, facturesVisibles).
+export const requireGestionFactures: express.RequestHandler = (req, res, next) => {
+  if (!gereLesFactures((req as AuthRequest).user?.role)) {
     res.status(403).json({ error: REFUS_GESTION_ADMINISTRATION_ASSISTANTE });
     return;
   }

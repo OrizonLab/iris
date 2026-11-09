@@ -14,7 +14,7 @@ export const ROLE_ASSISTANTE_COMMERCIALE = 'ASSISTANTE_COMMERCIALE';
 /**
  * Assistante technique : la partie technique de toute la société (SAV, planning, suivi, chantiers en
  * lecture ; devis, clients et contrats depuis AT-2a ; fiche, commercial et saisies Travaux des affaires en
- * cours depuis AT-2b), sans les droits de l'administration (décisions de
+ * cours depuis AT-2b ; factures de son poste depuis AT-3, cf. gereLesFactures), sans les droits de l'administration (décisions de
  * Nelson du 24-10-2026 et du 06-11-2026) : ses capacités sont ajoutées une à une aux aides qui les décident.
  * Distincte de l'assistante commerciale, qui reste sans planning. Même type que ROLE_ASSISTANTE_TECHNIQUE
  * côté serveur.
@@ -252,6 +252,22 @@ export function gereLesContrats(role?: string | null): boolean {
  * et la route /contrats-maintenance (cf. gereLesContrats).
  */
 export const ROLES_CONTRATS = [...TYPES_ADMINISTRATION, ROLE_ASSISTANTE_TECHNIQUE];
+
+/**
+ * Factures (AT-3) : l'administration et l'assistante technique, qui ne voit que les pièces de son poste (les
+ * factures créées par une assistante technique et leurs avoirs), crée un brouillon de toute origine et émet
+ * ceux d'une assistante technique. Avoirs, annulation, règlements, export comptable, prérequis de la
+ * facturation, mentions légales et comptabilité restent à l'administration (isAdminRole). Même règle que
+ * gereLesFactures côté serveur.
+ */
+export function gereLesFactures(role?: string | null): boolean {
+  return isAdminRole(role) || role === ROLE_ASSISTANTE_TECHNIQUE;
+}
+
+/**
+ * Écran des factures : même liste pour le menu et la route /factures (cf. gereLesFactures).
+ */
+export const ROLES_FACTURES = [...TYPES_ADMINISTRATION, ROLE_ASSISTANTE_TECHNIQUE];
 
 /**
  * Prix d'achat prévu des lignes de devis (lecture et écriture) et, en lecture, celui des fiches du catalogue

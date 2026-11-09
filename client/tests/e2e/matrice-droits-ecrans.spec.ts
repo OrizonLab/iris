@@ -414,7 +414,11 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
   // cours ; « Corriger » des journaux affiché sur l'affaire terminée, comportement existant des titulaires, refusé par le
   // serveur : choix par défaut, à confirmer), y compris sur les affaires de toute la société, que le conducteur ne voit pas ;
   // « Clôturer » lui reste absent de la liste (écart gardé, T1 du cadrage v4).
-  test('assistante technique : ecrans-AT.txt est ecrans-CT.txt, sauf la liste fermée des écarts (menu sans Pilotage, statistiques fermées, affaires de toute la société avec les boutons du conducteur titulaire, sans « Clôturer » ni filtres de rentabilité ; devis et contrats comme l’administration, sans acompte ni annulation ; onglet Chantiers par défaut)', () => {
+  // PR AT-3 (cadrage AT-3 v1, « Écrans » ; T6 et T9 du contrôle de cohérence ; décisions du 24-10-2026, points 27, 30 et 36) : la
+  // section Facturation entre au menu, réduite à « Factures », et la route /factures s'ouvre ; l'écran des factures garde
+  // « Actualiser » et « Nouvelle facture », sans « Export comptable » (point 36). Prêt à facturer, Règlements, Mentions & CGV et
+  // Plan comptable restent redirigés.
+  test('assistante technique : ecrans-AT.txt est ecrans-CT.txt, sauf la liste fermée des écarts (menu sans Pilotage, avec la Facturation réduite aux factures, statistiques fermées, affaires de toute la société avec les boutons du conducteur titulaire, sans « Clôturer » ni filtres de rentabilité ; devis et contrats comme l’administration, sans acompte ni annulation ; factures sans export comptable ; onglet Chantiers par défaut)', () => {
     const parCle = (cle: string) => new Map(lireReference(`ecrans-${cle}.txt`).map((ligne) => {
       const champs = ligne.split(SEPARATEUR);
       expect(champs[0], ligne).toBe(cle);
@@ -437,7 +441,7 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
     // AT-2b : la fiche d'une affaire en cours de toute la société a les boutons de celle du conducteur titulaire.
     const boutonsEnCours = () => { const ligne = ct.get(cle('fiche chantier', 'chantier-en-cours', 'défaut'))!; return ligne.slice(ligne.indexOf('boutons : ')); };
     const ECARTS: Record<string, (ligne: string) => string> = {
-      [cle('menu', '—', 'défaut')]: (ligne) => ligne.replace('Interventions, Pilotage, Référentiels', 'Interventions, Référentiels').replace('type affiché : Conducteur de travaux', 'type affiché : Assistante technique'),
+      [cle('menu', '—', 'défaut')]: (ligne) => ligne.replace('Interventions, Pilotage, Référentiels', 'Interventions, Facturation, Référentiels').replace('type affiché : Conducteur de travaux', 'type affiché : Assistante technique'),
       [cle('route /statistiques', '—', 'défaut')]: () => 'hors menu ; redirigée vers /',
       // Toute la société : les affaires d'un autre titulaire lui sont lisibles (404 « Chantier introuvable » pour CT), et, en
       // cours, modifiables comme par le conducteur titulaire (AT-2b).
@@ -452,6 +456,9 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
       [cle('route /contrats-maintenance', '—', 'défaut')]: () => 'menu « Interventions › Contrats de maintenance » ; accessible',
       [cle('devis', 'hors lignes', 'défaut')]: () => ad.get(cle('devis', 'hors lignes', 'défaut'))!,
       [cle('administration', 'onglet par défaut', 'défaut')]: () => sansBoutons(ONGLETS_ADMINISTRATION)(ad.get(cle('administration', 'onglet par défaut', 'défaut'))!),
+      // AT-3 : factures ouvertes (menu et route) ; l'écran d'AD sans « Export comptable » (point 36).
+      [cle('route /factures', '—', 'défaut')]: () => 'menu « Facturation › Factures » ; accessible',
+      [cle('factures', 'hors lignes', 'défaut')]: () => sansBoutons(['Export comptable'])(ad.get(cle('factures', 'hors lignes', 'défaut'))!),
     };
     // Lignes des devis, que le conducteur n'a pas (écran redirigé) : celles d'AD, sans l'acompte ni l'annulation.
     const LIGNES_DEVIS: Record<string, string> = Object.fromEntries(['devis-brouillon', 'devis-signe'].map((cible) => [
@@ -496,12 +503,15 @@ test.describe('Matrice des droits à l’écran (lot D1a-6)', () => {
       expect(at.get(cle('fiche intervention', 'intervention-planifiee', 'défaut')), bouton).toContain(bouton);
     }
     expect(at.get(cle('fiche intervention', 'intervention-terminee', 'défaut'))).toContain('Marquer « à suivre »');
-    // Fermés : factures, catalogue, performances, mes commerciaux, Société, API (redirigés vers l'accueil) ; les devis et les
-    // contrats s'ouvrent avec AT-2a.
-    for (const route of ['/devis', '/contrats-maintenance']) expect(at.get(cle(`route ${route}`, '—', 'défaut')), route).toMatch(/^menu « .* » ; accessible$/);
-    for (const route of ['/factures', '/catalogue', '/performances', '/commerciaux', '/societe', '/administration/api', '/prete-a-facturer', '/reglements']) {
+    // Fermés : catalogue, performances, mes commerciaux, Société, API, prêt à facturer, règlements, mentions et plan comptable
+    // (redirigés vers l'accueil) ; les devis et les contrats s'ouvrent avec AT-2a, les factures avec AT-3.
+    for (const route of ['/devis', '/contrats-maintenance', '/factures']) expect(at.get(cle(`route ${route}`, '—', 'défaut')), route).toMatch(/^menu « .* » ; accessible$/);
+    for (const route of ['/catalogue', '/performances', '/commerciaux', '/societe', '/administration/api', '/prete-a-facturer', '/reglements', '/mentions-legales', '/comptabilite']) {
       expect(at.get(cle(`route ${route}`, '—', 'défaut')), route).toBe('hors menu ; redirigée vers /');
     }
+    // AT-3 : l'écran des factures, sans l'export comptable que l'administration a (témoin).
+    expect(at.get(cle('factures', 'hors lignes', 'défaut'))).toBe('titre « Factures » ; boutons : Actualiser, Nouvelle facture');
+    expect(ad.get(cle('factures', 'hors lignes', 'défaut')), 'témoin : l’administration a l’export').toContain('Export comptable');
   });
 
   // Témoins de la garde « aucun montant » (cadrage §5, T3 du contrôle) : un par branche, que lui seul déclenche ; les

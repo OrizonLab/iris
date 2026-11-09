@@ -685,6 +685,10 @@ if (!TEST_DATABASE_URL) {
 
       // Facture : l'entrée de l'émission, jouée en 5a, lue ici (cadrage §2.1).
       for (const compte of [SA, 'AD', 'DIR']) ajouter(compte, 'POST /api/factures/:id/emettre', 'facture-brouillon', 'défaut', corpsVide);
+      // Lot « Assistante technique », PR AT-3 (réponse 6 du 06-11-2026 ; T6 du contrôle de cohérence) : l'assistante technique émet
+      // le brouillon de son poste (facture-at-brouillon), entrée d'émission à son nom ; celui de l'administration lui répond 404
+      // en 5a, sans écriture.
+      ajouter('AT', 'POST /api/factures/:id/emettre', 'facture-at-brouillon', 'défaut', corpsVide);
 
       // Comptabilité : journal d'un compte, journal des règles ; création et import de comptes sans entrée (écart connu).
       for (const compte of [SA, 'AD', 'DIR']) {

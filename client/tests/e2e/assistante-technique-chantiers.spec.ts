@@ -9,7 +9,8 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // case ; sur la fiche, l'assistante technique voit le vendu et la marge, sans « Facturé HT » ni « Factures liées » » ; T1 :
 // « « Clôturer » lui reste absent quand elle est titulaire »). Réponses de Nelson du 06-11-2026, 1, 2, 5 et 10, et du
 // 07-11-2026, 1 et 3 (docs/HISTORIQUE-DECISIONS.md#décisions-du-07-11-2026-sur-at-2b). Choix par défaut, à confirmer, éprouvés
-// tels quels : facturation de la fiche masquée jusqu'à AT-3, réglage coché compris ; libellé de la case.
+// tels quels : facturation de la fiche masquée, réglage coché compris (permanente depuis AT-3 : elle ne voit que les factures de
+// son poste, la fiche montre toutes celles de l'affaire) ; libellé de la case.
 //
 // Parcours dans Chromium, libellés français, dates JJ-MM-AAAA, montants au format français :
 //  1. sur une affaire en cours d'un conducteur, elle ouvre « Modifier » (sans « Budget Global », réglage décoché), change le

@@ -436,6 +436,10 @@ const FAMILLE_PAR_FICHIER: [string, string][] = [
   // seule) : chaque équipement du parc affiche le prix d'achat HT de son modèle à qui le lit, « au format
   // fmtMontantDocument », comme le prix d'une fiche dans la recherche du catalogue du devis (Devis.tsx, plus haut).
   ['pages/ClientDetail.tsx', 'forme des documents'],
+  // Lot « Assistante technique », PR AT-3 (cadrage v2, C1 : règlements de sa facture en lecture) : la part d'un règlement
+  // affectée à une facture, affichée sous la liste des factures, au texte des montants de cette liste (Factures.tsx : TTC, reste
+  // dû, situation du règlement).
+  ['components/ReglementsFacture.tsx', 'centime en devise'],
 ];
 
 test('famille de montant de chaque fichier : celle de son texte d’avant #205 (ou choisie par #499), et elle seule ; tout fichier qui met en forme un montant est lié à la sienne', () => {

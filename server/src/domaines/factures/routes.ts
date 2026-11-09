@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma, transactionVerifiee } from '../../db';
 import { type AuthRequest, requireAuth } from '../../http/auth';
-import { requireAdmin } from '../../http/gardes';
+import { requireAdmin, requireGestionFactures } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import {
   FUSEAU_HORAIRE_PAR_DEFAUT, jourCivilEntreprise, dateEmissionEstFuture, dateSeuleEnJourCivil, dateIsoStricte, dateFrancaise,
@@ -24,14 +24,18 @@ import { tempsPasseDeLaChaine } from './tempsPasse';
 import { champsIdentiteManquants, figerIdentiteEmetteur, IdentiteEmetteurIncompleteError } from '../documents/identite';
 import { exigerIdentiteClient, IdentiteClientIncompleteError } from '../documents/identiteClient';
 import { avecSoldes, synchroniserStatutReglement } from '../reglements/metier';
+import { lireReglementsDeLaFacture } from '../reglements/lectureFacture';
 import { FACTURE_A_ENVOYER, SaisieEnvoiInvalideError, lireDemandeEnvoi, lireEnvois, propositionDestinataire, repondreEnvoi, texteEnvoiFacture } from '../documents/envois';
 import { envoyerDocument, propositionMicrosoft365 } from '../documents/envoiMicrosoft365';
 import { produirePdf, repondrePdf } from '../documents/productionPdf';
 import { lireFacturePdf, rendreFichierFacturePdf } from './productionPdf';
 import { envoiFacture } from './envois';
+import { facturesVisibles, journalPourLeLecteur, pieceVisible } from './droits';
 
 export function enregistrerRoutesFactures(app: Express): void {
-  app.get('/api/factures/chronologie', requireAuth, requireAdmin, async (_req, res) => {
+  // Date de la dernière facture numérotée, que l'écran compare aux brouillons : ouverte à l'assistante technique
+  // (AT-3), qui l'apprendrait du refus d'émission (choix par défaut, à confirmer).
+  app.get('/api/factures/chronologie', requireAuth, requireGestionFactures, async (_req, res) => {
     try {
       const derniere = await derniereDateFactureNumerotee(prisma);
       res.json({ derniereDateEmission: derniere?.dateEmission ?? null });
@@ -51,7 +55,9 @@ export function enregistrerRoutesFactures(app: Express): void {
     } catch { res.status(500).json({ error: 'Lecture des factures à régler impossible.' }); }
   });
 
-  app.get('/api/factures', requireAuth, requireAdmin, async (req, res) => {
+  // Liste : toutes les pièces pour l'administration, celles de son poste pour l'assistante technique (AT-3,
+  // factures/droits.ts) ; le total paginé compte les mêmes.
+  app.get('/api/factures', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     const pageQuery = req.query.page, tailleQuery = req.query.pageSize;
     const entierStrict = (valeur: unknown): number | null => {
       if (typeof valeur !== 'string' || !/^[1-9]\d*$/.test(valeur)) return null;
@@ -63,16 +69,17 @@ export function enregistrerRoutesFactures(app: Express): void {
     if (pagine && (page === null || pageSize === null || pageSize > 100)) return res.status(400).json({ error: 'page et pageSize doivent être des entiers positifs (pageSize ≤ 100).' });
     try {
       const orderBy = [{ dateEmission: 'desc' as const }, { createdAt: 'desc' as const }, { id: 'desc' as const }];
+      const where = facturesVisibles(req.user?.role);
       if (!pagine) {
         // Liste complète : délai explicite, une base réelle dépasse vite les 5 s par défaut de Prisma.
-        const factures = await transactionVerifiee(async tx => avecSoldes(tx, await tx.facture.findMany({ include: factureInclude, orderBy })), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
+        const factures = await transactionVerifiee(async tx => avecSoldes(tx, await tx.facture.findMany({ where, include: factureInclude, orderBy })), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
         return res.json(decimalToNumber(factures));
       }
       const skip = (page! - 1) * pageSize!;
       // Une seule photo de la base : le total, la page et les soldes de ses factures.
       const { total, items } = await transactionVerifiee(async tx => {
-        const total = await tx.facture.count();
-        const items = skip >= total ? [] : await avecSoldes(tx, await tx.facture.findMany({ include: factureInclude, orderBy, skip, take: pageSize! }));
+        const total = await tx.facture.count({ where });
+        const items = skip >= total ? [] : await avecSoldes(tx, await tx.facture.findMany({ where, include: factureInclude, orderBy, skip, take: pageSize! }));
         return { total, items };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
       return res.json({ items: decimalToNumber(items), page, pageSize, total });
@@ -80,22 +87,24 @@ export function enregistrerRoutesFactures(app: Express): void {
   });
 
   // PDF d'une facture ou d'un avoir émis, lu puis rendu par factures/productionPdf.ts (lot 6b-1a).
-  app.get('/api/factures/:id/document.pdf', requireAuth, requireAdmin, async (req, res) => {
+  // Une pièce hors du périmètre du lecteur (AT-3, factures/droits.ts) répond 404, avant tout refus du document.
+  app.get('/api/factures/:id/document.pdf', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       // REPEATABLE READ, comme les quatre autres PDF : la pièce et ses relations, que Prisma lit en plusieurs requêtes, dans un même instantané.
-      return repondrePdf(res, await produirePdf((tx) => lireFacturePdf(tx, String(req.params.id)), rendreFichierFacturePdf, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }));
+      return repondrePdf(res, await produirePdf((tx) => lireFacturePdf(tx, String(req.params.id), facturesVisibles(req.user?.role)), rendreFichierFacturePdf, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }));
     } catch { return res.status(500).json({ error: 'Lecture du document de facture impossible.' }); }
   });
 
   // Envoi d'une facture ou d'un avoir émis par la messagerie de l'utilisateur, et journal des envois
-  // (lot 6a-3) : réservés à l'administration, en session, comme le PDF des factures, et refusés comme
-  // lui pour une pièce sans document. Lecture : destinataire, objet et texte proposés, et envois déjà
-  // préparés, du plus récent au plus ancien, dans une même photo de la base ; microsoft365 : l'envoi par
-  // Microsoft 365 est proposé (lot 6b-1b).
-  app.get('/api/factures/:id/envois', requireAuth, requireAdmin, async (req, res) => {
+  // (lot 6a-3) : en session, comme le PDF des factures, pour l'administration et, sur les pièces de son
+  // poste, l'assistante technique (AT-3 ; elle lit les envois d'un avoir sans l'envoyer, factures/droits.ts),
+  // et refusés comme le PDF pour une pièce sans document. Lecture : destinataire, objet et texte proposés,
+  // et envois déjà préparés, du plus récent au plus ancien, dans une même photo de la base ; microsoft365 :
+  // l'envoi par Microsoft 365 est proposé (lot 6b-1b).
+  app.get('/api/factures/:id/envois', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const lu = await transactionVerifiee(async (tx) => {
-        const facture = await tx.facture.findUnique({ where: { id: paramId(req) }, select: FACTURE_A_ENVOYER });
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), select: FACTURE_A_ENVOYER });
         if (!facture) return { refus: { statut: 404, error: 'Facture introuvable.' } };
         const refus = refusDocumentFacture(facture);
         if (refus) return { refus: { statut: 409, error: refus } };
@@ -113,9 +122,9 @@ export function enregistrerRoutesFactures(app: Express): void {
   // Enregistrement de l'envoi, sous un verrou partagé de la pièce (./envois.ts) : une annulation ou un
   // avoir en cours est attendu, et l'envoi lit la pièce validée. Préparé par la messagerie (l'écran
   // télécharge le PDF avant cet appel), ou fait par Microsoft 365 avec le PDF figé (lot 6b-1b).
-  app.post('/api/factures/:id/envois', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  app.post('/api/factures/:id/envois', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
-      return repondreEnvoi(res, await envoyerDocument(req, lireDemandeEnvoi(req.body), envoiFacture(paramId(req))));
+      return repondreEnvoi(res, await envoyerDocument(req, lireDemandeEnvoi(req.body), envoiFacture(paramId(req), req.user?.role)));
     } catch (error) {
       if (error instanceof SaisieEnvoiInvalideError) return res.status(400).json({ error: error.message });
       if (error instanceof IdentiteEmetteurIncompleteError) return res.status(409).json({ error: error.message });
@@ -123,18 +132,33 @@ export function enregistrerRoutesFactures(app: Express): void {
     }
   });
 
-  app.get('/api/factures/:id/journal', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/factures/:id/journal', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const factureId = String(req.params.id);
-      const facture = await prisma.facture.findUnique({ where: { id: factureId }, select: { id: true } });
+      const facture = await prisma.facture.findFirst({ where: pieceVisible(factureId, req.user?.role), select: { id: true } });
       if (!facture) return res.status(404).json({ error: 'Facture introuvable.' });
-      res.json(await prisma.journalFacture.findMany({ where: { factureId }, orderBy: { createdAt: 'asc' } }));
+      res.json(journalPourLeLecteur(req.user?.role, await prisma.journalFacture.findMany({ where: { factureId }, orderBy: { createdAt: 'asc' } })));
     } catch { res.status(500).json({ error: 'Lecture du journal de facture impossible.' }); }
   });
 
-  app.get('/api/factures/:id/tracabilite', requireAuth, requireAdmin, async (req, res) => {
+  // Règlements reçus par une facture, en lecture (AT-3 ; point 33, « ainsi que les reglements », et réponse 1
+  // du 09-11-2026) : la part de chaque règlement affectée à cette facture, sans les autres factures du
+  // règlement ni son montant total (reglements/lectureFacture.ts). La saisie et la contre-passation restent
+  // à l'administration (/api/reglements).
+  app.get('/api/factures/:id/reglements', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
-      const facture = await prisma.facture.findUnique({ where: { id: String(req.params.id) }, include: {
+      const lu = await transactionVerifiee(async (tx) => {
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), select: { id: true } });
+        return facture ? lireReglementsDeLaFacture(tx, facture.id) : null;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+      if (!lu) return res.status(404).json({ error: 'Facture introuvable.' });
+      return res.json(decimalToNumber(lu));
+    } catch { return res.status(500).json({ error: 'Lecture des règlements de la facture impossible.' }); }
+  });
+
+  app.get('/api/factures/:id/tracabilite', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
+    try {
+      const facture = await prisma.facture.findFirst({ where: pieceVisible(String(req.params.id), req.user?.role), include: {
         client: { select: { id: true, raisonSociale: true } },
         chantier: { select: { id: true, nom: true, numeroDevis: true, statut: true } },
         intervention: { select: { id: true, reference: true, titre: true, chantierId: true, contratMaintenanceId: true } },
@@ -153,7 +177,10 @@ export function enregistrerRoutesFactures(app: Express): void {
     } catch { res.status(500).json({ error: 'Lecture de la traçabilité impossible.' }); }
   });
 
-  app.post('/api/factures', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  // Création d'un brouillon, de toute origine : par l'administration, ou par l'assistante technique (AT-3 ;
+  // point 27 et réponse 2 du 09-11-2026). Le type du compte créateur est posé sur la pièce, puis figé
+  // (creeParType) : il décide de qui la voit (factures/droits.ts).
+  app.post('/api/factures', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const clientId = String(req.body?.clientId || '');
       const dateEmission = dateIsoStricte(req.body?.dateEmission);
@@ -220,7 +247,7 @@ export function enregistrerRoutesFactures(app: Express): void {
             ? `L’intervention ${tempsPasse.reference} est au temps passé et se facture avec le chantier de son affaire, comme ses suites : créez la facture du chantier.`
             : `L’intervention ${tempsPasse.reference} est au temps passé : sa facture, et celle de ses suites, reprend les heures saisies. Créez-la par « Facture au temps passé ».`);
         }
-        const creee = await tx.facture.create({ data: { clientId, clientRaisonSociale: client.raisonSociale, origine, chantierId, interventionId, contratMaintenanceId, motifHorsAffaire, dateEmission, dateEcheance, totalHt, totalTva, totalTtc, createdById: req.user!.id, lignes: { create: lignes }, ventilationTva: { create: ventilationTva } }, include: factureInclude });
+        const creee = await tx.facture.create({ data: { clientId, clientRaisonSociale: client.raisonSociale, origine, chantierId, interventionId, contratMaintenanceId, motifHorsAffaire, dateEmission, dateEcheance, totalHt, totalTva, totalTtc, createdById: req.user!.id, creeParType: req.user!.role, lignes: { create: lignes }, ventilationTva: { create: ventilationTva } }, include: factureInclude });
         await tx.journalFacture.create({ data: { factureId: creee.id, acteurId: req.user!.id, action: 'CREATION_BROUILLON', detail: `Origine ${origine}` } });
         return creee;
       });
@@ -329,11 +356,13 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
     } catch { res.status(500).json({ error: 'Lecture des mentions légales impossible.' }); }
   });
 
-  app.post('/api/factures/:id/emettre', requireAuth, requireAdmin, async (req, res) => {
+  // Émission : par l'administration, ou par l'assistante technique pour les brouillons créés par une
+  // assistante technique (réponse 6 du 06-11-2026) ; un brouillon de l'administration lui répond 404.
+  app.post('/api/factures/:id/emettre', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const resultat = await transactionVerifiee(async (tx) => {
         await verrouillerParametrageComptable(tx);
-        const facture = await tx.facture.findUnique({ where: { id: paramId(req) }, include: { lignes: true, ventilationTva: true } });
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), include: { lignes: true, ventilationTva: true } });
         if (!facture) return { erreur: 'NOT_FOUND' as const };
         if (facture.statut !== 'BROUILLON') return { erreur: 'NOT_DRAFT' as const };
         // Un brouillon dont l'origine a été annulée depuis sa création ne s'émet pas (choix par défaut validé
@@ -359,7 +388,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         const maj = await tx.facture.update({ where: { id: facture.id }, data: { statut: 'EMISE', annee, numero, emisLe: new Date(), mentionsLegalesVersionId: mentions.id, identiteEmetteurId, clientAdresse: formaterAdresseFacturation(siteFacturation) }, include: factureInclude });
         await tx.ecritureFacture.createMany({ data: ecritures.map(e => ({ ...e, factureId: facture.id })) });
         await tx.facture.update({ where: { id: facture.id }, data: { ecrituresScellees: true } });
-        await tx.journalFacture.create({ data: { factureId: facture.id, acteurId: (req as AuthRequest).user!.id, action: 'EMISSION', detail: `Numéro ${numero}, version légale ${mentions.id}, identité de l’émetteur ${identiteEmetteurId}` } });
+        await tx.journalFacture.create({ data: { factureId: facture.id, acteurId: req.user!.id, action: 'EMISSION', detail: `Numéro ${numero}, version légale ${mentions.id}, identité de l’émetteur ${identiteEmetteurId}` } });
         return { facture: { ...maj, ecrituresScellees: true } };
       });
       if ('erreur' in resultat) {
@@ -418,7 +447,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
           clientId: facture.clientId, clientRaisonSociale: facture.clientRaisonSociale, clientAdresse: facture.clientAdresse,
           origine: facture.origine, chantierId: facture.chantierId, interventionId: facture.interventionId, contratMaintenanceId: facture.contratMaintenanceId,
           motifHorsAffaire: facture.motifHorsAffaire, mentionsLegalesVersionId: facture.mentionsLegalesVersionId, identiteEmetteurId,
-          totalHt: facture.totalHt, totalTva: facture.totalTva, totalTtc: facture.totalTtc, createdById: req.user!.id, emisLe: now,
+          totalHt: facture.totalHt, totalTva: facture.totalTva, totalTtc: facture.totalTtc, createdById: req.user!.id, creeParType: req.user!.role, emisLe: now,
           lignes: { create: facture.lignes.map(({ id: _id, factureId: _factureId, ...ligne }) => ligne) },
           ventilationTva: { create: facture.ventilationTva.length ? facture.ventilationTva.map(({ id: _id, factureId: _factureId, ...v }) => v) : ventilationTvaDerivee(facture.lignes) },
           ecrituresComptables: { create: ecritures },
@@ -495,7 +524,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
           clientId: facture.clientId, clientRaisonSociale: facture.clientRaisonSociale, clientAdresse: facture.clientAdresse,
           origine: facture.origine, chantierId: facture.chantierId, interventionId: facture.interventionId, contratMaintenanceId: facture.contratMaintenanceId,
           motifHorsAffaire: facture.motifHorsAffaire, mentionsLegalesVersionId: facture.mentionsLegalesVersionId, identiteEmetteurId,
-          totalHt, totalTva, totalTtc, createdById: req.user!.id, emisLe: now, lignes: { create: lignes }, ventilationTva: { create: ventilationTva },
+          totalHt, totalTva, totalTtc, createdById: req.user!.id, creeParType: req.user!.role, emisLe: now, lignes: { create: lignes }, ventilationTva: { create: ventilationTva },
           ecrituresComptables: { create: ecritures },
         }, include: factureInclude });
         await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true } });

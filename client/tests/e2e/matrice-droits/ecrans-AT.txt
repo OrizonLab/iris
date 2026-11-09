@@ -4,7 +4,7 @@ AT | administration | onglet par défaut | défaut | titre « Administration & P
 AT | devis | devis-brouillon | défaut | boutons : Dupliquer, Envoyer le devis <devis-brouillon> version #, Faire signer le client, Marquer envoyé, Modifier, PDF du devis <devis-brouillon> version #
 AT | devis | devis-signe | défaut | boutons : Créer le contrat, Créer l’intervention, Créer une révision, Dupliquer, Envoyer le devis <devis-signe> version #, Ouvrir le chantier, PDF du devis <devis-signe> version #
 AT | devis | hors lignes | défaut | titre « Devis » ; boutons : Actualiser, Ajouter la ligne au jour ou à la demi-journée (désactivé), Ajouter une ligne, Créer le brouillon
-AT | factures | hors lignes | défaut | redirigé vers /
+AT | factures | hors lignes | défaut | titre « Factures » ; boutons : Actualiser, Nouvelle facture
 AT | fiche chantier | chantier-annule | défaut | titre « Écrans annulé <s> » ; boutons : Rapport interne (PDF), Retour au tableau de bord
 AT | fiche chantier | chantier-en-cours | défaut | titre « Écrans en cours <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Modifier, Modifier, Rapport interne (PDF), Retour au tableau de bord
 AT | fiche chantier | chantier-termine | défaut | titre « Écrans terminé <s> » ; boutons : Corriger ce pointage, Corriger cet achat, Rapport interne (PDF), Retour au tableau de bord
@@ -19,7 +19,7 @@ AT | liste des chantiers | chantier-titulaire-dc | défaut | boutons : aucun
 AT | liste des chantiers | chantier-titulaire-tech | défaut | boutons : aucun
 AT | liste des chantiers | hors lignes | défaut | titre « Liste des Chantiers » ; boutons : Chantiers Terminés / Archivés# chantier(s), Créer une affaire (devis), En cours#, Heures dépassées, Main-d’œuvre dépassée, Matériel dépassé, Sans saisie, Tous, À surveiller, À surveiller#
 AT | liste des interventions | hors lignes | défaut | titre « Interventions SAV » ; boutons : Nouvelle intervention
-AT | menu | — | défaut | sections : Accueil, Chantiers, Interventions, Référentiels, Réglages ; type affiché : Assistante technique
+AT | menu | — | défaut | sections : Accueil, Chantiers, Interventions, Facturation, Référentiels, Réglages ; type affiché : Assistante technique
 AT | planning | hors lignes | défaut | titre « Planning d'intervention » ; boutons : Affectation, Semaine #, Semaine précédente, Semaine suivante, Types d'événements
 AT | route / | — | défaut | menu « Accueil › Tableau de bord » ; accessible
 AT | route /achats | — | défaut | menu « Chantiers › Journal des achats » ; accessible
@@ -34,7 +34,7 @@ AT | route /commerciaux | — | défaut | hors menu ; redirigée vers /
 AT | route /comptabilite | — | défaut | hors menu ; redirigée vers /
 AT | route /contrats-maintenance | — | défaut | menu « Interventions › Contrats de maintenance » ; accessible
 AT | route /devis | — | défaut | menu « Chantiers › Devis » ; accessible
-AT | route /factures | — | défaut | hors menu ; redirigée vers /
+AT | route /factures | — | défaut | menu « Facturation › Factures » ; accessible
 AT | route /heures | — | défaut | menu « Chantiers › Journal des heures » ; accessible
 AT | route /interventions | — | défaut | menu « Interventions › Interventions SAV » ; accessible
 AT | route /interventions/:id | intervention-planifiee | défaut | hors menu ; accessible
