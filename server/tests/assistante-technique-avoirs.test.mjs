@@ -13,8 +13,12 @@
 //  - réponse 3, « Même origine seulement (Recommandé) » : « Le repère ne regarde que les factures de l'origine choisie : une
 //    facture du chantier ne s'affiche pas sur ses interventions, ni celle d'un contrat sur ses visites. » ;
 //  - réponse 4 (lecture retenue pour le repère) : une facture couverte, en tout ou en partie, par des avoirs partiels n'est pas
-//    annulée ; elle compte. AT-4 ne change aucun statut ni aucune règle de règlement : une facture soldée par ses seuls avoirs
-//    reste émise (règle du 17-10-2026, remplacée par le lot dédié qui suit AT-4).
+//    annulée ; elle compte. AT-4 ne changeait aucun statut ni aucune règle de règlement. Depuis le lot « Statut d'une facture
+//    couverte par des avoirs » (cadrage v3, lecture retenue de la même réponse, à corriger par Nelson si besoin ; voir #521), une
+//    facture couverte en totalité par ses avoirs partiels est « réglée », avec l'entrée REGLEMENT au nom de l'auteur de l'avoir
+//    qui la solde, et le détail de la transition cite le montant des avoirs (« avoirs X € », choix par défaut, à confirmer) : la
+//    règle du 17-10-2026 (« une facture soldée par ses seuls avoirs reste émise ») est remplacée, et les attendus ci-dessous
+//    suivent la nouvelle règle (statut-facture-avoirs.test.mjs la prouve).
 // Choix par défaut du cadrage, à confirmer, testés tels qu'écrits : envoi des avoirs que l'administration porte sur les
 // factures de son poste ; nouveau texte du refus d'une seconde facture au temps passé.
 //
@@ -147,7 +151,8 @@ const A3 = { lignes: [ligne('reprise de la pose (administration, après l’assi
 //  - P3, par elle : 1 × 82,82 à 20 % ; total HT 96,60 + 39,62 + 82,82 = 219,04 > 219,03 : 409, plafond total (lu avant celui
 //    du taux). Lecture écartée : seuls ses avoirs comptés (32,16 + 39,62 + 82,82 = 154,60), admis ;
 //  - A5, par elle : 1 × 82,81 à 20 %, le reste exact : TVA de 119,02 (23,80) moins 7,24 = 16,56 ; TTC 99,37. F est alors créditée
-//    en entier (248,33) : reste dû 0,00 et statut « émise » (règle du 17-10-2026, inchangée par AT-4).
+//    en entier (248,33) : reste dû 0,00 et statut « réglée », avec l'entrée REGLEMENT à son nom (lot « Statut d'une facture
+//    couverte par des avoirs », qui remplace la règle du 17-10-2026 ; lecture écartée, l'ancienne règle : « émise »).
 const P1 = [ligne('dépassement du plafond à 5,5 %', 1, 39.63, 5.5, 'ARTICLE')];
 const A4 = { lignes: [ligne('solde à 5,5 %', 1, 39.62, 5.5, 'ARTICLE')], totaux: [39.62, 2.18, 41.8], ventilation: [[5.5, 39.62, 2.18, 41.8]] };
 const P3 = [ligne('dépassement du total', 1, 82.82, 20)];
@@ -548,7 +553,7 @@ if (!TEST_DATABASE_URL) {
 
     // Cadrage v2, « Montants », deuxième et quatrième puces (C4 : plafonds HT, TVA, TTC et par taux cumulés quel que soit
     // l'auteur ; refus 409 sans écriture ni numéro consommé ; numérotation continue). Montants : voir P1, A4, P3 et A5 plus haut.
-    test('montants : plafonds cumulés entre auteurs : dépassement d’un centime à 5,5 % (409 du taux) et du total (409 du total) refusés à elle, sans écriture ni numéro ; le reste exact admis à chaque taux ; facture créditée en entier, reste dû 0,00 €, toujours émise ; numéros consécutifs', async () => {
+    test('montants : plafonds cumulés entre auteurs : dépassement d’un centime à 5,5 % (409 du taux) et du total (409 du total) refusés à elle, sans écriture ni numéro ; le reste exact admis à chaque taux ; facture créditée en entier, reste dû 0,00 €, « réglée » par ses avoirs avec l’entrée du journal à son nom ; numéros consécutifs', async () => {
       const avant = await sequenceAvoirs();
       const { facture, a1, a2, a3 } = await scenarioEntreAuteurs(par('AT'), par('AT'), 'plafonds entre auteurs');
       assert.deepEqual([a1, a2, a3].map((a) => rangDe(a.numero)), [avant + 1, avant + 2, avant + 3]);
@@ -566,10 +571,14 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual([rangDe(a5.numero), ...nombres([a5.totalHt, a5.totalTva, a5.totalTtc])], [avant + 5, ...A5.totaux], 'A5 : numéro suivant, reste exact à 20 %');
       assert.equal(await sequenceAvoirs(), avant + 5);
       assert.deepEqual([a1, a2, a3, a4, a5].map((a) => prefixeDe(a.numero)), Array(5).fill(`A${jour().annee}`));
-      // Créditée en entier par ses avoirs, sans règlement : reste dû nul, statut « émise » (règle du 17-10-2026 ; AT-4 ne change
-      // aucun statut, décision 4 : lot dédié), aucune entrée de règlement.
-      assert.deepEqual(await soldes(facture.id, par('AT')), ['EMISE', 248.33, 0, 0]);
-      assert.deepEqual((await enBase(facture.id)).journal.map((j) => j.action), ['CREATION_BROUILLON', 'EMISSION']);
+      // Créditée en entier par ses avoirs, sans règlement : reste dû nul, statut « réglée » (lot « Statut d'une facture couverte
+      // par des avoirs », critère 1), entrée REGLEMENT à son nom, auteur de A5 qui la solde, avec les avoirs cumulés de tous les
+      // auteurs (35,52 + 35,69 + 35,95 + 41,80 + 99,37 = 248,33 €). Lectures écartées : l'ancienne règle (« émise », sans
+      // entrée) ; l'avoir A5 seul dans le détail (99,37 €).
+      assert.deepEqual(await soldes(facture.id, par('AT')), ['REGLEE', 248.33, 0, 0]);
+      const journalF = (await enBase(facture.id)).journal;
+      assert.deepEqual(journalF.map((j) => [j.action, j.acteurId]), [['CREATION_BROUILLON', comptes.AT.id], ['EMISSION', comptes.AT.id], ['REGLEMENT', comptes.AT.id]]);
+      assert.equal(journalF[2].detail, `Transition EMISE → REGLEE (avoir partiel ${a5.numero}) : réglé 0,00 €, avoirs 248,33 €, reste dû 0,00 €`);
       // Un centime de plus, à n'importe quel taux de la facture : refusé.
       await refuse(() => avoir(facture.id, [ligne('un centime de trop', 1, 0.01, 20)], par('AT')), 409, REFUS.plafondTotal, 'facture créditée en entier');
     });
@@ -653,7 +662,9 @@ if (!TEST_DATABASE_URL) {
       const avoirB = await avoirCree(fb.id, AVOIR_SOLDE, par('AT'));
       for (const cle of ['AT', 'AD']) assert.deepEqual(await soldes(fb.id, par(cle)), ['REGLEE', 48.14, 100, 0], `(b) lu par ${cle}`);
       const journalB = (await enBase(fb.id)).journal.filter((j) => ['REGLEMENT', 'RETOUR_EMISE'].includes(j.action));
-      assert.deepEqual(journalB.map((j) => [j.action, j.acteurId, j.detail]), [['REGLEMENT', comptes.AT.id, `Transition EMISE → REGLEE (avoir partiel ${avoirB.numero}) : réglé 100,00 €, reste dû 0,00 €`]]);
+      // Lot « Statut d'une facture couverte par des avoirs » : le détail cite les avoirs de la facture (choix par défaut, à
+      // confirmer ; lecture écartée : détail sans les avoirs).
+      assert.deepEqual(journalB.map((j) => [j.action, j.acteurId, j.detail]), [['REGLEMENT', comptes.AT.id, `Transition EMISE → REGLEE (avoir partiel ${avoirB.numero}) : réglé 100,00 €, avoirs 48,14 €, reste dû 0,00 €`]]);
       // Le journal de la facture, lu par elle : l'entrée à son nom, telle quelle.
       const lu = await ok(appeler('get', `/factures/${fb.id}/journal`, null, par('AT')));
       assert.deepEqual(lu.filter((j) => j.action === 'REGLEMENT').map((j) => [j.acteurId, j.detail]), [[comptes.AT.id, journalB[0].detail]]);
@@ -724,7 +735,7 @@ if (!TEST_DATABASE_URL) {
       const relue = await enBase(soldee.id);
       assert.deepEqual([relue.createdById, relue.statut], [comptes.AT.id, 'REGLEE']);
       assert.deepEqual(relue.journal.filter((j) => j.action === 'REGLEMENT').map((j) => [j.acteurId, j.detail]),
-        [[comptes.AT2.id, `Transition EMISE → REGLEE (avoir partiel ${avoirSolde.numero}) : réglé 100,00 €, reste dû 0,00 €`]]);
+        [[comptes.AT2.id, `Transition EMISE → REGLEE (avoir partiel ${avoirSolde.numero}) : réglé 100,00 €, avoirs 48,14 €, reste dû 0,00 €`]]);
     });
 
     // C2 et T1 du contrôle de mode 1 ; cadrage v2, § 1 (« Ce 404 passe avant tout refus propre à la pièce … Seul le 400 de lignes
@@ -1049,12 +1060,13 @@ if (!TEST_DATABASE_URL) {
       const k1 = await contrat('repère, contrat facturé');
       await emettre((await facturer(ad, 'contrat', 'contratMaintenanceId', k1.id, 'CONTRAT')).id, ad);
       cas.push(['contrat, émise par l’administration', 'CONTRAT', k1.id]);
-      // Intervention : facture créditée en entier par ses avoirs partiels, toujours émise (décision 4, lecture retenue).
+      // Intervention : facture créditée en entier par ses avoirs partiels (décision 4, lecture retenue) : « réglée » depuis le lot
+      // « Statut d'une facture couverte par des avoirs » ; elle compte toujours pour le repère.
       const i2 = await intervention('repère, créditée en entier');
       const creditee = await emettre((await facturer(at, 'créditée', 'interventionId', i2.id, 'INTERVENTION')).id, at);
       await avoirCree(creditee.id, AVOIR_SOLDE, at);
       await avoirCree(creditee.id, [ligne('solde par avoir', 1, 83.33, 20)], par('AD'));
-      assert.deepEqual(await soldes(creditee.id, ad), ['EMISE', 148.14, 0, 0], 'créditée en entier, toujours émise');
+      assert.deepEqual(await soldes(creditee.id, ad), ['REGLEE', 148.14, 0, 0], 'créditée en entier, réglée par ses avoirs');
       cas.push(['intervention, créditée en entier par des avoirs partiels', 'INTERVENTION', i2.id]);
       // Affaire annulée après sa facture : sa facture vivante compte.
       const c4 = await chantier('repère, annulée après sa facture');
