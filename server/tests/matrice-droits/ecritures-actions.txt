@@ -123,9 +123,12 @@ AC | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écrit (Devis
 AC | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 AC | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 AC | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-AC | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+AC | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 AC | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 AC | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 AC | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -327,6 +330,9 @@ AD | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un 
 AD | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 AD | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
 AD | POST /api/factures/:id/emettre | avoir-emis | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AD | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AD | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
+AD | POST /api/factures/:id/emettre | facture-at-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 AD | POST /api/factures/:id/emettre | facture-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
 AD | POST /api/factures/:id/emettre | facture-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 AD | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
@@ -530,6 +536,9 @@ AD-COM | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul
 AD-COM | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 AD-COM | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
 AD-COM | POST /api/factures/:id/emettre | avoir-emis | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AD-COM | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AD-COM | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
+AD-COM | POST /api/factures/:id/emettre | facture-at-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 AD-COM | POST /api/factures/:id/emettre | facture-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
 AD-COM | POST /api/factures/:id/emettre | facture-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 AD-COM | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
@@ -732,9 +741,12 @@ AT | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écrit (Devis
 AT | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 AT | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 AT | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-AT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+AT | POST /api/factures/:id/emettre | avoir-emis | défaut | 404 « Facture introuvable. » inchangé
+AT | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AT | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
+AT | POST /api/factures/:id/emettre | facture-at-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+AT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 404 « Facture introuvable. » inchangé
+AT | POST /api/factures/:id/emettre | facture-emise | défaut | 404 « Facture introuvable. » inchangé
 AT | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
 AT | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
 AT | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 409 « Cette affaire est annulée : plus aucune saisie n’y est possible. » inchangé
@@ -935,9 +947,12 @@ COM | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écrit (Devi
 COM | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 COM | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 COM | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-COM | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+COM | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 COM | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 COM | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 COM | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -1138,9 +1153,12 @@ CPT | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écrit (Devi
 CPT | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 CPT | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 CPT | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-CPT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CPT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 CPT | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 CPT | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 CPT | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -1341,9 +1359,12 @@ CPT-FINANCE | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écr
 CPT-FINANCE | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 CPT-FINANCE | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 CPT-FINANCE | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-CPT-FINANCE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 CPT-FINANCE | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 CPT-FINANCE | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 CPT-FINANCE | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -1544,9 +1565,12 @@ CT | POST /api/devis/:id/duplication | devis-signe | défaut | 403 « Permission
 CT | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 CT | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 CT | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-CT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CT | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 CT | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 404 « Chantier introuvable » inchangé
 CT | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 404 « Chantier introuvable » inchangé
 CT | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 409 « Cette affaire est annulée : plus aucune saisie n’y est possible. » inchangé
@@ -1747,9 +1771,12 @@ CT-N1 | POST /api/devis/:id/duplication | devis-signe | défaut | 403 « Permiss
 CT-N1 | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 CT-N1 | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 CT-N1 | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-CT-N1 | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 CT-N1 | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 404 « Chantier introuvable » inchangé
 CT-N1 | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 404 « Chantier introuvable » inchangé
 CT-N1 | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 404 « Chantier introuvable » inchangé
@@ -1950,9 +1977,12 @@ DC | POST /api/devis/:id/duplication | devis-signe | défaut | 201 écrit (Devis
 DC | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
 DC | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 DC | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
-DC | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+DC | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 DC | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 DC | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 DC | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -2154,6 +2184,9 @@ DIR | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un
 DIR | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 DIR | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
 DIR | POST /api/factures/:id/emettre | avoir-emis | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+DIR | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+DIR | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
+DIR | POST /api/factures/:id/emettre | facture-at-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 DIR | POST /api/factures/:id/emettre | facture-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
 DIR | POST /api/factures/:id/emettre | facture-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 DIR | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
@@ -2356,9 +2389,12 @@ RESP | POST /api/devis/:id/duplication | devis-signe | défaut | 403 « Permissi
 RESP | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 RESP | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 RESP | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-RESP | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+RESP | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 RESP | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 404 « Chantier introuvable » inchangé
 RESP | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 404 « Chantier introuvable » inchangé
 RESP | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 404 « Chantier introuvable » inchangé
@@ -2559,9 +2595,12 @@ RESP-SANS-BRANCHE | POST /api/devis/:id/duplication | devis-signe | défaut | 40
 RESP-SANS-BRANCHE | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 RESP-SANS-BRANCHE | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 RESP-SANS-BRANCHE | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 RESP-SANS-BRANCHE | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 404 « Chantier introuvable » inchangé
 RESP-SANS-BRANCHE | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 404 « Chantier introuvable » inchangé
 RESP-SANS-BRANCHE | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 404 « Chantier introuvable » inchangé
@@ -2763,6 +2802,9 @@ SA | POST /api/devis/:id/revisions | devis-brouillon | défaut | 409 « Seul un 
 SA | POST /api/devis/:id/revisions | devis-converti | défaut | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
 SA | POST /api/devis/:id/revisions | devis-signe | défaut | 201 écrit (Devis,DevisLigne)
 SA | POST /api/factures/:id/emettre | avoir-emis | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+SA | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 409 « Seul un brouillon peut être émis. » inchangé
+SA | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
+SA | POST /api/factures/:id/emettre | facture-at-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 SA | POST /api/factures/:id/emettre | facture-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)
 SA | POST /api/factures/:id/emettre | facture-emise | défaut | 409 « Seul un brouillon peut être émis. » inchangé
 SA | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure)
@@ -2965,9 +3007,12 @@ TECH | POST /api/devis/:id/duplication | devis-signe | défaut | 403 « Permissi
 TECH | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 TECH | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 TECH | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-TECH | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+TECH | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 TECH | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 TECH | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 TECH | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
@@ -3168,9 +3213,12 @@ TECH-SANS-FICHE | POST /api/devis/:id/duplication | devis-signe | défaut | 403 
 TECH-SANS-FICHE | POST /api/devis/:id/revisions | devis-brouillon | défaut | 403 « Permission requise : devis:write » inchangé
 TECH-SANS-FICHE | POST /api/devis/:id/revisions | devis-converti | défaut | 403 « Permission requise : devis:write » inchangé
 TECH-SANS-FICHE | POST /api/devis/:id/revisions | devis-signe | défaut | 403 « Permission requise : devis:write » inchangé
-TECH-SANS-FICHE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | avoir-emis | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | avoir-facture-at | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-at-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/factures/:id/emettre | facture-emise | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
 TECH-SANS-FICHE | POST /api/heures | chantierId=chantier-ac | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 TECH-SANS-FICHE | POST /api/heures | chantierId=chantier-ad | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé
 TECH-SANS-FICHE | POST /api/heures | chantierId=chantier-annule | défaut, corps heures | 403 « Permission requise : chantiers:write » inchangé

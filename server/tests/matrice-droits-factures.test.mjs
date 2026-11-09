@@ -13,8 +13,10 @@
 //    /api/v1), jouée un à un par SA, AD et AD-COM, avec ses cas admis et ses refus ; les écritures indirectes jouées avec
 //    le constat des pièces figées (société, client renommé, mentions légales, règles comptables, prix d'une main
 //    d'œuvre), par SA et AD, dont seules la ligne « écrit (tables) » et ce constat sont gardés ;
-//  - §4.2 : les 12 comptes refusés à l'entrée rejoués avec chaque corps de SA sur ces routes, en lots (une empreinte par
-//    lot), un lot qui écrit étant rejoué un à un (empreinte après chaque cas, entrées nommées), comme en D1a-5b ;
+//  - §4.2 : les comptes refusés à l'entrée (12, puis 11 depuis AT-3) rejoués avec chaque corps de SA sur ces routes, en lots
+//    (une empreinte par lot), un lot qui écrit étant rejoué un à un (empreinte après chaque cas, entrées nommées), comme en
+//    D1a-5b ; depuis AT-3, l'assistante technique, admise sur une partie de ces routes pour les pièces de son poste, rejoue
+//    chaque cas de SA un à un, avec son attendu et la relecture des montants de ses écritures admises ;
 //  - §4.3 : après chaque cas, le constat des pièces émises figées (pièce, lignes, ventilation, écritures, règlements et
 //    parts comparés à l'instantané, changements de statut nommés) ;
 //  - §4.4 : chaque montant écrit relu en base, comparé à l'attendu écrit en dur (lecture écartée en commentaire, test
@@ -56,9 +58,19 @@ const REFERENCE = join(DOSSIER_MATRICES, 'factures.txt');
 const SA = 'SA';
 // Le directeur en fait partie depuis le lot « Directeur aligné sur l'administration » (décision de Nelson du 24-10-2026, point 14).
 const ADMINISTRATION = ['SA', 'AD', 'AD-COM', 'DIR'];
-// Les 12 comptes refusés à l'entrée de chaque route des factures (entrees.txt, vérifié par le test de couverture).
-const REFUSES = COMPTES_JOUES.filter((c) => !ADMINISTRATION.includes(c));
-const REFUS_ENTREE = '403 « Accès réservé aux administrateurs »';
+// Lot « Assistante technique », PR AT-3 (cadrage AT-3 v2 ; T6 du contrôle de cohérence de mode 1 ; décisions de Nelson du
+// 24-10-2026, points 27, 30 et 33, réponse 6 du 06-11-2026, réponses 1 et 2 du 09-11-2026) : l'assistante technique entre sur la
+// création d'un brouillon, l'émission, l'envoi et la facture au temps passé (requireGestionFactures), sur les seules pièces de son
+// poste (Facture.creeParType) ; avoirs, annulation, règlements et « réglée » à la main restent à l'administration. Elle rejoue
+// chaque cas de SA, un à un (elle écrit), avec son attendu (attenduAssistante, plus bas) et la relecture des montants de ses
+// écritures admises.
+const ASSISTANTE = 'AT';
+const ROUTES_OUVERTES_AT3 = ['POST /api/factures', 'POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois', 'POST /api/interventions/:id/facture-temps-passe'];
+// Les 11 autres comptes, refusés à l'entrée de chaque route des factures (entrees.txt, vérifié par le test de couverture), au
+// message de la garde de la route.
+const REFUSES = COMPTES_JOUES.filter((c) => !ADMINISTRATION.includes(c) && c !== ASSISTANTE);
+const REFUS_ADMINISTRATION_ENTREE = '403 « Accès réservé aux administrateurs »';
+const refusEntree = (route) => (ROUTES_OUVERTES_AT3.includes(route) ? '403 « Accès réservé à l’administration et à l’assistante technique. »' : REFUS_ADMINISTRATION_ENTREE);
 const DESTINATAIRE = 'contact-matrice@iris.test';
 // Routes de la section 4.1 du cadrage (factures/routes.ts, factures/routesTempsPasse.ts, reglements/routes.ts).
 const ROUTES_DES_FACTURES = [
@@ -455,10 +467,11 @@ if (!TEST_DATABASE_URL) {
         hier: jourSociete(-1), aujourdhui: jourSociete(0), demain: jourSociete(1),
         clientActif: id('client', 'client-actif'), ficheTech: id('fiche-intervenant', 'fiche-tech'),
       });
-      for (const nom of ['facture-brouillon', 'facture-emise', 'avoir-emis']) suivis.set(id('facture', nom), nom);
+      for (const nom of ['facture-brouillon', 'facture-emise', 'avoir-emis', 'facture-at-brouillon', 'facture-at-emise', 'avoir-facture-at']) suivis.set(id('facture', nom), nom);
       suivis.set(id('reglement', 'reglement'), 'reglement');
       const avoirEmis = await appli.prisma.facture.findUniqueOrThrow({ where: { id: id('facture', 'avoir-emis') }, select: { factureOrigineId: true } });
       suivis.set(avoirEmis.factureOrigineId, 'facture-avoir');
+      suivis.set((await appli.prisma.facture.findUniqueOrThrow({ where: { id: id('facture', 'avoir-facture-at') }, select: { factureOrigineId: true } })).factureOrigineId, 'facture-at-avoir');
 
       // --- Paramétrage propre à ce fichier (cadrage §4.5) ---
       // Compte 445711 et règle de TVA à 5,5 % (sans eux, l'émission de la facture à deux taux répond 409,
@@ -517,6 +530,9 @@ if (!TEST_DATABASE_URL) {
       await api(SA, 'DELETE', `/api/clients/${d.clientDesactive}`, {});
       // Brouillon à trois lignes et deux taux, émis par la matrice.
       suivis.set((await brouillon(d.clientActif, 'TEST facture à deux taux de la matrice des factures', MONTANTS.lignes)).id, 'facture-brouillon-deux-taux');
+      // AT-3 : le même brouillon, créé par l'assistante technique (type figé ASSISTANTE_TECHNIQUE) ; émis par l'administration
+      // (réponse 1 du 09-11-2026) comme par elle (réponse 6 du 06-11-2026), mêmes montants attendus.
+      suivis.set((await api(ASSISTANTE, 'POST', '/api/factures', { clientId: d.clientActif, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST facture à deux taux de l’assistante, matrice des factures', dateEmission: d.aujourdhui, dateEcheance: d.aujourdhui, lignes: MONTANTS.lignes }, 201)).id, 'facture-brouillon-deux-taux-at');
       // Intervention au temps passé : main d'œuvre à 61,70, pas de 15 minutes, devis au temps passé signé et converti,
       // placée, démarrée, 1,1 h du technicien, compte rendu, terminée (motif) ; prix de la main d'œuvre changé à 99,99
       // après la signature.
@@ -559,7 +575,7 @@ if (!TEST_DATABASE_URL) {
         jeu: Object.fromEntries(await Promise.all(['facture-brouillon', 'facture-emise', 'avoir-emis', 'facture-avoir'].map(async (nom) => [nom, await facture(idDe(nom))]))),
         reglementJeu: Number((await appli.prisma.reglement.findUniqueOrThrow({ where: { id: id('reglement', 'reglement') } })).montant),
         reglementSolde: Number((await appli.prisma.reglement.findUniqueOrThrow({ where: { id: idDe('reglement-solde') } })).montant),
-        cibles: Object.fromEntries(await Promise.all(['facture-emise-non-reglee', 'facture-reglee', 'facture-annulee', 'avoir-total', 'facture-avoir-partiel', 'avoir-de-facture-avoir-partiel', 'facture-soldee-par-avoir', 'avoir-de-facture-soldee-par-avoir', 'facture-autre-client', 'facture-client-desactive', 'facture-brouillon-deux-taux'].map(async (nom) => [nom, await facture(idDe(nom))]))),
+        cibles: Object.fromEntries(await Promise.all(['facture-emise-non-reglee', 'facture-reglee', 'facture-annulee', 'avoir-total', 'facture-avoir-partiel', 'avoir-de-facture-avoir-partiel', 'facture-soldee-par-avoir', 'avoir-de-facture-soldee-par-avoir', 'facture-autre-client', 'facture-client-desactive', 'facture-brouillon-deux-taux', 'facture-brouillon-deux-taux-at'].map(async (nom) => [nom, await facture(idDe(nom))]))),
         clients: [(await appli.prisma.client.findUniqueOrThrow({ where: { id: d.clientDesactive } })).actif, (await appli.prisma.client.findUniqueOrThrow({ where: { id: d.clientSecond } })).actif],
         tempsPasse: {
           heures: heures.map((h) => Number(h.nbrHeures)), prixDevis: Number(ligneDevis.prixUnitaireHt), minimum: devisFige.tempsMinimumMinutes, pas: devisFige.pasTempsPasseMinutes,
@@ -609,6 +625,10 @@ if (!TEST_DATABASE_URL) {
         // Émission du brouillon à deux taux, écritures relues (les refus de l'émission sont joués en 5a).
         const emission = 'POST /api/factures/:id/emettre';
         ajouter(compte, emission, 'facture-brouillon-deux-taux', 'défaut', piece(emission, 'facture-brouillon-deux-taux'), corpsVide, {
+          code: 200, montant: { genre: 'emission', attendu: { ...MONTANTS.factureDeuxTaux, statut: 'EMISE', ecritures: MONTANTS.ecrituresEmission } },
+        });
+        // AT-3, réponse 1 du 09-11-2026 : le brouillon d'une assistante technique, émis par l'administration (mêmes montants).
+        ajouter(compte, emission, 'facture-brouillon-deux-taux-at', 'défaut', piece(emission, 'facture-brouillon-deux-taux-at'), corpsVide, {
           code: 200, montant: { genre: 'emission', attendu: { ...MONTANTS.factureDeuxTaux, statut: 'EMISE', ecritures: MONTANTS.ecrituresEmission } },
         });
         // « Réglée » à la main : 410 (D1a-1 l'enregistre à corps vide), inchangé.
@@ -697,6 +717,17 @@ if (!TEST_DATABASE_URL) {
       // Comptes refusés à l'entrée : chaque cas de SA sur ces routes, rejoué par chacun (cadrage §4.2).
       const casDeSa = cas.filter((c) => c.compte === SA);
       for (const compte of REFUSES) for (const c of casDeSa) cas.push({ ...c, compte, code: 403, montant: null, enLot: true });
+      // AT-3 : l'assistante technique rejoue chaque cas de SA, un à un, avec son attendu : sur les routes qui lui restent fermées,
+      // 403 ; sur une pièce de l'administration (émission du brouillon de SA, envois), 404 « Facture introuvable. », avant tout 409
+      // (T4) ; ailleurs (création d'un brouillon de toute origine, émission de son brouillon, facture au temps passé), la
+      // réponse de SA et la relecture de ses montants (classées C : ses montants sont ceux de l'administration).
+      const attenduAssistante = (c) => {
+        if (!ROUTES_OUVERTES_AT3.includes(c.route)) return { code: 403, montant: null };
+        if (c.route === 'POST /api/factures/:id/emettre') return c.cible === 'facture-brouillon-deux-taux-at' ? { code: c.code, montant: c.montant } : { code: 404, montant: null };
+        if (c.route === 'POST /api/factures/:id/envois') return { code: 404, montant: null };
+        return { code: c.code, montant: c.montant };
+      };
+      for (const c of casDeSa) cas.push({ ...c, compte: ASSISTANTE, ...attenduAssistante(c) });
 
       // Écritures indirectes jouées avec le constat des pièces figées (cadrage §4.1), par SA, AD et DIR (droits de
       // l'administration, comme AD).
@@ -773,6 +804,7 @@ if (!TEST_DATABASE_URL) {
         'facture-emise-non-reglee': [200, 240, 'EMISE'], 'facture-reglee': [50, 60, 'REGLEE'], 'facture-annulee': [30, 36, 'ANNULEE'], 'avoir-total': [30, 36, 'EMISE'],
         'facture-avoir-partiel': [300, 360, 'EMISE'], 'avoir-de-facture-avoir-partiel': [0.53, 0.64, 'EMISE'], 'facture-soldee-par-avoir': [20, 24, 'EMISE'], 'avoir-de-facture-soldee-par-avoir': [20, 24, 'EMISE'],
         'facture-autre-client': [45, 54, 'EMISE'], 'facture-client-desactive': [40, 48, 'EMISE'], 'facture-brouillon-deux-taux': [101.05, 106.76, 'BROUILLON'],
+        'facture-brouillon-deux-taux-at': [101.05, 106.76, 'BROUILLON'],
       }, 'cibles propres');
       assert.deepEqual(t.clients, [false, true], 'client désactivé après l’émission de sa facture ; client second actif');
       const htJeu = [10, 100, 80];
@@ -863,13 +895,14 @@ if (!TEST_DATABASE_URL) {
     // Cadrage §4.1 et §4.2 : chaque route des factures a ses cas pour SA, AD et AD-COM, avec les mêmes cibles et corps ;
     // chaque compte refusé à l'entrée (entrees.txt) rejoue chaque cas de SA ; chaque écriture de montant admise a sa
     // relecture (cadrage §3, classement C).
-    testPrepare('couverture : chaque route des factures jouée par SA, AD et AD-COM sur les mêmes cas, chaque cas de SA rejoué par les 12 comptes refusés à l’entrée (entrees.txt), chaque écriture de montant admise relue', (t) => {
+    testPrepare('couverture : chaque route des factures jouée par SA, AD et AD-COM sur les mêmes cas, chaque cas de SA rejoué par les 11 comptes refusés à l’entrée (entrees.txt) et par l’assistante technique (AT-3), chaque écriture de montant admise relue', (t) => {
       const cle = (c) => [c.route, c.cible, c.contexte].join(SEPARATEUR);
       const deSa = cas.filter((c) => c.compte === SA && !c.indirect).map(cle).sort();
       for (const route of ROUTES_DES_FACTURES) assert.ok(cas.some((c) => c.route === route && c.compte === SA), `${route} : aucun cas`);
-      for (const compte of [...ADMINISTRATION, ...REFUSES]) assert.deepEqual(cas.filter((c) => c.compte === compte && !c.indirect).map(cle).sort(), deSa, `${compte} : cas différents de ceux de SA`);
+      for (const compte of [...ADMINISTRATION, ...REFUSES, ASSISTANTE]) assert.deepEqual(cas.filter((c) => c.compte === compte && !c.indirect).map(cle).sort(), deSa, `${compte} : cas différents de ceux de SA`);
       assert.ok(cas.filter((c) => !c.indirect).every((c) => ROUTES_DES_FACTURES.includes(c.route)), 'cas hors des routes des factures');
-      // Les comptes refusés le sont à l'entrée de chaque route, par la garde de l'administration (D1a-1).
+      // Les comptes refusés le sont à l'entrée de chaque route, par la garde de la route (D1a-1 ; requireGestionFactures depuis
+      // AT-3 sur les routes ouvertes à l'assistante technique) ; elle-même entre sur celles-là, et reste refusée sur les autres.
       const entrees = lireReference(join(DOSSIER_MATRICES, 'entrees.txt'));
       assert.ok(entrees, 'entrees.txt absent');
       const parCouple = new Map();
@@ -880,8 +913,11 @@ if (!TEST_DATABASE_URL) {
         parCouple.get(`${compte} ${route}`).add(reponse);
       }
       for (const route of ROUTES_DES_FACTURES) {
-        for (const compte of REFUSES) assert.deepEqual([...(parCouple.get(`${compte} ${route}`) ?? [])], [REFUS_ENTREE], `${compte} sur ${route} dans entrees.txt`);
-        for (const compte of ADMINISTRATION) assert.ok(![...(parCouple.get(`${compte} ${route}`) ?? [])].includes(REFUS_ENTREE), `${compte} admis sur ${route}`);
+        for (const compte of REFUSES) assert.deepEqual([...(parCouple.get(`${compte} ${route}`) ?? [])], [refusEntree(route)], `${compte} sur ${route} dans entrees.txt`);
+        for (const compte of ADMINISTRATION) assert.ok(![...(parCouple.get(`${compte} ${route}`) ?? [])].some((r) => /^40[13]/.test(r)), `${compte} admis sur ${route}`);
+        const reponsesAt = [...(parCouple.get(`${ASSISTANTE} ${route}`) ?? [])];
+        if (ROUTES_OUVERTES_AT3.includes(route)) assert.ok(reponsesAt.length && reponsesAt.every((r) => !/^40[13]/.test(r)), `${ASSISTANTE} admise sur ${route} : ${reponsesAt.join(' ; ')}`);
+        else assert.deepEqual(reponsesAt, [REFUS_ADMINISTRATION_ENTREE], `${ASSISTANTE} refusée sur ${route} dans entrees.txt`);
       }
       // Écritures de montant admises : chacune relue (classement C du cadrage §3).
       const admises = cas.filter((c) => !c.enLot && !c.indirect && [200, 201].includes(c.code) && c.route !== 'POST /api/factures/:id/envois');
@@ -909,7 +945,9 @@ if (!TEST_DATABASE_URL) {
       for (const c of cas.filter((x) => x.code !== null && !x.indirect)) {
         if (!c.reponse?.startsWith(`${c.code} `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} (${c.contexte}) : attendu ${c.code}, obtenu « ${c.reponse} »`);
         else if (c.code >= 300 && !c.reponse.includes(' inchangé ; aucune entrée ; ')) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} (${c.contexte}) : refus qui écrit`);
-        else if (c.enLot && !c.reponse.startsWith(`${REFUS_ENTREE} inchangé ; `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : refus à l’entrée attendu`);
+        else if (c.enLot && !c.reponse.startsWith(`${refusEntree(c.route)} inchangé ; `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : refus à l’entrée attendu`);
+        else if (c.compte === ASSISTANTE && c.code === 403 && !c.reponse.startsWith(`${REFUS_ADMINISTRATION_ENTREE} inchangé ; `)) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : refus de l’administration attendu`);
+        else if (c.compte === ASSISTANTE && c.code === 404 && ['POST /api/factures/:id/emettre', 'POST /api/factures/:id/envois'].includes(c.route) && !c.reponse.startsWith('404 « Facture introuvable. » inchangé ; ')) ecarts.push(`${c.compte} ${c.route} sur ${c.cible} : « Facture introuvable. » attendu (pièce de l’administration)`);
       }
       assert.deepEqual(ecarts, [], 'réponses différentes du tableau 4.1');
     });

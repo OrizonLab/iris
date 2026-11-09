@@ -61,6 +61,10 @@ const REFUS_ADMINISTRATION = { error: 'Accès réservé aux administrateurs' };
 // Envoi du contrat : la gestion des contrats depuis AT-2a (réponses 3 et 9 du 06-11-2026, requireGestionContrats), dont le
 // refus nomme l'administration et l'assistante technique ; les types joués ici sont refusés comme avant, sous ce message.
 const REFUS_GESTION_CONTRATS = { error: 'Accès réservé à l’administration et à l’assistante technique.' };
+// Envoi d'une facture : la gestion des factures depuis AT-3 (requireGestionFactures, l'administration et, pour les pièces de son
+// poste, l'assistante technique), dont le refus nomme l'une et l'autre ; les types joués ici sont refusés comme avant, sous ce
+// message.
+const REFUS_GESTION_FACTURES = { error: 'Accès réservé à l’administration et à l’assistante technique.' };
 const REFUS_SUPER_ADMINISTRATION = { error: 'Accès réservé au super administrateur' };
 const REFUS_DEVIS_WRITE = { error: 'Permission requise : devis:write' };
 const REFUS_CLIENTS_READ = { error: 'Permission requise : clients:read' };
@@ -1110,7 +1114,7 @@ if (!TEST_DATABASE_URL) {
           identite: identiteIncomplete('SIRET, ville', 'un devis'),
         },
         facture: {
-          gardes: [[parCompte(c.comptable), REFUS_ADMINISTRATION, 'COMPTABLE'], [parCompte(c.directeurCommercial), REFUS_ADMINISTRATION, 'DIRECTEUR_COMMERCIAL']],
+          gardes: [[parCompte(c.comptable), REFUS_GESTION_FACTURES, 'COMPTABLE'], [parCompte(c.directeurCommercial), REFUS_GESTION_FACTURES, 'DIRECTEUR_COMMERCIAL']],
           introuvables: [[randomUUID(), FACTURE_INTROUVABLE, admin()], [f.devis.id, FACTURE_INTROUVABLE, admin()]],
           annules: [],
           propres: [[factureBrouillon.id, FACTURE_NON_EMISE]],
@@ -1577,7 +1581,7 @@ if (!TEST_DATABASE_URL) {
       const ADMIS_ADMINISTRATION = ['SUPERADMIN', 'admin', 'adminCommercial', 'directeur', 'directeurLecteurDevis', 'directeurTousDroits'];
       const attendus = {
         devis: (cle) => ([...ADMIS_ADMINISTRATION, 'commercial', 'assistante', 'comptable', 'directeurCommercial'].includes(cle) ? 201 : [403, REFUS_DEVIS_WRITE]),
-        facture: (cle) => (ADMIS_ADMINISTRATION.includes(cle) ? 201 : [403, REFUS_ADMINISTRATION]),
+        facture: (cle) => (ADMIS_ADMINISTRATION.includes(cle) ? 201 : [403, REFUS_GESTION_FACTURES]),
         contrat: (cle) => (ADMIS_ADMINISTRATION.includes(cle) ? 201 : [403, REFUS_GESTION_CONTRATS]),
         chantier: (cle) => (ADMIS_ADMINISTRATION.includes(cle) ? 201 : [403, REFUS_ADMINISTRATION]),
         compteRendu: (cle) => ({

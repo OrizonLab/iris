@@ -680,7 +680,7 @@ AD | GET /api/devis/catalogue | — | défaut | montants prestation-catalogue | 
 AD | GET /api/devis/catalogue | — | défaut | éléments [] | main-oeuvre-matrice, modele-equipement, prestation-catalogue
 AD | GET /api/facturation/prete-a-facturer | — | défaut | clés . | controles, pret
 AD | GET /api/facturation/prete-a-facturer | — | défaut | clés .controles[] | bloquant, cle, detail, libelle, pret, route
-AD | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
+AD | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
 AD | GET /api/factures | — | défaut | clés [].avoirs[] | estAvoirAnnulation, id, lignes, numero, statut, type, ventilationTva
 AD | GET /api/factures | — | défaut | clés [].avoirs[].lignes[] | tauxTva, totalHt
 AD | GET /api/factures | — | défaut | clés [].avoirs[].ventilationTva[] | tauxTva, totalHt
@@ -689,40 +689,76 @@ AD | GET /api/factures | — | défaut | clés [].factureOrigine | id, numero
 AD | GET /api/factures | — | défaut | clés [].lignes[] | designation, factureId, id, nature, ordre, prixUnitaireHt, quantite, tauxTva, totalHt, totalTtc
 AD | GET /api/factures | — | défaut | clés [].mentionsLegalesVersion | cgv, escompte, id, mentions, penalites, publieeLe, version
 AD | GET /api/factures | — | défaut | clés [].ventilationTva[] | factureId, id, tauxTva, totalHt, totalTtc, totalTva
-AD | GET /api/factures | — | défaut | éléments [] | avoir-emis, facture-brouillon, facture-emise, « TEST facture avoir matrice »
-AD | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis
-AD | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise matrice », « TEST avoir matrice »
-AD | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé), facture avoir-emis, facture facture-brouillon, facture facture-emise
+AD | GET /api/factures | — | défaut | éléments [] | avoir-emis, avoir-facture-at, facture-at-brouillon, facture-at-emise, facture-brouillon, facture-emise, « TEST facture avoir de l’assistante matrice », « TEST facture avoir matrice »
+AD | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis, avoir-facture-at
+AD | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir de l’assistante matrice », « TEST TEST facture avoir matrice », « TEST TEST facture brouillon de l’assistante matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise de l’assistante matrice », « TEST TEST facture émise matrice », « TEST avoir de l’assistante matrice », « TEST avoir matrice »
+AD | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé) ×2, facture avoir-emis, facture avoir-facture-at, facture facture-at-brouillon, facture facture-at-emise, facture facture-brouillon, facture facture-emise
 AD | GET /api/factures/:id/document.pdf | avoir-emis | défaut | réponse | 200 application/pdf
+AD | GET /api/factures/:id/document.pdf | avoir-facture-at | défaut | réponse | 200 application/pdf
+AD | GET /api/factures/:id/document.pdf | facture-at-emise | défaut | réponse | 200 application/pdf
 AD | GET /api/factures/:id/document.pdf | facture-emise | défaut | réponse | 200 application/pdf
 AD | GET /api/factures/:id/envois | avoir-emis | défaut | clés . | envois, proposition
 AD | GET /api/factures/:id/envois | avoir-emis | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 AD | GET /api/factures/:id/envois | avoir-emis | défaut | éléments .envois[] | (aucun)
+AD | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés . | envois, proposition
+AD | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AD | GET /api/factures/:id/envois | avoir-facture-at | défaut | éléments .envois[] | (aucun)
+AD | GET /api/factures/:id/envois | facture-at-emise | défaut | clés . | envois, proposition
+AD | GET /api/factures/:id/envois | facture-at-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AD | GET /api/factures/:id/envois | facture-at-emise | défaut | éléments .envois[] | (aucun)
 AD | GET /api/factures/:id/envois | facture-emise | défaut | clés . | envois, proposition
 AD | GET /api/factures/:id/envois | facture-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 AD | GET /api/factures/:id/envois | facture-emise | défaut | éléments .envois[] | (aucun)
 AD | GET /api/factures/:id/journal | avoir-emis | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD | GET /api/factures/:id/journal | avoir-emis | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-emis
+AD | GET /api/factures/:id/journal | avoir-facture-at | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD | GET /api/factures/:id/journal | avoir-facture-at | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-facture-at
+AD | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
+AD | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
 AD | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 AD | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
+AD | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
+AD | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+AD | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | éléments .interventionsLiees[] | (aucun)
+AD | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
+AD | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | éléments .interventionsLiees[] | (aucun)
+AD | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture.client | id, raisonSociale
+AD | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
+AD | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture.client | id, raisonSociale
+AD | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | éléments .interventionsLiees[] | (aucun)
 AD | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture.client | id, raisonSociale
 AD | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
 AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture.client | id, raisonSociale
 AD | GET /api/factures/:id/tracabilite | facture-emise | défaut | éléments .interventionsLiees[] | (aucun)
 AD | GET /api/factures/a-regler | — | défaut | clés . | factures
 AD | GET /api/factures/a-regler | — | défaut | clés .factures[] | client, dateEcheance, dateEmission, id, montantAvoirs, montantRegle, numero, resteDu, statut, totalTtc, type
 AD | GET /api/factures/a-regler | — | défaut | clés .factures[].client | actif, id, raisonSociale
-AD | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-emise, « <numéro> »
+AD | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-at-emise, facture-emise, « <numéro> » ×2
 AD | GET /api/factures/chronologie | — | défaut | clés . | derniereDateEmission
 AD | GET /api/factures/export-comptable.csv | — | défaut | réponse | 200 text/csv
 AD | GET /api/fournisseurs | — | défaut | clés [] | contact, createdAt, id, nom, updatedAt
@@ -1043,8 +1079,8 @@ AD | GET /api/reglements | — | défaut | clés .items[].affectations[] | factu
 AD | GET /api/reglements | — | défaut | clés .items[].affectations[].facture | dateEmission, id, numero, totalTtc
 AD | GET /api/reglements | — | défaut | clés .items[].client | id, raisonSociale
 AD | GET /api/reglements | — | défaut | clés .items[].createdBy | id, name
-AD | GET /api/reglements | — | défaut | éléments .items[] | reglement
-AD | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-emise
+AD | GET /api/reglements | — | défaut | éléments .items[] | client client-actif, reglement
+AD | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-at-emise, facture facture-emise
 AD | GET /api/stats/chantiers-repartition | — | défaut | clés . | categories, total
 AD | GET /api/stats/chantiers-repartition | — | défaut | clés .categories[] | count, key, label, pct
 AD | GET /api/stats/commerciaux | — | défaut | clés . | commerciaux, libelleBaremeReduit, period, periodEnd, periodStart
@@ -1668,7 +1704,7 @@ AD-COM | GET /api/devis/catalogue | — | défaut | montants prestation-catalogu
 AD-COM | GET /api/devis/catalogue | — | défaut | éléments [] | main-oeuvre-matrice, modele-equipement, prestation-catalogue
 AD-COM | GET /api/facturation/prete-a-facturer | — | défaut | clés . | controles, pret
 AD-COM | GET /api/facturation/prete-a-facturer | — | défaut | clés .controles[] | bloquant, cle, detail, libelle, pret, route
-AD-COM | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
+AD-COM | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
 AD-COM | GET /api/factures | — | défaut | clés [].avoirs[] | estAvoirAnnulation, id, lignes, numero, statut, type, ventilationTva
 AD-COM | GET /api/factures | — | défaut | clés [].avoirs[].lignes[] | tauxTva, totalHt
 AD-COM | GET /api/factures | — | défaut | clés [].avoirs[].ventilationTva[] | tauxTva, totalHt
@@ -1677,40 +1713,76 @@ AD-COM | GET /api/factures | — | défaut | clés [].factureOrigine | id, numer
 AD-COM | GET /api/factures | — | défaut | clés [].lignes[] | designation, factureId, id, nature, ordre, prixUnitaireHt, quantite, tauxTva, totalHt, totalTtc
 AD-COM | GET /api/factures | — | défaut | clés [].mentionsLegalesVersion | cgv, escompte, id, mentions, penalites, publieeLe, version
 AD-COM | GET /api/factures | — | défaut | clés [].ventilationTva[] | factureId, id, tauxTva, totalHt, totalTtc, totalTva
-AD-COM | GET /api/factures | — | défaut | éléments [] | avoir-emis, facture-brouillon, facture-emise, « TEST facture avoir matrice »
-AD-COM | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis
-AD-COM | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise matrice », « TEST avoir matrice »
-AD-COM | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé), facture avoir-emis, facture facture-brouillon, facture facture-emise
+AD-COM | GET /api/factures | — | défaut | éléments [] | avoir-emis, avoir-facture-at, facture-at-brouillon, facture-at-emise, facture-brouillon, facture-emise, « TEST facture avoir de l’assistante matrice », « TEST facture avoir matrice »
+AD-COM | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis, avoir-facture-at
+AD-COM | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir de l’assistante matrice », « TEST TEST facture avoir matrice », « TEST TEST facture brouillon de l’assistante matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise de l’assistante matrice », « TEST TEST facture émise matrice », « TEST avoir de l’assistante matrice », « TEST avoir matrice »
+AD-COM | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé) ×2, facture avoir-emis, facture avoir-facture-at, facture facture-at-brouillon, facture facture-at-emise, facture facture-brouillon, facture facture-emise
 AD-COM | GET /api/factures/:id/document.pdf | avoir-emis | défaut | réponse | 200 application/pdf
+AD-COM | GET /api/factures/:id/document.pdf | avoir-facture-at | défaut | réponse | 200 application/pdf
+AD-COM | GET /api/factures/:id/document.pdf | facture-at-emise | défaut | réponse | 200 application/pdf
 AD-COM | GET /api/factures/:id/document.pdf | facture-emise | défaut | réponse | 200 application/pdf
 AD-COM | GET /api/factures/:id/envois | avoir-emis | défaut | clés . | envois, proposition
 AD-COM | GET /api/factures/:id/envois | avoir-emis | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 AD-COM | GET /api/factures/:id/envois | avoir-emis | défaut | éléments .envois[] | (aucun)
+AD-COM | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés . | envois, proposition
+AD-COM | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AD-COM | GET /api/factures/:id/envois | avoir-facture-at | défaut | éléments .envois[] | (aucun)
+AD-COM | GET /api/factures/:id/envois | facture-at-emise | défaut | clés . | envois, proposition
+AD-COM | GET /api/factures/:id/envois | facture-at-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AD-COM | GET /api/factures/:id/envois | facture-at-emise | défaut | éléments .envois[] | (aucun)
 AD-COM | GET /api/factures/:id/envois | facture-emise | défaut | clés . | envois, proposition
 AD-COM | GET /api/factures/:id/envois | facture-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 AD-COM | GET /api/factures/:id/envois | facture-emise | défaut | éléments .envois[] | (aucun)
 AD-COM | GET /api/factures/:id/journal | avoir-emis | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD-COM | GET /api/factures/:id/journal | avoir-emis | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-emis
+AD-COM | GET /api/factures/:id/journal | avoir-facture-at | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD-COM | GET /api/factures/:id/journal | avoir-facture-at | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-facture-at
+AD-COM | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD-COM | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
+AD-COM | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AD-COM | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
 AD-COM | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD-COM | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 AD-COM | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD-COM | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
+AD-COM | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+AD-COM | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | éléments .interventionsLiees[] | (aucun)
+AD-COM | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD-COM | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
+AD-COM | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | éléments .interventionsLiees[] | (aucun)
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture.client | id, raisonSociale
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture.client | id, raisonSociale
+AD-COM | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | éléments .interventionsLiees[] | (aucun)
 AD-COM | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD-COM | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD-COM | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture.client | id, raisonSociale
 AD-COM | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
 AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture.client | id, raisonSociale
 AD-COM | GET /api/factures/:id/tracabilite | facture-emise | défaut | éléments .interventionsLiees[] | (aucun)
 AD-COM | GET /api/factures/a-regler | — | défaut | clés . | factures
 AD-COM | GET /api/factures/a-regler | — | défaut | clés .factures[] | client, dateEcheance, dateEmission, id, montantAvoirs, montantRegle, numero, resteDu, statut, totalTtc, type
 AD-COM | GET /api/factures/a-regler | — | défaut | clés .factures[].client | actif, id, raisonSociale
-AD-COM | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-emise, « <numéro> »
+AD-COM | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-at-emise, facture-emise, « <numéro> » ×2
 AD-COM | GET /api/factures/chronologie | — | défaut | clés . | derniereDateEmission
 AD-COM | GET /api/factures/export-comptable.csv | — | défaut | réponse | 200 text/csv
 AD-COM | GET /api/fournisseurs | — | défaut | clés [] | contact, createdAt, id, nom, updatedAt
@@ -2031,8 +2103,8 @@ AD-COM | GET /api/reglements | — | défaut | clés .items[].affectations[] | f
 AD-COM | GET /api/reglements | — | défaut | clés .items[].affectations[].facture | dateEmission, id, numero, totalTtc
 AD-COM | GET /api/reglements | — | défaut | clés .items[].client | id, raisonSociale
 AD-COM | GET /api/reglements | — | défaut | clés .items[].createdBy | id, name
-AD-COM | GET /api/reglements | — | défaut | éléments .items[] | reglement
-AD-COM | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-emise
+AD-COM | GET /api/reglements | — | défaut | éléments .items[] | client client-actif, reglement
+AD-COM | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-at-emise, facture facture-emise
 AD-COM | GET /api/stats/chantiers-repartition | — | défaut | clés . | categories, total
 AD-COM | GET /api/stats/chantiers-repartition | — | défaut | clés .categories[] | count, key, label, pct
 AD-COM | GET /api/stats/commerciaux | — | défaut | clés . | commerciaux, libelleBaremeReduit, period, periodEnd, periodStart
@@ -2567,6 +2639,51 @@ AT | GET /api/devis/catalogue | — | défaut | montants main-oeuvre-matrice | p
 AT | GET /api/devis/catalogue | — | défaut | montants modele-equipement | prixAchatHt=présent
 AT | GET /api/devis/catalogue | — | défaut | montants prestation-catalogue | prixAchatHt=présent
 AT | GET /api/devis/catalogue | — | défaut | éléments [] | main-oeuvre-matrice, modele-equipement, prestation-catalogue
+AT | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
+AT | GET /api/factures | — | défaut | clés [].avoirs[] | estAvoirAnnulation, id, lignes, numero, statut, type, ventilationTva
+AT | GET /api/factures | — | défaut | clés [].avoirs[].lignes[] | tauxTva, totalHt
+AT | GET /api/factures | — | défaut | clés [].avoirs[].ventilationTva[] | tauxTva, totalHt
+AT | GET /api/factures | — | défaut | clés [].client | id, raisonSociale
+AT | GET /api/factures | — | défaut | clés [].factureOrigine | id, numero
+AT | GET /api/factures | — | défaut | clés [].lignes[] | designation, factureId, id, nature, ordre, prixUnitaireHt, quantite, tauxTva, totalHt, totalTtc
+AT | GET /api/factures | — | défaut | clés [].mentionsLegalesVersion | cgv, escompte, id, mentions, penalites, publieeLe, version
+AT | GET /api/factures | — | défaut | clés [].ventilationTva[] | factureId, id, tauxTva, totalHt, totalTtc, totalTva
+AT | GET /api/factures | — | défaut | éléments [] | avoir-facture-at, facture-at-brouillon, facture-at-emise, « TEST facture avoir de l’assistante matrice »
+AT | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-facture-at
+AT | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir de l’assistante matrice », « TEST TEST facture brouillon de l’assistante matrice », « TEST TEST facture émise de l’assistante matrice », « TEST avoir de l’assistante matrice »
+AT | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé), facture avoir-facture-at, facture facture-at-brouillon, facture facture-at-emise
+AT | GET /api/factures/:id/document.pdf | avoir-facture-at | défaut | réponse | 200 application/pdf
+AT | GET /api/factures/:id/document.pdf | facture-at-emise | défaut | réponse | 200 application/pdf
+AT | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés . | envois, proposition
+AT | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AT | GET /api/factures/:id/envois | avoir-facture-at | défaut | éléments .envois[] | (aucun)
+AT | GET /api/factures/:id/envois | facture-at-emise | défaut | clés . | envois, proposition
+AT | GET /api/factures/:id/envois | facture-at-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+AT | GET /api/factures/:id/envois | facture-at-emise | défaut | éléments .envois[] | (aucun)
+AT | GET /api/factures/:id/journal | avoir-facture-at | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AT | GET /api/factures/:id/journal | avoir-facture-at | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-facture-at
+AT | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AT | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
+AT | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+AT | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
+AT | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
+AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | éléments .interventionsLiees[] | (aucun)
+AT | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AT | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AT | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture.client | id, raisonSociale
+AT | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
+AT | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+AT | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+AT | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture.client | id, raisonSociale
+AT | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | éléments .interventionsLiees[] | (aucun)
+AT | GET /api/factures/chronologie | — | défaut | clés . | derniereDateEmission
 AT | GET /api/fournisseurs | — | défaut | clés [] | contact, createdAt, id, nom, updatedAt
 AT | GET /api/fournisseurs | — | défaut | éléments [] | fournisseur
 AT | GET /api/heures | — | défaut | clés [] | archivedAt, archivedById, chantier, chantierId, commentaire, createdAt, createdById, date, id, intervenant, intervenantId, motifArchivage, nbrHeures, updatedAt, updatedById
@@ -4548,7 +4665,7 @@ DIR | GET /api/devis/catalogue | — | défaut | montants prestation-catalogue |
 DIR | GET /api/devis/catalogue | — | défaut | éléments [] | main-oeuvre-matrice, modele-equipement, prestation-catalogue
 DIR | GET /api/facturation/prete-a-facturer | — | défaut | clés . | controles, pret
 DIR | GET /api/facturation/prete-a-facturer | — | défaut | clés .controles[] | bloquant, cle, detail, libelle, pret, route
-DIR | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
+DIR | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
 DIR | GET /api/factures | — | défaut | clés [].avoirs[] | estAvoirAnnulation, id, lignes, numero, statut, type, ventilationTva
 DIR | GET /api/factures | — | défaut | clés [].avoirs[].lignes[] | tauxTva, totalHt
 DIR | GET /api/factures | — | défaut | clés [].avoirs[].ventilationTva[] | tauxTva, totalHt
@@ -4557,40 +4674,76 @@ DIR | GET /api/factures | — | défaut | clés [].factureOrigine | id, numero
 DIR | GET /api/factures | — | défaut | clés [].lignes[] | designation, factureId, id, nature, ordre, prixUnitaireHt, quantite, tauxTva, totalHt, totalTtc
 DIR | GET /api/factures | — | défaut | clés [].mentionsLegalesVersion | cgv, escompte, id, mentions, penalites, publieeLe, version
 DIR | GET /api/factures | — | défaut | clés [].ventilationTva[] | factureId, id, tauxTva, totalHt, totalTtc, totalTva
-DIR | GET /api/factures | — | défaut | éléments [] | avoir-emis, facture-brouillon, facture-emise, « TEST facture avoir matrice »
-DIR | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis
-DIR | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise matrice », « TEST avoir matrice »
-DIR | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé), facture avoir-emis, facture facture-brouillon, facture facture-emise
+DIR | GET /api/factures | — | défaut | éléments [] | avoir-emis, avoir-facture-at, facture-at-brouillon, facture-at-emise, facture-brouillon, facture-emise, « TEST facture avoir de l’assistante matrice », « TEST facture avoir matrice »
+DIR | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis, avoir-facture-at
+DIR | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir de l’assistante matrice », « TEST TEST facture avoir matrice », « TEST TEST facture brouillon de l’assistante matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise de l’assistante matrice », « TEST TEST facture émise matrice », « TEST avoir de l’assistante matrice », « TEST avoir matrice »
+DIR | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé) ×2, facture avoir-emis, facture avoir-facture-at, facture facture-at-brouillon, facture facture-at-emise, facture facture-brouillon, facture facture-emise
 DIR | GET /api/factures/:id/document.pdf | avoir-emis | défaut | réponse | 200 application/pdf
+DIR | GET /api/factures/:id/document.pdf | avoir-facture-at | défaut | réponse | 200 application/pdf
+DIR | GET /api/factures/:id/document.pdf | facture-at-emise | défaut | réponse | 200 application/pdf
 DIR | GET /api/factures/:id/document.pdf | facture-emise | défaut | réponse | 200 application/pdf
 DIR | GET /api/factures/:id/envois | avoir-emis | défaut | clés . | envois, proposition
 DIR | GET /api/factures/:id/envois | avoir-emis | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 DIR | GET /api/factures/:id/envois | avoir-emis | défaut | éléments .envois[] | (aucun)
+DIR | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés . | envois, proposition
+DIR | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+DIR | GET /api/factures/:id/envois | avoir-facture-at | défaut | éléments .envois[] | (aucun)
+DIR | GET /api/factures/:id/envois | facture-at-emise | défaut | clés . | envois, proposition
+DIR | GET /api/factures/:id/envois | facture-at-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+DIR | GET /api/factures/:id/envois | facture-at-emise | défaut | éléments .envois[] | (aucun)
 DIR | GET /api/factures/:id/envois | facture-emise | défaut | clés . | envois, proposition
 DIR | GET /api/factures/:id/envois | facture-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 DIR | GET /api/factures/:id/envois | facture-emise | défaut | éléments .envois[] | (aucun)
 DIR | GET /api/factures/:id/journal | avoir-emis | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 DIR | GET /api/factures/:id/journal | avoir-emis | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-emis
+DIR | GET /api/factures/:id/journal | avoir-facture-at | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+DIR | GET /api/factures/:id/journal | avoir-facture-at | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-facture-at
+DIR | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+DIR | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
+DIR | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+DIR | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
 DIR | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 DIR | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 DIR | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 DIR | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
+DIR | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
+DIR | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+DIR | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | éléments .interventionsLiees[] | (aucun)
+DIR | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+DIR | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
+DIR | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | éléments .interventionsLiees[] | (aucun)
+DIR | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+DIR | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture.client | id, raisonSociale
+DIR | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
+DIR | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+DIR | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture.client | id, raisonSociale
+DIR | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | éléments .interventionsLiees[] | (aucun)
 DIR | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-DIR | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 DIR | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture.client | id, raisonSociale
 DIR | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
 DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture.client | id, raisonSociale
 DIR | GET /api/factures/:id/tracabilite | facture-emise | défaut | éléments .interventionsLiees[] | (aucun)
 DIR | GET /api/factures/a-regler | — | défaut | clés . | factures
 DIR | GET /api/factures/a-regler | — | défaut | clés .factures[] | client, dateEcheance, dateEmission, id, montantAvoirs, montantRegle, numero, resteDu, statut, totalTtc, type
 DIR | GET /api/factures/a-regler | — | défaut | clés .factures[].client | actif, id, raisonSociale
-DIR | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-emise, « <numéro> »
+DIR | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-at-emise, facture-emise, « <numéro> » ×2
 DIR | GET /api/factures/chronologie | — | défaut | clés . | derniereDateEmission
 DIR | GET /api/factures/export-comptable.csv | — | défaut | réponse | 200 text/csv
 DIR | GET /api/fournisseurs | — | défaut | clés [] | contact, createdAt, id, nom, updatedAt
@@ -4911,8 +5064,8 @@ DIR | GET /api/reglements | — | défaut | clés .items[].affectations[] | fact
 DIR | GET /api/reglements | — | défaut | clés .items[].affectations[].facture | dateEmission, id, numero, totalTtc
 DIR | GET /api/reglements | — | défaut | clés .items[].client | id, raisonSociale
 DIR | GET /api/reglements | — | défaut | clés .items[].createdBy | id, name
-DIR | GET /api/reglements | — | défaut | éléments .items[] | reglement
-DIR | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-emise
+DIR | GET /api/reglements | — | défaut | éléments .items[] | client client-actif, reglement
+DIR | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-at-emise, facture facture-emise
 DIR | GET /api/stats/chantiers-repartition | — | défaut | clés . | categories, total
 DIR | GET /api/stats/chantiers-repartition | — | défaut | clés .categories[] | count, key, label, pct
 DIR | GET /api/stats/commerciaux | — | défaut | clés . | commerciaux, libelleBaremeReduit, period, periodEnd, periodStart
@@ -5816,7 +5969,7 @@ SA | GET /api/devis/catalogue | — | défaut | montants prestation-catalogue | 
 SA | GET /api/devis/catalogue | — | défaut | éléments [] | main-oeuvre-matrice, modele-equipement, prestation-catalogue
 SA | GET /api/facturation/prete-a-facturer | — | défaut | clés . | controles, pret
 SA | GET /api/facturation/prete-a-facturer | — | défaut | clés .controles[] | bloquant, cle, detail, libelle, pret, route
-SA | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
+SA | GET /api/factures | — | défaut | clés [] | annee, avoirs, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigine, factureOrigineId, id, identiteEmetteurId, interventionId, lignes, mentionsLegalesVersion, mentionsLegalesVersionId, montantAvoirs, montantRegle, motifHorsAffaire, numero, origine, resteDu, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt, ventilationTva
 SA | GET /api/factures | — | défaut | clés [].avoirs[] | estAvoirAnnulation, id, lignes, numero, statut, type, ventilationTva
 SA | GET /api/factures | — | défaut | clés [].avoirs[].lignes[] | tauxTva, totalHt
 SA | GET /api/factures | — | défaut | clés [].avoirs[].ventilationTva[] | tauxTva, totalHt
@@ -5825,40 +5978,76 @@ SA | GET /api/factures | — | défaut | clés [].factureOrigine | id, numero
 SA | GET /api/factures | — | défaut | clés [].lignes[] | designation, factureId, id, nature, ordre, prixUnitaireHt, quantite, tauxTva, totalHt, totalTtc
 SA | GET /api/factures | — | défaut | clés [].mentionsLegalesVersion | cgv, escompte, id, mentions, penalites, publieeLe, version
 SA | GET /api/factures | — | défaut | clés [].ventilationTva[] | factureId, id, tauxTva, totalHt, totalTtc, totalTva
-SA | GET /api/factures | — | défaut | éléments [] | avoir-emis, facture-brouillon, facture-emise, « TEST facture avoir matrice »
-SA | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis
-SA | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise matrice », « TEST avoir matrice »
-SA | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé), facture avoir-emis, facture facture-brouillon, facture facture-emise
+SA | GET /api/factures | — | défaut | éléments [] | avoir-emis, avoir-facture-at, facture-at-brouillon, facture-at-emise, facture-brouillon, facture-emise, « TEST facture avoir de l’assistante matrice », « TEST facture avoir matrice »
+SA | GET /api/factures | — | défaut | éléments [].avoirs[] | avoir-emis, avoir-facture-at
+SA | GET /api/factures | — | défaut | éléments [].lignes[] | « TEST TEST facture avoir de l’assistante matrice », « TEST TEST facture avoir matrice », « TEST TEST facture brouillon de l’assistante matrice », « TEST TEST facture brouillon matrice », « TEST TEST facture émise de l’assistante matrice », « TEST TEST facture émise matrice », « TEST avoir de l’assistante matrice », « TEST avoir matrice »
+SA | GET /api/factures | — | défaut | éléments [].ventilationTva[] | (sans libellé) ×2, facture avoir-emis, facture avoir-facture-at, facture facture-at-brouillon, facture facture-at-emise, facture facture-brouillon, facture facture-emise
 SA | GET /api/factures/:id/document.pdf | avoir-emis | défaut | réponse | 200 application/pdf
+SA | GET /api/factures/:id/document.pdf | avoir-facture-at | défaut | réponse | 200 application/pdf
+SA | GET /api/factures/:id/document.pdf | facture-at-emise | défaut | réponse | 200 application/pdf
 SA | GET /api/factures/:id/document.pdf | facture-emise | défaut | réponse | 200 application/pdf
 SA | GET /api/factures/:id/envois | avoir-emis | défaut | clés . | envois, proposition
 SA | GET /api/factures/:id/envois | avoir-emis | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 SA | GET /api/factures/:id/envois | avoir-emis | défaut | éléments .envois[] | (aucun)
+SA | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés . | envois, proposition
+SA | GET /api/factures/:id/envois | avoir-facture-at | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+SA | GET /api/factures/:id/envois | avoir-facture-at | défaut | éléments .envois[] | (aucun)
+SA | GET /api/factures/:id/envois | facture-at-emise | défaut | clés . | envois, proposition
+SA | GET /api/factures/:id/envois | facture-at-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
+SA | GET /api/factures/:id/envois | facture-at-emise | défaut | éléments .envois[] | (aucun)
 SA | GET /api/factures/:id/envois | facture-emise | défaut | clés . | envois, proposition
 SA | GET /api/factures/:id/envois | facture-emise | défaut | clés .proposition | corps, destinataire, microsoft365, objet
 SA | GET /api/factures/:id/envois | facture-emise | défaut | éléments .envois[] | (aucun)
 SA | GET /api/factures/:id/journal | avoir-emis | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 SA | GET /api/factures/:id/journal | avoir-emis | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-emis
+SA | GET /api/factures/:id/journal | avoir-facture-at | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+SA | GET /api/factures/:id/journal | avoir-facture-at | défaut | éléments [] | CREATION_AVOIR_PARTIEL avoir-facture-at
+SA | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+SA | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
+SA | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
+SA | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
 SA | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 SA | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 SA | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 SA | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
+SA | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
+SA | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+SA | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | éléments .interventionsLiees[] | (aucun)
+SA | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+SA | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
+SA | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | éléments .interventionsLiees[] | (aucun)
+SA | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+SA | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | clés .facture.client | id, raisonSociale
+SA | GET /api/factures/:id/tracabilite | facture-at-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
+SA | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
+SA | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | clés .facture.client | id, raisonSociale
+SA | GET /api/factures/:id/tracabilite | facture-at-emise | défaut | éléments .interventionsLiees[] | (aucun)
 SA | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-SA | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 SA | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | clés .facture.client | id, raisonSociale
 SA | GET /api/factures/:id/tracabilite | facture-brouillon | défaut | éléments .interventionsLiees[] | (aucun)
 SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
-SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
+SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | clés .facture.client | id, raisonSociale
 SA | GET /api/factures/:id/tracabilite | facture-emise | défaut | éléments .interventionsLiees[] | (aucun)
 SA | GET /api/factures/a-regler | — | défaut | clés . | factures
 SA | GET /api/factures/a-regler | — | défaut | clés .factures[] | client, dateEcheance, dateEmission, id, montantAvoirs, montantRegle, numero, resteDu, statut, totalTtc, type
 SA | GET /api/factures/a-regler | — | défaut | clés .factures[].client | actif, id, raisonSociale
-SA | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-emise, « <numéro> »
+SA | GET /api/factures/a-regler | — | défaut | éléments .factures[] | facture-at-emise, facture-emise, « <numéro> » ×2
 SA | GET /api/factures/chronologie | — | défaut | clés . | derniereDateEmission
 SA | GET /api/factures/export-comptable.csv | — | défaut | réponse | 200 text/csv
 SA | GET /api/fournisseurs | — | défaut | clés [] | contact, createdAt, id, nom, updatedAt
@@ -6179,8 +6368,8 @@ SA | GET /api/reglements | — | défaut | clés .items[].affectations[] | factu
 SA | GET /api/reglements | — | défaut | clés .items[].affectations[].facture | dateEmission, id, numero, totalTtc
 SA | GET /api/reglements | — | défaut | clés .items[].client | id, raisonSociale
 SA | GET /api/reglements | — | défaut | clés .items[].createdBy | id, name
-SA | GET /api/reglements | — | défaut | éléments .items[] | reglement
-SA | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-emise
+SA | GET /api/reglements | — | défaut | éléments .items[] | client client-actif, reglement
+SA | GET /api/reglements | — | défaut | éléments .items[].affectations[] | facture facture-at-emise, facture facture-emise
 SA | GET /api/stats/chantiers-repartition | — | défaut | clés . | categories, total
 SA | GET /api/stats/chantiers-repartition | — | défaut | clés .categories[] | count, key, label, pct
 SA | GET /api/stats/commerciaux | — | défaut | clés . | commerciaux, libelleBaremeReduit, period, periodEnd, periodStart

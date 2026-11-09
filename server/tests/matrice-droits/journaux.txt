@@ -127,6 +127,7 @@ AD | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par COM ← COM 
 AD | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par DIR ← DIR POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 200 visible
 AD | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par SA ← SA POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 200 visible
 AD | GET /api/factures/:id/journal | JournalFacture EMISSION par AD ← AD POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
+AD | GET /api/factures/:id/journal | JournalFacture EMISSION par AT ← AT POST /api/factures/:id/emettre sur facture-at-brouillon | défaut | 200 visible
 AD | GET /api/factures/:id/journal | JournalFacture EMISSION par DIR ← DIR POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
 AD | GET /api/factures/:id/journal | JournalFacture EMISSION par SA ← SA POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
 AD | GET /api/interventions/:id/envois | EnvoiDocument INTERVENTION MESSAGERIE par AD ← AD POST /api/interventions/:id/envois sur intervention-terminee-signee | défaut, corps destinataire, messagerie | 200 visible
@@ -463,6 +464,7 @@ AT | GET /api/contrats-maintenance/:id/journal-saisies | JournalSaisieChantier C
 AT | GET /api/contrats-maintenance/:id/journal-saisies | JournalSaisieChantier CONTRAT CREATION par AT ← AT POST /api/devis/:id/convertir sur devis-signe | défaut, corps cible=CONTRAT | 200 visible
 AT | GET /api/contrats-maintenance/:id/journal-saisies | JournalSaisieChantier CONTRAT SUSPENSION par AT ← AT PATCH /api/contrats-maintenance/:id/statut sur contrat-actif | défaut, corps statut=SUSPENDU et motif | 200 visible
 AT | GET /api/contrats-maintenance/generation-visites | ExecutionGenerationVisites MANUEL REUSSIE par AT ← AT POST /api/contrats-maintenance/generation-visites sur — | anticipation de trente jours réglée par AD | 200 visible
+AT | GET /api/factures/:id/journal | JournalFacture EMISSION par AT ← AT POST /api/factures/:id/emettre sur facture-at-brouillon | défaut | 200 visible
 AT | GET /api/interventions/:id/envois | EnvoiDocument INTERVENTION MESSAGERIE par AT ← AT POST /api/interventions/:id/envois sur intervention-terminee-signee | défaut, corps destinataire, messagerie | 200 visible
 AT | GET /api/interventions/:id/journal-saisies | JournalSaisieChantier COUT_INTERVENTION_ACHAT ARCHIVAGE par AT ← AT POST /api/interventions/:id/couts/:type/:coutId/:action sur materiel-intervention-affectee | défaut, corps motif | 200 visible
 AT | GET /api/interventions/:id/journal-saisies | JournalSaisieChantier COUT_INTERVENTION_ACHAT CORRECTION par AT ← AT PATCH /api/interventions/:id/couts/:type/:coutId sur materiel-intervention-chantier-ct | défaut, corps montantHT et motif | 200 visible
@@ -502,6 +504,7 @@ AT | POST /api/contrats-maintenance/generation-visites | — | anticipation vide
 AT | POST /api/devis/:id/convertir | devis-converti-intervention | défaut, corps cible=CHANTIER | 201 écrit (Chantier,DevisConversion,Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION RATTACHEMENT_CHANTIER par AT
 AT | POST /api/devis/:id/convertir | devis-signe | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT CREATION par AT
 AT | POST /api/devis/:id/convertir | devis-signe | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention) ; entrées : JournalSaisieChantier INTERVENTION CREATION par AT
+AT | POST /api/factures/:id/emettre | facture-at-brouillon | défaut | 200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture) ; entrées : JournalFacture EMISSION par AT
 AT | POST /api/heures | chantierId=chantier-ct | défaut, corps heures | 200 écrit (JournalSaisieChantier,PointageHeure) ; entrées : JournalSaisieChantier HEURE CREATION par AT ; montant écrit relu en base ; montant journalisé identique
 AT | POST /api/interventions | chantierId=chantier-ct | défaut, corps client, titre et chantier | 201 écrit (Intervention,JournalSaisieChantier,SequenceIntervention) ; entrées : JournalSaisieChantier INTERVENTION CREATION par AT
 AT | POST /api/interventions/:id/couts/:type/:coutId/:action | materiel-intervention-affectee | défaut, corps motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier) ; entrées : JournalSaisieChantier COUT_INTERVENTION_ACHAT ARCHIVAGE par AT ; montant écrit relu en base ; montant journalisé identique
@@ -744,9 +747,10 @@ CT | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par AD ← AD PO
 CT | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par COM ← COM POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 403 « Permission requise : devis:read »
 CT | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par DIR ← DIR POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 403 « Permission requise : devis:read »
 CT | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par SA ← SA POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 403 « Permission requise : devis:read »
-CT | GET /api/factures/:id/journal | JournalFacture EMISSION par AD ← AD POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/factures/:id/journal | JournalFacture EMISSION par DIR ← DIR POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/factures/:id/journal | JournalFacture EMISSION par SA ← SA POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé aux administrateurs »
+CT | GET /api/factures/:id/journal | JournalFacture EMISSION par AD ← AD POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | GET /api/factures/:id/journal | JournalFacture EMISSION par AT ← AT POST /api/factures/:id/emettre sur facture-at-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | GET /api/factures/:id/journal | JournalFacture EMISSION par DIR ← DIR POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
+CT | GET /api/factures/:id/journal | JournalFacture EMISSION par SA ← SA POST /api/factures/:id/emettre sur facture-brouillon | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. »
 CT | GET /api/interventions/:id/envois | EnvoiDocument INTERVENTION MESSAGERIE par CT ← CT POST /api/interventions/:id/envois sur intervention-terminee-signee | défaut, corps destinataire, messagerie | 200 visible
 CT | GET /api/interventions/:id/journal-saisies | JournalSaisieChantier COUT_INTERVENTION_ACHAT ARCHIVAGE par CT ← CT POST /api/interventions/:id/couts/:type/:coutId/:action sur materiel-intervention-chantier-ct | défaut, corps motif | 200 visible
 CT | GET /api/interventions/:id/journal-saisies | JournalSaisieChantier COUT_INTERVENTION_ACHAT CORRECTION par CT ← CT PATCH /api/interventions/:id/couts/:type/:coutId sur materiel-intervention-chantier-ct | défaut, corps montantHT et motif | 200 visible
@@ -1064,6 +1068,7 @@ SA | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par COM ← COM 
 SA | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par DIR ← DIR POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 200 visible
 SA | GET /api/devis/:id/envois | EnvoiDocument DEVIS MESSAGERIE par SA ← SA POST /api/devis/:id/envois sur devis-brouillon | défaut, corps destinataire, messagerie | 200 visible
 SA | GET /api/factures/:id/journal | JournalFacture EMISSION par AD ← AD POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
+SA | GET /api/factures/:id/journal | JournalFacture EMISSION par AT ← AT POST /api/factures/:id/emettre sur facture-at-brouillon | défaut | 200 visible
 SA | GET /api/factures/:id/journal | JournalFacture EMISSION par DIR ← DIR POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
 SA | GET /api/factures/:id/journal | JournalFacture EMISSION par SA ← SA POST /api/factures/:id/emettre sur facture-brouillon | défaut | 200 visible
 SA | GET /api/interventions/:id/envois | EnvoiDocument INTERVENTION MESSAGERIE par AD ← AD POST /api/interventions/:id/envois sur intervention-terminee-signee | défaut, corps destinataire, messagerie | 200 visible

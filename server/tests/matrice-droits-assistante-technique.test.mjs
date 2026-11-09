@@ -49,11 +49,24 @@
 //  - refus nommé reformulé sur …/statut, même titulaire (piège P2) ; l'encaissement et l'archivage (chantiers:archive non donné,
 //    choix par défaut, à confirmer) gardent la ligne de CT ;
 //  - contexte RENTABILITE_AT (réglage rentabiliteAssistantesTechniques coché, N4) : la rentabilité et le coût prévu ne lui sont
-//    plus masqués (RENTABILITE_ASSISTANTES_TECHNIQUES.ouvre), la facturation de la fiche (R1 de la v3, jusqu'à AT-3) et le coût
+//    plus masqués (RENTABILITE_ASSISTANTES_TECHNIQUES.ouvre), la facturation de la fiche (R1 de la v3, permanente depuis AT-3) et le coût
 //    de main-d'œuvre, ses taux et les hypothèses de coût de l'estimation le restent (C5 (c)) ;
 //  - droits individuels : chantiers:write, porté par son type, ne lui ajoute rien ; chantiers:archive, donné individuellement,
 //    lui ouvre l'archivage et la restauration comme à AD sur une affaire en cours, et lui laisse le refus de CT sur une affaire
 //    clôturée.
+//
+// PR AT-3 « Factures » (cadrage AT-3, version 2 ; T6 du contrôle de cohérence de mode 1 ; décisions de Nelson du 24-10-2026,
+// points 27, 30, 33, 34 et 36, réponse 6 du 06-11-2026, réponses 1 et 2 du 09-11-2026). Le jeu de données porte désormais des
+// pièces de son poste (facture-at-brouillon, facture-at-emise, avoir-facture-at ; facture-brouillon-deux-taux-at dans
+// factures.txt). La règle fermée s'étend, route par route :
+//  - routes ouvertes (ROUTES_FACTURES_AT3, requireGestionFactures) : sur une pièce de son poste, sans pièce désignée (liste,
+//    chronologie, création) ou sur une intervention (facture au temps passé), la ligne d'AD (« par AD » lu « par AT ») ; sur une
+//    pièce de l'administration ou absente, « 404 « Facture introuvable. » », sans écriture, avant tout 409 (T4), sauf le 400 d'un
+//    corps vide, contrôlé avant la pièce comme pour AD ; l'envoi d'un avoir de son poste, « 403 « L’envoi d’un avoir est réservé
+//    à l’administration. » » là où AD envoie ;
+//  - liste des factures (donnees.txt, « éléments ») : la ligne d'AD réduite à ses pièces et à leurs avoirs ;
+//  - routes restées à l'administration (points 30 et 36 ; cadrage v1 « Restent à l'administration ») : refus nommés, « 403
+//    « Accès réservé aux administrateurs » », sans écriture.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -141,6 +154,20 @@ const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistan
 // AT-2b retire la fiche, le commercial et les saisies Travaux de cette liste (ROUTES_EN_COURS_AT2B) et reformule le refus du
 // statut.
 const REFUS = {
+  // AT-3 : routes des factures restées à l'administration (requireAdmin ; points 30 et 36, cadrage v1 « Restent à
+  // l'administration », choix par défaut à confirmer pour « à régler » et « Prêt à facturer »).
+  'GET /api/factures/a-regler': REFUS_ADMINISTRATION,
+  'GET /api/facturation/prete-a-facturer': REFUS_ADMINISTRATION,
+  'GET /api/factures/export-comptable.csv': REFUS_ADMINISTRATION,
+  'GET /api/mentions-legales': REFUS_ADMINISTRATION,
+  'POST /api/mentions-legales': REFUS_ADMINISTRATION,
+  'POST /api/mentions-legales/:version/publier': REFUS_ADMINISTRATION,
+  'POST /api/factures/:id/regler': REFUS_ADMINISTRATION,
+  'POST /api/factures/:id/annuler': REFUS_ADMINISTRATION,
+  'POST /api/factures/:id/avoirs': REFUS_ADMINISTRATION,
+  'GET /api/reglements': REFUS_ADMINISTRATION,
+  'POST /api/reglements': REFUS_ADMINISTRATION,
+  'POST /api/reglements/:id/contrepasser': REFUS_ADMINISTRATION,
   'PATCH /api/chantiers/:id/statut': REFUS_STATUT,
   'GET /api/stats/conducteurs': REFUS_TRAVAUX,
   'GET /api/stats/conducteurs/assiduite': REFUS_TRAVAUX,
@@ -162,6 +189,27 @@ const REFUS = {
   'PUT /api/catalogue/:family/:id': REFUS_ADMINISTRATION,
   'DELETE /api/catalogue/:family/:id': REFUS_ADMINISTRATION,
 };
+// AT-3 : routes des factures ouvertes à l'assistante technique (requireGestionFactures), et pièces de son poste dans le jeu de
+// données (donnees.mjs) et dans les cibles propres de factures.txt.
+const ROUTES_FACTURES_AT3 = new Set([
+  'GET /api/factures', 'GET /api/factures/chronologie', 'GET /api/factures/:id/document.pdf', 'GET /api/factures/:id/envois', 'POST /api/factures/:id/envois',
+  'GET /api/factures/:id/journal', 'GET /api/factures/:id/reglements', 'GET /api/factures/:id/tracabilite', 'POST /api/factures', 'POST /api/factures/:id/emettre',
+  'GET /api/interventions/:id/facture-temps-passe', 'POST /api/interventions/:id/facture-temps-passe',
+]);
+const PIECES_AT = ['facture-at-brouillon', 'facture-at-emise', 'avoir-facture-at', 'facture-brouillon-deux-taux-at'];
+const AVOIRS_AT = ['avoir-facture-at'];
+// Routes des pièces (paramètre :id de la famille « facture ») : sur une pièce hors de son poste, 404 avant tout refus du document.
+const ROUTES_PIECE_AT3 = [...ROUTES_FACTURES_AT3].filter((route) => route.includes('/api/factures/:id/'));
+const INTROUVABLE = '404 « Facture introuvable. »';
+const REFUS_ENVOI_AVOIR = 'L’envoi d’un avoir est réservé à l’administration.';
+// Liste des factures lue par AT (donnees.txt, lignes « éléments ») : les éléments d'AD qui sont des pièces de son poste, leurs
+// avoirs, leurs lignes et leur ventilation, nommés par leur cible ou par un libellé de l'assistante. « (sans libellé) » nomme la
+// ventilation d'une pièce sans cible : AD en lit deux (facture-avoir et facture-at-avoir, « ×2 »), AT une seule, celle de
+// facture-at-avoir (jeu de données fermé, donnees.mjs).
+const elementsDeSonPoste = (ligneAd) => ligneAd.split(', ')
+  .map((element) => (/^\(sans libellé\)( ×\d+)?$/.test(element) ? '(sans libellé)' : element))
+  .filter((element) => /assistante|facture-at-|avoir-facture-at/.test(element) || ['(sans libellé)', '(aucun)'].includes(element))
+  .join(', ') || '(aucun)';
 // Suites d'une affaire clôturée : AT reçoit le refus de CT (verifierAffaireDeLaSuite), et non l'écriture d'AD.
 const CIBLES_AFFAIRE_CLOSE = ['suite-affaire-close', 'materiel-suite-affaire-close', 'heures-suite-affaire-close'];
 // Droit devis par son type depuis AT-2a (réponse 3 du 06-11-2026), saisies Travaux (chantiers:write) depuis AT-2b (réponse 10) ;
@@ -316,6 +364,29 @@ function regle(fichier, cle, lignes) {
     return { modele: 'AD', attendu: lignes.AD.get(cle), absentAdmis: true };
   }
   if (fichier === 'donnees.txt' && route === 'GET /api/me' && objet === 'valeurs') return { modele: 'nommé', attendu: VALEURS_ME };
+  // AT-3 : routes des factures ouvertes (voir l'en-tête).
+  if (ROUTES_FACTURES_AT3.has(route)) {
+    const ad = commeAt(lignes.AD.get(cle), 'AD');
+    if (ROUTES_PIECE_AT3.includes(route) && !PIECES_AT.includes(cible)) {
+      // Hors de son poste : aucune donnée ; 404 à l'entrée et aux écritures, sauf le 400 du corps vide (contrôlé avant la pièce).
+      if (fichier === 'donnees.txt') return { modele: 'nommé', attendu: undefined };
+      if (ad?.startsWith('400')) return { modele: 'AD', attendu: ad };
+      // Références échantillonnées (journaux, montants) : AT n'y joue pas ces cas ; une ligne d'elle, s'il y en a, est ce 404.
+      return { modele: 'nommé', verifier: (at) => ((at === undefined && ECHANTILLONS.includes(fichier)) || at === INTROUVABLE || at?.startsWith(`${INTROUVABLE} inchangé`) ? [] : [`404 « Facture introuvable. » attendu (AT « ${at} »)`]) };
+    }
+    if (route === 'POST /api/factures/:id/envois' && AVOIRS_AT.includes(cible) && /^2/.test(ad ?? '')) {
+      return { modele: 'nommé', verifier: (at) => (at?.startsWith(`403 « ${REFUS_ENVOI_AVOIR} » inchangé`) ? [] : [`refus de l’envoi d’un avoir attendu (AT « ${at} »)`]) };
+    }
+    if (fichier === 'donnees.txt' && route === 'GET /api/factures' && objet.startsWith('éléments ')) return { modele: 'nommé', attendu: ad === undefined ? undefined : elementsDeSonPoste(ad) };
+    if (fichier === 'donnees.txt') return { modele: 'AD', ...attenduDonneesCommeAd(objet, ad, contexte) };
+    // journaux.txt : elle émet le brouillon de son poste (facture-at-brouillon), là où l'administration émet le sien
+    // (facture-brouillon) : la ligne d'AD sur celui-ci, « par AD » lu « par AT ».
+    if (ECHANTILLONS.includes(fichier) && ad === undefined && route === 'POST /api/factures/:id/emettre' && cible === 'facture-at-brouillon') {
+      return { modele: 'AD', verifier: verifierReponseCommeAd(commeAt(lignes.AD.get([route, 'facture-brouillon', contexte].join(SEPARATEUR)), 'AD'), contexte) };
+    }
+    if (ECHANTILLONS.includes(fichier)) return { modele: 'AD', verifier: verifierReponseCommeAd(ad, contexte), absentAdmis: true };
+    return { modele: 'AD', attendu: ad, absentAdmis: fichier === 'factures.txt' };
+  }
   if (REFUS[route]) {
     const message = `403 « ${REFUS[route]} »`;
     return {
@@ -396,7 +467,7 @@ function comparer(fichier) {
   return { defauts, parModele, nombre: lignes.AT.size };
 }
 
-describe('Assistante technique (AT-1, AT-2a, AT-2b) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats, et sur les affaires en cours (fiche, commercial, saisies Travaux), sa rentabilité selon son réglage', () => {
+describe('Assistante technique (AT-1, AT-2a, AT-2b, AT-3) : la colonne AT de chaque référence de la matrice des droits est celle de l’encadrement SAV, route par route, puis celle de l’administration sur les devis, les clients et les contrats, sur les affaires en cours (fiche, commercial, saisies Travaux) et sur les factures de son poste, sa rentabilité selon son réglage', () => {
   test('références de la matrice : celles attendues, ni plus ni moins (une nouvelle référence doit être classée ici)', () => {
     assert.deepEqual(readdirSync(DOSSIER).filter((f) => f.endsWith('.txt')).sort(), [...REFERENCES].sort());
   });
@@ -465,9 +536,12 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b) : la colonne AT de chaque r�
     assert.equal(ligne('GET /api/chantiers/:id/document.pdf', 'chantier-ct'), '403 « Accès réservé aux administrateurs »');
     assert.match(ligne('POST /api/planning/share'), /^403 « Accès réservé aux administrateurs »/);
     assert.match(ligne('PATCH /api/users/:id/est-commercial', 'inexistant'), /^403 « Accès réservé aux administrateurs »/);
-    // Factures : AT-3. La liste des contrats et les devis, fermés en AT-1, s'ouvrent avec AT-2a (test suivant) ; la création
-    // d'un contrat hors devis reste à l'administration.
-    for (const route of ['GET /api/factures', 'POST /api/factures', 'POST /api/contrats-maintenance']) assert.match(ligne(route), /^403 « Accès réservé aux administrateurs »/, route);
+    // Factures : fermées en AT-1, ouvertes par AT-3 pour les pièces de son poste (test « AT-3 » plus bas) : la liste lui répond
+    // 200 et la création passe la garde (400 du corps vide). La liste des contrats et les devis, fermés en AT-1, s'ouvrent avec
+    // AT-2a (test suivant) ; la création d'un contrat hors devis reste à l'administration.
+    assert.equal(ligne('GET /api/factures'), '200');
+    assert.equal(ligne('POST /api/factures'), '400');
+    assert.match(ligne('POST /api/contrats-maintenance'), /^403 « Accès réservé aux administrateurs »/);
     // Module Planning coupé : fermé à AT comme aux autres comptes.
     assert.match(ligne('GET /api/planning/events', '—', 'planningActif=non'), /^403 PLANNING_DESACTIVE/);
   });
@@ -589,6 +663,68 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b) : la colonne AT de chaque r�
     assert.ok(ouvertes >= 6, `archivages et restaurations ouverts : ${ouvertes}`);
   });
 
+  // PR AT-3 (cadrage AT-3 v2 ; T4 et T6 du contrôle de cohérence ; points 27, 30, 33 et 36 du 24-10-2026, réponse 6 du 06-11-2026,
+  // réponses 1 et 2 du 09-11-2026) : ouvertures et refus lus dans les références des entrées et des écritures ; le refus de la garde
+  // requireGestionFactures, au message exact, pour chaque autre compte hors administration.
+  test('entrees.txt, ecritures-actions.txt et factures.txt : factures de son poste ouvertes à AT (lecture, PDF, envois, journal, règlements, origine, émission, création, temps passé), 404 sur les pièces de l’administration, routes des avoirs, des règlements, de l’export, des mentions et de la comptabilité refusées ; refus de la garde pour les autres comptes', () => {
+    const at = lignesDe('entrees.txt', 'AT');
+    const ligne = (route, cible = '—', contexte = 'défaut') => at.get([route, cible, contexte].join(SEPARATEUR));
+    // Ouvertures sur ses pièces : 200 (ou le refus du document sur un brouillon, 409, celui de l'administration).
+    for (const route of ['GET /api/factures/:id/document.pdf', 'GET /api/factures/:id/envois']) {
+      assert.equal(ligne(route, 'facture-at-emise'), '200', route);
+      assert.equal(ligne(route, 'avoir-facture-at'), '200', `${route}, avoir de son poste`);
+      assert.equal(ligne(route, 'facture-at-brouillon'), '409 « Le document est disponible uniquement pour une facture émise. »', route);
+    }
+    for (const route of ['GET /api/factures/:id/journal', 'GET /api/factures/:id/reglements', 'GET /api/factures/:id/tracabilite']) {
+      for (const cible of ['facture-at-brouillon', 'facture-at-emise', 'avoir-facture-at']) assert.equal(ligne(route, cible), '200', `${route} ${cible}`);
+    }
+    assert.equal(ligne('GET /api/factures'), '200');
+    assert.equal(ligne('GET /api/factures/chronologie'), '200');
+    assert.equal(ligne('POST /api/factures'), '400', 'création : garde passée, corps vide refusé');
+    assert.equal(ligne('GET /api/interventions/:id/facture-temps-passe', 'intervention-autre'), '409 « Cette intervention n’est pas au temps passé : sa facture se saisit ligne par ligne. »');
+    // Pièces de l'administration et pièce absente : 404 avant tout refus du document (T4), sur chaque route des pièces.
+    for (const route of ['GET /api/factures/:id/document.pdf', 'GET /api/factures/:id/envois', 'GET /api/factures/:id/journal', 'GET /api/factures/:id/reglements', 'GET /api/factures/:id/tracabilite']) {
+      for (const cible of ['facture-brouillon', 'facture-emise', 'avoir-emis', 'inexistant']) assert.equal(ligne(route, cible), INTROUVABLE, `${route} ${cible}`);
+    }
+    assert.equal(ligne('POST /api/factures/:id/emettre', 'inexistant'), INTROUVABLE);
+    // Émission jouée sur chaque cible réelle (ecritures-actions.txt) : la sienne émise, celles de l'administration 404, une pièce
+    // déjà émise de son poste 409.
+    const actions = lignesDe('ecritures-actions.txt', 'AT');
+    const action = (cible) => actions.get(['POST /api/factures/:id/emettre', cible, 'défaut'].join(SEPARATEUR));
+    assert.equal(action('facture-at-brouillon'), '200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)');
+    for (const cible of ['facture-brouillon', 'facture-emise', 'avoir-emis']) assert.equal(action(cible), `${INTROUVABLE} inchangé`, cible);
+    for (const cible of ['facture-at-emise', 'avoir-facture-at']) assert.equal(action(cible), '409 « Seul un brouillon peut être émis. » inchangé', cible);
+    // Routes restées à l'administration, sur ses propres pièces : 403, message exact.
+    for (const [route, cible] of [
+      ['GET /api/factures/a-regler'], ['GET /api/facturation/prete-a-facturer'], ['GET /api/factures/export-comptable.csv'], ['GET /api/mentions-legales'], ['POST /api/mentions-legales'],
+      ['POST /api/factures/:id/regler', 'facture-at-emise'], ['POST /api/factures/:id/annuler', 'facture-at-emise'], ['POST /api/factures/:id/avoirs', 'facture-at-emise'],
+      ['GET /api/reglements'], ['POST /api/reglements'], ['GET /api/comptabilite'],
+    ]) assert.equal(ligne(route, cible), `403 « ${REFUS_ADMINISTRATION} »`, `${route} ${cible ?? ''}`);
+    // factures.txt : elle crée, émet son brouillon et la facture au temps passé, montants relus conformes ; ses écritures sur les
+    // pièces de l'administration (émission, envois) 404 ; avoirs, annulation, règlements et contre-passation 403.
+    const factures = lignesDe('factures.txt', 'AT');
+    const cas = (route, cible, contexte) => factures.get([route, cible, contexte].join(SEPARATEUR));
+    assert.match(cas('POST /api/factures', 'clientId=client-actif', 'défaut, corps trois lignes à deux taux'), /^201 écrit \(.*\) ; entrées : JournalFacture nouvelle facture CREATION_BROUILLON par AT ; pièces émises figées ; montants de la pièce créée relus en base conformes$/);
+    assert.match(cas('POST /api/factures/:id/emettre', 'facture-brouillon-deux-taux-at', 'défaut'), /^200 écrit .* ; écritures et montants de la pièce relus en base conformes$/);
+    assert.equal(cas('POST /api/factures/:id/emettre', 'facture-brouillon-deux-taux', 'défaut'), `${INTROUVABLE} inchangé ; aucune entrée ; pièces émises figées ; montants inchangés en base`);
+    assert.match(cas('POST /api/interventions/:id/facture-temps-passe', 'intervention-temps-passe', 'défaut, corps dates et total de l’aperçu'), /^201 écrit .* par AT ; pièces émises figées ; montants de la pièce créée relus en base conformes$/);
+    for (const route of ['POST /api/factures/:id/annuler', 'POST /api/factures/:id/avoirs', 'POST /api/reglements', 'POST /api/reglements/:id/contrepasser', 'POST /api/factures/:id/regler']) {
+      const lignesRoute = [...factures].filter(([cle]) => cle.startsWith(`${route}${SEPARATEUR}`));
+      assert.ok(lignesRoute.length > 0, `${route} : jouée`);
+      for (const [cle, valeur] of lignesRoute) assert.ok(valeur.startsWith(`403 « ${REFUS_ADMINISTRATION} » inchangé ; aucune entrée ;`), `${cle} : ${valeur}`);
+    }
+    // Les autres comptes hors administration : refus de la garde requireGestionFactures sur chaque route ouverte, au message exact ;
+    // l'administration et le directeur y entrent.
+    const vues = new Set();
+    for (const [compte, route, , contexte, reponse] of lire('entrees.txt').map((l) => l.split(SEPARATEUR))) {
+      if (!ROUTES_FACTURES_AT3.has(route) || contexte !== 'défaut') continue;
+      vues.add(`${compte} ${route}`);
+      if (['SA', 'AD', 'AD-COM', 'DIR', 'AT'].includes(compte)) assert.doesNotMatch(reponse, /^40[13]/, `${compte} ${route} : ${reponse}`);
+      else if (['CT', 'CT-N1', 'RESP', 'RESP-SANS-BRANCHE', 'TECH', 'TECH-SANS-FICHE', 'COM', 'DC', 'AC', 'CPT', 'CPT-FINANCE'].includes(compte)) assert.equal(reponse, `403 « ${REFUS_GESTION} »`, `${compte} ${route}`);
+    }
+    for (const compte of ['CT', 'CPT', 'CPT-FINANCE', 'AT', 'AD', 'DIR']) for (const route of ROUTES_FACTURES_AT3) assert.ok(vues.has(`${compte} ${route}`), `${compte} ${route} : jouée`);
+  });
+
   test('témoins de la règle : un montant de rentabilité, de coût prévu ou de main-d’œuvre lu par AT, un budget par poste masqué, un refus changé ou une entrée à un autre nom sont des écarts', () => {
     const ad = 'budgetGlobalVendu=présent, budgetMaterielVendu=présent, coutMaterielPrevu=présent, metrics.moReel=présent, metrics.materielReel=présent, achats[].montantHT=présent';
     const at = 'budgetGlobalVendu=null, budgetMaterielVendu=présent, coutMaterielPrevu=null, metrics.moReel=null, metrics.materielReel=présent, achats[].montantHT=présent';
@@ -675,5 +811,38 @@ describe('Assistante technique (AT-1, AT-2a, AT-2b) : la colonne AT de chaque r�
     const archive = regle('individuels.txt', cleArchive, lignes);
     assert.deepEqual(archive.verifier(`403 « Permission requise : chantiers:archive » → 403 « ${REFUS_CLOTURE_SAISIES} »`), []);
     assert.equal(archive.verifier('403 « Permission requise : chantiers:archive » → 400').length, 1);
+
+    // AT-3. Pièce de l'administration lue ou émise par elle (mutants « facturesVisibles sans filtre » et « émission sans
+    // périmètre ») : écarts ; 404, conforme ; le 409 de l'administration (périmètre après le document) : écart.
+    const lignesAt3 = { ...lignes, AD: new Map([
+      ['GET /api/factures/:id/document.pdf | facture-emise | défaut', '200'],
+      ['GET /api/factures/:id/document.pdf | facture-brouillon | défaut', '409 « Le document est disponible uniquement pour une facture émise. »'],
+      ['POST /api/factures/:id/emettre | facture-brouillon | défaut', '200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)'],
+      ['POST /api/factures/:id/envois | avoir-facture-at | défaut, corps destinataire', '201 écrit (EnvoiDocument)'],
+      ['POST /api/factures/:id/envois | facture-emise | défaut', '400'],
+    ]) };
+    const pdfAdmin = regle('entrees.txt', 'GET /api/factures/:id/document.pdf | facture-emise | défaut', lignesAt3);
+    assert.deepEqual(pdfAdmin.verifier(INTROUVABLE), []);
+    assert.equal(pdfAdmin.verifier('200').length, 1, 'pièce de l’administration lue par elle');
+    const brouillonAdmin = regle('entrees.txt', 'GET /api/factures/:id/document.pdf | facture-brouillon | défaut', lignesAt3);
+    assert.equal(brouillonAdmin.verifier('409 « Le document est disponible uniquement pour une facture émise. »').length, 1, 'refus du document avant le périmètre');
+    const emissionAdmin = regle('ecritures-actions.txt', 'POST /api/factures/:id/emettre | facture-brouillon | défaut', lignesAt3);
+    assert.deepEqual(emissionAdmin.verifier(`${INTROUVABLE} inchangé`), []);
+    assert.equal(emissionAdmin.verifier('200 écrit (EcritureFacture,Facture,JournalFacture,SequenceFacture)').length, 1, 'brouillon de l’administration émis par elle');
+    // Envoi d'un avoir de son poste : 403 conforme, l'envoi d'AD (201) un écart (mutant « envoiAvoirRefuse toujours faux »).
+    const envoiAvoir = regle('factures.txt', 'POST /api/factures/:id/envois | avoir-facture-at | défaut, corps destinataire', lignesAt3);
+    assert.deepEqual(envoiAvoir.verifier(`403 « ${REFUS_ENVOI_AVOIR} » inchangé ; aucune entrée`), []);
+    assert.equal(envoiAvoir.verifier('201 écrit (EnvoiDocument)').length, 1);
+    // Le 400 d'un corps vide, contrôlé avant la pièce, reste celui d'AD.
+    assert.deepEqual(regle('entrees.txt', 'POST /api/factures/:id/envois | facture-emise | défaut', lignesAt3).attendu, '400');
+    // Liste : ses éléments seulement ; une pièce de l'administration dans sa liste est un écart.
+    assert.equal(elementsDeSonPoste('avoir-emis, avoir-facture-at, facture-at-emise, facture-emise, « TEST facture avoir de l’assistante matrice », « TEST facture avoir matrice »'),
+      'avoir-facture-at, facture-at-emise, « TEST facture avoir de l’assistante matrice »');
+    assert.equal(elementsDeSonPoste('(sans libellé) ×2, facture avoir-emis, facture facture-at-emise'), '(sans libellé), facture facture-at-emise');
+    assert.equal(elementsDeSonPoste('avoir-emis, facture-emise'), '(aucun)');
+    // Route restée à l'administration : l'écriture d'un avoir par elle est un écart.
+    const avoirsAt = regle('entrees.txt', 'POST /api/factures/:id/avoirs | facture-at-emise | défaut', lignes);
+    assert.deepEqual(avoirsAt.verifier(`403 « ${REFUS_ADMINISTRATION} »`), []);
+    assert.equal(avoirsAt.verifier('400').length, 1, 'route des avoirs ouverte');
   });
 });

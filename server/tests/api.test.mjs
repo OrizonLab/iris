@@ -18119,11 +18119,12 @@ if (!TEST_DATABASE_URL) {
         const factureDirecteur = await envoyer(`factures/${facture.id}`, 'client@envoi.test', entete(directeur));
         assert.equal(factureDirecteur.status, 201, JSON.stringify(factureDirecteur.body));
         assert.equal(factureDirecteur.body.envoi.auteurNom, 'TEST Directeur envoi');
-        // Facture : l'administration seule, comme son PDF.
+        // Facture : l'administration seule, comme son PDF ; depuis AT-3, la garde ouvre aussi la route à l'assistante technique,
+        // pour les pièces de son poste (bloc « Assistante technique (AT-3) »), et son refus le dit.
         for (const compte of [commercial, technicien, lecteur]) {
           const refus = await lire(`factures/${facture.id}`, entete(compte));
           assert.equal(refus.status, 403, compte.email);
-          assert.equal(refus.body.error, 'Accès réservé aux administrateurs');
+          assert.equal(refus.body.error, 'Accès réservé à l’administration et à l’assistante technique.');
           assert.equal((await envoyer(`factures/${facture.id}`, 'client@envoi.test', entete(compte))).status, 403, compte.email);
         }
         // Ni visiteur, ni clé d'intégration, ni route /api/v1.
@@ -27461,7 +27462,7 @@ if (!TEST_DATABASE_URL) {
     // cours, prouvés par le bloc « Assistante technique (AT-2b) » : leurs entrées d'AT-1 sont remplacées ici par les refus qui
     // restent sur la même affaire (vendu sans réglage, statut au message reformulé, commercial vidé, archivage sans
     // chantiers:archive) ; le chantier inexistant répond 404, sans refus de type avant.
-    test('refus : vendu sans réglage, statut d’une affaire (403 « … clôturer ni à rouvrir … »), commercial vidé, archivage des saisies Travaux, rapport de chantier, partage du planning, statistiques et performances, factures, contrat hors devis, comptes et catalogue ; rien n’est écrit', async () => {
+    test('refus : vendu sans réglage, statut d’une affaire (403 « … clôturer ni à rouvrir … »), commercial vidé, archivage des saisies Travaux, rapport de chantier, partage du planning, statistiques et performances, factures à régler et export comptable, contrat hors devis, comptes et catalogue ; rien n’est écrit', async () => {
       const assistante = jeton('assistante');
       const chantier = await chantierDe('refus', comptes.conducteur.id, { budgetGlobalVendu: 1000, budgetMaterielVendu: 300, budgetMainOeuvreVendu: 700, heuresVendues: 20, commercialId: comptes.commercial.id });
       assert.equal((await lire(`/api/chantiers/${chantier.id}`, assistante)).status, 200, 'elle lit la fiche');
@@ -27485,8 +27486,10 @@ if (!TEST_DATABASE_URL) {
         ['statistiques des fournisseurs', () => lire('/api/stats/fournisseurs', assistante), 403, 'Accès réservé au suivi Travaux.'],
         ['statistiques des intervenants', () => lire('/api/stats/intervenants', assistante), 403, 'Accès réservé au suivi Travaux.'],
         ['mes commerciaux', () => lire('/api/stats/commerciaux', assistante), 403, 'Accès réservé'],
-        ['factures (liste)', () => lire('/api/factures', assistante), 403, REFUS_ADMINISTRATION],
-        ['facture (création)', () => envoyer('post', '/api/factures', assistante, { clientId: client.id, origine: 'CHANTIER', chantierId: chantier.id, lignes: [] }), 403, REFUS_ADMINISTRATION],
+        // Liste et création des factures : ouvertes depuis AT-3, pour les pièces de son poste (bloc « Assistante technique
+        // (AT-3) ») ; les factures à régler et l'export comptable restent à l'administration (points 30 et 36).
+        ['factures à régler', () => lire('/api/factures/a-regler', assistante), 403, REFUS_ADMINISTRATION],
+        ['export comptable', () => lire('/api/factures/export-comptable.csv', assistante), 403, REFUS_ADMINISTRATION],
         ['prêt à facturer', () => lire('/api/facturation/prete-a-facturer', assistante), 403, REFUS_ADMINISTRATION],
         ['règlements', () => lire('/api/reglements', assistante), 403, REFUS_ADMINISTRATION],
         ['contrat (création hors devis)', () => envoyer('post', '/api/contrats-maintenance', assistante, { clientId: client.id, titre: 'TEST AT-1 contrat refusé', periodiciteMois: 12, dureePrevisionnelleMinutes: 60, dateDebut: date }), 403, REFUS_ADMINISTRATION],
@@ -28458,7 +28461,8 @@ if (!TEST_DATABASE_URL) {
   // non »), 5 (« Oui, comme l'admin » : affaires en cours) et 10 (saisies Travaux) ; réponses du 07-11-2026, 1 (marge du jour
   // réglage coché, « Accepter »), 2 (essais successifs, « Comme le titulaire ») et 3 (fiche, « Oui, comme l'admin »)
   // (docs/HISTORIQUE-DECISIONS.md#décisions-du-07-11-2026-sur-at-2b). Choix par défaut, à confirmer, éprouvés tels quels :
-  // facturation de la fiche masquée jusqu'à AT-3, réglage coché compris ; statut de la fiche ignoré en silence ;
+  // facturation de la fiche masquée, réglage coché compris (permanent depuis AT-3 : elle ne voit que les factures de son poste,
+  // la fiche montre toutes celles de l'affaire ; voitFacturationChantier) ; statut de la fiche ignoré en silence ;
   // chantiers:archive non donné.
   //
   // Montants (règle des montants du rédacteur des tests : chaque autre lecture plausible donne un résultat différent ; lecture
@@ -28969,8 +28973,9 @@ if (!TEST_DATABASE_URL) {
         }
         // Fiche : ni taux des heures ni taux de la fiche de l'intervenant.
         assert.ok(cochee.fiche.pointages.length === 1 && cochee.fiche.pointages.every((p) => !('tauxHoraireApplique' in p) && !('tauxHoraireCharge' in (p.intervenant ?? {}))), JSON.stringify(cochee.fiche.pointages));
-        // R1 de la v3 : la facturation de la fiche reste masquée, réglage coché compris (400,00 € facturés, 1 587,65 € restants).
-        assert.equal('facturation' in cochee.fiche, false, 'cochée : facturation de la fiche masquée jusqu’à AT-3');
+        // R1 de la v3 : la facturation de la fiche reste masquée, réglage coché compris (400,00 € facturés, 1 587,65 € restants) ;
+        // permanent depuis AT-3 (choix par défaut, le plus restrictif, à confirmer ; bloc « Assistante technique (AT-3) »).
+        assert.equal('facturation' in cochee.fiche, false, 'cochée : facturation de la fiche masquée, AT-3 compris');
         assert.deepEqual(await reponsesEcriture(), [[1987.65, 333.21, 612.34, 905.43], [1987.65, 333.21, 612.34, 905.43]], 'cochée, réponses d’écriture');
         // Témoins du même contexte : le directeur et le conducteur titulaire, destinataires, lisent la facturation ; le réglage
         // d'AT ne donne rien au directeur ni au conducteur dont le leur est décoché (lecture écartée : un réglage commun).
@@ -29091,6 +29096,825 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual(await alertes(true), { alertes: ['EN_PERTE', 'HEURES_DEPASSEES', 'MAIN_OEUVRE_DEPASSEE', 'MATERIEL_DEPASSE'], marge: -13.62 });
       } finally {
         await regler({ rentabiliteAssistantesTechniques: false });
+      }
+    });
+  });
+
+  // Lot « Assistante technique », PR AT-3 « Factures » (cadrage AT-3, version 2, qui remplace la version 1 là où elles
+  // diffèrent ; contrôle de cohérence de mode 1 sur f2140f5 : C1 règlements lus, C2 chronologie ouverte, C3 temps passé depuis
+  // l'écran Factures, C4 envoi d'un avoir fermé, C5 tests de montants, T1 à T10). Décisions de Nelson du 24-10-2026, points 24
+  // (« pourra envoyer en facture »), 27 (« L’assistante technique peut tout a fait emetre des factures, elle pourra les envoyer
+  // elle meme »), 30 (« non elle ne fait pas les avoir ou saisir des reglement »), 33 (« ses peopre facture emise elle meme c’est a
+  // dire le profil assistante technique ( ce qui implique le type de compte assistante technique et non nomminative) »), 34
+  // (« oui c’est lier au poste d’assiste technique ») et 36 (« bien a retiré sur l’export comptable ») ; réponse 6 du 06-11-2026
+  // (elle n'émet que les brouillons créés par un compte assistante technique) ; réponses du 09-11-2026, 1 (« Oui, il reste aux
+  // assistantes ») et 2 (« Oui, comme les autres (Recommandé) », contrats compris). Contrat livré : colonne Facture.creeParType
+  // posée par chaque création (brouillon, facture au temps passé, avoir total, avoir partiel) et figée par le déclencheur
+  // facture_cree_par_type_fige ; visibilité de factures/droits.ts (facturesVisibles) ; garde requireGestionFactures ; 404 hors
+  // périmètre avant tout 409 ; 403 « L’envoi d’un avoir est réservé à l’administration. » ; GET /api/factures/:id/reglements ;
+  // contre-passation lue sans le total du règlement ; refus du temps passé sans numéro pour elle.
+  //
+  // Montants (classés C : CLAUDE.md, « un test manquant qui touche un montant ») : aucun calcul ne change, seul l'auteur change.
+  // Chaque valeur est choisie pour qu'une autre lecture plausible donne un autre résultat ; la lecture écartée est écrite près de
+  // chaque attendu (calcul exact au centime, moitié vers le haut, refait hors de l'application).
+  describe('Assistante technique (AT-3) : factures de son poste (créées par un compte assistante technique, non nominatives, figées à la création), création de toute origine et émission de ses brouillons, avoirs et règlements en lecture, routes de l’administration fermées', () => {
+    let sa = {};
+    let saId = '';
+    const comptes = {};
+    const suffixe = `${Date.now()}`;
+    let client = null;
+    let clientSecond = null;
+    let fiche = null;
+    const ROLE_AT = 'ASSISTANTE_TECHNIQUE';
+    const REFUS_ADMINISTRATION = 'Accès réservé aux administrateurs';
+    const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistante technique.';
+    const REFUS_ENVOI_AVOIR = 'L’envoi d’un avoir est réservé à l’administration.';
+    const INTROUVABLE = 'Facture introuvable.';
+    const REFUS_TEMPS_PASSE_AT = 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Pour la refaire, adressez-vous à l’administration, qui annule la facture émise par son avoir total ou la corrige par des avoirs partiels.';
+    const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
+    const jetonDe = (compte) => ({ Authorization: `Bearer ${jwt.sign({ id: compte.id }, process.env.JWT_SECRET)}` });
+    // Le corps est calculé avant la requête (cf. les autres blocs) : request(app) ouvre un serveur éphémère.
+    const envoyer = (methode, chemin, auth, corps) => request(app)[methode](chemin).set(auth).send(corps);
+    const lire = (chemin, auth) => request(app).get(chemin).set(auth);
+    const jourIso = async () => jourCivilEntreprise(new Date(), (await prisma.companySettings.findUnique({ where: { id: 'singleton' } }))?.fuseauHoraire || 'Europe/Paris');
+    const enFrancais = (iso) => iso.split('-').reverse().join('-');
+    const aujourdhui = async () => enFrancais(await jourIso());
+    const hier = async () => enFrancais(new Date(Date.parse(`${await jourIso()}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10));
+    const texteDuPdf = async (reponse) => { const lecteur = new PDFParse({ data: reponse.body }); const contenu = await lecteur.getText(); await lecteur.destroy(); return contenu.text; };
+    // Montant comme l'application l'écrit dans un journal (formatMontantFacture), recopié et non importé.
+    const enEuros = (valeur) => `${Number(valeur).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+    const nombres = (liste) => liste.map((valeur) => (valeur === null || valeur === undefined ? valeur : Number(valeur)));
+    // Prérequis comptables de l'émission, posés s'ils manquent (même procédé que le bloc AT-2b), TVA à 5,5 % comprise.
+    const assurerFacturation = async () => {
+      const compte = async (code, nature) => (await prisma.compteComptable.upsert({ where: { code }, create: { code, nature, libelle: `TEST ${code}` }, update: { actif: true } })).id;
+      const regles = await prisma.regleComptable.findMany({ include: { compte: true } });
+      for (const [cle, code, nature] of [['CLIENT', '411373', 'ACTIF'], ['VENTE_PRESTATION', '706373', 'PRODUIT'], ['VENTE_ARTICLE', '707373', 'PRODUIT']]) {
+        const actuelle = regles.find((r) => r.cle === cle);
+        if (!actuelle?.compte?.actif || actuelle.compte.nature !== nature) await regleFixture(cle, await compte(code, nature));
+      }
+      if (!regles.find((r) => r.cle === 'JOURNAL_VENTES')?.journal) await regleFixture('JOURNAL_VENTES', 'VTE');
+      for (const taux of [20, 5.5]) {
+        const tva = await prisma.regleTvaComptable.findUnique({ where: { taux }, include: { compte: true } });
+        if (!tva?.compte?.actif || tva.compte.nature !== 'TVA') await tvaFixture(taux, await compte('445373', 'TVA'));
+      }
+    };
+    const creerClient = async (raisonSociale, avecSite = true) => {
+      const cree = await envoyer('post', '/api/clients', sa, { raisonSociale, siren: await sirenLibre() });
+      assert.equal(cree.status, 201, JSON.stringify(cree.body));
+      if (avecSite) {
+        const site = await envoyer('post', `/api/clients/${cree.body.id}/sites`, sa, { nom: `TEST Facturation AT-3 ${raisonSociale}`, adresse: '9 rue des Factures', codePostal: '14000', ville: 'Caen', estSiteFacturation: true });
+        assert.equal(site.status, 201, JSON.stringify(site.body));
+      }
+      return cree.body;
+    };
+    const ligne = (designation, quantite, prixUnitaireHt, tauxTva, nature = 'PRESTATION') => ({ designation: `TEST AT-3 ${designation}`, nature, quantite, prixUnitaireHt, tauxTva });
+    // Brouillon hors affaire d'un compte, au jour de la société (sauf date donnée) : la réponse brute.
+    const brouillon = async (auth, motif, lignes = [ligne('ligne simple', 1, 10, 20)], extra = {}) => {
+      const jour = await aujourdhui();
+      return envoyer('post', '/api/factures', auth, { clientId: client.id, origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST AT-3 ${motif} ${suffixe}`, dateEmission: jour, dateEcheance: jour, lignes, ...extra });
+    };
+    const brouillonCree = async (auth, motif, lignes, extra) => {
+      const res = await brouillon(auth, motif, lignes, extra);
+      assert.equal(res.status, 201, JSON.stringify(res.body));
+      return res.body;
+    };
+    const emettre = async (id, auth) => {
+      const res = await envoyer('post', `/api/factures/${id}/emettre`, auth, {});
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      return res.body;
+    };
+    const factureEmise = async (authCreation, motif, lignes, authEmission = authCreation) => emettre((await brouillonCree(authCreation, motif, lignes)).id, authEmission);
+    const enBase = (id) => prisma.facture.findUniqueOrThrow({ where: { id }, include: { lignes: { orderBy: { ordre: 'asc' } }, ventilationTva: { orderBy: { tauxTva: 'asc' } }, journal: { orderBy: { createdAt: 'asc' } }, ecrituresComptables: true } });
+    const sequence = async (annee) => (await prisma.sequenceFacture.findUnique({ where: { annee } }))?.dernierNumero ?? 0;
+    // Règle de visibilité du cadrage, réécrite ici sans l'application : une pièce créée par un compte assistante technique, ou un
+    // avoir dont la facture d'origine l'est.
+    const visibleDesAssistantes = (piece, parId) => piece.creeParType === ROLE_AT || (piece.type === 'AVOIR' && parId.get(piece.factureOrigineId)?.creeParType === ROLE_AT);
+    // Instantané des tables que les routes des factures, des règlements, des mentions et de la comptabilité écrivent : un refus
+    // ne doit rien y écrire.
+    const etatFactures = async () => JSON.stringify([
+      await prisma.facture.findMany({ orderBy: { id: 'asc' }, select: { id: true, statut: true, numero: true, creeParType: true, totalTtc: true, updatedAt: true } }),
+      await prisma.factureLigne.count(), await prisma.factureVentilationTva.count(), await prisma.ecritureFacture.count(), await prisma.journalFacture.count(),
+      await prisma.envoiDocument.count(), await prisma.reglement.findMany({ orderBy: { id: 'asc' }, select: { id: true, statut: true } }), await prisma.affectationReglement.count(),
+      await prisma.sequenceFacture.findMany({ orderBy: { annee: 'asc' } }), await prisma.sequenceAvoir.findMany({ orderBy: { annee: 'asc' } }),
+      await prisma.mentionsLegalesVersion.findMany({ orderBy: { id: 'asc' }, select: { id: true, actif: true, publieeLe: true } }),
+      await prisma.compteComptable.findMany({ orderBy: { id: 'asc' }, select: { id: true, actif: true, libelle: true } }),
+      await prisma.regleComptable.findMany({ orderBy: { cle: 'asc' } }), await prisma.regleTvaComptable.findMany({ orderBy: { taux: 'asc' } }), await prisma.journalRegleComptable.count(),
+    ]);
+
+    before(async () => {
+      const secours = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(secours.status, 200);
+      sa = { Authorization: `Bearer ${secours.body.token}` };
+      saId = secours.body.user.id;
+      for (const [cle, role] of [
+        ['assistante', ROLE_AT], ['assistanteBis', ROLE_AT], ['admin', 'ADMIN'], ['directeur', 'DIRECTEUR'], ['conducteur', 'CONDUCTEUR_TRAVAUX'],
+        ['responsable', 'RESPONSABLE'], ['technicien', 'TECHNICIEN'], ['commercial', 'COMMERCIAL'], ['directeurCommercial', 'DIRECTEUR_COMMERCIAL'],
+        ['assistanteCommerciale', 'ASSISTANTE_COMMERCIALE'], ['comptable', 'COMPTABLE'],
+      ]) {
+        const email = `at3.${cle}@iris.test`;
+        comptes[cle] = await prisma.user.upsert({ where: { email }, update: { role, actif: true, permissions: [], estCommercial: false, accesFinance: false, responsableHierarchiqueId: null }, create: { email, name: `TEST AT-3 ${cle}`, role } });
+      }
+      await assurerFacturation();
+      client = await creerClient(`TEST Client AT-3 ${suffixe}`);
+      clientSecond = await creerClient(`TEST Client second AT-3 ${suffixe}`);
+      fiche = await prisma.intervenant.create({ data: { nom: `TEST AT-3 fiche ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 40 } });
+    });
+
+    // C5 et cadrage v1, « Montants » : facture créée par elle ligne à ligne, émise par elle, relue en base, aux écritures et au PDF.
+    // Quatre lignes à deux taux :
+    //  - 0,5 × 36,97 = 18,485, arrondi à 18,49 (moitié vers le haut, exact) ; l'arrondi au pair ou la troncature donnent 18,48 ;
+    //  - 2,25 × 14,10 = 31,725, arrondi à 31,73 ; au pair ou tronqué, 31,72 ;
+    //  - deux lignes de 1 × 10,10 à 5,5 %.
+    // Ventilation : 20 % sur la base cumulée 50,22, TVA 10,044 arrondie à 10,04 (ligne par ligne : 3,70 + 6,35 = 10,05) ; 5,5 % sur
+    // 20,20, TVA 1,111 arrondie à 1,11 (ligne par ligne : 0,56 + 0,56 = 1,12). Totaux : HT 70,42 (au pair : 70,40), TVA 11,15 (par
+    // ligne : 11,17), TTC 81,57 ; la somme des TTC de ligne donnerait 81,59.
+    test('montants : facture créée ligne à ligne par elle (quatre lignes, 20 % et 5,5 %), émise par elle : lignes, ventilation et totaux relus en base, écritures équilibrées, numéro à l’émission, journal à son nom ; PDF identique pour elle et pour l’administration, client renommé après l’émission sans effet', async () => {
+      const assistante = jeton('assistante');
+      const affaire = await prisma.chantier.create({ data: { nom: `TEST AT-3 affaire montants ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-10-01T00:00:00Z'), responsableId: comptes.conducteur.id, budgetGlobalVendu: 1000 } });
+      const lignes = [ligne('pose de la centrale', 0.5, 36.97, 20), ligne('fourniture des détecteurs', 1, 10.10, 5.5, 'ARTICLE'), ligne('mise en service', 2.25, 14.10, 20), ligne('fourniture des sirènes', 1, 10.10, 5.5, 'ARTICLE')];
+      const jour = await aujourdhui();
+      const cree = await envoyer('post', '/api/factures', assistante, { clientId: client.id, origine: 'CHANTIER', chantierId: affaire.id, dateEmission: jour, dateEcheance: jour, lignes });
+      assert.equal(cree.status, 201, JSON.stringify(cree.body));
+      assert.deepEqual([cree.body.statut, cree.body.numero, cree.body.creeParType, cree.body.createdById], ['BROUILLON', null, ROLE_AT, comptes.assistante.id]);
+      assert.deepEqual([cree.body.totalHt, cree.body.totalTva, cree.body.totalTtc], [70.42, 11.15, 81.57]);
+      const attenduLignes = [[0.5, 36.97, 20, 18.49, 22.19], [1, 10.1, 5.5, 10.1, 10.66], [2.25, 14.1, 20, 31.73, 38.08], [1, 10.1, 5.5, 10.1, 10.66]];
+      const attenduVentilation = [[5.5, 20.2, 1.11, 21.31], [20, 50.22, 10.04, 60.26]];
+      assert.deepEqual(cree.body.lignes.map((l) => [l.quantite, l.prixUnitaireHt, l.tauxTva, l.totalHt, l.totalTtc]), attenduLignes);
+      assert.deepEqual(cree.body.ventilationTva.map((v) => [v.tauxTva, v.totalHt, v.totalTva, v.totalTtc]), attenduVentilation);
+      const relu = await enBase(cree.body.id);
+      assert.deepEqual(nombres([relu.totalHt, relu.totalTva, relu.totalTtc]), [70.42, 11.15, 81.57]);
+      assert.deepEqual(relu.lignes.map((l) => nombres([l.quantite, l.prixUnitaireHt, l.tauxTva, l.totalHt, l.totalTtc])), attenduLignes);
+      assert.deepEqual(relu.ventilationTva.map((v) => nombres([v.tauxTva, v.totalHt, v.totalTva, v.totalTtc])), attenduVentilation);
+      assert.deepEqual([relu.creeParType, relu.createdById, relu.origine, relu.chantierId], [ROLE_AT, comptes.assistante.id, 'CHANTIER', affaire.id]);
+      assert.deepEqual(relu.journal.map((j) => [j.action, j.acteurId, j.detail]), [['CREATION_BROUILLON', comptes.assistante.id, 'Origine CHANTIER']]);
+
+      // Émise par elle : numéro, montants inchangés, écritures équilibrées au TTC, TVA par taux ; journal d'émission à son nom.
+      const emise = await emettre(cree.body.id, assistante);
+      assert.match(emise.numero, /^[A-Z0-9-]*\d{4}-\d{4,}$/);
+      assert.deepEqual([emise.statut, emise.totalHt, emise.totalTva, emise.totalTtc, emise.creeParType], ['EMISE', 70.42, 11.15, 81.57, ROLE_AT]);
+      const apres = await enBase(cree.body.id);
+      assert.deepEqual(nombres([apres.totalHt, apres.totalTva, apres.totalTtc]), [70.42, 11.15, 81.57]);
+      assert.deepEqual([apres.numero, apres.statut, apres.creeParType, apres.ecrituresScellees], [emise.numero, 'EMISE', ROLE_AT, true]);
+      assert.deepEqual(apres.journal.map((j) => [j.action, j.acteurId]), [['CREATION_BROUILLON', comptes.assistante.id], ['EMISSION', comptes.assistante.id]]);
+      const centimes = (liste) => liste.reduce((s, v) => s + Math.round(Number(v) * 100), 0);
+      assert.deepEqual([centimes(apres.ecrituresComptables.map((e) => e.debit)), centimes(apres.ecrituresComptables.map((e) => e.credit))], [8157, 8157]);
+      // TVA au crédit par taux : 10,04 et 1,11 (ligne par ligne : 10,05 et 1,12).
+      assert.deepEqual(apres.ecrituresComptables.filter((e) => e.cle.startsWith('TVA')).map((e) => [e.cle, Number(e.debit), Number(e.credit)]).sort(), [['TVA:20', 0, 10.04], ['TVA:5.5', 0, 1.11]]);
+      assert.equal(Number(apres.ecrituresComptables.find((e) => e.cle === 'CLIENT')?.debit), 81.57);
+
+      // PDF lu par elle, puis par l'administration : même texte ; client renommé ensuite, le PDF garde la raison sociale figée.
+      const pdf = await lire(`/api/factures/${cree.body.id}/document.pdf`, assistante);
+      assert.equal(pdf.status, 200, pdf.text);
+      assert.match(pdf.headers['content-type'] || '', /application\/pdf/);
+      const texte = await texteDuPdf(pdf);
+      for (const attendu of [`FACTURE ${emise.numero}`, 'Total HT : 70,42 €', 'TVA 5.5 % sur 20,20 € : 1,11 €', 'TVA 20 % sur 50,22 € : 10,04 €', 'TVA totale : 11,15 €', 'Total TTC : 81,57 €', '18,49 €', '31,73 €', client.raisonSociale]) {
+        assert.ok(texte.includes(attendu), `PDF : ${attendu}`);
+      }
+      for (const ecarte of ['81,59 €', '70,40 €', '10,05 €', '1,12 €', '11,17 €']) assert.ok(!texte.includes(ecarte), `PDF : lecture écartée ${ecarte}`);
+      const pdfAdministration = await lire(`/api/factures/${cree.body.id}/document.pdf`, jeton('admin'));
+      assert.equal(pdfAdministration.status, 200);
+      assert.equal(await texteDuPdf(pdfAdministration), texte, 'le même document pour elle et pour l’administration');
+      const raisonSocialeFigee = client.raisonSociale;
+      await prisma.client.update({ where: { id: client.id }, data: { raisonSociale: `TEST Client AT-3 renommé ${suffixe}` } });
+      try {
+        const relue = await texteDuPdf(await lire(`/api/factures/${cree.body.id}/document.pdf`, assistante));
+        assert.ok(relue.includes(raisonSocialeFigee) && !relue.includes(`TEST Client AT-3 renommé ${suffixe}`), 'raison sociale figée à l’émission');
+        assert.deepEqual(nombres(Object.values(await prisma.facture.findUniqueOrThrow({ where: { id: cree.body.id }, select: { totalHt: true, totalTva: true, totalTtc: true } }))), [70.42, 11.15, 81.57]);
+      } finally {
+        await prisma.client.update({ where: { id: client.id }, data: { raisonSociale: raisonSocialeFigee } });
+      }
+    });
+
+    // C5 (« facture au temps passé créée par elle, à valeurs distinctes ») et C3 (créée comme l'administration, depuis l'écran
+    // Factures). Main d'œuvre au catalogue à 45,54 € HT de l'heure, 20 % ; fourniture du devis 1 × 10,10 € à 5,5 % ; minimum figé
+    // 60 minutes, pas de 15 minutes ; 0,6 h sur l'intervention et 0,5 h sur sa suite, soit 1,1 h (66 minutes) : au-delà du minimum,
+    // une tranche de 15 minutes commencée, 75 minutes, 1,25 h facturée ; 1,25 × 45,54 = 56,925, arrondi à 56,93 ; TVA 20 % 11,386
+    // arrondie à 11,39 ; 5,5 % de 10,10 : 0,5555, arrondie à 0,56 ; HT 67,03, TVA 11,95, TTC 78,98. Lectures écartées : arrondi au
+    // pair ou troncature, 56,92 (HT 67,02, TTC 78,96) ; sans le pas (1,1 h), 50,09 (HT 60,19) ; pas au plus proche (1 h), 45,54
+    // (HT 55,64) ; minimum à chaque passage (1 h + 1 h), 91,08 (HT 101,18) ; prix du catalogue changé après la création, 99,99.
+    test('montants : facture au temps passé créée par elle (1,1 h sur l’intervention et sa suite, 1,25 h facturée) : aperçu identique à celui de l’administration, total égal à l’aperçu, lignes, ventilation et marque relues en base, journal du brouillon à son nom ; émise par elle et relue au PDF ; refus d’une seconde facture sans numéro pour elle, avec le numéro pour l’administration', async () => {
+      const assistante = jeton('assistante');
+      const reglages = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } });
+      assert.equal((await envoyer('put', '/api/parametres', sa, { pasTempsPasseMinutes: 15, tempsMinimumMinutes: 60 })).status, 200);
+      const corpsMainOeuvre = (prix) => ({ estMainOeuvre: true, reference: `TEST-AT3-MO-${suffixe}`, nom: `TEST Main d’œuvre AT-3 ${suffixe}`, tauxTva: '20', prixVenteHt: prix, prixJourHorsContratHt: '320', prixHeureSousContratHt: '40', prixJourSousContratHt: '280', heuresParJour: '7' });
+      const mainOeuvre = await envoyer('post', '/api/catalogue/prestations', sa, corpsMainOeuvre('45.54'));
+      assert.equal(mainOeuvre.status, 201, JSON.stringify(mainOeuvre.body));
+      const chaine = async (objet) => {
+        const devis = await envoyer('post', '/api/devis', sa, { clientId: client.id, objet: `TEST AT-3 temps passé ${objet} ${suffixe}`, auTempsPasse: true, lignes: [
+          { tempsPasse: true, designation: 'TEST AT-3 main d’œuvre au temps passé', quantite: 1, tarifTempsPasse: 'HORS_CONTRAT', catalogueFamille: 'prestations', catalogueId: mainOeuvre.body.id },
+          { designation: 'TEST AT-3 fourniture', nature: 'FOURNITURE', quantite: 1, prixUnitaireHt: 10.10, tauxTva: 5.5 },
+        ] });
+        assert.equal(devis.status, 201, JSON.stringify(devis.body));
+        assert.equal((await envoyer('post', `/api/devis/${devis.body.id}/signature`, sa, { signataire: `TEST AT-3 signataire ${objet}`, confirme: true })).status, 201);
+        const conversion = await envoyer('post', `/api/devis/${devis.body.id}/convertir`, sa, { cible: 'INTERVENTION' });
+        assert.equal(conversion.status, 201, JSON.stringify(conversion.body));
+        await prisma.intervention.update({ where: { id: conversion.body.id }, data: { statut: 'TERMINEE' } });
+        const suite = await envoyer('post', `/api/interventions/${conversion.body.id}/suites`, sa, {});
+        assert.equal(suite.status, 201, JSON.stringify(suite.body));
+        await prisma.intervention.update({ where: { id: suite.body.id }, data: { statut: 'TERMINEE' } });
+        for (const [id, nbrHeures] of [[conversion.body.id, 0.6], [suite.body.id, 0.5]]) {
+          await prisma.coutInterventionHeure.create({ data: { interventionId: id, intervenantId: fiche.id, date: new Date('2026-10-01T00:00:00Z'), nbrHeures, tauxHoraireApplique: 40, createdById: saId } });
+        }
+        return { devis: devis.body, intervention: conversion.body, suite: suite.body };
+      };
+      try {
+        const { devis, intervention, suite } = await chaine('sien');
+        const apercuAdmin = await lire(`/api/interventions/${intervention.id}/facture-temps-passe`, jeton('admin'));
+        const apercu = await lire(`/api/interventions/${intervention.id}/facture-temps-passe`, assistante);
+        assert.equal(apercu.status, 200, JSON.stringify(apercu.body));
+        assert.deepEqual(apercu.body, apercuAdmin.body, 'le même aperçu pour elle et pour l’administration');
+        assert.deepEqual([apercu.body.heures.saisies, apercu.body.heures.minutesSaisies, apercu.body.heures.minutesFacturees, apercu.body.heures.facturees, apercu.body.heures.plancherMinutes, apercu.body.heures.pasMinutes], [1.1, 66, 75, 1.25, 60, 15]);
+        assert.deepEqual(apercu.body.heures.suites.map((s) => [s.id, s.heures]), [[suite.id, 0.5]]);
+        const attenduLignes = [['TEST AT-3 main d’œuvre au temps passé', 'PRESTATION', 1.25, 45.54, 20, 56.93, 68.32], ['TEST AT-3 fourniture', 'ARTICLE', 1, 10.1, 5.5, 10.1, 10.66]];
+        assert.deepEqual(apercu.body.lignes.map((l) => [l.designation, l.nature, l.quantite, l.prixUnitaireHt, l.tauxTva, l.totalHt, l.totalTtc]), attenduLignes);
+        assert.deepEqual([apercu.body.totalHt, apercu.body.totalTva, apercu.body.totalTtc], [67.03, 11.95, 78.98]);
+        assert.equal(await prisma.facture.count({ where: { interventionId: intervention.id } }), 0, 'l’aperçu n’écrit rien');
+
+        const jour = await aujourdhui();
+        const creee = await envoyer('post', `/api/interventions/${intervention.id}/facture-temps-passe`, assistante, { dateEmission: jour, dateEcheance: jour, totalHtAttendu: apercu.body.totalHt });
+        assert.equal(creee.status, 201, JSON.stringify(creee.body));
+        assert.deepEqual([creee.body.statut, creee.body.tempsPasse, creee.body.creeParType, creee.body.createdById, creee.body.totalHt, creee.body.totalTva, creee.body.totalTtc],
+          ['BROUILLON', true, ROLE_AT, comptes.assistante.id, 67.03, 11.95, 78.98]);
+        // Prix du catalogue et réglages changés après la création : la facture n'en dépend plus.
+        assert.equal((await envoyer('put', `/api/catalogue/prestations/${mainOeuvre.body.id}`, sa, corpsMainOeuvre('99.99'))).status, 200);
+        assert.equal((await envoyer('put', '/api/parametres', sa, { pasTempsPasseMinutes: 60, tempsMinimumMinutes: 120 })).status, 200);
+        const relue = await enBase(creee.body.id);
+        assert.deepEqual([relue.tempsPasse, relue.creeParType, relue.origine, relue.interventionId, ...nombres([relue.totalHt, relue.totalTva, relue.totalTtc])], [true, ROLE_AT, 'INTERVENTION', intervention.id, 67.03, 11.95, 78.98]);
+        assert.deepEqual(relue.lignes.map((l) => [l.designation, l.nature, ...nombres([l.quantite, l.prixUnitaireHt, l.tauxTva, l.totalHt, l.totalTtc])]), attenduLignes);
+        assert.deepEqual(relue.ventilationTva.map((v) => nombres([v.tauxTva, v.totalHt, v.totalTva, v.totalTtc])), [[5.5, 10.1, 0.56, 10.66], [20, 56.93, 11.39, 68.32]]);
+        assert.deepEqual(relue.journal.map((j) => [j.action, j.acteurId, j.detail]), [['CREATION_BROUILLON', comptes.assistante.id,
+          `Origine INTERVENTION, au temps passé : 1,1 h saisies sur l’intervention et 1 suite facturable, 1,25 h facturées (minimum 1 h, puis tranches de 15 min) ; devis ${devis.numero} v${devis.version}`]]);
+
+        // Seconde facture sur la chaîne : refus sans numéro pour elle ; l'administration garde le message qui le cite.
+        for (const cible of [intervention.id]) {
+          const refusApercu = await lire(`/api/interventions/${cible}/facture-temps-passe`, assistante);
+          assert.deepEqual([refusApercu.status, refusApercu.body.error], [409, REFUS_TEMPS_PASSE_AT]);
+          const refusCreation = await envoyer('post', `/api/interventions/${cible}/facture-temps-passe`, assistante, { dateEmission: jour, dateEcheance: jour, totalHtAttendu: 67.03 });
+          assert.deepEqual([refusCreation.status, refusCreation.body.error], [409, REFUS_TEMPS_PASSE_AT]);
+        }
+        assert.match((await lire(`/api/interventions/${intervention.id}/facture-temps-passe`, jeton('admin'))).body.error, /déjà une facture \(brouillon\) : la facture au temps passé est unique/);
+
+        // Émise par elle, relue au PDF (lu par elle).
+        const emise = await emettre(creee.body.id, assistante);
+        assert.deepEqual([emise.statut, emise.totalTtc], ['EMISE', 78.98]);
+        const texte = await texteDuPdf(await lire(`/api/factures/${creee.body.id}/document.pdf`, assistante));
+        for (const attendu of [`FACTURE ${emise.numero}`, 'Total HT : 67,03 €', 'TVA 5.5 % sur 10,10 € : 0,56 €', 'TVA 20 % sur 56,93 € : 11,39 €', 'TVA totale : 11,95 €', 'Total TTC : 78,98 €', '45,54 €', '56,93 €']) {
+          assert.ok(texte.includes(attendu), `PDF : ${attendu}`);
+        }
+        for (const ecarte of ['56,92 €', '50,09 €', '91,08 €', '99,99 €', '124,99 €']) assert.ok(!texte.includes(ecarte), `PDF : lecture écartée ${ecarte}`);
+        const refusEmise = await lire(`/api/interventions/${intervention.id}/facture-temps-passe`, assistante);
+        assert.deepEqual([refusEmise.status, refusEmise.body.error], [409, REFUS_TEMPS_PASSE_AT]);
+        assert.ok(!refusEmise.body.error.includes(emise.numero), 'son refus ne cite pas le numéro');
+        const refusAdministration = await lire(`/api/interventions/${intervention.id}/facture-temps-passe`, jeton('admin'));
+        assert.equal(refusAdministration.status, 409);
+        assert.ok(refusAdministration.body.error.includes(`(${emise.numero})`), refusAdministration.body.error);
+
+        // Facture de l'administration sur une autre chaîne, qu'elle ne voit pas : le refus ne lui en donne ni le numéro ni
+        // l'existence d'un document à télécharger ; rien n'est écrit.
+        assert.equal((await envoyer('put', '/api/parametres', sa, { pasTempsPasseMinutes: 15, tempsMinimumMinutes: 60 })).status, 200);
+        assert.equal((await envoyer('put', `/api/catalogue/prestations/${mainOeuvre.body.id}`, sa, corpsMainOeuvre('45.54'))).status, 200);
+        const autre = await chaine('de l’administration');
+        const apercuAutre = await lire(`/api/interventions/${autre.intervention.id}/facture-temps-passe`, jeton('admin'));
+        const factureAdmin = await envoyer('post', `/api/interventions/${autre.intervention.id}/facture-temps-passe`, jeton('admin'), { dateEmission: jour, dateEcheance: jour, totalHtAttendu: apercuAutre.body.totalHt });
+        assert.equal(factureAdmin.status, 201, JSON.stringify(factureAdmin.body));
+        assert.equal(factureAdmin.body.creeParType, 'ADMIN');
+        const numeroAdmin = (await emettre(factureAdmin.body.id, jeton('admin'))).numero;
+        const avant = await etatFactures();
+        for (const cible of [autre.intervention.id, autre.suite.id]) {
+          const lu = await lire(`/api/interventions/${cible}/facture-temps-passe`, assistante);
+          if (cible === autre.intervention.id) assert.deepEqual([lu.status, lu.body.error], [409, REFUS_TEMPS_PASSE_AT]);
+          assert.ok(!String(lu.body.error).includes(numeroAdmin), `${cible} : ${lu.body.error}`);
+        }
+        const creationRefusee = await envoyer('post', `/api/interventions/${autre.intervention.id}/facture-temps-passe`, assistante, { dateEmission: jour, dateEcheance: jour, totalHtAttendu: apercuAutre.body.totalHt });
+        assert.deepEqual([creationRefusee.status, creationRefusee.body.error], [409, REFUS_TEMPS_PASSE_AT]);
+        assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+        // Sa facture au temps passé n'est pas celle de l'administration : elle ne voit que la sienne.
+        const liste = (await lire('/api/factures', assistante)).body.map((f) => f.id);
+        assert.deepEqual([liste.includes(creee.body.id), liste.includes(factureAdmin.body.id)], [true, false]);
+      } finally {
+        assert.equal((await envoyer('put', '/api/parametres', sa, { pasTempsPasseMinutes: reglages.pasTempsPasseMinutes ?? '', tempsMinimumMinutes: reglages.tempsMinimumMinutes ?? '' })).status, 200);
+      }
+    });
+
+    // Cadrage v1, « Montants » (« numérotation continue mêlant ses factures et celles de l'administration ») ; T1 (« une AT2 voit
+    // et émet le brouillon d'une AT1 », point 33, « non nomminative ») ; réponse 1 du 09-11-2026 (brouillon d'une assistante émis
+    // par l'administration, qui lui reste) ; réponse 6 du 06-11-2026 (le brouillon de l'administration lui est fermé). Lecture
+    // écartée : une séquence propre à l'assistante technique (numéros non consécutifs), ou un numéro consommé par le refus.
+    test('numérotation continue : administration, assistante, administration (brouillon d’une assistante), seconde assistante (brouillon de la première), administration ; numéros consécutifs d’une même séquence ; le brouillon de l’administration refusé à l’assistante (404) sans numéro consommé ; chaque pièce d’une assistante visible des deux, aucune de l’administration', async () => {
+      const assistante = jeton('assistante');
+      const assistanteBis = jeton('assistanteBis');
+      const b1 = await brouillonCree(jeton('admin'), 'numérotation 1 administration');
+      const b2 = await brouillonCree(assistante, 'numérotation 2 assistante, émise par l’administration');
+      const b3 = await brouillonCree(assistante, 'numérotation 3 assistante, émise par la seconde');
+      const b4 = await brouillonCree(assistanteBis, 'numérotation 4 seconde assistante, émise par la première');
+      const b5 = await brouillonCree(jeton('directeur'), 'numérotation 5 directeur');
+      assert.deepEqual([b1, b2, b3, b4, b5].map((b) => b.creeParType), ['ADMIN', ROLE_AT, ROLE_AT, ROLE_AT, 'DIRECTEUR']);
+      // Le brouillon du directeur (administration) est fermé aux deux assistantes, avant tout numéro.
+      const annee = Number((await jourIso()).slice(0, 4));
+      const avantRefus = await sequence(annee);
+      for (const auth of [assistante, assistanteBis]) {
+        const refus = await envoyer('post', `/api/factures/${b5.id}/emettre`, auth, {});
+        assert.deepEqual([refus.status, refus.body.error], [404, INTROUVABLE]);
+      }
+      assert.equal(await sequence(annee), avantRefus, 'aucun numéro consommé');
+      assert.deepEqual(Object.values(await prisma.facture.findUniqueOrThrow({ where: { id: b5.id }, select: { statut: true, numero: true } })), ['BROUILLON', null]);
+      const ordre = [[b1, jeton('admin'), comptes.admin.id], [b3, assistanteBis, comptes.assistanteBis.id], [b2, jeton('admin'), comptes.admin.id], [b4, assistante, comptes.assistante.id], [b5, jeton('directeur'), comptes.directeur.id]];
+      const numeros = [];
+      for (const [piece, auth, acteur] of ordre) {
+        const emise = await emettre(piece.id, auth);
+        numeros.push(emise.numero);
+        const journal = await prisma.journalFacture.findFirstOrThrow({ where: { factureId: piece.id, action: 'EMISSION' } });
+        assert.equal(journal.acteurId, acteur, `${piece.motifHorsAffaire} : émise au nom de son auteur`);
+      }
+      const rang = (numero) => Number(numero.slice(numero.lastIndexOf('-') + 1));
+      const prefixe = (numero) => numero.slice(0, numero.lastIndexOf('-'));
+      assert.deepEqual(numeros.map(prefixe), Array(5).fill(prefixe(numeros[0])), 'même préfixe et même année');
+      assert.deepEqual(numeros.map(rang), [0, 1, 2, 3, 4].map((i) => rang(numeros[0]) + i), `numéros consécutifs : ${numeros.join(', ')}`);
+      assert.equal(await sequence(annee), rang(numeros[4]), 'la séquence s’arrête au dernier numéro attribué');
+      // Visibilité : b2 (émise par l'administration), b3 (émise par la seconde), b4 (émise par la première) sont aux deux
+      // assistantes ; b1 et b5 à aucune ; type figé, quel que soit l'émetteur.
+      for (const auth of [assistante, assistanteBis]) {
+        const ids = (await lire('/api/factures', auth)).body.map((f) => f.id);
+        assert.deepEqual([b1, b2, b3, b4, b5].map((b) => ids.includes(b.id)), [false, true, true, true, false]);
+        for (const b of [b2, b3, b4]) assert.equal((await lire(`/api/factures/${b.id}/document.pdf`, auth)).status, 200);
+        for (const b of [b1, b5]) assert.deepEqual([(await lire(`/api/factures/${b.id}/document.pdf`, auth)).status], [404]);
+      }
+      assert.deepEqual((await prisma.facture.findMany({ where: { id: { in: [b1.id, b2.id, b3.id, b4.id, b5.id] } }, select: { id: true, creeParType: true } })).map((f) => [f.id, f.creeParType]).sort(),
+        [[b1.id, 'ADMIN'], [b2.id, ROLE_AT], [b3.id, ROLE_AT], [b4.id, ROLE_AT], [b5.id, 'DIRECTEUR']].sort());
+    });
+
+    // C5 (« avoir partiel de l'administration sur sa facture : montantAvoirs et resteDu lus par elle égaux à ceux de
+    // l'administration ») ; T2 (creeParType d'un avoir : le type de l'administrateur, par /avoirs comme par /annuler) ; C4 (envoi
+    // d'un avoir fermé). Sa facture : 81,57 TTC (test précédent). Avoir partiel du directeur : 0,5 × 36,97 = 18,49 HT, TVA 3,698
+    // arrondie à 3,70, TTC 22,19. Reste dû 81,57 − 22,19 = 59,38. Lectures écartées : avoir non déduit (81,57) ; avoir déduit hors
+    // taxes (81,57 − 18,49 = 63,08). Avoir total du super administrateur sur une autre de ses factures (1 × 10 à 20 %, 12 TTC) :
+    // annulée, sans solde (comportement existant), comme pour l'administration.
+    test('montants : avoir partiel du directeur sur sa facture (22,19 € TTC) : montant des avoirs 22,19 € et reste dû 59,38 € lus par elle comme par l’administration ; avoir total du super administrateur ; type du créateur de chaque avoir figé (DIRECTEUR, SUPERADMIN) ; avoirs lus par elle (liste, PDF, journal, envois), leur envoi refusé (403) sans écriture, admis à l’administration', async () => {
+      const assistante = jeton('assistante');
+      const lignes = [ligne('pose de la centrale', 0.5, 36.97, 20), ligne('fourniture des détecteurs', 1, 10.10, 5.5, 'ARTICLE'), ligne('mise en service', 2.25, 14.10, 20), ligne('fourniture des sirènes', 1, 10.10, 5.5, 'ARTICLE')];
+      const facture = await factureEmise(assistante, 'avoir partiel', lignes);
+      assert.equal(facture.totalTtc, 81.57);
+      const avoir = await envoyer('post', `/api/factures/${facture.id}/avoirs`, jeton('directeur'), { lignes: [ligne('reprise de la pose', 0.5, 36.97, 20)] });
+      assert.equal(avoir.status, 201, JSON.stringify(avoir.body));
+      assert.deepEqual([avoir.body.type, avoir.body.totalHt, avoir.body.totalTva, avoir.body.totalTtc, avoir.body.creeParType, avoir.body.factureOrigineId], ['AVOIR', 18.49, 3.7, 22.19, 'DIRECTEUR', facture.id]);
+      assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: avoir.body.id } })).creeParType, 'DIRECTEUR');
+      const annulable = await factureEmise(assistante, 'annulée par le super administrateur');
+      const annulation = await envoyer('post', `/api/factures/${annulable.id}/annuler`, sa, {});
+      assert.equal(annulation.status, 200, JSON.stringify(annulation.body));
+      const avoirTotal = annulation.body.avoir;
+      assert.deepEqual([avoirTotal.creeParType, avoirTotal.estAvoirAnnulation, avoirTotal.totalTtc], ['SUPERADMIN', true, 12]);
+      assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: avoirTotal.id } })).creeParType, 'SUPERADMIN');
+
+      // Liste non paginée et paginée : mêmes soldes pour elle et pour l'administration.
+      const soldes = (f) => [f.statut, f.montantAvoirs, f.montantRegle, f.resteDu];
+      const lus = async (auth) => {
+        const tout = (await lire('/api/factures', auth)).body;
+        return Object.fromEntries([facture.id, annulable.id, avoir.body.id, avoirTotal.id].map((id) => [id, tout.find((f) => f.id === id)]));
+      };
+      const parElle = await lus(assistante);
+      const parAdmin = await lus(jeton('admin'));
+      assert.deepEqual(soldes(parElle[facture.id]), ['EMISE', 22.19, 0, 59.38]);
+      // Une facture annulée n'a plus de solde (comportement existant, soldesFactures) : null pour elle comme pour l'administration.
+      assert.deepEqual(soldes(parElle[annulable.id]), ['ANNULEE', null, null, null]);
+      assert.deepEqual(parElle[annulable.id].avoirs.map((a) => [a.id, a.estAvoirAnnulation]), [[avoirTotal.id, true]]);
+      for (const id of [facture.id, annulable.id, avoir.body.id, avoirTotal.id]) assert.deepEqual(soldes(parElle[id]), soldes(parAdmin[id]), id);
+      assert.deepEqual(parElle[facture.id].avoirs.map((a) => a.id), [avoir.body.id]);
+      assert.deepEqual([parElle[avoir.body.id].type, parElle[avoir.body.id].factureOrigine?.id], ['AVOIR', facture.id]);
+
+      // Avoirs en lecture : PDF, journal, origine, envois (lecture).
+      for (const id of [avoir.body.id, avoirTotal.id]) {
+        for (const chemin of ['document.pdf', 'journal', 'tracabilite', 'envois']) assert.equal((await lire(`/api/factures/${id}/${chemin}`, assistante)).status, 200, `${chemin} de l’avoir ${id}`);
+      }
+      // Envoi d'un avoir : 403, par la messagerie comme par Microsoft 365, sans écriture ; l'administration, témoin, l'envoie.
+      const avant = await etatFactures();
+      for (const id of [avoir.body.id, avoirTotal.id]) {
+        for (const canal of [undefined, 'MICROSOFT_365']) {
+          const refus = await envoyer('post', `/api/factures/${id}/envois`, assistante, { destinataire: 'client@at3.test', ...(canal ? { canal } : {}) });
+          assert.deepEqual([refus.status, refus.body.error], [403, REFUS_ENVOI_AVOIR], `${id} ${canal ?? 'MESSAGERIE'}`);
+        }
+      }
+      assert.equal(await etatFactures(), avant, 'aucun envoi d’avoir écrit');
+      const parAdministration = await envoyer('post', `/api/factures/${avoir.body.id}/envois`, jeton('admin'), { destinataire: 'client@at3.test' });
+      assert.equal(parAdministration.status, 201, JSON.stringify(parAdministration.body));
+      // Ses factures, elle les envoie : 201, à son nom.
+      const sienne = await envoyer('post', `/api/factures/${facture.id}/envois`, assistante, { destinataire: 'client@at3.test' });
+      assert.equal(sienne.status, 201, JSON.stringify(sienne.body));
+      assert.equal(sienne.body.envoi.auteurNom, comptes.assistante.name);
+      // Lecture des envois de l'avoir par elle : l'envoi de l'administration y figure.
+      const envoisAvoir = await lire(`/api/factures/${avoir.body.id}/envois`, assistante);
+      assert.deepEqual(envoisAvoir.body.envois.map((e) => e.auteurNom), [comptes.admin.name]);
+    });
+
+    // C1 et C5 (« règlement partiel de l'administration sur sa facture, réparti avec une facture de l'administration, puis un second
+    // règlement contre-passé ») ; point 33 (« ainsi que les reglements ») ; réponse 1 du 09-11-2026 (« ses règlements en lecture »).
+    // Sa facture FA : 81,57 TTC, avoir partiel 22,19 TTC, reste 59,38. Facture FB de l'administration : 1 × 1 000 à 20 %, 1 200 TTC.
+    // Règlement R1 : 50,00 = 20,01 sur FA + 29,99 sur FB ; FA réglée de 20,01, reste 39,37 (lecture écartée : le total du règlement
+    // compté sur FA, reste 9,38). Règlement R2 : 1 015,55 = 15,55 sur FA + 1 000,00 sur FB, puis contre-passé ; FA reste réglée de
+    // 20,01, reste 39,37 (lecture écartée : la part contre-passée comptée, réglé 35,56, reste 23,82). Elle lit ses deux parts (20,01
+    // et 15,55), jamais FB ni les totaux (50,00 et 1 015,55) ; son journal de contre-passation dit les 15,55 retirés et le reste
+    // 39,37, sans « de 1 015,55 € », que l'administration lit. Le motif contient « € : « » : le retrait du total s'arrête au premier.
+    test('montants : règlements de sa facture en lecture : parts de 20,01 € et 15,55 € (contre-passée), identiques pour elle et pour l’administration, sans la facture de l’administration ni le total du règlement ; montant réglé 20,01 € et reste dû 39,37 € égaux ; journal de contre-passation sans le total de 1 015,55 € pour elle, avec pour l’administration', async () => {
+      const assistante = jeton('assistante');
+      const lignes = [ligne('pose de la centrale', 0.5, 36.97, 20), ligne('fourniture des détecteurs', 1, 10.10, 5.5, 'ARTICLE'), ligne('mise en service', 2.25, 14.10, 20), ligne('fourniture des sirènes', 1, 10.10, 5.5, 'ARTICLE')];
+      const fa = await factureEmise(assistante, 'réglée en partie', lignes);
+      assert.equal((await envoyer('post', `/api/factures/${fa.id}/avoirs`, jeton('admin'), { lignes: [ligne('reprise de la pose', 0.5, 36.97, 20)] })).status, 201);
+      const fb = await factureEmise(jeton('admin'), 'de l’administration, réglée avec la sienne', [ligne('remplacement de la centrale', 1, 1000, 20)]);
+      assert.equal(fb.totalTtc, 1200);
+      const jour = await aujourdhui();
+      const r1 = await envoyer('post', '/api/reglements', jeton('admin'), { clientId: client.id, dateReglement: jour, montant: 50, moyen: 'VIREMENT', reference: `TEST-AT3-R1-${suffixe}`, affectations: [{ factureId: fa.id, montant: 20.01 }, { factureId: fb.id, montant: 29.99 }] });
+      assert.equal(r1.status, 201, JSON.stringify(r1.body));
+      const r2 = await envoyer('post', '/api/reglements', jeton('admin'), { clientId: client.id, dateReglement: jour, montant: 1015.55, moyen: 'CHEQUE', reference: `TEST-AT3-R2-${suffixe}`, affectations: [{ factureId: fa.id, montant: 15.55 }, { factureId: fb.id, montant: 1000 }] });
+      assert.equal(r2.status, 201, JSON.stringify(r2.body));
+      const motif = 'TEST AT-3 chèque saisi deux fois, écart de 3 € : « doublon »';
+      const contrepassation = await envoyer('post', `/api/reglements/${r2.body.id}/contrepasser`, jeton('admin'), { motif });
+      assert.equal(contrepassation.status, 200, JSON.stringify(contrepassation.body));
+
+      // Parts lues par elle : les deux règlements, du plus ancien au plus récent, leur seule part sur FA.
+      const parElle = await lire(`/api/factures/${fa.id}/reglements`, assistante);
+      assert.equal(parElle.status, 200, JSON.stringify(parElle.body));
+      const parAdmin = await lire(`/api/factures/${fa.id}/reglements`, jeton('admin'));
+      assert.deepEqual(parElle.body, parAdmin.body, 'mêmes parts pour elle et pour l’administration');
+      const iso = `${await jourIso()}T00:00:00.000Z`;
+      const r2Base = await prisma.reglement.findUniqueOrThrow({ where: { id: r2.body.id } });
+      assert.deepEqual(parElle.body.map((p) => [p.montant, p.reglement.id, p.reglement.dateReglement, p.reglement.moyen, p.reglement.reference, p.reglement.statut, p.reglement.contrepasseLe, p.reglement.motifContrepassation]), [
+        [20.01, r1.body.id, iso, 'VIREMENT', `TEST-AT3-R1-${suffixe}`, 'ENREGISTRE', null, null],
+        [15.55, r2.body.id, iso, 'CHEQUE', `TEST-AT3-R2-${suffixe}`, 'CONTREPASSE', r2Base.contrepasseLe.toISOString(), motif],
+      ]);
+      // Ni le total, ni les autres factures du règlement : clés exactes, et aucune trace de FB.
+      for (const part of parElle.body) {
+        assert.deepEqual(Object.keys(part).sort(), ['id', 'montant', 'reglement']);
+        assert.deepEqual(Object.keys(part.reglement).sort(), ['contrepasseLe', 'dateReglement', 'id', 'motifContrepassation', 'moyen', 'reference', 'statut']);
+      }
+      const brut = JSON.stringify(parElle.body);
+      for (const absent of [fb.id, fb.numero, '29.99', '1000', '1015.55', '"50"']) assert.ok(!brut.includes(absent), `absent de sa lecture : ${absent}`);
+      assert.deepEqual(parElle.body.map((p) => p.id).sort(), (await prisma.affectationReglement.findMany({ where: { factureId: fa.id }, select: { id: true } })).map((a) => a.id).sort());
+      // La facture de l'administration lui reste fermée, règlements compris.
+      assert.deepEqual([(await lire(`/api/factures/${fb.id}/reglements`, assistante)).status], [404]);
+
+      // Soldes : réglé 20,01, reste 39,37, pour elle comme pour l'administration ; FB : réglé 29,99, reste 1 170,01 (administration).
+      const soldes = async (auth, id) => { const f = (await lire('/api/factures', auth)).body.find((x) => x.id === id); return [f?.statut, f?.montantAvoirs, f?.montantRegle, f?.resteDu]; };
+      assert.deepEqual(await soldes(assistante, fa.id), ['EMISE', 22.19, 20.01, 39.37]);
+      assert.deepEqual(await soldes(jeton('admin'), fa.id), ['EMISE', 22.19, 20.01, 39.37]);
+      assert.deepEqual(await soldes(jeton('admin'), fb.id), ['EMISE', 0, 29.99, 1170.01]);
+      assert.deepEqual(await soldes(assistante, fb.id), [undefined, undefined, undefined, undefined]);
+
+      // Journal de FA : la contre-passation sans le total du règlement pour elle ; entière pour l'administration.
+      const dateFr = await aujourdhui();
+      const journalElle = (await lire(`/api/factures/${fa.id}/journal`, assistante)).body;
+      const journalAdmin = (await lire(`/api/factures/${fa.id}/journal`, jeton('admin'))).body;
+      const contre = (journal) => journal.filter((e) => e.action === 'REGLEMENT_CONTREPASSE').map((e) => e.detail);
+      assert.deepEqual(contre(journalAdmin), [`Contre-passation du règlement ${r2.body.id} du ${dateFr} de ${enEuros(1015.55)} : « ${motif} » ; 15,55 € retirés ; reste dû 39,37 €`]);
+      assert.deepEqual(contre(journalElle), [`Contre-passation du règlement ${r2.body.id} du ${dateFr} : « ${motif} » ; 15,55 € retirés ; reste dû 39,37 €`]);
+      // Les autres entrées sont les mêmes pour elle et pour l'administration, aucune ne cite un total de règlement.
+      assert.deepEqual(journalElle.filter((e) => e.action !== 'REGLEMENT_CONTREPASSE'), journalAdmin.filter((e) => e.action !== 'REGLEMENT_CONTREPASSE'));
+      const texteElle = JSON.stringify(journalElle);
+      for (const total of [enEuros(1015.55), enEuros(50), '1 015,55', fb.numero]) assert.ok(!texteElle.includes(total), `journal lu par elle sans ${total}`);
+      // Le journal en base garde le libellé entier : seul le lecteur change.
+      assert.equal((await prisma.journalFacture.findFirstOrThrow({ where: { factureId: fa.id, action: 'REGLEMENT_CONTREPASSE' } })).detail, contre(journalAdmin)[0]);
+    });
+
+    // T2 (« chaque origine créée par elle, dont contrat et hors affaire ; creeParType relu en base ») ; réponse 2 du 09-11-2026
+    // (contrats) ; point 27 et N2 (hors affaire et affaire clôturée, lecture retenue, à confirmer) ; contrôles de rattachement de
+    // l'administration inchangés pour elle. Témoins : le type de chaque compte de l'administration posé sur sa pièce.
+    test('création de toute origine par elle : affaire d’un autre titulaire, affaire terminée, intervention ligne à ligne d’un tiers, contrat, hors affaire ; type figé ASSISTANTE_TECHNIQUE et journal à son nom ; refus de l’administration repris (affaire et intervention annulées, origine incohérente, client inconnu), sans écriture ; SUPERADMIN, ADMIN et DIRECTEUR posés de même', async () => {
+      const assistante = jeton('assistante');
+      const jour = await aujourdhui();
+      const affaire = await prisma.chantier.create({ data: { nom: `TEST AT-3 affaire d’un tiers ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-10-01T00:00:00Z'), responsableId: comptes.conducteur.id, budgetGlobalVendu: 500 } });
+      const terminee = await prisma.chantier.create({ data: { nom: `TEST AT-3 affaire terminée ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-09-01T00:00:00Z'), responsableId: comptes.conducteur.id, budgetGlobalVendu: 500, statut: 'TERMINE' } });
+      const annulee = await prisma.chantier.create({ data: { nom: `TEST AT-3 affaire annulée ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-09-01T00:00:00Z'), budgetGlobalVendu: 0, statut: 'ANNULE', annuleLe: new Date(), motifAnnulation: 'TEST AT-3 annulation' } });
+      const intervention = await envoyer('post', '/api/interventions', jeton('conducteur'), { clientId: client.id, titre: `TEST AT-3 intervention d’un tiers ${suffixe}` });
+      assert.equal(intervention.status, 201, JSON.stringify(intervention.body));
+      const interventionAnnulee = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-3 intervention annulée ${suffixe}` });
+      assert.equal((await envoyer('patch', `/api/interventions/${interventionAnnulee.body.id}/statut`, sa, { statut: 'ANNULEE', motif: 'TEST AT-3 annulation de l’intervention' })).status, 200);
+      const contrat = await envoyer('post', '/api/contrats-maintenance', sa, { clientId: client.id, titre: `TEST AT-3 contrat ${suffixe}`, periodiciteMois: 12, dureePrevisionnelleMinutes: 60, dateDebut: '01-09-2026' });
+      assert.equal(contrat.status, 201, JSON.stringify(contrat.body));
+      const corps = (extra) => ({ clientId: client.id, dateEmission: jour, dateEcheance: jour, lignes: [ligne('origine', 1, 10, 20)], ...extra });
+      const origines = [
+        ['CHANTIER', { origine: 'CHANTIER', chantierId: affaire.id }],
+        ['CHANTIER', { origine: 'CHANTIER', chantierId: terminee.id }],
+        ['INTERVENTION', { origine: 'INTERVENTION', interventionId: intervention.body.id }],
+        ['CONTRAT', { origine: 'CONTRAT', contratMaintenanceId: contrat.body.id }],
+        ['HORS_AFFAIRE', { origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST AT-3 hors affaire ${suffixe}` }],
+      ];
+      for (const [origine, extra] of origines) {
+        const res = await envoyer('post', '/api/factures', assistante, corps(extra));
+        assert.equal(res.status, 201, `${origine} : ${JSON.stringify(res.body)}`);
+        const relu = await enBase(res.body.id);
+        assert.deepEqual([relu.origine, relu.creeParType, relu.createdById, relu.statut, res.body.creeParType], [origine, ROLE_AT, comptes.assistante.id, 'BROUILLON', ROLE_AT], origine);
+        assert.deepEqual(relu.journal.map((j) => [j.action, j.acteurId, j.detail]), [['CREATION_BROUILLON', comptes.assistante.id, `Origine ${origine}`]], origine);
+        // Elle émet chacune, affaire terminée comprise.
+        assert.equal((await emettre(res.body.id, assistante)).statut, 'EMISE', origine);
+      }
+      // Refus de l'administration, repris pour elle, sans écriture.
+      const avant = await etatFactures();
+      for (const [cas, extra, statut, message] of [
+        ['affaire annulée', { origine: 'CHANTIER', chantierId: annulee.id }, 409, 'Une affaire annulée ne peut pas être facturée.'],
+        ['intervention annulée', { origine: 'INTERVENTION', interventionId: interventionAnnulee.body.id }, 409, 'Une intervention annulée ne peut pas être facturée.'],
+        ['affaire d’un autre client', { origine: 'CHANTIER', chantierId: affaire.id, clientId: clientSecond.id }, 404, 'Affaire facturable introuvable.'],
+        ['hors affaire avec une affaire', { origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST AT-3 incohérent', chantierId: affaire.id }, 400, 'L’origine de la facture doit être déclarée et cohérente.'],
+        ['client inconnu', { origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST AT-3 client inconnu', clientId: randomUUID() }, 404, 'Client introuvable.'],
+      ]) {
+        const res = await envoyer('post', '/api/factures', assistante, corps(extra));
+        assert.deepEqual([res.status, res.body.error], [statut, message], cas);
+      }
+      assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+      // Témoins : le type de chaque compte de l'administration, posé et relu en base.
+      for (const [auth, type] of [[sa, 'SUPERADMIN'], [jeton('admin'), 'ADMIN'], [jeton('directeur'), 'DIRECTEUR']]) {
+        const res = await brouillonCree(auth, `type ${type}`);
+        assert.deepEqual([res.creeParType, (await prisma.facture.findUniqueOrThrow({ where: { id: res.id } })).creeParType], [type, type]);
+      }
+    });
+
+    // T3 (« liste paginée, avec total filtré, et non paginée ; leur ordre ») ; points 30 et 33. La règle est relue en base, hors
+    // de l'application (visibleDesAssistantes) : ses pièces et leurs avoirs, ceux de toutes les assistantes, aucune autre.
+    test('liste : non paginée et paginée, elle reçoit exactement les pièces des assistantes techniques et leurs avoirs (règle relue en base), dans l’ordre de l’administration, total compté de même ; la seconde assistante la même liste ; pageSize au-delà de 100 refusé (400)', async () => {
+      const assistante = jeton('assistante');
+      // Une pièce de chaque sorte, pour que la liste ne soit pas vide au premier passage : sa facture avec avoir, celle de
+      // l'administration avec avoir.
+      const sienne = await factureEmise(assistante, 'liste, sienne');
+      assert.equal((await envoyer('post', `/api/factures/${sienne.id}/avoirs`, jeton('admin'), { lignes: [ligne('liste, avoir', 1, 1, 20)] })).status, 201);
+      const administration = await factureEmise(jeton('admin'), 'liste, administration');
+      assert.equal((await envoyer('post', `/api/factures/${administration.id}/avoirs`, jeton('admin'), { lignes: [ligne('liste, avoir admin', 1, 1, 20)] })).status, 201);
+      const toutes = await prisma.facture.findMany({ select: { id: true, type: true, creeParType: true, factureOrigineId: true } });
+      const parId = new Map(toutes.map((f) => [f.id, f]));
+      const attendus = toutes.filter((f) => visibleDesAssistantes(f, parId)).map((f) => f.id).sort();
+      const listeAdmin = (await lire('/api/factures', jeton('admin'))).body;
+      assert.equal(listeAdmin.length, toutes.length, 'l’administration voit tout');
+      for (const auth of [assistante, jeton('assistanteBis')]) {
+        const liste = await lire('/api/factures', auth);
+        assert.equal(liste.status, 200, JSON.stringify(liste.body));
+        assert.deepEqual(liste.body.map((f) => f.id).sort(), attendus);
+        assert.deepEqual(liste.body.map((f) => f.id), listeAdmin.map((f) => f.id).filter((id) => attendus.includes(id)), 'ordre de l’administration');
+        assert.ok(liste.body.every((f) => 'creeParType' in f && (f.creeParType === ROLE_AT || (f.type === 'AVOIR' && parId.get(f.factureOrigine?.id)?.creeParType === ROLE_AT))));
+        assert.ok(!liste.body.some((f) => f.id === administration.id));
+        // Paginée par 2 : total compté sur ses pièces, pages enchaînées égales à la liste complète.
+        const premiere = await lire('/api/factures?page=1&pageSize=2', auth);
+        assert.equal(premiere.status, 200, JSON.stringify(premiere.body));
+        assert.deepEqual([premiere.body.page, premiere.body.pageSize, premiere.body.total], [1, 2, attendus.length]);
+        const pages = [...premiere.body.items];
+        for (let page = 2; (page - 1) * 2 < premiere.body.total; page += 1) pages.push(...(await lire(`/api/factures?page=${page}&pageSize=2`, auth)).body.items);
+        assert.deepEqual(pages.map((f) => f.id), liste.body.map((f) => f.id));
+        const audela = await lire(`/api/factures?page=${Math.ceil(attendus.length / 2) + 1}&pageSize=2`, auth);
+        assert.deepEqual([audela.body.items, audela.body.total], [[], attendus.length]);
+        assert.equal((await lire('/api/factures?page=1&pageSize=101', auth)).status, 400);
+      }
+      const totalAdmin = (await lire('/api/factures?page=1&pageSize=1', jeton('admin'))).body.total;
+      assert.equal(totalAdmin, toutes.length, 'le total de l’administration compte toutes les pièces');
+    });
+
+    // T4 (« ordre des refus : périmètre d'abord (404) ») : chaque route ouverte, sur une pièce de l'administration (brouillon,
+    // émise, avoir) ou absente, lui répond 404 « Facture introuvable. », avant le 409 que l'administration reçoit sur la même
+    // pièce ; rien n'est écrit. Témoins : sur ses pièces, les refus du document (409) restent ceux de l'administration.
+    test('hors de son périmètre : brouillon, facture émise et avoir de l’administration, et pièce absente : 404 « Facture introuvable. » sur chaque route ouverte (PDF, envois lus et enregistrés, journal, règlements, origine, émission), avant le 409 de l’administration, sans écriture ; sur son brouillon, le refus du document (409) de l’administration', async () => {
+      const assistante = jeton('assistante');
+      const brouillonAdmin = await brouillonCree(jeton('admin'), 'hors périmètre, brouillon');
+      const emiseAdmin = await factureEmise(jeton('admin'), 'hors périmètre, émise');
+      const avoirAdmin = await envoyer('post', `/api/factures/${emiseAdmin.id}/avoirs`, jeton('admin'), { lignes: [ligne('hors périmètre, avoir', 1, 1, 20)] });
+      assert.equal(avoirAdmin.status, 201, JSON.stringify(avoirAdmin.body));
+      const routes = (id) => [
+        ['GET', `/api/factures/${id}/document.pdf`], ['GET', `/api/factures/${id}/envois`], ['POST', `/api/factures/${id}/envois`, { destinataire: 'client@at3.test' }],
+        ['POST', `/api/factures/${id}/envois`, { destinataire: 'client@at3.test', canal: 'MICROSOFT_365' }], ['GET', `/api/factures/${id}/journal`],
+        ['GET', `/api/factures/${id}/reglements`], ['GET', `/api/factures/${id}/tracabilite`], ['POST', `/api/factures/${id}/emettre`, {}],
+      ];
+      const avant = await etatFactures();
+      for (const id of [brouillonAdmin.id, emiseAdmin.id, avoirAdmin.body.id, randomUUID()]) {
+        for (const [methode, chemin, corps] of routes(id)) {
+          const res = methode === 'GET' ? await lire(chemin, assistante) : await envoyer('post', chemin, assistante, corps);
+          assert.deepEqual([res.status, res.body?.error], [404, INTROUVABLE], `${methode} ${chemin} ${corps?.canal ?? ''}`);
+        }
+      }
+      assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+      // Témoins de l'ordre : l'administration reçoit le 409 sur les mêmes pièces.
+      const admin = jeton('admin');
+      assert.deepEqual([(await envoyer('post', `/api/factures/${emiseAdmin.id}/emettre`, admin, {})).body.error], ['Seul un brouillon peut être émis.']);
+      for (const chemin of ['document.pdf', 'envois']) assert.equal((await lire(`/api/factures/${brouillonAdmin.id}/${chemin}`, admin)).status, 409, chemin);
+      assert.equal((await envoyer('post', `/api/factures/${brouillonAdmin.id}/envois`, admin, { destinataire: 'client@at3.test' })).status, 409);
+      // Sur son propre brouillon : le refus du document, comme pour l'administration ; ses lectures admises.
+      const sien = await brouillonCree(assistante, 'son brouillon');
+      for (const chemin of ['document.pdf', 'envois']) {
+        const res = await lire(`/api/factures/${sien.id}/${chemin}`, assistante);
+        const parAdmin = await lire(`/api/factures/${sien.id}/${chemin}`, admin);
+        assert.deepEqual([res.status, res.body.error], [409, parAdmin.body.error], chemin);
+      }
+      for (const chemin of ['journal', 'reglements', 'tracabilite']) assert.equal((await lire(`/api/factures/${sien.id}/${chemin}`, assistante)).status, 200, chemin);
+      assert.deepEqual((await lire(`/api/factures/${sien.id}/reglements`, assistante)).body, []);
+      // Sa facture émise déjà émise : 409 « Seul un brouillon peut être émis. », comme pour l'administration.
+      const emise = await emettre(sien.id, assistante);
+      assert.deepEqual([(await envoyer('post', `/api/factures/${emise.id}/emettre`, assistante, {})).body.error], ['Seul un brouillon peut être émis.']);
+    });
+
+    // T5 (« ses refus d'émission : chronologie, identité, origine annulée ; rien n'est écrit, aucun numéro n'est consommé »). Les
+    // mentions légales, réglage de toute la société, ne sont pas retirées ici (elles servent aux autres blocs de la même base).
+    test('ses refus d’émission : date antérieure à la dernière facture numérotée, client sans adresse de facturation, intervention annulée depuis la création du brouillon : 409 de l’administration, brouillon intact, aucun numéro consommé, aucune écriture', async () => {
+      const assistante = jeton('assistante');
+      await factureEmise(assistante, 'chronologie, référence du jour');
+      const ancien = await brouillonCree(assistante, 'chronologie, daté de la veille', undefined, { dateEmission: await hier(), dateEcheance: await hier() });
+      const sansSite = await creerClient(`TEST Client AT-3 sans site ${suffixe}`, false);
+      const sansIdentite = await brouillonCree(assistante, 'client sans adresse', undefined, { clientId: sansSite.id });
+      const intervention = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-3 intervention annulée après le brouillon ${suffixe}` });
+      assert.equal(intervention.status, 201, JSON.stringify(intervention.body));
+      const jour = await aujourdhui();
+      const surIntervention = await envoyer('post', '/api/factures', assistante, { clientId: client.id, origine: 'INTERVENTION', interventionId: intervention.body.id, dateEmission: jour, dateEcheance: jour, lignes: [ligne('intervention annulée', 1, 10, 20)] });
+      assert.equal(surIntervention.status, 201, JSON.stringify(surIntervention.body));
+      assert.equal((await envoyer('patch', `/api/interventions/${intervention.body.id}/statut`, sa, { statut: 'ANNULEE', motif: 'TEST AT-3 annulée après le brouillon' })).status, 200);
+      const annee = Number((await jourIso()).slice(0, 4));
+      const avant = await etatFactures();
+      const sequenceAvant = await sequence(annee);
+      for (const [cas, id, attendu] of [
+        ['chronologie', ancien.id, `La numérotation est chronologique : la dernière facture émise porte la date du ${jour}. Ce brouillon ne peut plus être numéroté.`],
+        ['identité du client', sansIdentite.id, /^Identité du client incomplète : renseignez .+ sur la fiche client avant d’émettre une facture\.$/],
+        ['origine annulée', surIntervention.body.id, 'Une intervention annulée ne peut pas être facturée.'],
+      ]) {
+        const res = await envoyer('post', `/api/factures/${id}/emettre`, assistante, {});
+        assert.equal(res.status, 409, `${cas} : ${JSON.stringify(res.body)}`);
+        if (attendu instanceof RegExp) assert.match(res.body.error, attendu, cas); else assert.equal(res.body.error, attendu, cas);
+        assert.deepEqual(Object.values(await prisma.facture.findUniqueOrThrow({ where: { id }, select: { statut: true, numero: true, annee: true, emisLe: true } })), ['BROUILLON', null, null, null], cas);
+      }
+      assert.equal(await sequence(annee), sequenceAvant, 'aucun numéro consommé');
+      assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+    });
+
+    // Points 30 et 36 ; cadrage v1 « Restent à l'administration » ; contrat livré (requireAdmin). Chaque route fermée, jouée sur
+    // ses propres pièces (et non sur celles de l'administration, qui répondraient 404 ailleurs), répond 403 au message de
+    // l'administration ; rien n'est écrit.
+    test('routes de l’administration fermées : à régler, prêt à facturer, export comptable, mentions légales, réglée à la main, annulation, avoirs partiels, règlements (liste, saisie, contre-passation), comptabilité : 403 « Accès réservé aux administrateurs », sur ses propres pièces, sans écriture', async () => {
+      const assistante = jeton('assistante');
+      const sienne = await factureEmise(assistante, 'routes fermées');
+      const r = await envoyer('post', '/api/reglements', jeton('admin'), { clientId: client.id, dateReglement: await aujourdhui(), montant: 1, moyen: 'VIREMENT', affectations: [{ factureId: sienne.id, montant: 1 }] });
+      assert.equal(r.status, 201, JSON.stringify(r.body));
+      const version = (await prisma.mentionsLegalesVersion.findFirst({ where: { actif: true }, select: { version: true } }))?.version ?? 1;
+      const compte = await prisma.compteComptable.findFirstOrThrow({ where: { code: { startsWith: '445' } }, select: { id: true } });
+      const fermees = [
+        ['GET', '/api/factures/a-regler'], ['GET', '/api/facturation/prete-a-facturer'], ['GET', '/api/factures/export-comptable.csv'],
+        ['GET', '/api/mentions-legales'], ['POST', '/api/mentions-legales', { mentions: 'TEST AT-3', cgv: 'TEST AT-3', penalites: 'TEST AT-3' }], ['POST', `/api/mentions-legales/${version}/publier`, {}],
+        ['POST', `/api/factures/${sienne.id}/regler`, {}], ['POST', `/api/factures/${sienne.id}/annuler`, {}],
+        ['POST', `/api/factures/${sienne.id}/avoirs`, { lignes: [ligne('avoir refusé', 1, 1, 20)] }],
+        ['GET', '/api/reglements'], ['POST', '/api/reglements', { clientId: client.id, dateReglement: await aujourdhui(), montant: 1, moyen: 'VIREMENT', affectations: [{ factureId: sienne.id, montant: 1 }] }],
+        ['POST', `/api/reglements/${r.body.id}/contrepasser`, { motif: 'TEST AT-3 contre-passation refusée' }],
+        ['GET', '/api/comptabilite'], ['POST', '/api/comptabilite/comptes', { code: '445999', libelle: 'TEST AT-3 refusé', nature: 'TVA' }],
+        ['PATCH', `/api/comptabilite/comptes/${compte.id}`, { libelle: 'TEST AT-3 renommé' }], ['PUT', '/api/comptabilite/tva/20', { compteId: compte.id, motif: 'TEST AT-3 refusé' }],
+      ];
+      const avant = await etatFactures();
+      for (const [methode, chemin, corps] of fermees) {
+        const res = await request(app)[methode.toLowerCase()](chemin).set(assistante).send(corps);
+        assert.deepEqual([res.status, res.body?.error], [403, REFUS_ADMINISTRATION], `${methode} ${chemin}`);
+      }
+      assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+      // Témoin : l'administration lit la facture à régler.
+      assert.ok((await lire('/api/factures/a-regler', jeton('admin'))).body.factures.some((f) => f.id === sienne.id));
+    });
+
+    // Contrat livré (requireGestionFactures) : les autres types de compte gardent leur refus sur chaque route ouverte, au message
+    // de la garde ; la chronologie lui est ouverte (C2, la date de la dernière facture numérotée) ; aucune clé d'intégration.
+    test('routes ouvertes : 403 « Accès réservé à l’administration et à l’assistante technique. » pour les sept autres types (conducteur, responsable, technicien, commercial, directeur commercial, assistante commerciale, comptable), sans écriture ; 401 sans session ou par une clé d’intégration ; chronologie : la même date pour elle et pour l’administration', async () => {
+      const sienne = await factureEmise(jeton('assistante'), 'routes ouvertes');
+      const jour = await aujourdhui();
+      const intervention = await envoyer('post', '/api/interventions', sa, { clientId: client.id, titre: `TEST AT-3 routes ouvertes ${suffixe}` });
+      const ouvertes = [
+        ['GET', '/api/factures'], ['GET', '/api/factures?page=1&pageSize=5'], ['GET', '/api/factures/chronologie'], ['GET', `/api/factures/${sienne.id}/document.pdf`],
+        ['GET', `/api/factures/${sienne.id}/envois`], ['POST', `/api/factures/${sienne.id}/envois`, { destinataire: 'client@at3.test' }], ['GET', `/api/factures/${sienne.id}/journal`],
+        ['GET', `/api/factures/${sienne.id}/reglements`], ['GET', `/api/factures/${sienne.id}/tracabilite`],
+        ['POST', '/api/factures', { clientId: client.id, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST AT-3 refusé', dateEmission: jour, dateEcheance: jour, lignes: [ligne('refusée', 1, 1, 20)] }],
+        ['POST', `/api/factures/${sienne.id}/emettre`, {}], ['GET', `/api/interventions/${intervention.body.id}/facture-temps-passe`],
+        ['POST', `/api/interventions/${intervention.body.id}/facture-temps-passe`, { dateEmission: jour, dateEcheance: jour, totalHtAttendu: 1 }],
+      ];
+      const cle = await envoyer('post', '/api/admin/api-keys', sa, { nom: `TEST AT-3 clé ${suffixe}`, scopes: ['finances:read', 'clients:read'] });
+      assert.equal(cle.status, 201, JSON.stringify(cle.body));
+      const avant = await etatFactures();
+      for (const cleCompte of ['conducteur', 'responsable', 'technicien', 'commercial', 'directeurCommercial', 'assistanteCommerciale', 'comptable']) {
+        for (const [methode, chemin, corps] of ouvertes) {
+          const res = await request(app)[methode.toLowerCase()](chemin).set(jeton(cleCompte)).send(corps);
+          assert.deepEqual([res.status, res.body?.error], [403, REFUS_GESTION], `${cleCompte} : ${methode} ${chemin}`);
+        }
+      }
+      for (const [methode, chemin, corps] of ouvertes) {
+        assert.equal((await request(app)[methode.toLowerCase()](chemin).send(corps)).status, 401, `sans session : ${chemin}`);
+        assert.equal((await request(app)[methode.toLowerCase()](chemin).set({ Authorization: `Bearer ${cle.body.apiKey}` }).send(corps)).status, 401, `clé : ${chemin}`);
+      }
+      assert.equal(await etatFactures(), avant, 'aucun refus n’écrit');
+      const chronologie = await lire('/api/factures/chronologie', jeton('assistante'));
+      assert.equal(chronologie.status, 200, JSON.stringify(chronologie.body));
+      assert.deepEqual(chronologie.body, (await lire('/api/factures/chronologie', jeton('admin'))).body);
+      assert.equal(chronologie.body.derniereDateEmission.slice(0, 10), await jourIso());
+      assert.deepEqual(Object.keys(chronologie.body), ['derniereDateEmission']);
+    });
+
+    // Envoi de sa facture par elle (point 27, « elle pourra les envoyer elle meme ») : journal des envois à son nom, lu par elle et
+    // par l'administration ; le journal de sa facture, l'origine, son PDF.
+    test('envoi de sa facture par la messagerie : 201, envoi noté à son nom, lu par elle et par l’administration ; origine et journal de sa facture lus par elle', async () => {
+      const assistante = jeton('assistante');
+      const sienne = await factureEmise(assistante, 'envoi');
+      const lu = await lire(`/api/factures/${sienne.id}/envois`, assistante);
+      assert.equal(lu.status, 200, JSON.stringify(lu.body));
+      assert.deepEqual(lu.body.envois, []);
+      const envoi = await envoyer('post', `/api/factures/${sienne.id}/envois`, assistante, { destinataire: 'compta@client-at3.test' });
+      assert.equal(envoi.status, 201, JSON.stringify(envoi.body));
+      const enregistres = await prisma.envoiDocument.findMany({ where: { factureId: sienne.id } });
+      assert.deepEqual(enregistres.map((e) => [e.canal, e.destinataire, e.auteurId, e.auteurNom]), [['MESSAGERIE', 'compta@client-at3.test', comptes.assistante.id, comptes.assistante.name]]);
+      for (const auth of [assistante, jeton('admin')]) {
+        const relu = await lire(`/api/factures/${sienne.id}/envois`, auth);
+        assert.deepEqual(relu.body.envois.map((e) => [e.destinataire, e.auteurNom]), [['compta@client-at3.test', comptes.assistante.name]]);
+      }
+      const origine = await lire(`/api/factures/${sienne.id}/tracabilite`, assistante);
+      assert.deepEqual([origine.status, origine.body.facture.id, origine.body.facture.origine], [200, sienne.id, 'HORS_AFFAIRE']);
+      const journal = await lire(`/api/factures/${sienne.id}/journal`, assistante);
+      assert.deepEqual(journal.body.map((j) => [j.action, j.acteurId]), [['CREATION_BROUILLON', comptes.assistante.id], ['EMISSION', comptes.assistante.id]]);
+    });
+
+    // Réponse 1 du 09-11-2026 (« Oui, il reste aux assistantes ») et point 34 (« oui c’est lier au poste d’assiste technique ») :
+    // le type du compte créateur est figé sur la pièce. Le compte qui l'a créée passe conducteur, puis administrateur, puis est
+    // désactivé : la facture reste aux assistantes techniques, type relu en base inchangé ; sous le type conducteur, elle ne lui
+    // apparaît pas (403 à l'entrée des factures).
+    test('liée au poste : brouillon d’une assistante émis par l’administration, puis son compte créateur passé conducteur, administrateur et désactivé : la facture, ses avoirs et ses règlements restent aux assistantes techniques, type ASSISTANTE_TECHNIQUE inchangé en base ; le compte devenu conducteur ne la voit pas', async () => {
+      const createur = await prisma.user.create({ data: { email: `at3.createur.${suffixe}@iris.test`, name: `TEST AT-3 créatrice ${suffixe}`, role: ROLE_AT } });
+      const parCreatrice = jetonDe(createur);
+      const cree = await brouillonCree(parCreatrice, 'liée au poste');
+      const emise = await emettre(cree.id, jeton('admin'));
+      assert.equal((await prisma.journalFacture.findFirstOrThrow({ where: { factureId: cree.id, action: 'EMISSION' } })).acteurId, comptes.admin.id);
+      const avoir = await envoyer('post', `/api/factures/${cree.id}/avoirs`, jeton('admin'), { lignes: [ligne('liée au poste, avoir', 1, 1, 20)] });
+      assert.equal(avoir.status, 201, JSON.stringify(avoir.body));
+      const voitTout = async (auth) => {
+        const ids = (await lire('/api/factures', auth)).body.map((f) => f.id);
+        return [ids.includes(cree.id), ids.includes(avoir.body.id), (await lire(`/api/factures/${cree.id}/document.pdf`, auth)).status, (await lire(`/api/factures/${avoir.body.id}/document.pdf`, auth)).status, (await lire(`/api/factures/${cree.id}/reglements`, auth)).status, (await lire(`/api/factures/${cree.id}/journal`, auth)).status];
+      };
+      assert.deepEqual(await voitTout(jeton('assistante')), [true, true, 200, 200, 200, 200], 'émise par l’administration, elle reste aux assistantes');
+      assert.deepEqual(await voitTout(parCreatrice), [true, true, 200, 200, 200, 200]);
+      // Conducteur : la facture lui disparaît (entrée refusée) ; elle reste aux assistantes.
+      assert.equal((await envoyer('patch', `/api/users/${createur.id}/role`, sa, { role: 'CONDUCTEUR_TRAVAUX' })).status, 200);
+      for (const chemin of ['/api/factures', `/api/factures/${cree.id}/document.pdf`, `/api/factures/${cree.id}/reglements`]) {
+        const res = await lire(chemin, parCreatrice);
+        assert.deepEqual([res.status, res.body.error], [403, REFUS_GESTION], chemin);
+      }
+      assert.deepEqual(await voitTout(jeton('assistanteBis')), [true, true, 200, 200, 200, 200]);
+      // Administrateur, puis désactivé : rien ne change pour les assistantes.
+      assert.equal((await envoyer('patch', `/api/users/${createur.id}/role`, sa, { role: 'ADMIN' })).status, 200);
+      assert.deepEqual(await voitTout(parCreatrice), [true, true, 200, 200, 200, 200], 'administrateur, il voit tout');
+      assert.equal((await envoyer('patch', `/api/users/${createur.id}/actif`, sa, { actif: false })).status, 200);
+      assert.equal((await lire('/api/factures', parCreatrice)).status, 401);
+      assert.deepEqual(await voitTout(jeton('assistante')), [true, true, 200, 200, 200, 200]);
+      assert.deepEqual((await prisma.facture.findMany({ where: { id: { in: [cree.id, avoir.body.id] } }, select: { id: true, creeParType: true } })).map((f) => [f.id, f.creeParType]).sort(),
+        [[cree.id, ROLE_AT], [avoir.body.id, 'ADMIN']].sort());
+      assert.equal(emise.numero, (await prisma.facture.findUniqueOrThrow({ where: { id: cree.id } })).numero);
+    });
+
+    // T10 (« une mise à jour de creeParType est refusée sur un brouillon, une facture émise et un avoir ») : déclencheur
+    // facture_cree_par_type_fige, check_violation (23514), au message du contrat. Une autre colonne d'un brouillon se modifie
+    // toujours, et une mise à jour qui garde la valeur passe (IS DISTINCT FROM). Lecture écartée : une pièce de l'administration
+    // déplacée dans le périmètre des assistantes (ADMIN vers ASSISTANTE_TECHNIQUE).
+    test('type du créateur figé en base : changé ou vidé sur son brouillon, sa facture émise, un avoir de l’administration et une facture de l’administration, refusé (23514, « Le type du compte qui a créé une facture est figé. ») ; une autre colonne du brouillon se modifie, la même valeur se réécrit', async () => {
+      const sienBrouillon = await brouillonCree(jeton('assistante'), 'déclencheur, brouillon');
+      const sienneEmise = await factureEmise(jeton('assistante'), 'déclencheur, émise');
+      const avoir = await envoyer('post', `/api/factures/${sienneEmise.id}/avoirs`, jeton('admin'), { lignes: [ligne('déclencheur, avoir', 1, 1, 20)] });
+      assert.equal(avoir.status, 201, JSON.stringify(avoir.body));
+      const administration = await brouillonCree(jeton('admin'), 'déclencheur, administration');
+      const FIGE = /Le type du compte qui a créé une facture est figé\./;
+      for (const [cas, id, valeurs] of [
+        ['son brouillon', sienBrouillon.id, ['ADMIN', null, 'TECHNICIEN']],
+        ['sa facture émise', sienneEmise.id, ['ADMIN', null]],
+        ['avoir de l’administration', avoir.body.id, [ROLE_AT, null]],
+        ['facture de l’administration', administration.id, [ROLE_AT, null]],
+      ]) {
+        const avant = (await prisma.facture.findUniqueOrThrow({ where: { id } })).creeParType;
+        for (const valeur of valeurs) {
+          await assert.rejects(prisma.facture.update({ where: { id }, data: { creeParType: valeur } }), FIGE, `${cas} → ${valeur}`);
+          await assert.rejects(prisma.$executeRaw`UPDATE "Facture" SET "creeParType" = ${valeur} WHERE "id" = ${id}`, (erreur) => {
+            assert.equal(erreur.meta?.code, '23514', `${cas} → ${valeur} : ${erreur.message}`);
+            assert.match(erreur.message, FIGE);
+            return true;
+          });
+        }
+        assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id } })).creeParType, avant, cas);
+        // La même valeur se réécrit (le déclencheur ne voit aucun changement) ; en SQL, pour ne toucher que cette colonne.
+        assert.equal(await prisma.$executeRaw`UPDATE "Facture" SET "creeParType" = ${avant} WHERE "id" = ${id}`, 1, cas);
+      }
+      // Une autre colonne du brouillon se modifie : le type reste.
+      const echeance = new Date(Date.parse(`${await jourIso()}T00:00:00Z`) + 30 * 86_400_000);
+      await prisma.facture.update({ where: { id: sienBrouillon.id }, data: { dateEcheance: echeance } });
+      const relu = await prisma.facture.findUniqueOrThrow({ where: { id: sienBrouillon.id } });
+      assert.deepEqual([relu.dateEcheance.toISOString(), relu.creeParType], [echeance.toISOString(), ROLE_AT]);
+    });
+
+    // R1 de la v3 d'AT-2b, devenu permanent avec AT-3 (cadrage v1, « Facturation de la fiche chantier » ; voitFacturationChantier,
+    // choix par défaut, le plus restrictif, à confirmer) : la facturation de la fiche lui reste absente, réglage coché compris, même
+    // quand l'affaire porte sa propre facture ; le directeur, destinataire, la lit avec cette facture (témoin).
+    test('fiche chantier : la facturation de l’affaire reste absente pour elle, réglage « Rentabilité : assistantes techniques » coché, même avec sa propre facture émise sur l’affaire ; le directeur la lit avec cette facture', async () => {
+      const assistante = jeton('assistante');
+      const { rentabiliteAssistantesTechniques: reglage, rentabiliteDirecteurs: reglageDirecteurs } = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } });
+      const affaire = await prisma.chantier.create({ data: { nom: `TEST AT-3 fiche ${suffixe}`, client: client.raisonSociale, clientId: client.id, dateDebut: new Date('2026-10-01T00:00:00Z'), responsableId: comptes.conducteur.id, budgetGlobalVendu: 1000 } });
+      const jour = await aujourdhui();
+      const sienne = await envoyer('post', '/api/factures', assistante, { clientId: client.id, origine: 'CHANTIER', chantierId: affaire.id, dateEmission: jour, dateEcheance: jour, lignes: [ligne('situation', 1, 123.45, 20)] });
+      assert.equal(sienne.status, 201, JSON.stringify(sienne.body));
+      await emettre(sienne.body.id, assistante);
+      try {
+        assert.equal((await envoyer('put', '/api/parametres', sa, { rentabiliteAssistantesTechniques: true, rentabiliteDirecteurs: true })).status, 200);
+        const fiche = await lire(`/api/chantiers/${affaire.id}`, assistante);
+        assert.equal(fiche.status, 200, JSON.stringify(fiche.body));
+        assert.equal(fiche.body.budgetGlobalVendu, 1000, 'réglage coché : la rentabilité lui sort');
+        assert.equal('facturation' in fiche.body, false, 'facturation de la fiche absente');
+        const directeur = await lire(`/api/chantiers/${affaire.id}`, jeton('directeur'));
+        assert.equal(directeur.body.facturation?.totalFactureHt, 123.45);
+      } finally {
+        assert.equal((await envoyer('put', '/api/parametres', sa, { rentabiliteAssistantesTechniques: reglage, rentabiliteDirecteurs: reglageDirecteurs })).status, 200);
       }
     });
   });

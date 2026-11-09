@@ -144,6 +144,12 @@ export const FAMILLES = {
       C('facture-brouillon', 'facture brouillon hors affaire'),
       C('facture-emise', 'facture émise, réglée en partie'),
       C('avoir-emis', 'avoir émis sur facture-avoir'),
+      // AT-3 (cadrage AT-3 v2, T6 du contrôle de cohérence de mode 1) : pièces du poste de l'assistante technique (type du compte
+      // créateur figé, Facture.creeParType), pour que les matrices enregistrent ses lectures et ses écritures, et pas seulement
+      // des 404 sur celles de l'administration.
+      C('facture-at-brouillon', 'facture brouillon hors affaire créée par AT', { AT: 'pièce de son poste (créée par AT)' }),
+      C('facture-at-emise', 'facture créée et émise par AT, réglée en partie par l’administration', { AT: 'pièce de son poste (créée et émise par AT)' }),
+      C('avoir-facture-at', 'avoir émis par l’administration sur facture-at-avoir (créée par AT, émise par l’administration)', { AT: 'avoir d’une pièce de son poste' }),
       C(INEXISTANT, 'identifiant absent'),
     ],
   },
@@ -504,6 +510,22 @@ export async function construireJeuDeDonnees({ prisma, api, comptes, donnees }) 
   fixer('facture', 'facture-emise', { id: factureEmise.id });
   fixer('facture', 'avoir-emis', { id: avoirId });
   fixer('reglement', 'reglement', { id: reglement.id ?? reglement.reglement?.id });
+  // AT-3 : pièces de l'assistante technique, créées par sa session (POST /api/factures, type ASSISTANTE_TECHNIQUE posé et figé) :
+  // un brouillon ; une facture qu'elle émet, réglée en partie par l'administration ; une facture qu'elle crée et que
+  // l'administration émet (réponse 1 du 09-11-2026), qui reçoit un avoir de l'administration. Montants HT distincts de ceux des
+  // pièces de l'administration (10, 100, 80).
+  const brouillonAt = (motif, prix) => api('AT', 'POST', '/api/factures', {
+    clientId: clientActif.id, origine: 'HORS_AFFAIRE', motifHorsAffaire: motif, dateEmission: aujourdhui, dateEcheance: aujourdhui,
+    lignes: [{ designation: `TEST ${motif}`, quantite: 1, prixUnitaireHt: prix, tauxTva: 20 }],
+  }, 201);
+  const factureAtBrouillon = await brouillonAt('TEST facture brouillon de l’assistante matrice', 15);
+  const factureAtEmise = await api('AT', 'POST', `/api/factures/${(await brouillonAt('TEST facture émise de l’assistante matrice', 150)).id}/emettre`, {});
+  await api(SA, 'POST', '/api/reglements', { clientId: clientActif.id, dateReglement: aujourdhui, montant: 60, moyen: 'VIREMENT', affectations: [{ factureId: factureAtEmise.id, montant: 60 }] }, 201);
+  const factureAtAvoir = await api(SA, 'POST', `/api/factures/${(await brouillonAt('TEST facture avoir de l’assistante matrice', 90)).id}/emettre`, {});
+  const avoirAt = await api(SA, 'POST', `/api/factures/${factureAtAvoir.id}/avoirs`, { lignes: [{ designation: 'TEST avoir de l’assistante matrice', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 15, tauxTva: 20 }] }, 201);
+  fixer('facture', 'facture-at-brouillon', { id: factureAtBrouillon.id });
+  fixer('facture', 'facture-at-emise', { id: factureAtEmise.id });
+  fixer('facture', 'avoir-facture-at', { id: avoirAt.avoir?.id ?? avoirAt.id });
 
   // Clé d'intégration active.
   const cle = await api(SA, 'POST', '/api/admin/api-keys', { nom: 'TEST Clé matrice', scopes: ['clients:read'] }, 201);
@@ -591,4 +613,18 @@ async function verifierFaits({ prisma, comptes, donnees, ids, intervenants }) {
   assert.equal(await prisma.interventionSignature.count({ where: { rapportId: ids('compte-rendu', 'rapport-non-signe').id } }), 0, 'rapport-non-signe non signé');
   const client = await prisma.client.findUniqueOrThrow({ where: { id: ids('client', 'client-desactive').id }, select: { actif: true } });
   assert.equal(client.actif, false, 'client-desactive désactivé');
+  // AT-3 : type du compte créateur de chaque pièce, figé (Facture.creeParType) ; statut, type et facture d'origine.
+  const piece = async (nom) => prisma.facture.findUniqueOrThrow({ where: { id: ids('facture', nom).id }, select: { type: true, statut: true, creeParType: true, createdById: true, factureOrigine: { select: { creeParType: true } } } });
+  const faitsPieces = {
+    'facture-brouillon': ['FACTURE', 'BROUILLON', 'SUPERADMIN', comptes.SA.id, null],
+    'facture-emise': ['FACTURE', 'EMISE', 'SUPERADMIN', comptes.SA.id, null],
+    'avoir-emis': ['AVOIR', 'EMISE', 'SUPERADMIN', comptes.SA.id, 'SUPERADMIN'],
+    'facture-at-brouillon': ['FACTURE', 'BROUILLON', 'ASSISTANTE_TECHNIQUE', comptes.AT.id, null],
+    'facture-at-emise': ['FACTURE', 'EMISE', 'ASSISTANTE_TECHNIQUE', comptes.AT.id, null],
+    'avoir-facture-at': ['AVOIR', 'EMISE', 'SUPERADMIN', comptes.SA.id, 'ASSISTANTE_TECHNIQUE'],
+  };
+  for (const [nom, attendu] of Object.entries(faitsPieces)) {
+    const p = await piece(nom);
+    assert.deepEqual([p.type, p.statut, p.creeParType, p.createdById, p.factureOrigine?.creeParType ?? null], attendu, `faits de ${nom}`);
+  }
 }

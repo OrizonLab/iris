@@ -40,6 +40,9 @@ const SESSION_INVALIDE = { error: 'Session expirée ou invalide' };
 const COMPTE_INCONNU = { error: 'Compte introuvable ou révoqué' };
 const COMPTE_DESACTIVE = { code: 'COMPTE_DESACTIVE', error: 'Ce compte est désactivé.' };
 const REFUS_ADMINISTRATION = { error: 'Accès réservé aux administrateurs' };
+// PDF d'une facture : la gestion des factures depuis AT-3 (requireGestionFactures), dont le refus nomme l'administration et
+// l'assistante technique ; l'assistante technique, admise à l'entrée, ne voit que les pièces de son poste (404 sur les autres).
+const REFUS_GESTION_FACTURES = { error: 'Accès réservé à l’administration et à l’assistante technique.' };
 const REFUS_DEVIS_READ = { error: 'Permission requise : devis:read' };
 const REFUS_COMMERCIAL = { error: 'Accès non autorisé pour un compte commercial.' };
 const REFUS_TECHNICIEN = { error: 'Le PDF du compte rendu n’est pas ouvert au technicien.' };
@@ -310,7 +313,8 @@ if (!TEST_DATABASE_URL) {
       c.technicienAffecte = await creerCompte('TECHNICIEN', 'technicien-affecte', { permissions: ['devis:read'] });
       c.technicienNonAffecte = await creerCompte('TECHNICIEN', 'technicien-non-affecte');
       // Lot « Assistante technique », PR AT-1 (cadrage v2.1) : SAV de toute la société, comptes rendus et leur PDF compris ;
-      // ni devis (AT-2), ni factures (AT-3), ni contrats ni rapport de chantier (administration jusqu'à AT-2).
+      // devis et contrats depuis AT-2a ; factures depuis AT-3, celles de son poste seulement (les pièces de ce fichier, créées par
+      // l'administration, lui répondent 404) ; ni rapport de chantier.
       c.assistanteTechnique = await creerCompte('ASSISTANTE_TECHNIQUE', 'assistante-technique');
       c.desactive = await creerCompte('ADMIN', 'admin-desactive', { actif: false });
       f.comptes = c;
@@ -521,14 +525,17 @@ if (!TEST_DATABASE_URL) {
       });
     });
 
-    // P1 et P3 : la route de la facture garde requireAdmin (403 « Accès réservé aux administrateurs », avant tout
-    // document), puis 404 « Facture introuvable. », puis refusDocumentFacture. Une pièce émise s'imprime depuis ses
-    // copies : une identité actuelle incomplète ne la refuse pas.
-    test('facture : administration seule, 403 exact avant tout document ; 404 « Facture introuvable. » ; brouillon refusé ; identité actuelle sans effet', async () => {
+    // P1 et P3 : la route de la facture garde sa garde d'entrée (403, avant tout document ; requireGestionFactures depuis AT-3,
+    // « Accès réservé à l’administration et à l’assistante technique. »), puis 404 « Facture introuvable. », puis
+    // refusDocumentFacture. Une pièce émise s'imprime depuis ses copies : une identité actuelle incomplète ne la refuse pas.
+    // AT-3 : l'assistante technique passe la garde, et chaque pièce de l'administration lui répond 404, avant le refus du document
+    // (brouillon compris) : T4 du contrôle de cohérence d'AT-3, « périmètre d'abord ».
+    test('facture : administration seule, 403 exact avant tout document ; 404 « Facture introuvable. » ; brouillon refusé ; identité actuelle sans effet ; l’assistante technique, 404 sur les pièces de l’administration, avant le refus du document', async () => {
       const c = f.comptes;
       const cibles = [['factureEmise', f.factureEmise.id], ['brouillon', f.factureBrouillon.id], ['introuvable', randomUUID()], ['identifiant libre', 'inexistant'], ['identifiant d’un devis', f.devisBrouillon.id]];
       const administration = [200, [409, FACTURE_NON_EMISE], [404, FACTURE_INTROUVABLE], [404, FACTURE_INTROUVABLE], [404, FACTURE_INTROUVABLE]];
-      const refuse = Array(cibles.length).fill([403, REFUS_ADMINISTRATION]);
+      const refuse = Array(cibles.length).fill([403, REFUS_GESTION_FACTURES]);
+      const horsDeSonPoste = Array(cibles.length).fill([404, FACTURE_INTROUVABLE]);
       const matrice = [
         ['SUPERADMIN', admin(), administration],
         ['ADMIN', parCompte(c.admin), administration],
@@ -537,7 +544,8 @@ if (!TEST_DATABASE_URL) {
         // l'administration », décision de Nelson du 24-10-2026, point 14).
         ['DIRECTEUR', parCompte(c.directeur), administration],
         ['DIRECTEUR avec tous les droits', parCompte(c.directeurTousDroits), administration],
-        ...['commercial', 'assistante', 'assistanteTechnique', 'comptable', 'directeurCommercial', 'conducteur', 'responsable', 'technicienAffecte'].map((cle) => [cle, parCompte(c[cle]), refuse]),
+        ['assistanteTechnique', parCompte(c.assistanteTechnique), horsDeSonPoste],
+        ...['commercial', 'assistante', 'comptable', 'directeurCommercial', 'conducteur', 'responsable', 'technicienAffecte'].map((cle) => [cle, parCompte(c[cle]), refuse]),
       ];
       await jouerMatrice('facture', cibles, matrice, f.noms);
       // Identité de la société vidée : la facture émise s'imprime toujours, les refus restent les mêmes.
@@ -579,8 +587,10 @@ if (!TEST_DATABASE_URL) {
       await jouerMatrice('facture', cibles, [
         ['SUPERADMIN', admin(), attendus],
         ['ADMIN', parCompte(f.comptes.admin), attendus],
-        // requireAdmin passe avant le document : un non-administrateur reçoit 403, jamais le refus du document.
-        ['COMPTABLE', parCompte(f.comptes.comptable), Array(4).fill([403, REFUS_ADMINISTRATION])],
+        // La garde d'entrée passe avant le document : un compte hors de l'administration et de l'assistante technique reçoit 403,
+        // jamais le refus du document ; l'assistante technique, 404 sur ces pièces de l'administration (AT-3, T4).
+        ['COMPTABLE', parCompte(f.comptes.comptable), Array(4).fill([403, REFUS_GESTION_FACTURES])],
+        ['ASSISTANTE_TECHNIQUE', parCompte(f.comptes.assistanteTechnique), Array(4).fill([404, FACTURE_INTROUVABLE])],
       ], f.noms);
     });
 
