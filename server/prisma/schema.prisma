@@ -385,7 +385,8 @@ model Parametres {
   //  - la chaîne hiérarchique de ce conducteur, jusqu'au sommet (comptes Responsable) ;
   //  - les comptes Directeur, qui voient tous les chantiers ;
   //  - les comptes Assistante technique, qui voient tous les chantiers, sans la facturation de la
-  //    fiche jusqu'à AT-3 ; décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2).
+  //    fiche, y compris depuis AT-3 (elles ne voient que les factures de leur poste ; choix par défaut,
+  //    à confirmer) ; décochée par défaut (réponses de Nelson du 06-11-2026, 1 et 2).
   rentabiliteConducteur  Boolean  @default(true)
   rentabiliteHierarchie  Boolean  @default(true)
   rentabiliteDirecteurs  Boolean  @default(true)
