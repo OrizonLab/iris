@@ -17,7 +17,8 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 //  1. connectée, elle ouvre « Factures » depuis son menu (section Facturation réduite à cette entrée) : l'écran se charge sans
 //     erreur ni refus d'API, avec « Dernière facture numérotée » au jour de la société, sans « Export comptable » ;
 //  2. elle crée un brouillon hors affaire (1,5 × 12,33 € HT à 20 % : 18,495 arrondi à 18,50 € HT, TTC 22,20 € ; lecture écartée :
-//     troncature ou arrondi au pair, 18,49 € et 22,19 €), relu par l'API à son type, puis l'émet ;
+//     troncature, 18,49 € et 22,19 € ; l'arrondi au pair donne aussi 18,50 € et n'est pas écarté ici : il l'est par le bloc
+//     « Assistante technique (AT-3) » de server/tests/api.test.mjs), relu par l'API à son type, puis l'émet ;
 //  3. elle télécharge le PDF de sa facture, puis l'envoie par la messagerie : l'envoi est noté à son nom ;
 //  4. l'administration crée un avoir partiel (5,00 € HT, 6,00 € TTC) et enregistre un règlement de 10,00 € sur sa facture : elle
 //     lit l'avoir (PDF, sans « Envoyer »), le reste dû 6,20 € (22,20 − 6,00 − 10,00 ; lecture écartée : avoir déduit hors taxes,

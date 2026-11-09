@@ -564,7 +564,7 @@ if (!TEST_DATABASE_URL) {
     // Nelson du 06-11-2026, 1, 2 et 4, et du 07-11-2026, 1). Réglage rentabiliteAssistantesTechniques coché : sur la liste et la
     // fiche de tous les chantiers, l'assistante technique lit le vendu, les marges, l'estimation et le coût prévu ; elle ne lit
     // jamais la facturation de la fiche (permanent depuis AT-3, choix par défaut, le plus restrictif, à confirmer), ni le coût de
-  // main-d'œuvre, ses totaux, ses taux ou les hypothèses de coût
+    // main-d'œuvre, ses totaux, ses taux ou les hypothèses de coût
     // de l'estimation. Lectures écartées : le réglage sans effet (vendu toujours masqué), la vue de l'administration (facturation
     // et coût de main-d'œuvre lus), « voitCoutMainOeuvre ouvert à qui voit la rentabilité ». Témoins : réglage décoché (défaut),
     // les champs ouverts restent nuls ou absents pour elle ; l'administration lit la facturation et le coût de main-d'œuvre dans

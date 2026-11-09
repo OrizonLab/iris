@@ -29130,7 +29130,9 @@ if (!TEST_DATABASE_URL) {
     const REFUS_GESTION = 'Accès réservé à l’administration et à l’assistante technique.';
     const REFUS_ENVOI_AVOIR = 'L’envoi d’un avoir est réservé à l’administration.';
     const INTROUVABLE = 'Facture introuvable.';
-    const REFUS_TEMPS_PASSE_AT = 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Pour la refaire, adressez-vous à l’administration, qui annule la facture émise par son avoir total ou la corrige par des avoirs partiels.';
+    // Audit des montants de #517, N5 : son refus distingue le brouillon, qui s'émet d'abord, de la facture émise, que
+    // l'administration annule par son avoir total ou corrige par des avoirs partiels ; il ne cite aucun numéro.
+    const REFUS_TEMPS_PASSE_AT = 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord ; pour refaire une facture émise, adressez-vous à l’administration, qui l’annule par son avoir total ou la corrige par des avoirs partiels.';
     const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
     const jetonDe = (compte) => ({ Authorization: `Bearer ${jwt.sign({ id: compte.id }, process.env.JWT_SECRET)}` });
     // Le corps est calculé avant la requête (cf. les autres blocs) : request(app) ouvre un serveur éphémère.
@@ -29465,11 +29467,25 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual([avoirTotal.creeParType, avoirTotal.estAvoirAnnulation, avoirTotal.totalTtc], ['SUPERADMIN', true, 12]);
       assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: avoirTotal.id } })).creeParType, 'SUPERADMIN');
 
-      // Liste non paginée et paginée : mêmes soldes pour elle et pour l'administration.
+      // Liste non paginée et paginée (celle que lit l'écran Factures) : mêmes soldes pour elle et pour l'administration. Les
+      // quatre pièces, créées en dernier au jour de la société, sont en tête de la liste triée ; les pages sont lues jusqu'à elles.
       const soldes = (f) => [f.statut, f.montantAvoirs, f.montantRegle, f.resteDu];
+      const pieces = [facture.id, annulable.id, avoir.body.id, avoirTotal.id];
       const lus = async (auth) => {
         const tout = (await lire('/api/factures', auth)).body;
-        return Object.fromEntries([facture.id, annulable.id, avoir.body.id, avoirTotal.id].map((id) => [id, tout.find((f) => f.id === id)]));
+        const pagines = [];
+        for (let page = 1; pieces.some((id) => !pagines.some((f) => f.id === id)); page += 1) {
+          const lu = await lire(`/api/factures?page=${page}&pageSize=100`, auth);
+          assert.equal(lu.status, 200, JSON.stringify(lu.body));
+          if (!lu.body.items.length) break;
+          pagines.push(...lu.body.items);
+        }
+        return Object.fromEntries(pieces.map((id) => {
+          const parListe = tout.find((f) => f.id === id);
+          assert.ok(parListe, `${id} : dans la liste non paginée`);
+          assert.deepEqual(soldes(pagines.find((f) => f.id === id) ?? {}), soldes(parListe), `${id} : mêmes soldes dans la liste paginée`);
+          return [id, parListe];
+        }));
       };
       const parElle = await lus(assistante);
       const parAdmin = await lus(jeton('admin'));
@@ -29571,6 +29587,22 @@ if (!TEST_DATABASE_URL) {
       for (const total of [enEuros(1015.55), enEuros(50), '1 015,55', fb.numero]) assert.ok(!texteElle.includes(total), `journal lu par elle sans ${total}`);
       // Le journal en base garde le libellé entier : seul le lecteur change.
       assert.equal((await prisma.journalFacture.findFirstOrThrow({ where: { factureId: fa.id, action: 'REGLEMENT_CONTREPASSE' } })).detail, contre(journalAdmin)[0]);
+    });
+
+    // Audit des droits de #517, N1 : le retrait du total d'une contre-passation est fermé par défaut. Un libellé d'une autre forme
+    // que celle de reglements/routes.ts (ici, une espace insécable avant « € », comme le donnerait un formatage changé) ne lui
+    // donne aucun montant du règlement ; l'administration lit l'entrée entière. Lecture écartée : le libellé rendu tel quel quand
+    // l'expression ne le reconnaît pas.
+    test('journal lu par elle : une contre-passation au libellé inattendu ne lui donne aucun montant du règlement ; l’administration la lit entière', async () => {
+      const assistante = jeton('assistante');
+      const sienne = await factureEmise(assistante, 'contre-passation au libellé inattendu');
+      const detail = `Contre-passation du règlement TEST-N1-${suffixe} du 01-01-2026 de 1\u202f234,56\u00a0€ : « libellé d’une autre forme » ; 1,00 € retirés ; reste dû 11,00 €`;
+      await prisma.journalFacture.create({ data: { factureId: sienne.id, acteurId: comptes.admin.id, action: 'REGLEMENT_CONTREPASSE', detail } });
+      const contre = (journal) => journal.filter((e) => e.action === 'REGLEMENT_CONTREPASSE').map((e) => e.detail);
+      const parElle = contre((await lire(`/api/factures/${sienne.id}/journal`, assistante)).body);
+      assert.equal(parElle.length, 1);
+      assert.ok(!parElle[0].includes('234,56'), `total du règlement absent : ${parElle[0]}`);
+      assert.deepEqual(contre((await lire(`/api/factures/${sienne.id}/journal`, jeton('admin'))).body), [detail]);
     });
 
     // T2 (« chaque origine créée par elle, dont contrat et hors affaire ; creeParType relu en base ») ; réponse 2 du 09-11-2026
@@ -29892,6 +29924,32 @@ if (!TEST_DATABASE_URL) {
       await prisma.facture.update({ where: { id: sienBrouillon.id }, data: { dateEcheance: echeance } });
       const relu = await prisma.facture.findUniqueOrThrow({ where: { id: sienBrouillon.id } });
       assert.deepEqual([relu.dateEcheance.toISOString(), relu.creeParType], [echeance.toISOString(), ROLE_AT]);
+    });
+
+    // Hors montants (audit des montants de #517, T) : une pièce sans type, comme celles créées avant AT-3 (colonne nulle, aucune
+    // reprise, règle 4), reste à la seule administration ; le type posé est celui du compte qui crée, jamais une valeur du corps.
+    // Lectures écartées : les pièces sans type ouvertes aux assistantes ; creeParType repris du corps de la requête.
+    test('pièce sans type (antérieure à AT-3) fermée aux assistantes (liste, PDF, journal, règlements, émission : 404) ; creeParType envoyé dans le corps ignoré, pour l’administration comme pour elle', async () => {
+      const assistante = jeton('assistante');
+      const jour = new Date(`${await jourIso()}T00:00:00Z`);
+      const ancienne = await prisma.facture.create({ data: {
+        clientId: client.id, clientRaisonSociale: client.raisonSociale, origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST AT-3 pièce sans type ${suffixe}`,
+        dateEmission: jour, dateEcheance: jour, totalHt: 10, totalTva: 2, totalTtc: 12,
+      } });
+      assert.equal(ancienne.creeParType, null);
+      assert.ok((await lire('/api/factures', jeton('admin'))).body.some((f) => f.id === ancienne.id), 'l’administration la voit');
+      assert.ok(!(await lire('/api/factures', assistante)).body.some((f) => f.id === ancienne.id), 'elle ne la voit pas');
+      for (const chemin of ['document.pdf', 'journal', 'reglements']) {
+        assert.deepEqual([(await lire(`/api/factures/${ancienne.id}/${chemin}`, assistante)).status], [404], chemin);
+      }
+      assert.deepEqual([(await envoyer('post', `/api/factures/${ancienne.id}/emettre`, assistante, {})).status], [404]);
+      // Type envoyé dans le corps : ignoré, relu en base.
+      const parAdmin = await brouillonCree(jeton('admin'), 'type du corps, administration', undefined, { creeParType: ROLE_AT });
+      const parElle = await brouillonCree(assistante, 'type du corps, assistante', undefined, { creeParType: 'ADMIN' });
+      assert.deepEqual([parAdmin.creeParType, parElle.creeParType], ['ADMIN', ROLE_AT]);
+      assert.deepEqual((await prisma.facture.findMany({ where: { id: { in: [parAdmin.id, parElle.id] } }, select: { id: true, creeParType: true } })).map((f) => [f.id, f.creeParType]).sort(),
+        [[parAdmin.id, 'ADMIN'], [parElle.id, ROLE_AT]].sort());
+      assert.ok(!(await lire('/api/factures', assistante)).body.some((f) => f.id === parAdmin.id), 'le brouillon de l’administration lui reste fermé');
     });
 
     // R1 de la v3 d'AT-2b, devenu permanent avec AT-3 (cadrage v1, « Facturation de la fiche chantier » ; voitFacturationChantier,
