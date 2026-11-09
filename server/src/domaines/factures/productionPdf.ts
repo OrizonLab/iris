@@ -7,10 +7,11 @@ import { rendreDocumentFacturePdf } from './pdf';
 // PDF d'une facture ou d'un avoir émis, en deux étapes (lot 6b-1a ; cf. documents/productionPdf.ts),
 // sans droit ni verrou : la route garde les siens. La pièce s'imprime depuis ses seules copies figées
 // (./pdf.ts), sans identité actuelle à exiger.
-// Refus de la lecture : 404 « Facture introuvable. » ; 409 avec le message de refusDocumentFacture
-// (pièce non émise, mentions légales ou adresse de facturation figées absentes).
-export async function lireFacturePdf(tx: Prisma.TransactionClient, id: string) {
-  const facture = await tx.facture.findUnique({ where: { id }, include: { ...factureInclude, identiteEmetteur: { include: { logo: { select: { contenu: true } } } } } });
+// Refus de la lecture : 404 « Facture introuvable. », pour une pièce absente ou hors du périmètre du
+// lecteur (visibles, cf. ./droits.ts ; AT-3) ; 409 avec le message de refusDocumentFacture (pièce non
+// émise, mentions légales ou adresse de facturation figées absentes).
+export async function lireFacturePdf(tx: Prisma.TransactionClient, id: string, visibles: Prisma.FactureWhereInput = {}) {
+  const facture = await tx.facture.findFirst({ where: { AND: [{ id }, visibles] }, include: { ...factureInclude, identiteEmetteur: { include: { logo: { select: { contenu: true } } } } } });
   if (!facture) return refusPdf(404, 'Facture introuvable.');
   const refus = refusDocumentFacture(facture);
   if (refus) return refusPdf(409, refus);

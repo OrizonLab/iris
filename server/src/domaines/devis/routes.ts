@@ -494,7 +494,7 @@ export function enregistrerRoutesDevis(app: Express): void {
   // La signature engage une personne identifiée : aucune clé d'intégration ne peut l'émettre.
   app.post('/api/devis/:id/signature', requireAuth, requirePermission('devis:write'), signerDevis);
   // PDF du devis (lot 6a-2) : porteurs du droit de lecture des devis, en session seulement (celui des
-  // factures est réservé à l'administration).
+  // factures suit factures/droits.ts : l'administration, et l'assistante technique pour les pièces de son poste).
   app.get('/api/devis/:id/document.pdf', requireAuth, requirePermission('devis:read'), imprimerDevis);
   // Envoi par la messagerie et journal des envois (lot 6a-3) : en session seulement, comme le PDF ;
   // la lecture avec le droit de lecture des devis, l'enregistrement avec le droit de les écrire.

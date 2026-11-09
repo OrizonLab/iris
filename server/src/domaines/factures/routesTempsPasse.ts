@@ -1,7 +1,7 @@
 import type { Express, Response } from 'express';
 import { prisma, transactionVerifiee } from '../../db';
 import { type AuthRequest, requireAuth } from '../../http/auth';
-import { requireAdmin } from '../../http/gardes';
+import { requireGestionFactures } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { FUSEAU_HORAIRE_PAR_DEFAUT } from '../../commun/dates';
 import { decimalToNumber } from '../../commun/montants';
@@ -29,11 +29,13 @@ const refus = (res: Response, error: unknown) => {
   return null;
 };
 
+// Aperçu et création : l'administration, et l'assistante technique (AT-3 ; point 27), qui voit tout le SAV.
+// Le brouillon porte le type de son créateur, figé (creeParType, cf. ./droits.ts).
 export function enregistrerRoutesFactureTempsPasse(app: Express): void {
   // Aperçu : la facture que créerait la route suivante, sans rien écrire.
-  app.get('/api/interventions/:id/facture-temps-passe', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/interventions/:id/facture-temps-passe', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
-      const calcul = await preparerFactureTempsPasse(prisma, paramId(req), false);
+      const calcul = await preparerFactureTempsPasse(prisma, paramId(req), false, req.user?.role);
       res.json(decimalToNumber(calcul));
     } catch (error) {
       if (refus(res, error)) return;
@@ -42,22 +44,22 @@ export function enregistrerRoutesFactureTempsPasse(app: Express): void {
     }
   });
 
-  // Création du brouillon. Le total HT de l'aperçu lu par l'administration est exigé : une heure saisie,
+  // Création du brouillon. Le total HT de l'aperçu lu par son auteur est exigé : une heure saisie,
   // corrigée ou archivée entre l'aperçu et la création refuse la facture au lieu de la changer en silence.
-  app.post('/api/interventions/:id/facture-temps-passe', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  app.post('/api/interventions/:id/facture-temps-passe', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const societe = await getCompanySettings();
       const { dateEmission, dateEcheance } = lireDatesFacture(req.body, societe.fuseauHoraire || FUSEAU_HORAIRE_PAR_DEFAUT);
       const totalHtAttendu = nombreDecimalNonNegatif(req.body?.totalHtAttendu, 10, true);
       if (totalHtAttendu === null) return res.status(400).json({ error: 'Le total HT de l’aperçu (totalHtAttendu) est requis : relisez l’aperçu de la facture au temps passé.' });
       const facture = await transactionVerifiee(async (tx) => {
-        const calcul = await preparerFactureTempsPasse(tx, paramId(req), true);
+        const calcul = await preparerFactureTempsPasse(tx, paramId(req), true, req.user?.role);
         if (calcul.totalHt !== totalHtAttendu) {
           throw new RefusFactureTempsPasse(409, `La facture au temps passé a changé depuis l’aperçu (total HT ${formatMontantFacture(calcul.totalHt)} au lieu de ${formatMontantFacture(totalHtAttendu)}) : relisez l’aperçu avant de la créer.`);
         }
         const creee = await tx.facture.create({ data: {
           clientId: calcul.intervention.clientId, clientRaisonSociale: calcul.intervention.clientRaisonSociale, origine: 'INTERVENTION', interventionId: calcul.intervention.id,
-          tempsPasse: true, dateEmission, dateEcheance, totalHt: calcul.totalHt, totalTva: calcul.totalTva, totalTtc: calcul.totalTtc, createdById: req.user!.id,
+          tempsPasse: true, dateEmission, dateEcheance, totalHt: calcul.totalHt, totalTva: calcul.totalTva, totalTtc: calcul.totalTtc, createdById: req.user!.id, creeParType: req.user!.role,
           lignes: { create: calcul.lignes.map(({ tempsPasse: _tempsPasse, ...ligne }) => ligne) }, ventilationTva: { create: calcul.ventilationTva },
         }, include: factureInclude });
         await tx.journalFacture.create({ data: { factureId: creee.id, acteurId: req.user!.id, action: 'CREATION_BROUILLON', detail: detailJournal(calcul) } });
