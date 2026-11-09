@@ -38,9 +38,14 @@ export function envoiAvoirRefuse(role: string | undefined | null, piece: { type:
 // reste dû, sans ce total (choix par défaut, le plus restrictif, à confirmer). Le libellé est écrit par
 // reglements/routes.ts : « Contre-passation du règlement <id> du <JJ-MM-AAAA> de <montant> : « <motif> »… ».
 const TOTAL_CONTREPASSATION = /^(Contre-passation du règlement \S+ du \d{2}-\d{2}-\d{4}) de .+? € (: « )/;
+// Retrait fermé par défaut : un libellé que l'expression ne reconnaît pas (format de montant changé, par exemple) n'est pas
+// rendu tel quel, il est remplacé par ce texte, sans aucun montant.
+export const CONTREPASSATION_SANS_DETAIL = 'Contre-passation d’un règlement : le détail est réservé à l’administration.';
 export function journalPourLeLecteur<T extends { action: string; detail: string | null }>(role: string | undefined | null, lignes: T[]): T[] {
   if (isAdminRole(role)) return lignes;
-  return lignes.map((ligne) => (ligne.action === 'REGLEMENT_CONTREPASSE' && ligne.detail
-    ? { ...ligne, detail: ligne.detail.replace(TOTAL_CONTREPASSATION, '$1 $2') }
-    : ligne));
+  return lignes.map((ligne) => {
+    if (ligne.action !== 'REGLEMENT_CONTREPASSE' || !ligne.detail) return ligne;
+    const sansTotal = ligne.detail.replace(TOTAL_CONTREPASSATION, '$1 $2');
+    return { ...ligne, detail: sansTotal === ligne.detail ? CONTREPASSATION_SANS_DETAIL : sansTotal };
+  });
 }

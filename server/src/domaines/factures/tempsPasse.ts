@@ -189,7 +189,7 @@ export async function preparerFactureTempsPasse(db: Db, interventionId: string, 
     select: { numero: true }, orderBy: { createdAt: 'asc' },
   });
   if (existantes.length && !isAdminRole(role)) {
-    throw new RefusFactureTempsPasse(409, 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Pour la refaire, adressez-vous à l’administration, qui annule la facture émise par son avoir total ou la corrige par des avoirs partiels.');
+    throw new RefusFactureTempsPasse(409, 'Cette intervention ou l’une de ses suites a déjà une facture : la facture au temps passé est unique. Un brouillon s’émet d’abord ; pour refaire une facture émise, adressez-vous à l’administration, qui l’annule par son avoir total ou la corrige par des avoirs partiels.');
   }
   if (existantes.length) {
     throw new RefusFactureTempsPasse(409, `Cette intervention ou l’une de ses suites a déjà une facture (${libelles(existantes.map((f) => f.numero ?? 'brouillon'))}) : la facture au temps passé est unique. Pour la refaire, annulez d’abord la facture émise par son avoir total (un brouillon s’émet d’abord) ; une facture qui a reçu un avoir partiel, ou un règlement qui n’est pas contre-passé, ne s’annule plus en totalité et se corrige par des avoirs partiels.`);
