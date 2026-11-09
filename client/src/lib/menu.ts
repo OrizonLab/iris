@@ -9,7 +9,7 @@ import {
   HandCoins, KeyRound, Landmark, LayoutDashboard, PieChart, Receipt, Repeat, ScrollText, Settings, ShoppingCart, TrendingUp, Wrench,
 } from 'lucide-react';
 import {
-  gereLesContrats, isAdminRole, isSuperAdminRole, peutAccederAuxDevis, peutConsulterAnnuaire, peutConsulterPlanning, peutOuvrirAdministration, peutVoirInterventions,
+  gereLesContrats, gereLesFactures, isAdminRole, isSuperAdminRole, peutAccederAuxDevis, peutConsulterAnnuaire, peutConsulterPlanning, peutOuvrirAdministration, peutVoirInterventions,
   peutVoirStatistiques, peutVoirTravaux, roleDuCompte, ROLE_COMMERCIAL, ROLE_TECHNICIEN, type CurrentUser,
 } from './droits';
 
@@ -59,7 +59,9 @@ export function sectionsMenu(user: CurrentUser | null | undefined, planningActif
     ] },
     { titre: 'Facturation', entrees: [
       { to: '/prete-a-facturer', libelle: 'Prêt à facturer', icone: CheckCircle2, visible: isAdmin },
-      { to: '/factures', libelle: 'Factures', icone: Receipt, visible: isAdmin },
+      // Factures : l'administration et l'assistante technique (même liste que la route, ROLES_FACTURES ;
+      // cf. gereLesFactures) ; les autres entrées de la facturation restent à l'administration.
+      { to: '/factures', libelle: 'Factures', icone: Receipt, visible: gereLesFactures(role) },
       { to: '/reglements', libelle: 'Règlements', icone: HandCoins, visible: isAdmin },
       { to: '/mentions-legales', libelle: 'Mentions & CGV', icone: ScrollText, visible: isAdmin },
       { to: '/comptabilite', libelle: 'Plan comptable', icone: Landmark, visible: isAdmin },

@@ -76,7 +76,7 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
               </fieldset>
               {/* Destinataires de la rentabilité de chaque chantier : montant vendu global, marge du jour,
                   marge estimée, alertes « en perte » et « marge faible », facturation de la fiche (sauf pour
-                  les assistantes techniques, jusqu'à AT-3 ; cf. voitFacturationChantier côté serveur), sur la
+                  les assistantes techniques ; cf. voitFacturationChantier côté serveur), sur la
                   liste, le tableau de bord et la fiche. Les dépassements, l'absence de saisie et les budgets
                   par poste restent visibles de tous ceux qui voient le chantier, sauf du technicien, qui ne
                   reçoit aucun montant (cf. voitMontantsChantier côté serveur). */}
