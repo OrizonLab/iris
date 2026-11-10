@@ -601,8 +601,9 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Cadrage v3, C8 : « soldée » se lit sur une somme positive (parts de règlements non contre-passés et TTC des avoirs partiels
-    // émis), en base comme dans l'API. Un avoir partiel de 0,00 € ne se crée pas par l'API (ligne au prix nul refusée) ; écrit en
-    // base sur une facture à 0,00 €, il est émis sans refus au COMMIT, et la facture reste « émise ». Lecture écartée : gardes qui
+    // émis), en base comme dans l'API. L'API refuse une ligne d'avoir au prix nul ; un avoir de 0,00 € s'y crée pourtant d'une ligne
+    // dont le total s'arrondit à 0,00 € (test suivant). Écrit en base sur une facture à 0,00 €, il est émis sans refus au COMMIT,
+    // et la facture reste « émise ». Lecture écartée : gardes qui
     // comptent l'existence d'un avoir partiel émis (version 2) : la facture, de reste dû nul, serait dite soldée, et l'avoir
     // refusé au COMMIT.
     test('avoir partiel de 0,00 € sur une facture à 0,00 € : refusé par l’API (400, ligne au prix nul), émis en base sans refus au COMMIT, en transaction comme en écriture simple ; la facture reste « émise », ne passe pas « réglée », et garde le refus « déjà soldée »', async () => {
@@ -620,6 +621,22 @@ if (!TEST_DATABASE_URL) {
       await refuseEnBase(() => prisma.facture.update({ where: { id: facture.id }, data: { statut: 'REGLEE' } }), GARDE.passeReglee, 'facture à 0,00 € créditée de 0,00 €, passée réglée');
       await refuse(() => reglement(facture.id, 10), 409, REFUS.dejaSoldee(facture.numero), 'règlement sur une facture à 0,00 € créditée de 0,00 €');
       assert.deepEqual(await transitions(facture.id), []);
+    });
+
+    // Cadrage v3, C8, côté API : un avoir partiel de 0,00 € se crée aussi par l'API, d'une ligne dont le
+    // total s'arrondit à 0,00 € HT (0,001 × 0,01 € = 0,00001 €). Sur une facture à 0,00 €, il la laisse « émise » : la seconde
+    // condition de synchroniserStatutReglement (montantRegle > 0 ou montantAvoirs > 0) ne se lit que par ce chemin de l'API.
+    // Lecture écartée : « réglée » dès que le reste dû est nul ; l'API tenterait alors le passage, que la garde immédiate refuse
+    // (500, rien d'écrit).
+    test('avoir partiel de 0,00 € créé par l’API (0,001 × 0,01 €, arrondi à 0,00 € HT) sur une facture à 0,00 € : 201, la facture reste « émise » (avoirs 0,00 €, reste dû 0,00 €), sans entrée de transition, et garde le refus « déjà soldée »', async () => {
+      assert.equal(exact.ligneHt(0.001, 0.01), 0n, 'témoin : 0,00001 € arrondi au centime');
+      const facture = await factureEmise(par('AD'), 'avoir à zéro par l’API', LIGNES_ZERO);
+      const a = await avoirCree(facture.id, [ligne('avoir arrondi à zéro', 0.001, 0.01, 20)], par('AD'));
+      assert.deepEqual([a.type, a.statut, a.estAvoirAnnulation, ...nombres([a.totalHt, a.totalTva, a.totalTtc])], ['AVOIR', 'EMISE', false, 0, 0, 0]);
+      assert.equal((await enBase(facture.id)).statut, 'EMISE');
+      assert.deepEqual(await soldes(facture.id), ['EMISE', 0, 0, 0]);
+      assert.deepEqual(await transitions(facture.id), []);
+      await refuse(() => reglement(facture.id, 10), 409, REFUS.dejaSoldee(facture.numero), 'règlement sur une facture à 0,00 € créditée de 0,00 € par l’API');
     });
 
     // Critère 6 et gardes SQL du cadrage : écritures directes refusées, messages exacts ; avoir d'annulation et avoir brouillon non
