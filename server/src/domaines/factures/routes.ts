@@ -548,7 +548,8 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         }, include: factureInclude });
         await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true } });
         await tx.journalFacture.create({ data: { factureId: avoir.id, acteurId: req.user!.id, action: 'CREATION_AVOIR_PARTIEL', detail: `Avoir partiel de la facture ${facture.numero}` } });
-        // L'avoir baisse le reste dû : une facture déjà réglée en partie peut devenir soldée.
+        // L'avoir baisse le reste dû : une facture qu'il solde passe « réglée », réglée en partie ou non (lecture
+        // retenue de la réponse de Nelson du 09-11-2026, reglements/metier.ts).
         await synchroniserStatutReglement(tx, facture.id, req.user!.id, `avoir partiel ${numero}`);
         return { avoir: { ...avoir, ecrituresScellees: true } };
       });

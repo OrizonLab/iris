@@ -10351,9 +10351,16 @@ if (!TEST_DATABASE_URL) {
       try {
         ids.push((await creer('FACTURE', 'BROUILLON', null, '2026-09-30')).id);
         // Un avoir partiel ne crédite qu'une facture émise ou réglée (#230) : celle-ci, émise sans numéro,
-        // ne compte pas non plus. L'avoir est purgé avant elle.
+        // ne compte pas non plus. L'avoir est purgé avant elle. Il la solde (12 € TTC sur 12 €) : depuis le lot « Statut
+        // d'une facture couverte par des avoirs » (réponse de Nelson du 09-11-2026, lecture retenue), elle passe « réglée »
+        // dans la même transaction, après l'avoir, sans quoi la vérification différée la refuserait au COMMIT.
         const origineAvoir = await creer('FACTURE', 'EMISE', null, '2026-09-30');
-        ids.push((await creer('AVOIR', 'EMISE', 'TEST-A-101', '2026-09-29', origineAvoir.id)).id, origineAvoir.id);
+        ids.push((await prisma.$transaction(async tx => {
+          const avoir = await piece(tx, 'AVOIR', 'EMISE', 'TEST-A-101', '2026-09-29', origineAvoir.id);
+          await tx.facture.update({ where: { id: origineAvoir.id }, data: { statut: 'REGLEE' } });
+          await tx.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE`;
+          return avoir;
+        })).id, origineAvoir.id);
         assert.deepEqual((await request(app).get(url).set('Authorization', auth)).body, { derniereDateEmission: null });
         ids.push((await creer('FACTURE', 'EMISE', 'TEST-F-101', '2026-09-27')).id);
         assert.deepEqual((await request(app).get(url).set('Authorization', auth)).body, { derniereDateEmission: '2026-09-27T00:00:00.000Z' });
@@ -12082,13 +12089,23 @@ if (!TEST_DATABASE_URL) {
         assert.equal(await statut(facture.id), 'EMISE');
         assert.equal(await prisma.facture.count({ where: { factureOrigineId: facture.id } }), 0);
 
-        // Un avoir partiel, même du montant total, n'est pas un avoir d'annulation.
+        // Un avoir partiel, même du montant total, n'est pas un avoir d'annulation. Depuis le lot « Statut d'une facture
+        // couverte par des avoirs » (réponse de Nelson du 09-11-2026, lecture retenue), celui du montant total solde la
+        // facture, qui passe « réglée » : elle ne s'annule plus, refusée par le cycle (réglée → annulée). Un avoir partiel
+        // d'une partie du montant la laisse « émise » : son annulation reste refusée faute d'avoir d'annulation.
         const partielle = await emettre('TEST cycle partielle');
         const partiel = await request(app).post(`/api/factures/${partielle.id}/avoirs`).set('Authorization', auth).send({ lignes: [{ designation: 'TEST cycle avoir partiel total', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 20 }] });
         assert.equal(partiel.status, 201, JSON.stringify(partiel.body));
         assert.deepEqual([Number(partiel.body.totalHt), Number(partiel.body.totalTva), Number(partiel.body.totalTtc), partiel.body.estAvoirAnnulation], [10, 2, 12, false]);
-        await assert.rejects(transaction((tx) => tx.facture.update({ where: { id: partielle.id }, data: { statut: 'ANNULEE' } })), sansAvoir, 'annulée avec un avoir partiel');
-        assert.equal(await statut(partielle.id), 'EMISE');
+        assert.equal(await statut(partielle.id), 'REGLEE');
+        await assert.rejects(transaction((tx) => tx.facture.update({ where: { id: partielle.id }, data: { statut: 'ANNULEE' } })), /hors du cycle des pièces : REGLEE → ANNULEE/, 'réglée par son avoir partiel total, puis annulée');
+        assert.equal(await statut(partielle.id), 'REGLEE');
+        const enPartie = await emettre('TEST cycle partielle en partie');
+        const partielEnPartie = await request(app).post(`/api/factures/${enPartie.id}/avoirs`).set('Authorization', auth).send({ lignes: [{ designation: 'TEST cycle avoir partiel en partie', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 5, tauxTva: 20 }] });
+        assert.equal(partielEnPartie.status, 201, JSON.stringify(partielEnPartie.body));
+        assert.deepEqual([Number(partielEnPartie.body.totalTtc), partielEnPartie.body.estAvoirAnnulation], [6, false]);
+        await assert.rejects(transaction((tx) => tx.facture.update({ where: { id: enPartie.id }, data: { statut: 'ANNULEE' } })), sansAvoir, 'annulée avec un avoir partiel');
+        assert.equal(await statut(enPartie.id), 'EMISE');
         // Le garde réciproque relit la ligne à la validation : un avoir brouillon marqué avoir
         // d'annulation puis démarqué dans la même transaction n'en est plus un, et passe.
         const avoirDemarque = await transaction(async (tx) => {
@@ -12101,8 +12118,10 @@ if (!TEST_DATABASE_URL) {
         // L'annulation de l'API, avec son avoir, passe ; « annulée » est ensuite définitif.
         const avoir = await annulerParApi(facture);
         await assert.rejects(prisma.facture.update({ where: { id: facture.id }, data: { statut: 'EMISE' } }), horsCycle, 'annulée → émise');
-        // Annulée → réglée : le garde des règlements, nommé pour passer le premier, refuse avec son message.
-        await assert.rejects(prisma.facture.update({ where: { id: facture.id }, data: { statut: 'REGLEE' } }), /soldée par ses règlements/, 'annulée → réglée');
+        // Annulée → réglée : le garde des règlements, nommé pour passer le premier, refuse avec son message. Son avoir
+        // d'annulation, qui couvre tout le TTC, ne compte pas comme un avoir partiel (lot « Statut d'une facture couverte par
+        // des avoirs », N1) : compté, il la dirait soldée, et seul le garde du cycle la refuserait, avec son propre message.
+        await assert.rejects(prisma.facture.update({ where: { id: facture.id }, data: { statut: 'REGLEE' } }), /Une facture ne passe à « réglée » que soldée par ses règlements ou ses avoirs partiels\./, 'annulée → réglée');
         // Un avoir, né émis, ne se règle ni ne s'annule.
         for (const statutAvoir of ['REGLEE', 'ANNULEE']) await assert.rejects(prisma.facture.update({ where: { id: avoir.id }, data: { statut: statutAvoir } }), horsCycle, `avoir → ${statutAvoir}`);
         assert.deepEqual([await statut(facture.id), await statut(avoir.id)], ['ANNULEE', 'EMISE']);
@@ -12226,6 +12245,13 @@ if (!TEST_DATABASE_URL) {
         return resultat;
       }, options);
       const avoirSql = (factureOrigineId, options) => transaction((tx) => pieceSql(tx, { factureOrigineId, ...options }));
+      // Avoir qui solde une facture émise : la même transaction la passe « réglée », après l'avoir (lot « Statut d'une facture
+      // couverte par des avoirs »).
+      const avoirSoldantSql = (factureOrigineId, options) => transaction(async (tx) => {
+        const avoir = await pieceSql(tx, { factureOrigineId, ...options });
+        await tx.facture.update({ where: { id: factureOrigineId }, data: { statut: 'REGLEE' } });
+        return avoir;
+      });
       const credite = async (factureId) => Number((await prisma.facture.aggregate({ where: { factureOrigineId: factureId, statut: { not: 'BROUILLON' } }, _sum: { totalTtc: true } }))._sum.totalTtc ?? 0);
       const purger = [];
       let echec = null;
@@ -12238,7 +12264,10 @@ if (!TEST_DATABASE_URL) {
         await avoirPartielApi(simple, [ligne(5, 20)]);
         await assert.rejects(avoirSql(simple.id, { taux: [[20, 5.01, 0.99]] }), montantTotal, 'dépassement du HT total seul');
         await assert.rejects(avoirSql(simple.id, { taux: [[20, 4.99, 1.01]] }), montantTotal, 'dépassement de la TVA totale seule');
-        await avoirSql(simple.id, { taux: [[20, 5, 1]] });
+        // Le reste exact solde la facture : depuis le lot « Statut d'une facture couverte par des avoirs » (réponse de Nelson
+        // du 09-11-2026, lecture retenue), elle passe « réglée » dans la même transaction, après l'avoir, sans quoi la
+        // vérification différée la refuserait au COMMIT.
+        await avoirSoldantSql(simple.id, { taux: [[20, 5, 1]] });
         await assert.rejects(avoirSql(simple.id, { taux: [[20, 0.01, 0]] }), montantTotal, 'facture entièrement créditée');
         // Un avoir cohérent ne dépasse le TTC qu'avec le HT ou la TVA, sauf sur une facture incohérente,
         // que la base ne refuse pas encore (#243) : TTC de 11,99 € pour 10 € HT et 2 € de TVA. Seul le
@@ -12304,7 +12333,7 @@ if (!TEST_DATABASE_URL) {
         await avoirSql(historique.id, { taux: [[10, 10, 1]] });
         const arrondie = await transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: [[5.5, 0.1, 0.01]], contenu: 'lignes' }));
         purger.push(arrondie.id);
-        await avoirSql(arrondie.id, { taux: [[5.5, 0.1, 0.01]] });
+        await avoirSoldantSql(arrondie.id, { taux: [[5.5, 0.1, 0.01]] });
 
         // Statut de la pièce créditée, avec des avoirs partiels cohérents sous son plafond : facture
         // brouillon, avoir émis, et facture annulée avant la migration de #227, sans avoir (simulée en
@@ -13930,13 +13959,20 @@ if (!TEST_DATABASE_URL) {
       assert.equal(couvert.status, 201, JSON.stringify(couvert.body));
       assert.deepEqual([(await factureLue(g.id)).resteDu, (await factureLue(h.id)).resteDu, (await factureLue(h.id)).statut], [0, -10, 'REGLEE']);
       assert.ok((await journalDe(h.id)).some((entree) => entree.action === 'REGLEMENT' && /trop-perçu 10,00 €/.test(entree.detail)), 'la transition écrit aussi le trop-perçu');
-      // Une facture soldée par son seul avoir ne reçoit plus de règlement.
+      // Une facture soldée par son seul avoir ne reçoit plus de règlement. Depuis le lot « Statut d'une facture couverte par
+      // des avoirs » (réponse de Nelson du 09-11-2026, lecture retenue ; critère 5), elle est « réglée » : le contrôle de statut
+      // la refuse, et non plus le refus « déjà soldée », qui n'est plus atteint que par une facture émise à 0,00 €, ou déjà
+      // soldée par ses avoirs avant la migration 20261110090000 (N14).
       const creditee = await emettrePourReglement(client, 'surplus créditée', 100);
       assert.equal((await request(app).post(`/api/factures/${creditee.id}/avoirs`).set('Authorization', `Bearer ${session}`).send({ lignes: [{ designation: 'TEST avoir total partiel', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] })).status, 201);
+      assert.equal((await factureLue(creditee.id)).statut, 'REGLEE');
+      const affectationsAvant = await prisma.affectationReglement.count({ where: { factureId: creditee.id } });
       const surCreditee = await enregistrerReglement({ clientId: client, montant: 50, affectations: [{ factureId: creditee.id, montant: 50 }] });
       assert.equal(surCreditee.status, 409, JSON.stringify(surCreditee.body));
-      assert.match(surCreditee.body.error, /déjà soldée/);
-      assert.equal((await factureLue(creditee.id)).statut, 'EMISE');
+      assert.equal(surCreditee.body.error, `Seule une facture émise non soldée reçoit un règlement : la facture ${creditee.numero} ne le peut pas.`);
+      assert.equal(await prisma.affectationReglement.count({ where: { factureId: creditee.id } }), affectationsAvant);
+      const crediteeApres = await factureLue(creditee.id);
+      assert.deepEqual([crediteeApres.statut, crediteeApres.montantRegle, crediteeApres.montantAvoirs, crediteeApres.resteDu], ['REGLEE', 0, 120, 0]);
       // La contre-passation rouvre le reste dû entier.
       assert.equal((await contrepasser(surplus.body.id)).status, 200);
       lue = await factureLue(facture.id);
@@ -13981,15 +14017,21 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await etat(b), ['EMISE', 0, 60, 60]);
       assert.equal((await enregistrerReglement({ clientId: client, montant: 60, affectations: [{ factureId: b.id, montant: 60 }] })).status, 201);
       assert.deepEqual(await etat(b), ['REGLEE', 60, 60, 0]);
-      // C : soldée, créditée en totalité, puis règlement contre-passé : sans règlement, elle redevient émise.
+      // C : soldée, créditée en totalité, puis règlement contre-passé. Depuis le lot « Statut d'une facture couverte par des
+      // avoirs » (réponse de Nelson du 09-11-2026, lecture retenue ; critère 7), ses avoirs seuls la soldent : elle reste
+      // « réglée », sans entrée RETOUR_EMISE ; seule la contre-passation est journalisée.
       const c = await emettrePourReglement(client, 'ordre C', 100);
       const integral = await enregistrerReglement({ clientId: client, montant: 120, affectations: [{ factureId: c.id, montant: 120 }] });
       assert.equal(integral.status, 201, JSON.stringify(integral.body));
       assert.equal((await avoir(c, 100)).status, 201);
       assert.deepEqual(await etat(c), ['REGLEE', 120, 120, -120]);
+      const entreesAvant = (await journalDe(c.id)).length;
       assert.equal((await contrepasser(integral.body.id)).status, 200);
-      assert.deepEqual(await etat(c), ['EMISE', 0, 120, 0]);
-      assert.ok((await journalDe(c.id)).some((entree) => entree.action === 'RETOUR_EMISE' && /REGLEE → EMISE \(contre-passation du règlement /.test(entree.detail)));
+      assert.deepEqual(await etat(c), ['REGLEE', 0, 120, 0]);
+      const entreesApres = await journalDe(c.id);
+      assert.equal(entreesApres.length, entreesAvant + 1);
+      assert.ok(!entreesApres.some((entree) => entree.action === 'RETOUR_EMISE'), 'aucun retour à « émise »');
+      assert.ok(entreesApres.some((entree) => entree.action === 'REGLEMENT_CONTREPASSE' && /120,00 € retirés ; reste dû 0,00 €/.test(entree.detail)));
       // D : partiellement réglée, puis un avoir plus grand que le reste dû : réglée, avec un trop-perçu.
       const d = await emettrePourReglement(client, 'ordre D', 100);
       assert.equal((await enregistrerReglement({ clientId: client, montant: 50, affectations: [{ factureId: d.id, montant: 50 }] })).status, 201);
@@ -14050,10 +14092,13 @@ if (!TEST_DATABASE_URL) {
       const solde = await enregistrerReglement({ clientId: client, montant: 100, affectations: [{ factureId: facture.id, montant: 100 }] });
       assert.equal(solde.status, 201, JSON.stringify(solde.body));
       await assert.rejects(() => prisma.facture.update({ where: { id: facture.id }, data: { statut: 'EMISE' } }), /reste « réglée »/);
-      // Soldée par son seul avoir, une facture ne reçoit plus d'affectation, même écrite en base.
+      // Soldée par son seul avoir, une facture ne reçoit plus d'affectation, même écrite en base. Depuis le lot « Statut d'une
+      // facture couverte par des avoirs », elle est « réglée » : la garde la refuse par son statut (premier contrôle), et non
+      // plus parce qu'elle est soldée.
       const soldeeParAvoir = await emettrePourReglement(client, 'garde SQL soldée par avoir', 100);
       assert.equal((await request(app).post(`/api/factures/${soldeeParAvoir.id}/avoirs`).set('Authorization', `Bearer ${session}`).send({ lignes: [{ designation: 'TEST avoir garde', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] })).status, 201);
-      await assert.rejects(() => prisma.reglement.create({ data: brut({ affectations: { create: [{ factureId: soldeeParAvoir.id, montant: 5 }] } }) }), /est soldée/);
+      assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: soldeeParAvoir.id } })).statut, 'REGLEE');
+      await assert.rejects(() => prisma.reglement.create({ data: brut({ affectations: { create: [{ factureId: soldeeParAvoir.id, montant: 5 }] } }) }), /Seule une facture émise non soldée reçoit un règlement\./);
       // Réglée, elle ne reçoit plus d'affectation, même écrite directement en base.
       await assert.rejects(() => prisma.reglement.create({ data: brut({ affectations: { create: [{ factureId: facture.id, montant: 5 }] } }) }), /émise non soldée/);
       assert.equal((await contrepasser(premier.body.id)).status, 200);

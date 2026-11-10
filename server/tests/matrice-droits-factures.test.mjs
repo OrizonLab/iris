@@ -525,8 +525,12 @@ if (!TEST_DATABASE_URL) {
       await avoir('avoir-de-facture-avoir-partiel', avecAvoir, MONTANTS.ligneAvoir);
       const aContrepasser = await regler('reglement-contrepasse', avecAvoir, 10);
       await api(SA, 'POST', `/api/reglements/${aContrepasser}/contrepasser`, { motif: 'TEST contre-passation préalable de la matrice des factures' });
-      // Soldée par un avoir partiel de son montant, sans règlement : reste émise, reste dû nul (refus « soldée »,
-      // reglements/routes.ts:101). Cible ajoutée au §4.5, nécessaire au refus « soldée (409) » du tableau §4.1.
+      // Soldée par un avoir partiel de son montant, sans règlement : reste dû nul. Cible ajoutée au §4.5, pour le refus
+      // « soldée (409) » du tableau §4.1. Depuis le lot « Statut d'une facture couverte par des avoirs » (réponse de Nelson du
+      // 09-11-2026, lecture retenue ; cadrage v3, C2), elle est « réglée » : un règlement y est refusé par le contrôle de
+      // statut (« Seule une facture émise non soldée reçoit un règlement »), et le refus « déjà soldée » n'est plus atteint
+      // que par une facture émise à 0,00 € TTC (statut-facture-avoirs.test.mjs), ou déjà soldée par ses avoirs avant la
+      // migration 20261110090000 (reglee-par-avoirs-migration.test.mjs).
       const soldee = await emettre('facture-soldee-par-avoir', MONTANTS.cibles.soldeeParAvoir);
       await avoir('avoir-de-facture-soldee-par-avoir', soldee, { designation: 'TEST Avoir soldant de la matrice des factures', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: MONTANTS.cibles.soldeeParAvoir, tauxTva: 20 });
       // Facture d'un autre client (refus « autre client ») ; facture d'un client désactivé après l'émission (règlement admis,
@@ -811,7 +815,7 @@ if (!TEST_DATABASE_URL) {
       assert.equal(t.reglementJeu, 50, 'règlement du jeu de données : facture-emise reste due de 70');
       assert.deepEqual(t.cibles, {
         'facture-emise-non-reglee': [200, 240, 'EMISE'], 'facture-reglee': [50, 60, 'REGLEE'], 'facture-annulee': [30, 36, 'ANNULEE'], 'avoir-total': [30, 36, 'EMISE'],
-        'facture-avoir-partiel': [300, 360, 'EMISE'], 'avoir-de-facture-avoir-partiel': [0.53, 0.64, 'EMISE'], 'facture-soldee-par-avoir': [20, 24, 'EMISE'], 'avoir-de-facture-soldee-par-avoir': [20, 24, 'EMISE'],
+        'facture-avoir-partiel': [300, 360, 'EMISE'], 'avoir-de-facture-avoir-partiel': [0.53, 0.64, 'EMISE'], 'facture-soldee-par-avoir': [20, 24, 'REGLEE'], 'avoir-de-facture-soldee-par-avoir': [20, 24, 'EMISE'],
         'facture-autre-client': [45, 54, 'EMISE'], 'facture-client-desactive': [40, 48, 'EMISE'], 'facture-brouillon-deux-taux': [101.05, 106.76, 'BROUILLON'],
         'facture-brouillon-deux-taux-at': [101.05, 106.76, 'BROUILLON'],
       }, 'cibles propres');
