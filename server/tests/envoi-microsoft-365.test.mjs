@@ -690,14 +690,18 @@ if (!TEST_DATABASE_URL) {
       });
     });
 
-    // Facture et avoir : le PDF reçu par Graph est le PDF figé à l'émission (auditeur des montants). La pièce est
-    // imprimée, puis la société, le client, son adresse de facturation et les mentions légales changent, puis la pièce
-    // part : le PDF reçu est, octet pour octet hors CreationDate et /ID, celui d'avant les changements.
+    // Facture et avoir : le PDF reçu par Graph garde ce qui est figé à l'émission (auditeur des montants) : identité de
+    // l'émetteur, client, adresse de facturation, mentions légales et montants. La pièce est imprimée, puis la société,
+    // le client, son adresse de facturation et les mentions légales changent, puis la pièce part : le PDF reçu est, octet
+    // pour octet hors CreationDate et /ID, celui d'avant les changements. Depuis le lot « Détail des avoirs comme
+    // règlements » (cadrage v2, § 2, et C1 du contrôle de mode 1), la mention de statut et le bloc « Règlements et
+    // avoirs » sont lus à l'impression : l'avoir partiel, émis avant la première impression, ajoute au PDF de la facture
+    // le bloc « Avoir … : 48,00 € » et « Reste à payer : 253,00 € », qu'aucun règlement ni avoir ne change avant l'envoi.
     // Montants : la facture (2 × 125,00 € et 2,5 × 0,33 € = 0,825 €, imprimé 0,83 €) totalise 250,83 € HT, 50,17 € de
     // TVA et 301,00 € TTC ; l'avoir partiel, 40,00 € HT et 48,00 € TTC. Lectures écartées : un PDF recalculé au
     // demi-centime pair ou tronqué (0,82 €, 250,82 €) ; le PDF de la facture joint à l'envoi de l'avoir, ou
     // l'inverse (301,00 € contre 48,00 €) ; un PDF réimprimé avec la société, le client ou les mentions du jour.
-    test('facture et avoir : le PDF reçu par Graph est le PDF figé à l’émission, même après un changement de la société, du client et des mentions ; objet à la raison sociale figée', async () => {
+    test('facture et avoir : le PDF reçu par Graph garde l’identité, le client, l’adresse, les mentions et les montants figés à l’émission, même après un changement de la société, du client et des mentions, avec la mention de statut et le bloc « Règlements et avoirs » lus à l’impression ; objet à la raison sociale figée', async () => {
       const s = suffixe();
       const client = await creerClient(`TEST Client facturé Microsoft 365 ${s}`, { email: 'compta@client-6b1b.test' });
       const facture = await emettre((await creerBrouillonFacture(client.id, [

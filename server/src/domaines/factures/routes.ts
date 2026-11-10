@@ -24,7 +24,7 @@ import { tempsPasseDeLaChaine } from './tempsPasse';
 import { champsIdentiteManquants, figerIdentiteEmetteur, IdentiteEmetteurIncompleteError } from '../documents/identite';
 import { exigerIdentiteClient, IdentiteClientIncompleteError } from '../documents/identiteClient';
 import { avecSoldes, synchroniserStatutReglement } from '../reglements/metier';
-import { lireReglementsDeLaFacture } from '../reglements/lectureFacture';
+import { lireReglementsEtAvoirsDeLaFacture } from '../reglements/lectureFacture';
 import { FACTURE_A_ENVOYER, SaisieEnvoiInvalideError, lireDemandeEnvoi, lireEnvois, propositionDestinataire, repondreEnvoi, texteEnvoiFacture } from '../documents/envois';
 import { envoyerDocument, propositionMicrosoft365 } from '../documents/envoiMicrosoft365';
 import { produirePdf, repondrePdf } from '../documents/productionPdf';
@@ -155,15 +155,17 @@ export function enregistrerRoutesFactures(app: Express): void {
     } catch { res.status(500).json({ error: 'Lecture du journal de facture impossible.' }); }
   });
 
-  // Règlements reçus par une facture, en lecture (AT-3 ; point 33, « ainsi que les reglements », et réponse 1
-  // du 09-11-2026) : la part de chaque règlement affectée à cette facture, sans les autres factures du
-  // règlement ni son montant total (reglements/lectureFacture.ts). La saisie et la contre-passation restent
+  // Règlements et avoirs d'une facture, en lecture (AT-3 ; point 33, « ainsi que les reglements », et réponse 1
+  // du 09-11-2026 ; lot « Détail des avoirs comme règlements », réponse de Nelson du 10-11-2026 au point 4) :
+  // { parts, avoirs, solde }. La part de chaque règlement affectée à cette facture, sans les autres factures du
+  // règlement ni son montant total ; ses avoirs partiels émis ; son solde (null sans solde : brouillon, annulée,
+  // avoir), lus dans le même instantané (reglements/lectureFacture.ts). La saisie et la contre-passation restent
   // à l'administration (/api/reglements).
   app.get('/api/factures/:id/reglements', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const lu = await transactionVerifiee(async (tx) => {
-        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), select: { id: true } });
-        return facture ? lireReglementsDeLaFacture(tx, facture.id) : null;
+        const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), select: { id: true, type: true, statut: true, totalTtc: true } });
+        return facture ? lireReglementsEtAvoirsDeLaFacture(tx, facture) : null;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
       if (!lu) return res.status(404).json({ error: 'Facture introuvable.' });
       return res.json(decimalToNumber(lu));

@@ -29599,7 +29599,8 @@ if (!TEST_DATABASE_URL) {
       const assistante = jeton('assistante');
       const lignes = [ligne('pose de la centrale', 0.5, 36.97, 20), ligne('fourniture des détecteurs', 1, 10.10, 5.5, 'ARTICLE'), ligne('mise en service', 2.25, 14.10, 20), ligne('fourniture des sirènes', 1, 10.10, 5.5, 'ARTICLE')];
       const fa = await factureEmise(assistante, 'réglée en partie', lignes);
-      assert.equal((await envoyer('post', `/api/factures/${fa.id}/avoirs`, jeton('admin'), { lignes: [ligne('reprise de la pose', 0.5, 36.97, 20)] })).status, 201);
+      const avoirFa = await envoyer('post', `/api/factures/${fa.id}/avoirs`, jeton('admin'), { lignes: [ligne('reprise de la pose', 0.5, 36.97, 20)] });
+      assert.equal(avoirFa.status, 201, JSON.stringify(avoirFa.body));
       const fb = await factureEmise(jeton('admin'), 'de l’administration, réglée avec la sienne', [ligne('remplacement de la centrale', 1, 1000, 20)]);
       assert.equal(fb.totalTtc, 1200);
       const jour = await aujourdhui();
@@ -29611,25 +29612,30 @@ if (!TEST_DATABASE_URL) {
       const contrepassation = await envoyer('post', `/api/reglements/${r2.body.id}/contrepasser`, jeton('admin'), { motif });
       assert.equal(contrepassation.status, 200, JSON.stringify(contrepassation.body));
 
-      // Parts lues par elle : les deux règlements, du plus ancien au plus récent, leur seule part sur FA.
+      // Parts lues par elle : les deux règlements, du plus ancien au plus récent, leur seule part sur FA. Depuis le lot « Détail des
+      // avoirs comme règlements » (cadrage v2, § 1, et C1 du contrôle de mode 1), la réponse est { parts, avoirs, solde } : les parts
+      // (instant de saisie du règlement en plus), l'avoir partiel de 22,19 € et le solde (réglé 20,01, avoirs 22,19, reste 39,37).
       const parElle = await lire(`/api/factures/${fa.id}/reglements`, assistante);
       assert.equal(parElle.status, 200, JSON.stringify(parElle.body));
       const parAdmin = await lire(`/api/factures/${fa.id}/reglements`, jeton('admin'));
       assert.deepEqual(parElle.body, parAdmin.body, 'mêmes parts pour elle et pour l’administration');
+      assert.deepEqual(Object.keys(parElle.body).sort(), ['avoirs', 'parts', 'solde']);
       const iso = `${await jourIso()}T00:00:00.000Z`;
       const r2Base = await prisma.reglement.findUniqueOrThrow({ where: { id: r2.body.id } });
-      assert.deepEqual(parElle.body.map((p) => [p.montant, p.reglement.id, p.reglement.dateReglement, p.reglement.moyen, p.reglement.reference, p.reglement.statut, p.reglement.contrepasseLe, p.reglement.motifContrepassation]), [
+      assert.deepEqual(parElle.body.parts.map((p) => [p.montant, p.reglement.id, p.reglement.dateReglement, p.reglement.moyen, p.reglement.reference, p.reglement.statut, p.reglement.contrepasseLe, p.reglement.motifContrepassation]), [
         [20.01, r1.body.id, iso, 'VIREMENT', `TEST-AT3-R1-${suffixe}`, 'ENREGISTRE', null, null],
         [15.55, r2.body.id, iso, 'CHEQUE', `TEST-AT3-R2-${suffixe}`, 'CONTREPASSE', r2Base.contrepasseLe.toISOString(), motif],
       ]);
+      assert.deepEqual(parElle.body.avoirs.map((a) => [a.id, a.numero, a.totalTtc]), [[avoirFa.body.id, avoirFa.body.numero, 22.19]]);
+      assert.deepEqual(parElle.body.solde, { montantRegle: 20.01, montantAvoirs: 22.19, resteDu: 39.37 });
       // Ni le total, ni les autres factures du règlement : clés exactes, et aucune trace de FB.
-      for (const part of parElle.body) {
+      for (const part of parElle.body.parts) {
         assert.deepEqual(Object.keys(part).sort(), ['id', 'montant', 'reglement']);
-        assert.deepEqual(Object.keys(part.reglement).sort(), ['contrepasseLe', 'dateReglement', 'id', 'motifContrepassation', 'moyen', 'reference', 'statut']);
+        assert.deepEqual(Object.keys(part.reglement).sort(), ['contrepasseLe', 'createdAt', 'dateReglement', 'id', 'motifContrepassation', 'moyen', 'reference', 'statut']);
       }
       const brut = JSON.stringify(parElle.body);
       for (const absent of [fb.id, fb.numero, '29.99', '1000', '1015.55', '"50"']) assert.ok(!brut.includes(absent), `absent de sa lecture : ${absent}`);
-      assert.deepEqual(parElle.body.map((p) => p.id).sort(), (await prisma.affectationReglement.findMany({ where: { factureId: fa.id }, select: { id: true } })).map((a) => a.id).sort());
+      assert.deepEqual(parElle.body.parts.map((p) => p.id).sort(), (await prisma.affectationReglement.findMany({ where: { factureId: fa.id }, select: { id: true } })).map((a) => a.id).sort());
       // La facture de l'administration lui reste fermée, règlements compris.
       assert.deepEqual([(await lire(`/api/factures/${fb.id}/reglements`, assistante)).status], [404]);
 
@@ -29802,7 +29808,8 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual([res.status, res.body.error], [409, parAdmin.body.error], chemin);
       }
       for (const chemin of ['journal', 'reglements', 'tracabilite']) assert.equal((await lire(`/api/factures/${sien.id}/${chemin}`, assistante)).status, 200, chemin);
-      assert.deepEqual((await lire(`/api/factures/${sien.id}/reglements`, assistante)).body, []);
+      // Lot « Détail des avoirs comme règlements » : un brouillon n'a ni part, ni avoir, ni solde.
+      assert.deepEqual((await lire(`/api/factures/${sien.id}/reglements`, assistante)).body, { parts: [], avoirs: [], solde: null });
       // Sa facture émise déjà émise : 409 « Seul un brouillon peut être émis. », comme pour l'administration.
       const emise = await emettre(sien.id, assistante);
       assert.deepEqual([(await envoyer('post', `/api/factures/${emise.id}/emettre`, assistante, {})).body.error], ['Seul un brouillon peut être émis.']);

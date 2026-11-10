@@ -135,6 +135,10 @@ export default function Factures() {
   const [factureTraceId, setFactureTraceId] = useState<string | null>(null);
   // Facture dont les règlements reçus sont affichés, en lecture, sous la liste.
   const [factureReglements, setFactureReglements] = useState<Facture | null>(null);
+  // Lectures réussies de la liste : le panneau des règlements ouvert est relu avec elle (un avoir partiel créé ou une facture
+  // annulée depuis cet écran, « Actualiser ») ; sinon ses lignes et son pied resteraient ceux d'avant, à côté du reste dû relu
+  // de la liste (audit des montants de #534, R1).
+  const [lecturesListe, setLecturesListe] = useState(0);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [traceErreur, setTraceErreur] = useState('');
   const [traceCharge, setTraceCharge] = useState(false);
@@ -191,6 +195,7 @@ export default function Factures() {
         return;
       }
       setFactures(facturesData.items);
+      setLecturesListe((lectures) => lectures + 1);
       // Un avoir partiel en cours de saisie suit la facture rechargée : son aperçu compte alors les
       // avoirs créés depuis l'ouverture du formulaire. Une facture sortie de la page relue (poussée
       // en page suivante par l'avoir qu'elle vient de recevoir, par exemple) n'a pas été relue : son
@@ -660,7 +665,7 @@ export default function Factures() {
         <span>{total === null ? `Page ${page}` : `Page ${page} sur ${nombrePages} — ${total} document(s)`}</span>
         <button type="button" className="btn btn-secondary" disabled={page >= nombrePages} onClick={() => changerPage(page + 1)}>Page suivante</button>
       </nav>
-      {factureReglements && <ReglementsFacture key={factureReglements.id} factureId={factureReglements.id} numero={factureReglements.numero} fuseauHoraire={fuseauHoraire} onFermer={() => setFactureReglements(null)} />}
+      {factureReglements && <ReglementsFacture key={`${factureReglements.id}:${lecturesListe}`} factureId={factureReglements.id} numero={factureReglements.numero} fuseauHoraire={fuseauHoraire} onFermer={() => setFactureReglements(null)} />}
       {factureTraceId && (
         <section id="origine-facture" role="region" aria-label="Origine de la facture" className="rounded-xl border bg-white p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
