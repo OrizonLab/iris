@@ -959,3 +959,28 @@ if (!TEST_DATABASE_URL) {
     });
   });
 }
+
+// Audit des montants de #534 (T1 et N3), sans base : la mise en forme du bloc, sur des données fixes.
+//  - T1 : la date imprimée d'un avoir est sa date d'émission (jour civil de la société, stocké à minuit UTC), et non le jour UTC
+//    de son instant d'émission : un avoir émis à 00:30 à Paris le 10-11-2026 (emisLe 09-11-2026 23:30 UTC) est « du 10-11-2026 »
+//    (lecture écartée : « du 09-11-2026 », emisLe lu en UTC) ;
+//  - N3 : à date et instant égaux, l'identifiant départage une part et un avoir, comme dans le panneau de l'écran (lecture
+//    écartée : paiements d'abord, ou ordre reçu).
+test('bloc « Règlements et avoirs », sans base : date d’un avoir émis peu après minuit (date d’émission et non instant UTC) ; départage par identifiant à date et instant égaux', async () => {
+  const { lignesReglementsImprimes } = await import('../dist/src/domaines/factures/pdf.js');
+  const avoirNuit = { id: 'a-nuit', numero: 'A2026-0901', dateEmission: new Date('2026-11-10T00:00:00.000Z'), emisLe: new Date('2026-11-09T23:30:00.000Z'), totalTtc: 12 };
+  assert.deepEqual(lignesReglementsImprimes({ parts: [], avoirs: [avoirNuit], solde: { montantRegle: 0, montantAvoirs: 12, resteDu: 108 } }), [
+    'Avoir A2026-0901 du 10-11-2026 : 12,00 €', 'Reste à payer : 108,00 €',
+  ]);
+  const jour = new Date('2026-11-10T00:00:00.000Z');
+  const instant = new Date('2026-11-10T10:00:00.000Z');
+  const part = (id) => ({ id, montant: 50, reglement: { dateReglement: jour, createdAt: instant, moyen: 'VIREMENT', statut: 'ENREGISTRE' } });
+  const avoir = (id) => ({ id, numero: `A-${id}`, dateEmission: jour, emisLe: instant, totalTtc: 70 });
+  const solde = { montantRegle: 50, montantAvoirs: 70, resteDu: 0 };
+  assert.deepEqual(lignesReglementsImprimes({ parts: [part('f-part')], avoirs: [avoir('0-avoir')], solde }), [
+    'Avoir A-0-avoir du 10-11-2026 : 70,00 €', 'Paiement du 10-11-2026 (virement) : 50,00 €',
+  ]);
+  assert.deepEqual(lignesReglementsImprimes({ parts: [part('0-part')], avoirs: [avoir('f-avoir')], solde }), [
+    'Paiement du 10-11-2026 (virement) : 50,00 €', 'Avoir A-f-avoir du 10-11-2026 : 70,00 €',
+  ]);
+});

@@ -248,3 +248,49 @@ test('panneau « Règlements et avoirs de la facture » : paiements et avoirs m�
   expect(erreursPage, 'aucune erreur de la page').toEqual([]);
   expect(refusApi, 'aucun refus d’API pendant le parcours').toEqual([]);
 });
+
+// Audit des montants de #534 (remarque R1) : le panneau ouvert suit les avoirs créés depuis le même écran. Facture de 120,00 €
+// (1 × 100,00 € HT à 20 %) réglée de 50,00 € : panneau ouvert, pied « Paiements : 50,00 € · Avoirs : 0,00 € · Reste dû :
+// 70,00 € ». Avoir partiel de 1 × 10,00 € HT (TTC 12,00 €) créé depuis l'écran, panneau toujours ouvert : la liste est relue, et
+// le panneau doit l'être aussi, avec la ligne de l'avoir et le pied « Paiements : 50,00 € · Avoirs : 12,00 € · Reste dû :
+// 58,00 € ». Lecture écartée : panneau resté sur l'instantané d'avant l'avoir (une ligne, « Reste dû : 70,00 € », alors que la
+// liste affiche déjà 58,00 €).
+test('panneau ouvert : un avoir partiel créé depuis l’écran y paraît, avec le pied relu (Reste dû 58,00 € et non 70,00 €)', async ({ allerSurPageAdmin, request, session, creerClient }) => {
+  await horsDuPassageDeMinuit();
+  const admin = { Authorization: `Bearer ${session.token}` };
+  const appel = async <T>(path: string, data: object) => {
+    const reponse = await request.post(`${api}${path}`, { headers: admin, data });
+    expect(reponse.ok(), `${path} : ${await reponse.text()}`).toBeTruthy();
+    return reponse.json() as Promise<T>;
+  };
+  const client = await creerClient('panneau relu après un avoir');
+  const brouillon = await appel<Piece>('/factures', { clientId: client.id, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'Panneau relu après un avoir', dateEmission: dateDuJour(), dateEcheance: dateDuJour(), lignes: [{ designation: 'Entretien de la pompe à chaleur', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
+  const facture = await appel<Piece>(`/factures/${brouillon.id}/emettre`, {});
+  expect([facture.statut, facture.totalTtc]).toEqual(['EMISE', 120]);
+  await appel('/reglements', { clientId: client.id, dateReglement: dateDuJour(), montant: 50, moyen: 'VIREMENT', reference: `VIR-RELU-${Date.now()}`, affectations: [{ factureId: facture.id, montant: 50 }] });
+
+  const page = await allerSurPageAdmin('/factures');
+  await expect(page.getByRole('heading', { name: 'Factures', level: 1 })).toBeVisible();
+  const panneau = await ouvrirPanneau(page, client.raisonSociale, facture);
+  const tableau = panneau.getByRole('table', { name: 'Règlements et avoirs de la facture' });
+  await expect(tableau.locator('tbody tr')).toHaveCount(1);
+  await expect(tableau.locator('tfoot')).toHaveText(/^Paiements : 50,00\s€ · Avoirs : 0,00\s€ · Reste dû : 70,00\s€$/);
+
+  const ligne = await ligneDe(page, client.raisonSociale, facture.numero!);
+  await ligne.getByRole('button', { name: /Créer un avoir partiel/ }).click();
+  await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
+  await page.locator('input[aria-label="Désignation ligne avoir 1"]').fill('Geste commercial');
+  await page.locator('select[aria-label="Nature ligne avoir 1"]').selectOption('PRESTATION');
+  await page.locator('input[aria-label="Quantité ligne avoir 1"]').fill('1');
+  await page.locator('input[aria-label="Prix unitaire HT ligne avoir 1"]').fill('10');
+  await page.locator('input[aria-label="TVA ligne avoir 1"]').fill('20');
+  await page.getByRole('button', { name: /Créer l’avoir partiel/ }).click();
+  await expect(page.getByText(/Avoir .* créé et émis/)).toBeVisible();
+  await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
+
+  // Le panneau, resté ouvert, porte l'avoir et le solde relus.
+  await expect(panneau).toBeVisible();
+  await expect(tableau.locator('tbody tr')).toHaveCount(2);
+  await expect(tableau.locator('tbody tr').nth(1).locator('td').nth(2)).toHaveText(/^12,00\s€$/);
+  await expect(tableau.locator('tfoot')).toHaveText(/^Paiements : 50,00\s€ · Avoirs : 12,00\s€ · Reste dû : 58,00\s€$/);
+});
