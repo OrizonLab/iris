@@ -25,8 +25,10 @@ export async function preparerEnvoiFacture(tx: Prisma.TransactionClient, id: str
   return { journal: { factureId: facture.id }, objet, corps };
 }
 
-// Le PDF envoyé par Microsoft 365 est celui de la route « PDF » : la pièce imprimée depuis ses seules
-// copies figées (./productionPdf.ts), dans le même périmètre.
+// Le PDF envoyé par Microsoft 365 est celui de la route « PDF » : la pièce imprimée depuis ses copies
+// figées, avec sa mention de statut et son bloc « Règlements et avoirs » (./productionPdf.ts), dans le même
+// périmètre. Ils sont lus après le verrou partagé pris par preparerEnvoiFacture : un règlement, une
+// contre-passation, un avoir ou une annulation de la facture attend la fin de l'envoi.
 export const envoiFacture = (id: string, role: string | undefined | null) => ({
   preparer: (tx: Prisma.TransactionClient) => preparerEnvoiFacture(tx, id, role),
   lirePdf: (tx: Prisma.TransactionClient) => lireFacturePdf(tx, id, facturesVisibles(role)),

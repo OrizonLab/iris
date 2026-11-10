@@ -38,7 +38,7 @@ GET /api/factures/:id/document.pdf requireAuth#07b983da0ce5 > requireGestionFact
 GET /api/factures/:id/envois requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#fb775d5f8531
 POST /api/factures/:id/envois requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#b64d41a67d7d
 GET /api/factures/:id/journal requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#328a38ce51e7
-GET /api/factures/:id/reglements requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#c757cd4a44db
+GET /api/factures/:id/reglements requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#db9a946a3736
 GET /api/factures/:id/tracabilite requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#9f9ecd969491
 POST /api/factures requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#91a0a0ab2057
 GET /api/facturation/prete-a-facturer requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#be63c1fffb33
