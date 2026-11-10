@@ -18,14 +18,19 @@
 // Contrat éprouvé :
 //  - synchroniserStatutReglement (reglements/metier.ts), appelée après un règlement, une contre-passation ou un avoir partiel :
 //    cible REGLEE si resteDu ≤ 0 et (montantRegle > 0 ou montantAvoirs > 0), sommes jamais négatives ; entrée REGLEMENT ou RETOUR_EMISE au nom de
-//    l'auteur, détail « Transition A → B (cause) : réglé X €[, avoirs Y €], reste dû Z € » (ou « trop-perçu Z € ») ;
+//    l'auteur, détail « Transition A → B (cause) : réglé X €[, avoirs Y €], reste dû Z € » (ou « trop-perçu Z € ») ; depuis le lot
+//    « Pas d'avoir à 0,00 € », la seconde condition n'est plus atteinte par aucun chemin de l'API (mutant équivalent : voir le test
+//    « avoir partiel de 0,00 € par l'API ») ;
 //  - refus de la saisie d'un règlement sur une facture réglée par ses avoirs : 409 « Seule une facture émise non soldée reçoit
 //    un règlement : la facture <numéro> ne le peut pas. » ; le refus « déjà soldée » n'est plus atteint que par une facture émise
 //    à 0,00 € TTC ;
 //  - annulation d'une facture réglée par ses avoirs : 409 « Seule une facture émise peut être annulée. » ;
-//  - gardes en base (migration 20261110090000_reglee_par_avoirs) : messages exacts, avoir d'annulation, avoir brouillon et avoir
-//    de 0,00 € qui ne soldent rien, refus au COMMIT d'un avoir écrit directement qui solde une facture « émise », sauf si la même transaction la passe
-//    « réglée » après lui. La migration jouée sur une facture déjà soldée par ses avoirs est éprouvée par
+//  - gardes en base (migration 20261110090000_reglee_par_avoirs) : messages exacts, avoir d'annulation et avoir brouillon qui ne
+//    soldent rien, facture à 0,00 € sans règlement ni avoir émis jamais « réglée », refus au COMMIT d'un avoir écrit directement qui
+//    solde une facture « émise », sauf si la même transaction la passe « réglée » après lui. Un avoir émis à 0,00 € n'existe plus
+//    depuis le lot « Pas d'avoir à 0,00 € » (réponse de Nelson du 10-11-2026) : refusé par l'API, et au COMMIT par la garde de la
+//    migration 20261110120000_avoir_non_nul (éprouvée en entier par avoir-non-nul.test.mjs et avoir-non-nul-migration.test.mjs).
+//    La migration 20261110090000 jouée sur une facture déjà soldée par ses avoirs est éprouvée par
 //    reglee-par-avoirs-migration.test.mjs.
 // Aucune route de ce lot n'est ouverte aux clés d'intégration (/api/v1) : sans objet ici.
 //
@@ -61,6 +66,8 @@ const REFUS = {
   avoirsPartiels: 'Cette facture porte déjà un ou plusieurs avoirs partiels : elle ne peut plus être annulée en totalité.',
   plafondTotal: 'Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.',
   administration: 'Accès réservé aux administrateurs',
+  // Lot « Pas d'avoir à 0,00 € » (message exact donné par Claude Code).
+  ligneZero: 'Une ligne d’avoir à 0,00 € n’est pas admise : Iris n’émet pas d’avoir à 0,00 €.',
 };
 // Gardes en base (migration 20261110090000_reglee_par_avoirs), mot pour mot.
 const GARDE = {
@@ -74,6 +81,8 @@ const GARDE = {
   affectationSoldee: (id) => `Seule une facture émise non soldée reçoit un règlement : la facture ${id} est soldée.`,
   // Garde du cycle (#227) : une annulation sans avoir d'annulation.
   sansAvoirAnnulation: 'Une facture ne s\'annule qu\'avec son avoir d\'annulation, émis aux mêmes montants dans la même transaction.',
+  // Garde de l'avoir à 0,00 € (migration 20261110120000_avoir_non_nul, lot « Pas d'avoir à 0,00 € »), mot pour mot.
+  avoirZero: (avoirId, factureId) => `L'avoir ${avoirId} de la facture ${factureId} est à 0,00 € : Iris n'émet pas d'avoir à 0,00 €.`,
 };
 
 // --- Calcul exact, hors de l'application (témoins des montants) ---
@@ -247,14 +256,15 @@ if (!TEST_DATABASE_URL) {
 
     // Pièce écrite directement en base, comme une création valide (modèle : le test #230 d'api.test.mjs) : lignes et ventilation
     // égales aux totaux, écritures équilibrées sur le TTC, scellée. `taux` : [[taux, HT, TVA]].
-    const pieceSql = async (tx, { type = 'AVOIR', statut = 'EMISE', factureOrigineId = null, estAvoirAnnulation = false, taux }) => {
+    // `id` est posé d'avance quand le message d'une garde le cite (lot « Pas d'avoir à 0,00 € »).
+    const pieceSql = async (tx, { id = randomUUID(), type = 'AVOIR', statut = 'EMISE', factureOrigineId = null, estAvoirAnnulation = false, taux }) => {
       const centimes = (montant) => Math.round(montant * 100) / 100;
       const totalHt = centimes(taux.reduce((s, [, ht]) => s + ht, 0));
       const totalTva = centimes(taux.reduce((s, [, , tva]) => s + tva, 0));
       const totalTtc = centimes(totalHt + totalTva);
       const identite = await prisma.identiteEmetteur.findFirstOrThrow({ select: { id: true } });
       const piece = await tx.facture.create({ data: {
-        clientId: client.id, clientRaisonSociale: client.raisonSociale, type, statut, factureOrigineId, estAvoirAnnulation,
+        id, clientId: client.id, clientRaisonSociale: client.raisonSociale, type, statut, factureOrigineId, estAvoirAnnulation,
         dateEmission: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`), dateEcheance: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
         totalHt, totalTva, totalTtc, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST statut écrit en base', identiteEmetteurId: identite.id,
       } });
@@ -601,42 +611,60 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Cadrage v3, C8 : « soldée » se lit sur une somme positive (parts de règlements non contre-passés et TTC des avoirs partiels
-    // émis), en base comme dans l'API. L'API refuse une ligne d'avoir au prix nul ; un avoir de 0,00 € s'y crée pourtant d'une ligne
-    // dont le total s'arrondit à 0,00 € (test suivant). Écrit en base sur une facture à 0,00 €, il est émis sans refus au COMMIT,
-    // et la facture reste « émise ». Lecture écartée : gardes qui
-    // comptent l'existence d'un avoir partiel émis (version 2) : la facture, de reste dû nul, serait dite soldée, et l'avoir
-    // refusé au COMMIT.
-    test('avoir partiel de 0,00 € sur une facture à 0,00 € : refusé par l’API (400, ligne au prix nul), émis en base sans refus au COMMIT, en transaction comme en écriture simple ; la facture reste « émise », ne passe pas « réglée », et garde le refus « déjà soldée »', async () => {
+    // émis), en base comme dans l'API. Depuis le lot « Pas d'avoir à 0,00 € » (réponse de Nelson du 10-11-2026 : « si 0€ pas d'avoir,
+    // on ne fais pas d'avoir a 0€ » ; cadrage v2, § 3, et section « Tests », « Tests existants à adapter »), un avoir émis à 0,00 €
+    // n'existe plus : l'API refuse une ligne au prix nul (« Ligne d’avoir partiel invalide. ») comme une ligne dont le total s'arrondit
+    // à 0,00 € (test suivant), et, écrit directement en base sur une facture à 0,00 €, il est refusé au COMMIT par la garde de la
+    // migration 20261110120000_avoir_non_nul, au message exact. L'écriture simple d'avant le lot (sur l'avoir de 0,00 € déjà émis)
+    // n'a plus d'objet ici ; sur une base qui portait un tel avoir avant la migration, elle est éprouvée par
+    // avoir-non-nul-migration.test.mjs. La facture reste « émise » et garde le refus « déjà soldée ». Lecture écartée (avant le lot) :
+    // avoir de 0,00 € émis en base sans refus au COMMIT. La seconde condition des gardes en base (somme positive) reste éprouvée par
+    // le test « gardes en base : l'avoir d'annulation ne compte pas… » (facture à 0,00 € sans règlement ni avoir émis, passée
+    // « réglée » : refusée ; avoir brouillon non compté).
+    test('avoir partiel de 0,00 € sur une facture à 0,00 € : refusé par l’API (400, ligne au prix nul) et refusé au COMMIT s’il est écrit en base (garde de l’avoir à 0,00 €, message exact), sans écriture ; la facture reste « émise », ne passe pas « réglée », et garde le refus « déjà soldée »', async () => {
       const facture = await factureEmise(par('AD'), 'avoir à zéro', LIGNES_ZERO);
       assert.deepEqual([facture.statut, Number(facture.totalTtc)], ['EMISE', 0]);
       await refuse(() => avoir(facture.id, [ligne('avoir à zéro', 1, 0, 20)], par('AD')), 400, 'Ligne d’avoir partiel invalide.', 'avoir de 0,00 € par l’API');
-      const avoirZero = await transaction((tx) => pieceSql(tx, { factureOrigineId: facture.id, taux: [[20, 0, 0]] }));
-      const relu = await prisma.facture.findUniqueOrThrow({ where: { id: avoirZero.id } });
-      assert.deepEqual([relu.type, relu.statut, relu.estAvoirAnnulation, ...nombres([relu.totalHt, relu.totalTva, relu.totalTtc])], ['AVOIR', 'EMISE', false, 0, 0, 0]);
-      assert.equal((await enBase(facture.id)).statut, 'EMISE');
+      const id = randomUUID();
+      await refuseEnBase(() => transaction((tx) => pieceSql(tx, { id, factureOrigineId: facture.id, taux: [[20, 0, 0]] })), GARDE.avoirZero(id, facture.id), 'avoir de 0,00 € écrit en base');
+      const relue = await prisma.facture.findUniqueOrThrow({ where: { id: facture.id }, include: { avoirs: true } });
+      assert.deepEqual([relue.statut, relue.avoirs.length], ['EMISE', 0]);
       assert.deepEqual(await soldes(facture.id), ['EMISE', 0, 0, 0]);
-      // Écriture simple sur l'avoir (COMMIT implicite) : la vérification différée relit la facture d'origine, et l'admet.
-      assert.equal(await prisma.$executeRaw`UPDATE "Facture" SET "updatedAt" = now() WHERE "id" = ${avoirZero.id}`, 1);
-      assert.equal((await enBase(facture.id)).statut, 'EMISE');
-      await refuseEnBase(() => prisma.facture.update({ where: { id: facture.id }, data: { statut: 'REGLEE' } }), GARDE.passeReglee, 'facture à 0,00 € créditée de 0,00 €, passée réglée');
-      await refuse(() => reglement(facture.id, 10), 409, REFUS.dejaSoldee(facture.numero), 'règlement sur une facture à 0,00 € créditée de 0,00 €');
+      await refuseEnBase(() => prisma.facture.update({ where: { id: facture.id }, data: { statut: 'REGLEE' } }), GARDE.passeReglee, 'facture à 0,00 €, sans avoir, passée réglée');
+      await refuse(() => reglement(facture.id, 10), 409, REFUS.dejaSoldee(facture.numero), 'règlement sur une facture à 0,00 €');
       assert.deepEqual(await transitions(facture.id), []);
     });
 
-    // Cadrage v3, C8, côté API : un avoir partiel de 0,00 € se crée aussi par l'API, d'une ligne dont le
-    // total s'arrondit à 0,00 € HT (0,001 × 0,01 € = 0,00001 €). Sur une facture à 0,00 €, il la laisse « émise » : la seconde
-    // condition de synchroniserStatutReglement (montantRegle > 0 ou montantAvoirs > 0) ne se lit que par ce chemin de l'API.
-    // Lecture écartée : « réglée » dès que le reste dû est nul ; l'API tenterait alors le passage, que la garde immédiate refuse
-    // (500, rien d'écrit).
-    test('avoir partiel de 0,00 € créé par l’API (0,001 × 0,01 €, arrondi à 0,00 € HT) sur une facture à 0,00 € : 201, la facture reste « émise » (avoirs 0,00 €, reste dû 0,00 €), sans entrée de transition, et garde le refus « déjà soldée »', async () => {
+    // C1 de l'audit des montants de #524, côté API : un avoir partiel de 0,00 € se créait d'une ligne dont le total s'arrondit à
+    // 0,00 € HT (0,001 × 0,01 € = 0,00001 €). Depuis le lot « Pas d'avoir à 0,00 € » (cadrage v2, section « Tests », « Conséquence
+    // déclarée »), cette ligne est refusée (400 au message exact), sans numéro ni écriture, et la facture à 0,00 € reste « émise ».
+    // Lecture écartée (avant le lot) : 201, avoir de 0,00 € numéroté.
+    // Conséquence déclarée : la seconde condition de synchroniserStatutReglement (reglements/metier.ts : montantRegle > 0 ou
+    // montantAvoirs > 0) n'est plus atteinte par aucun chemin de l'API. Elle reste dans le code comme défense, alignée sur les gardes
+    // en base facture_statut_reglements et facture_statut_reglement_differe, dont la seconde condition reste éprouvée en base (test
+    // « gardes en base : l'avoir d'annulation ne compte pas… »). Le mutant qui la retire côté API est donc équivalent, et non un test
+    // manquant : seule une facture à 0,00 € a un reste dû nul sans rien de réglé ni de crédité, et aucun des quatre chemins qui
+    // appellent synchroniserStatutReglement ne l'atteint plus :
+    //  - un règlement : refusé « déjà soldée » (409) avant la synchronisation (test « facture à 0,00 € » plus haut, et ce test) ;
+    //  - un avoir partiel positif : refusé par le plafond (409 ; avoir-non-nul.test.mjs, critère 4) ;
+    //  - un avoir partiel d'une ligne à 0,00 € : refusé (400, ce test) ;
+    //  - une contre-passation : elle suppose un règlement, que la facture ne reçoit pas.
+    test('avoir partiel de 0,00 € par l’API (0,001 × 0,01 €, arrondi à 0,00 € HT) sur une facture à 0,00 € : refusé (400 « Une ligne d’avoir à 0,00 € n’est pas admise : Iris n’émet pas d’avoir à 0,00 €. ») par l’administration, le directeur et l’assistante technique (sa facture), sans numéro ni écriture ; la facture reste « émise » (avoirs 0,00 €, reste dû 0,00 €), sans entrée de transition, et garde le refus « déjà soldée »', async () => {
       assert.equal(exact.ligneHt(0.001, 0.01), 0n, 'témoin : 0,00001 € arrondi au centime');
       const facture = await factureEmise(par('AD'), 'avoir à zéro par l’API', LIGNES_ZERO);
-      const a = await avoirCree(facture.id, [ligne('avoir arrondi à zéro', 0.001, 0.01, 20)], par('AD'));
-      assert.deepEqual([a.type, a.statut, a.estAvoirAnnulation, ...nombres([a.totalHt, a.totalTva, a.totalTtc])], ['AVOIR', 'EMISE', false, 0, 0, 0]);
-      assert.equal((await enBase(facture.id)).statut, 'EMISE');
-      assert.deepEqual(await soldes(facture.id), ['EMISE', 0, 0, 0]);
-      assert.deepEqual(await transitions(facture.id), []);
-      await refuse(() => reglement(facture.id, 10), 409, REFUS.dejaSoldee(facture.numero), 'règlement sur une facture à 0,00 € créditée de 0,00 € par l’API');
+      const sienne = await factureEmise(par('AT'), 'avoir à zéro par l’API, assistante', LIGNES_ZERO);
+      const sequence = async () => (await prisma.sequenceAvoir.findUnique({ where: { annee: jour().annee } }))?.dernierNumero ?? 0;
+      const avant = await sequence();
+      for (const [f, auteur] of [[facture, 'AD'], [facture, 'DIR'], [sienne, 'AT']]) {
+        await refuse(() => avoir(f.id, [ligne('avoir arrondi à zéro', 0.001, 0.01, 20)], par(auteur)), 400, REFUS.ligneZero, `avoir de 0,00 € par l’API, ${auteur}`);
+      }
+      assert.equal(await sequence(), avant, 'aucun numéro d’avoir consommé');
+      for (const f of [facture, sienne]) {
+        assert.equal((await enBase(f.id)).statut, 'EMISE');
+        assert.deepEqual(await soldes(f.id), ['EMISE', 0, 0, 0]);
+        assert.deepEqual(await transitions(f.id), []);
+        await refuse(() => reglement(f.id, 10), 409, REFUS.dejaSoldee(f.numero), 'règlement sur une facture à 0,00 €');
+      }
     });
 
     // Critère 6 et gardes SQL du cadrage : écritures directes refusées, messages exacts ; avoir d'annulation et avoir brouillon non

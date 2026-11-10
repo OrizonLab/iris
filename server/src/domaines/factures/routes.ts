@@ -428,6 +428,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
 
   // L’annulation d’une facture émise est une transition métier atomique : elle conserve la
   // facture historique, crée son unique avoir total et lie les deux documents dans la même TX.
+  // Une facture à 0,00 € ne s’annule pas : Iris n’émet pas d’avoir à 0,00 € (réponse de Nelson du 10-11-2026).
   // Administration, et assistante technique sur les factures de son poste (AT-4 ; décisions du 09-11-2026) :
   // une facture hors de son périmètre lui répond 404, relue sous le verrou, avant tout autre refus.
   app.post('/api/factures/:id/annuler', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
@@ -445,6 +446,10 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         // facture. Le garde SQL `facture_statut_reglements` porte la même règle.
         const reglee = await tx.affectationReglement.count({ where: { factureId: facture.id, reglement: { statut: 'ENREGISTRE' } } });
         if (reglee) return { erreur: 'PAYMENTS_EXIST' as const };
+        // Pas d'avoir à 0,00 € (réponse de Nelson du 10-11-2026, « Refuser l'annulation (Recommandé) ») : une facture à
+        // 0,00 € reste émise, sans rien à payer. Égalité exacte en décimal sur le TTC (une facture émise n'a jamais de TTC
+        // négatif : l'équilibre de ses écritures le refuse).
+        if (facture.totalTtc.isZero()) return { erreur: 'ZERO_TOTAL' as const };
         // L'avoir naît émis : il copie l'identité de l'émetteur du jour, avant toute écriture.
         const identiteEmetteurId = await figerIdentiteEmetteur(tx);
         const ecritures = await ecrituresPourPiece(tx, facture, facture.id);
@@ -477,6 +482,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         if (resultat.erreur === 'NOT_FOUND') return res.status(404).json({ error: 'Facture introuvable.' });
         if (resultat.erreur === 'PARTIAL_CREDITS_EXIST') return res.status(409).json({ error: 'Cette facture porte déjà un ou plusieurs avoirs partiels : elle ne peut plus être annulée en totalité.' });
         if (resultat.erreur === 'PAYMENTS_EXIST') return res.status(409).json({ error: 'Cette facture a reçu un règlement : elle ne peut plus être annulée en totalité. Émettez un avoir partiel, ou contre-passez d’abord un règlement saisi par erreur.' });
+        if (resultat.erreur === 'ZERO_TOTAL') return res.status(409).json({ error: 'Une facture à 0,00 € ne s’annule pas : Iris n’émet pas d’avoir à 0,00 €. Elle reste émise, sans rien à payer.' });
         return res.status(409).json({ error: 'Seule une facture émise peut être annulée.' });
       }
       return res.json(decimalToNumber({ ...resultat.facture, avoir: resultat.avoir }));
@@ -492,7 +498,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
   // concurrentes avant le contrôle cumulatif des plafonds HT, TVA et TTC, quel que soit l'auteur des avoirs.
   // Administration, et assistante technique sur les factures de son poste (AT-4 ; décisions du 09-11-2026) :
   // une facture hors de son périmètre lui répond 404, relue sous le verrou, avant tout refus propre à la pièce ;
-  // seul le 400 de lignes mal formées, lu avant la transaction et indépendant de la pièce, le précède.
+  // seul le 400 de lignes mal formées ou à 0,00 €, lu avant la transaction et indépendant de la pièce, le précède.
   app.post('/api/factures/:id/avoirs', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     try {
       const lignes = lignesAvoirPartiel(req.body?.lignes);

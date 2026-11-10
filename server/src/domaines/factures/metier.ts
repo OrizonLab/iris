@@ -90,6 +90,11 @@ export function lignesAvoirPartiel(brutes: unknown): { ordre: number; designatio
     const nature = String(ligne?.nature || 'PRESTATION');
     if (!designation || designation.length > 500 || !['PRESTATION', 'ARTICLE'].includes(nature) || quantite === null || quantite <= 0 || prixUnitaireHt === null || prixUnitaireHt <= 0 || tauxTva === null || tauxTva > 100) throw new FactureInvalideError('Ligne d’avoir partiel invalide.');
     const totalHt = arrondiCommercialLigneHt(ligne?.quantite, ligne?.prixUnitaireHt);
+    // Pas d'avoir à 0,00 € (réponse de Nelson du 10-11-2026 : « si 0€ pas d'avoir, on ne fais pas d'avoir a 0€ » ;
+    // lecture retenue, à corriger par Nelson si besoin : la question portait sur la ligne). Règle d'intégrité (C-04) :
+    // un numéro d'avoir n'est consommé que par un avoir qui crédite quelque chose. Toutes les lignes étant positives
+    // après l'arrondi au centime, le HT de l'avoir l'est aussi, et sa TVA différentielle ne l'annule jamais.
+    if (totalHt <= 0) throw new FactureInvalideError('Une ligne d’avoir à 0,00 € n’est pas admise : Iris n’émet pas d’avoir à 0,00 €.');
     const totalTtc = centimesTtcLigne(totalHt, ligne?.tauxTva);
     if (totalTtc > PLAFOND_MONTANT) throw new FactureInvalideError('Montant de ligne hors des limites acceptées.');
     return { ordre, designation, nature, quantite, prixUnitaireHt, tauxTva, totalHt, totalTtc };

@@ -12,7 +12,10 @@
 //  - après elle, une écriture directe sur cette facture ou sur son avoir est refusée au COMMIT par la vérification différée,
 //    au message exact, en écriture simple comme en transaction ; la facture témoin s'écrit toujours ;
 //  - l'application, montée sur cette base, la laisse « émise » : un règlement est refusé (409 « déjà soldée », N14), un nouvel
-//    avoir par le plafond, l'annulation par ses avoirs partiels ; elle n'a aucun règlement à contre-passer ; rien n'est écrit ;
+//    avoir par le plafond, l'annulation par ses avoirs partiels ; elle n'a aucun règlement à contre-passer ; rien n'est écrit. Les
+//    migrations postérieures à celle du lot sont jouées juste avant de monter l'application, qui suppose le schéma complet (#526, N3 de
+//    l'audit des montants de #524 : le test n'exige plus que la migration du lot soit la dernière ; corrigé par le lot « Pas d'avoir
+//    à 0,00 € », première PR qui ajoute une migration) ;
 //  - seule l'écriture directe qui la passe « réglée » est admise : elle est soldée au sens de la nouvelle garde.
 // Sans TEST_DATABASE_URL, le test s'annonce ignoré, comme les autres tests de migration : un SKIP n'est pas une réussite.
 import assert from 'node:assert/strict';
@@ -55,6 +58,7 @@ if (!adminUrl) {
     let prisma = null;
     let appPrisma = null;
     const ids = {};
+    let toutes = [];
     const environnementAvant = {};
     const NOMS_ENVIRONNEMENT = ['DATABASE_URL', 'NODE_ENV', 'JWT_SECRET', 'BREAK_GLASS_EMAIL', 'BREAK_GLASS_TOKEN', 'SUPERADMIN_EMAILS', 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID'];
     const deploy = () => execFileSync(resolve(prismaDir, '../node_modules/.bin/prisma'), ['migrate', 'deploy', '--schema', schema], {
@@ -116,9 +120,8 @@ if (!adminUrl) {
       copyFileSync(join(prismaDir, 'schema.prisma'), schema);
       mkdirSync(migrations);
       copyFileSync(join(prismaDir, 'migrations/migration_lock.toml'), join(migrations, 'migration_lock.toml'));
-      const toutes = readdirSync(join(prismaDir, 'migrations')).filter((nom) => nom !== 'migration_lock.toml').sort();
+      toutes = readdirSync(join(prismaDir, 'migrations')).filter((nom) => nom !== 'migration_lock.toml').sort();
       assert.ok(toutes.includes(migration), `${migration} : migration absente`);
-      assert.equal(toutes.at(-1), migration, 'la migration du lot est la dernière');
       for (const nom of toutes.filter((n) => n < migration)) cpSync(join(prismaDir, 'migrations', nom), join(migrations, nom), { recursive: true });
       deploy();
       db = new pg.Client({ connectionString: cible.toString() });
@@ -196,8 +199,16 @@ if (!adminUrl) {
       assert.equal(await statut(ids.g), 'EMISE');
     });
 
-    test('après la migration, par l’application : la facture reste « émise » (reste dû 0,00 €, avoirs 120,00 €) ; règlement refusé (409 « déjà soldée »), avoir refusé par le plafond (409), annulation refusée par ses avoirs partiels (409), sans écriture ; aucun règlement à contre-passer', async () => {
+    test('après la migration, par l’application (migrations postérieures jouées) : la facture reste « émise » (reste dû 0,00 €, avoirs 120,00 €) ; règlement refusé (409 « déjà soldée »), avoir refusé par le plafond (409), annulation refusée par ses avoirs partiels (409), sans écriture ; aucun règlement à contre-passer', async () => {
       assert.ok(ids.f, 'données d’avant la migration absentes');
+      // L'application suppose le schéma de toutes les migrations : celles qui suivent la migration du lot sont jouées avant de la
+      // monter (#526, N3), et la facture reste telle quelle.
+      const posterieures = toutes.filter((n) => n > migration);
+      for (const nom of posterieures) cpSync(join(prismaDir, 'migrations', nom), join(migrations, nom), { recursive: true });
+      if (posterieures.length) deploy();
+      const appliquees = (await db.query('SELECT "migration_name" FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL')).rows.map((r) => r.migration_name).sort();
+      assert.deepEqual(appliquees, toutes, 'toutes les migrations du dépôt sont appliquées');
+      assert.deepEqual([await statut(ids.f), await resteDu(ids.f)], ['EMISE', 0]);
       for (const nom of NOMS_ENVIRONNEMENT) environnementAvant[nom] = process.env[nom];
       delete process.env.AZURE_TENANT_ID;
       delete process.env.AZURE_CLIENT_ID;
