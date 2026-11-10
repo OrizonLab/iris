@@ -538,6 +538,16 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
+    // Audit des montants de #530, T1 : ordre de l'annulation, la facture à 0,00 € après les avoirs qu'elle porte (cadrage v2, § 2 :
+    // « après le 404 (périmètre), le statut, les avoirs partiels et le règlement reçu »). Un avoir resté brouillon sur une facture à
+    // 0,00 € s'écrit en SQL (la garde ne vérifie pas un brouillon) : l'annulation reçoit le refus des avoirs, et non celui de la facture
+    // à 0,00 €. Lecture écartée : refus de la facture à 0,00 € placé avant celui des avoirs partiels.
+    test('ordre des refus de l’annulation : une facture à 0,00 € qui porte un avoir brouillon (écrit en SQL) reçoit le refus des avoirs partiels, avant celui de la facture à 0,00 € ; sans écriture ni numéro', async () => {
+      const zero = await factureEmise(par('AD'), 'ordre avoirs partiels', LIGNES_ZERO);
+      await transaction((tx) => pieceSql(tx, { factureOrigineId: zero.id, statut: 'BROUILLON', taux: [[20, 1, 0.2]] }));
+      await refuse(() => annuler(zero.id, par('AD')), 409, 'Cette facture porte déjà un ou plusieurs avoirs partiels : elle ne peut plus être annulée en totalité.', 'facture à 0,00 € qui porte un avoir brouillon');
+    });
+
     // Types de compte : la garde des factures (requireGestionFactures) passe avant les nouveaux refus ; les routes ne sont pas ouvertes
     // aux clés d'intégration.
     test('droits : ligne à 0,00 € et annulation d’une facture à 0,00 € refusées aux sept autres types (403 « Accès réservé à l’administration et à l’assistante technique. »), avant les refus du lot ; 401 sans session et par une clé d’intégration ; sans écriture', async () => {
@@ -592,6 +602,55 @@ if (!TEST_DATABASE_URL) {
       const avoirTotal = await enBase(annulee.avoir.id);
       assert.deepEqual([avoirTotal.statut, avoirTotal.estAvoirAnnulation, ...nombres([avoirTotal.totalHt, avoirTotal.totalTva, avoirTotal.totalTtc])], ['EMISE', true, 100, 20, 120]);
       assert.deepEqual(avoirTotal.lignes.map((l) => nombres([l.prixUnitaireHt, l.totalHt])), [[100, 100], [0, 0]]);
+    });
+
+    // Audit des montants de #530, C1 : la garde porte sur le total de l'avoir, et non sur sa ventilation par taux (cadrage v2, § 3).
+    // Une ligne offerte à un taux qui lui est propre donne à la facture une ventilation à 0,00 € à ce taux (ventilationTvaDerivee), que
+    // son avoir total recopie. Lectures écartées : refus d'un avoir dont une ventilation est à 0,00 € (même forme que le refus des
+    // montants négatifs, qui lit aussi la ventilation : refus au COMMIT, 500) ; refus de l'annulation d'une facture dont un taux est à
+    // 0,00 € (409). Le test précédent, ligne offerte au même taux que la ligne payante, ne les sépare pas : sa ventilation n'a qu'un taux.
+    test('critère 7, garde portée par le total, ligne offerte à un taux propre : la facture de 120,00 € (1 × 100,00 € HT à 20 %) qui porte une ligne offerte à 5,5 % (ventilation à 5,5 % : 0,00 € HT, 0,00 € de TVA) s’annule par son avoir total, qui recopie cette ventilation à 0,00 €, numéroté à la suite, admis en base', async () => {
+      const facture = await factureEmise(par('AD'), 'ligne offerte à 5,5 %', [...LIGNES_CENT, ligne('fourniture offerte', 1, 0, 5.5)]);
+      assert.deepEqual(nombres([facture.totalHt, facture.totalTva, facture.totalTtc]), [100, 20, 120]);
+      const ventilation = (piece) => [...piece.ventilationTva].sort((a, b) => Number(a.tauxTva) - Number(b.tauxTva)).map((v) => nombres([v.tauxTva, v.totalHt, v.totalTva, v.totalTtc]));
+      assert.deepEqual(ventilation(await enBase(facture.id)), [[5.5, 0, 0, 0], [20, 100, 20, 120]], 'témoin : la facture porte une ventilation à 0,00 € à 5,5 %');
+      const sequenceAvant = await sequence();
+      const annulee = await ok(annuler(facture.id, par('AD')));
+      assert.deepEqual([annulee.statut, annulee.avoir.estAvoirAnnulation, annulee.avoir.numero], ['ANNULEE', true, numeroAvoir(sequenceAvant + 1)]);
+      const avoirTotal = await enBase(annulee.avoir.id);
+      assert.deepEqual([avoirTotal.statut, ...nombres([avoirTotal.totalHt, avoirTotal.totalTva, avoirTotal.totalTtc])], ['EMISE', 100, 20, 120]);
+      assert.deepEqual(ventilation(avoirTotal), [[5.5, 0, 0, 0], [20, 100, 20, 120]]);
+      assert.equal(await sequence(), sequenceAvant + 1);
+      assert.equal((await enBase(facture.id)).statut, 'ANNULEE');
+    });
+
+    // Audit des montants de #530, C2 : « 0,00 € » se lit sur le TTC, à l'annulation comme dans la garde (cadrage v2, § 2 et § 3 ;
+    // corps de la PR : « dont le TTC est exactement 0,00 € », « dont le TTC est 0,00 € »). Une pièce de TVA seule (0,00 € HT, 0,01 €
+    // de TVA, 0,01 € TTC) ne se crée pas par l'API, mais s'écrit en SQL : la cohérence de la TVA avec sa base n'est pas gardée en base
+    // (#243), et la garde des avoirs la tient pour cohérente (TTC = HT + TVA, ventilation égale aux totaux). Elle crédite ou doit
+    // 0,01 € : ni « avoir à 0,00 € », ni « facture à 0,00 € ». Lectures écartées : HT nul, ou lignes toutes à 0,00 € HT (« une facture
+    // dont toutes les lignes sont gratuites », texte de la question posée à Nelson) : avoir refusé au COMMIT, annulation refusée (409).
+    // Même preuve par l'écriture SQL que le mutant « ≤ 0 », mais en sens inverse : ici, les deux lectures diffèrent. Si #243 garde un
+    // jour la TVA par sa base, ces pièces seront refusées à leur écriture, pour une autre raison que l'avoir à 0,00 € : le test changera.
+    test('« 0,00 € » se lit sur le TTC : un avoir de TVA seule écrit en SQL (0,00 € HT, 0,01 € de TVA, 0,01 € TTC) est admis par la garde de l’avoir à 0,00 € ; une facture de TVA seule écrite en SQL s’annule par son avoir total de 0,01 € TTC, numéroté à la suite', async () => {
+      const facture = await factureEmise(par('AD'), 'avoir de TVA seule', LIGNES_CENT);
+      const tvaSeule = await transaction((tx) => pieceSql(tx, { factureOrigineId: facture.id, taux: [[20, 0, 0.01]] }));
+      assert.deepEqual([tvaSeule.statut, ...nombres([tvaSeule.totalHt, tvaSeule.totalTva, tvaSeule.totalTtc])], ['EMISE', 0, 0.01, 0.01]);
+      assert.deepEqual(await soldes(facture.id), ['EMISE', 0.01, 0, 119.99]);
+      // Facture de TVA seule, écrite comme l'application écrit ses écritures (clé `TVA:20`, que l'avoir total reprend), puis émise.
+      const factureTvaSeule = await transaction(async (tx) => {
+        const piece = await pieceSql(tx, { type: 'FACTURE', statut: 'BROUILLON', taux: [[20, 0, 0.01]] });
+        await tx.ecritureFacture.createMany({ data: [
+          { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', debit: 0.01, credit: 0 },
+          { factureId: piece.id, ordre: 1, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', debit: 0, credit: 0.01 },
+        ] });
+        return tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true, statut: 'EMISE' } });
+      });
+      assert.deepEqual([factureTvaSeule.type, factureTvaSeule.statut, ...nombres([factureTvaSeule.totalHt, factureTvaSeule.totalTva, factureTvaSeule.totalTtc])], ['FACTURE', 'EMISE', 0, 0.01, 0.01]);
+      const sequenceAvant = await sequence();
+      const annulee = await ok(annuler(factureTvaSeule.id, par('AD')));
+      assert.deepEqual([annulee.statut, annulee.avoir.numero, ...nombres([annulee.avoir.totalHt, annulee.avoir.totalTva, annulee.avoir.totalTtc])], ['ANNULEE', numeroAvoir(sequenceAvant + 1), 0, 0.01, 0.01]);
+      assert.equal(await sequence(), sequenceAvant + 1);
     });
 
     // Critère 7 : « un avoir brouillon à 0,00 € n'est pas vérifié tant qu'il n'est pas émis ». Lecture écartée : garde appliquée au

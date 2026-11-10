@@ -446,8 +446,9 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         // facture. Le garde SQL `facture_statut_reglements` porte la même règle.
         const reglee = await tx.affectationReglement.count({ where: { factureId: facture.id, reglement: { statut: 'ENREGISTRE' } } });
         if (reglee) return { erreur: 'PAYMENTS_EXIST' as const };
-        // Pas d'avoir à 0,00 € (réponse de Nelson du 10-11-2026, « Refuser l'annulation ») : une facture à 0,00 € reste
-        // émise, sans rien à payer. Égalité exacte en décimal : une facture négative écrite en SQL garde le refus de la base.
+        // Pas d'avoir à 0,00 € (réponse de Nelson du 10-11-2026, « Refuser l'annulation (Recommandé) ») : une facture à
+        // 0,00 € reste émise, sans rien à payer. Égalité exacte en décimal sur le TTC (une facture émise n'a jamais de TTC
+        // négatif : l'équilibre de ses écritures le refuse).
         if (facture.totalTtc.isZero()) return { erreur: 'ZERO_TOTAL' as const };
         // L'avoir naît émis : il copie l'identité de l'émetteur du jour, avant toute écriture.
         const identiteEmetteurId = await figerIdentiteEmetteur(tx);
