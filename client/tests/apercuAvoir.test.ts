@@ -69,3 +69,15 @@ test('l’aperçu suit la règle d’arrondi exacte pour des bases et des taux v
     assert.equal(Math.round(totalTva * 100), attendu, `${prix} € HT à ${taux} % après ${precedent / 100} €`);
   }
 });
+
+// Lot « Pas d'avoir à 0,00 € » (cadrage v2, § 4 : « Formulaire d'avoir partiel : le message du serveur s'affiche (pas de contrôle
+// client supplémentaire) » ; critère 3 bis, C6 du contrôle de mode 1). L'aperçu suit la même arithmétique que le serveur à la limite
+// de l'arrondi : il annonce 0,00 € pour une ligne que le serveur arrondit à 0,00 € et refuse, et 0,01 € pour 0,5 × 0,01 €, qu'il
+// admet. Lectures écartées : produit brut (0,00001 €, 0,00499 €, 0,005 €), troncature ou arrondi au pair (0,5 × 0,01 € à 0,00 €),
+// arrondi au supérieur (0,001 × 0,01 € et 0,499 × 0,01 € à 0,01 €).
+test('l’aperçu annonce 0,00 € pour une ligne arrondie à 0,00 € que le serveur refuse (0,001 × 0,01 €, 0,499 × 0,01 €), et 0,01 € HT, 0,00 € de TVA pour 0,5 × 0,01 €, qu’il admet', () => {
+  assert.deepEqual(totauxApercuAvoir([ligne('0,001', '0,01', '20')]), { totalHt: 0, totalTva: 0, totalTtc: 0 });
+  assert.deepEqual(totauxApercuAvoir([ligne('0,499', '0,01', '20')]), { totalHt: 0, totalTva: 0, totalTtc: 0 });
+  assert.deepEqual(totauxApercuAvoir([ligne('0,5', '0,01', '20')]), { totalHt: 0.01, totalTva: 0, totalTtc: 0.01 });
+  assert.deepEqual(totauxApercuAvoir([ligne('1', '0,01', '20')]), { totalHt: 0.01, totalTva: 0, totalTtc: 0.01 });
+});
