@@ -62,6 +62,8 @@ type Facture = {
 const nouvelleLigne = (): Ligne => ({ designation: '', nature: 'PRESTATION', quantite: '1', prixUnitaireHt: '', tauxTva: '20' });
 const formatDate = (date: string) => formatDateOnly(date);
 const avoirsPartiels = (facture: Facture) => (facture.avoirs || []).filter((avoir) => !avoir.estAvoirAnnulation);
+// Iris n'émet pas d'avoir à 0,00 € (réponse de Nelson du 10-11-2026) : une facture à 0,00 € ne reçoit ni avoir partiel ni annulation.
+const factureANulle = (facture: Facture) => facture.type === 'FACTURE' && Number(facture.totalTtc) === 0;
 
 export default function Factures() {
   // L'administration gère toutes les pièces. L'assistante technique (AT-3) ne reçoit que celles de son poste, crée
@@ -631,14 +633,16 @@ export default function Factures() {
                   {facture.type === 'FACTURE' && facture.statut === 'BROUILLON' && (emissionImpossible(facture)
                     ? <span className="text-sm text-amber-700"><button className="btn btn-secondary" disabled><Send size={16} /> Émission impossible</button> Date antérieure à la dernière facture numérotée du {formatDate(derniereDateEmission!)}</span>
                     : <button className="btn btn-secondary" onClick={() => void emettre(facture)}><Send size={16} /> Émettre</button>)}
-                  {facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
+                  {facture.type === 'FACTURE' && ['EMISE', 'REGLEE'].includes(facture.statut) && !factureANulle(facture) && <button className="btn btn-secondary" disabled={chargement} title={chargement ? 'Liste en cours de chargement' : undefined} onClick={() => ouvrirAvoirPartiel(facture)}><FilePlus2 size={16} /> Créer un avoir partiel</button>}
                   {facture.type === 'FACTURE' && facture.statut === 'EMISE' && <>
                     {administration && (facture.resteDu ?? 0) > 0 && <Link className="btn btn-secondary" to={`/reglements?facture=${facture.id}`}><HandCoins size={16} /> Enregistrer un règlement</Link>}
-                    {avoirsPartiels(facture).length
-                      ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : {avoirsPartiels(facture).length} avoir(s) partiel(s) déjà émis</span>
-                      : (facture.montantRegle ?? 0) > 0
-                        ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : un règlement a été reçu</span>
-                        : <button className="btn btn-secondary" onClick={() => void annuler(facture)}><Ban size={16} /> Annuler la facture</button>}
+                    {factureANulle(facture)
+                      ? <span className="self-center text-xs text-gray-500">Aucun avoir possible : facture à 0,00 €</span>
+                      : avoirsPartiels(facture).length
+                        ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : {avoirsPartiels(facture).length} avoir(s) partiel(s) déjà émis</span>
+                        : (facture.montantRegle ?? 0) > 0
+                          ? <span className="self-center text-xs text-gray-500">Annulation totale impossible : un règlement a été reçu</span>
+                          : <button className="btn btn-secondary" onClick={() => void annuler(facture)}><Ban size={16} /> Annuler la facture</button>}
                   </>}
                   {facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" onClick={() => void telechargerDocument(facture)}><Download size={16} /> PDF</button>}
                   {facture.type === 'FACTURE' && facture.statut !== 'BROUILLON' && <button className="btn btn-secondary" aria-expanded={factureReglements?.id === facture.id} aria-controls="reglements-facture" onClick={() => setFactureReglements(factureReglements?.id === facture.id ? null : facture)}><Receipt size={16} /> Règlements</button>}
