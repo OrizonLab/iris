@@ -12,8 +12,10 @@
 // avoirs reste émise ») et étend la cause des transitions EMISE ↔ REGLEE du cycle du 19-10-2026 (#221). Inchangés : reste dû =
 // TTC − avoirs émis − règlements non contre-passés ; trop-perçu ; annulation refusée après un règlement ; statut « annulée ».
 // Choix par défaut du cadrage, à confirmer, testés tels qu'écrits : le détail du journal d'une transition ajoute « , avoirs X € »
-// seulement si la facture porte des avoirs (N2) ; le PDF d'une facture réglée par ses avoirs porte « Facture réglée. », sans
-// autre mention (C5) ; l'entrée REGLEMENT désigne le passage à « réglée », au nom de l'auteur de l'événement (N2).
+// seulement si la facture porte des avoirs (N2) ; le PDF d'une facture réglée par ses avoirs portait « Facture réglée. », sans
+// autre mention (C5) : depuis le lot « Détail des avoirs comme règlements » (cadrage v2, § 2 ; réponse 1 de Nelson du 10-11-2026,
+// « Facture réglée par avoir(s) », lecture retenue : accord au nombre), il porte « Facture réglée par avoir. » (un avoir) ;
+// l'entrée REGLEMENT désigne le passage à « réglée », au nom de l'auteur de l'événement (N2).
 //
 // Contrat éprouvé :
 //  - synchroniserStatutReglement (reglements/metier.ts), appelée après un règlement, une contre-passation ou un avoir partiel :
@@ -416,8 +418,9 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Critère 1, par l'administration (ADMIN et directeur, aligné sur elle) : la facture passe « réglée », reste dû 0,00 €, entrée
-    // REGLEMENT au nom de l'auteur de l'avoir, avec « avoirs 120,00 € » ; PDF « Facture réglée. » ; sortie de la liste « à régler ».
-    test('critère 1 : facture de 120,00 € soldée par un avoir partiel de 120,00 € sans règlement : « réglée », reste dû 0,00 €, entrée REGLEMENT au nom de l’auteur de l’avoir (administrateur, directeur) avec « avoirs 120,00 € », PDF « Facture réglée. », hors de la liste « à régler »', async () => {
+    // REGLEMENT au nom de l'auteur de l'avoir, avec « avoirs 120,00 € » ; PDF « Facture réglée par avoir. » (lot « Détail des avoirs
+    // comme règlements ») ; sortie de la liste « à régler ».
+    test('critère 1 : facture de 120,00 € soldée par un avoir partiel de 120,00 € sans règlement : « réglée », reste dû 0,00 €, entrée REGLEMENT au nom de l’auteur de l’avoir (administrateur, directeur) avec « avoirs 120,00 € », PDF « Facture réglée par avoir. », hors de la liste « à régler »', async () => {
       for (const auteur of ['AD', 'DIR']) {
         const facture = await factureEmise(par('AD'), `critère 1 ${auteur}`, LIGNES_CENT);
         assert.deepEqual(nombres([facture.totalHt, facture.totalTva, facture.totalTtc]), [100, 20, 120]);
@@ -437,11 +440,15 @@ if (!TEST_DATABASE_URL) {
         // L'avoir porte sa seule entrée de création.
         assert.deepEqual((await enBase(a1.id)).journal.map((j) => [j.action, j.acteurId]), [['CREATION_AVOIR_PARTIEL', comptes[auteur].id]]);
         assert.ok(!(await aRegler()).some(([id]) => id === facture.id), `${auteur} : sortie de la liste « à régler »`);
-        // PDF : « Facture réglée. », sans la précision « Soldée par avoir » de l'écran (choix par défaut, C5).
+        // PDF : « Facture réglée par avoir. » depuis le lot « Détail des avoirs comme règlements » (réponse 1 de Nelson du
+        // 10-11-2026), et non plus « Facture réglée. » (C5 de ce lot-ci) ; toujours sans la précision « Soldée par avoir » de
+        // l'écran (« soldée » et « réglée par avoir » : deux mots différents, par choix de Nelson). Le bloc « Règlements et avoirs »
+        // est éprouvé par detail-avoirs-reglements.test.mjs.
         const pdf = await appeler('get', `/factures/${facture.id}/document.pdf`, null, par('AD'));
         assert.equal(pdf.status, 200, pdf.text);
         const texte = await texteDuPdf(pdf);
-        assert.ok(texte.includes('Facture réglée.'), `${auteur} : PDF « Facture réglée. »`);
+        assert.ok(texte.includes('Facture réglée par avoir.'), `${auteur} : PDF « Facture réglée par avoir. »`);
+        assert.ok(!texte.includes('Facture réglée.'), `${auteur} : lecture écartée, « Facture réglée. » d’avant le lot du détail des avoirs`);
         assert.ok(!texte.includes('Soldée par avoir'), `${auteur} : aucune autre mention sur le PDF`);
         assert.ok(texte.includes('Total TTC : 120,00 €'));
       }
@@ -458,7 +465,8 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await transitions(facture.id), [['REGLEMENT', comptes.AT.id, `Transition EMISE → REGLEE (avoir partiel ${avoirAt.numero}) : réglé 0,00 €, avoirs 120,64 €, reste dû 0,00 €`]]);
       const lu = await ok(appeler('get', `/factures/${facture.id}/journal`, null, par('AT')));
       assert.deepEqual(lu.filter((j) => j.action === 'REGLEMENT').map((j) => j.acteurId), [comptes.AT.id], 'son journal, lu par elle');
-      assert.ok((await texteDuPdf(await appeler('get', `/factures/${facture.id}/document.pdf`, null, par('AT')))).includes('Facture réglée.'));
+      // Lot « Détail des avoirs comme règlements » : « Facture réglée par avoir. » (et non plus « Facture réglée. »).
+      assert.ok((await texteDuPdf(await appeler('get', `/factures/${facture.id}/document.pdf`, null, par('AT')))).includes('Facture réglée par avoir.'));
 
       // Critère 2, par elle.
       const partielle = await factureEmise(par('AT'), 'critère 2 assistante', LIGNES_CENT);

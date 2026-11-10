@@ -597,15 +597,21 @@ if (!TEST_DATABASE_URL) {
     // P2 : « la pièce émise est figée ». Chaque pièce s'imprime sous son propre numéro, avec ses propres montants
     // et sa mention (aucune pour une pièce émise, « Facture réglée. », « FACTURE ANNULÉE — … ») ; un avoir porte
     // « AVOIR » et sa facture d'origine. Le PDF d'une pièce émise ne bouge pas, octet pour octet hors CreationDate
-    // et /ID, quand la société, le client, son adresse ou les mentions légales changent, ou qu'un avoir partiel
-    // la crédite.
+    // et /ID, quand la société, le client, son adresse ou les mentions légales changent.
+    // Lot « Détail des avoirs comme règlements » (cadrage v2, § 2, « Ce que le PDF ne change pas, et ce qu'il change »,
+    // et C1 du contrôle de mode 1 ; réponse 2 de Nelson du 10-11-2026, « Dès qu'un avoir existe ») : l'invariant « ou
+    // qu'un avoir partiel la crédite » est abandonné. Un avoir partiel ou un règlement ajoute le bloc « Règlements et
+    // avoirs » après les totaux ; le texte du PDF, privé de sa mention de statut et de ce bloc, reste celui de la
+    // facture émise. Bloc de la facture émise créditée de 48,00 € : « Avoir … : 48,00 € », « Reste à payer :
+    // 253,00 € » (lectures écartées : avoir hors taxes, 40,00 € et reste 261,00 €) ; de la réglée de 120,00 € :
+    // « Paiement du … (virement) : 120,00 € », sans reste (lecture écartée : « Reste à payer : 0,00 € »).
     //
     // Montants : la facture émise (301,00 € TTC), la réglée (120,00 €), l'annulée (96,00 €) et l'avoir partiel
     // (48,00 €) ont des totaux distincts ; un PDF qui imprimerait la facture d'origine à la place de son avoir partiel,
     // ou une autre pièce, en diffère. L'avoir total a les mêmes montants que la facture annulée qu'il crédite (96,00 €) :
     // son titre « AVOIR » et son numéro les départagent. La ligne 2,5 × 0,33 € = 0,825 € s'imprime 0,83 € (arrondi commercial, à l'émission) : un PDF qui
     // recalculerait au demi-centime pair ou tronquerait imprimerait 0,82 € et un total de 250,82 €.
-    test('facture, avoir : chaque pièce imprime son numéro, ses montants figés et sa mention ; le PDF émis ne bouge pas après l’émission', async () => {
+    test('facture, avoir : chaque pièce imprime son numéro, ses montants figés et sa mention ; le PDF émis ne bouge pas après l’émission, hors sa mention et son bloc « Règlements et avoirs »', async () => {
       const lirePiece = async (piece) => {
         const res = await lire(CHEMINS.facture(piece.id));
         verifierPdf(res, `${piece.numero}.pdf`, piece.numero);
@@ -630,17 +636,25 @@ if (!TEST_DATABASE_URL) {
       assert.doesNotMatch(emise.plat, /ANNUL|réglée|AVOIR|Facture d’origine|0,82 €|250,82 €/u, emise.texte);
       verifierSeulNumero(emise.plat, f.factureEmise.numero, numeros());
 
-      // Figée : société, client, adresse de facturation et mentions changés, avoir partiel émis ; même PDF.
+      // Figée : société, client, adresse de facturation et mentions changés ; même PDF. Puis avoir partiel émis : même
+      // texte, plus le seul bloc « Règlements et avoirs » (lot « Détail des avoirs comme règlements »).
       const avantChangements = normaliser(emise.octets);
       const nouvellesMentions = await ok(appeler('post', '/mentions-legales', { mentions: 'TEST mentions 6b1a v2', cgv: 'TEST CGV 6b1a v2', penalites: 'TEST pénalités 6b1a v2' }), 201);
       await ok(appeler('post', `/mentions-legales/${nouvellesMentions.version}/publier`));
       await ok(appeler('put', `/clients/${f.client.id}`, { raisonSociale: 'TEST Client renommé après émission 6b1a' }));
       await prisma.clientSite.update({ where: { id: f.client.siteFacturation.id }, data: { adresse: '99 avenue du Déménagement', codePostal: '13001', ville: 'Marseille' } });
       try {
-        const avoirPartiel = await ok(appeler('post', `/factures/${f.factureEmise.id}/avoirs`, { lignes: [{ designation: 'TEST Geste commercial 6b1a', quantite: 1, prixUnitaireHt: 40, tauxTva: 20 }] }), 201);
         await avecSociete(SOCIETE_CHANGEE, async () => {
           const relue = await lirePiece(f.factureEmise);
-          assert.equal(normaliser(relue.octets), avantChangements, 'le PDF de la facture émise ne bouge pas après son émission');
+          assert.equal(normaliser(relue.octets), avantChangements, 'le PDF de la facture émise ne bouge pas quand la société, le client, son adresse ou les mentions légales changent');
+        });
+        const avoirPartiel = await ok(appeler('post', `/factures/${f.factureEmise.id}/avoirs`, { lignes: [{ designation: 'TEST Geste commercial 6b1a', quantite: 1, prixUnitaireHt: 40, tauxTva: 20 }] }), 201);
+        await avecSociete(SOCIETE_CHANGEE, async () => {
+          const creditee = await lirePiece(f.factureEmise);
+          const bloc = ` Règlements et avoirs Avoir ${avoirPartiel.numero} du ${aujourdhui()} : 48,00 € Reste à payer : 253,00 €`;
+          assert.ok(creditee.plat.includes(` Total TTC : 301,00 €${bloc} Mentions légales et CGV — version 1 `), `bloc de la facture créditée, après les totaux\n${creditee.texte}`);
+          assert.equal(creditee.plat.replace(bloc, ''), emise.plat, 'la facture créditée ne diffère de l’émise que par son bloc « Règlements et avoirs »');
+          assert.doesNotMatch(creditee.plat, /ANNUL|réglée|40,00 €|261,00 €|Reste à payer : 0,00 €/u, creditee.texte);
           // Avoir partiel : créé sous la société d'origine, il imprime sa copie, ses montants et sa facture d'origine.
           assert.deepEqual([avoirPartiel.type, avoirPartiel.statut, avoirPartiel.totalHt, avoirPartiel.totalTva, avoirPartiel.totalTtc], ['AVOIR', 'EMISE', 40, 8, 48]);
           const avoir = await lirePiece(avoirPartiel);
@@ -662,7 +676,11 @@ if (!TEST_DATABASE_URL) {
       assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.factureReglee.id } })).statut, 'REGLEE');
       const reglee = await lirePiece(f.factureReglee);
       assert.ok(reglee.plat.includes(`FACTURE ${f.factureReglee.numero}`) && reglee.plat.includes('Facture réglée.'), reglee.texte);
-      assert.equal(reglee.plat.replace(' Facture réglée.', ''), avantReglement.plat, 'la réglée ne diffère de l’émise que par sa mention');
+      // Lot « Détail des avoirs comme règlements » : la réglée porte aussi son bloc, sans reste (soldée).
+      const blocReglee = ` Règlements et avoirs Paiement du ${aujourdhui()} (virement) : 120,00 €`;
+      assert.ok(reglee.plat.includes(` Total TTC : 120,00 €${blocReglee} Mentions légales et CGV — version `), reglee.texte);
+      assert.doesNotMatch(reglee.plat, /Reste à payer|Trop-perçu|réglée par avoir/u, reglee.texte);
+      assert.equal(reglee.plat.replace(' Facture réglée.', '').replace(blocReglee, ''), avantReglement.plat, 'la réglée ne diffère de l’émise que par sa mention et son bloc « Règlements et avoirs »');
       for (const attendu of ['Total HT : 100,00 €', 'TVA 20 % sur 100,00 € : 20,00 €', 'Total TTC : 120,00 €']) assert.ok(reglee.plat.includes(attendu), `${attendu}\n${reglee.texte}`);
       assert.doesNotMatch(reglee.plat, /ANNUL|AVOIR/u);
       verifierSeulNumero(reglee.plat, f.factureReglee.numero, numeros());

@@ -721,16 +721,30 @@ AD | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | ac
 AD | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 AD | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
-AD | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
-AD | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
-AD | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
-AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
-AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
-AD | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
-AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
-AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-AD | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
+AD | GET /api/factures/:id/reglements | avoir-emis | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .parts[] | (aucun)
+AD | GET /api/factures/:id/reglements | avoir-facture-at | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .parts[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .parts[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[] | id, montant, reglement
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .parts[] | (sans libellé)
+AD | GET /api/factures/:id/reglements | facture-brouillon | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .parts[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés . | avoirs, parts, solde
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[] | id, montant, reglement
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .avoirs[] | (aucun)
+AD | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .parts[] | reglement reglement
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
@@ -1745,16 +1759,30 @@ AD-COM | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] 
 AD-COM | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 AD-COM | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AD-COM | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
-AD-COM | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
-AD-COM | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
-AD-COM | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
-AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
-AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
-AD-COM | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
-AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
-AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
+AD-COM | GET /api/factures/:id/reglements | avoir-emis | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .parts[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | avoir-facture-at | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .parts[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .parts[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[] | id, montant, reglement
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .parts[] | (sans libellé)
+AD-COM | GET /api/factures/:id/reglements | facture-brouillon | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .parts[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés . | avoirs, parts, solde
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[] | id, montant, reglement
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .avoirs[] | (aucun)
+AD-COM | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .parts[] | reglement reglement
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AD-COM | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
@@ -2666,11 +2694,18 @@ AT | GET /api/factures/:id/journal | facture-at-brouillon | défaut | clés [] |
 AT | GET /api/factures/:id/journal | facture-at-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-at-brouillon
 AT | GET /api/factures/:id/journal | facture-at-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 AT | GET /api/factures/:id/journal | facture-at-emise | défaut | éléments [] | CREATION_BROUILLON facture-at-emise, EMISSION facture-at-emise, REGLEMENT_AFFECTE facture-at-emise
-AT | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
-AT | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
-AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
-AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
+AT | GET /api/factures/:id/reglements | avoir-facture-at | défaut | clés . | avoirs, parts, solde
+AT | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .avoirs[] | (aucun)
+AT | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .parts[] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | clés . | avoirs, parts, solde
+AT | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .avoirs[] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .parts[] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés . | avoirs, parts, solde
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[] | id, montant, reglement
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .avoirs[] | (aucun)
+AT | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .parts[] | (sans libellé)
 AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
 AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 AT | GET /api/factures/:id/tracabilite | avoir-facture-at | défaut | clés .facture.client | id, raisonSociale
@@ -4706,16 +4741,30 @@ DIR | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | a
 DIR | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 DIR | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 DIR | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
-DIR | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
-DIR | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
-DIR | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
-DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
-DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
-DIR | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
-DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
-DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-DIR | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
+DIR | GET /api/factures/:id/reglements | avoir-emis | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .parts[] | (aucun)
+DIR | GET /api/factures/:id/reglements | avoir-facture-at | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .parts[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .parts[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[] | id, montant, reglement
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .parts[] | (sans libellé)
+DIR | GET /api/factures/:id/reglements | facture-brouillon | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .parts[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés . | avoirs, parts, solde
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[] | id, montant, reglement
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .avoirs[] | (aucun)
+DIR | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .parts[] | reglement reglement
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 DIR | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale
@@ -6010,16 +6059,30 @@ SA | GET /api/factures/:id/journal | facture-brouillon | défaut | clés [] | ac
 SA | GET /api/factures/:id/journal | facture-brouillon | défaut | éléments [] | CREATION_BROUILLON facture-brouillon
 SA | GET /api/factures/:id/journal | facture-emise | défaut | clés [] | acteurId, action, createdAt, detail, factureId, id
 SA | GET /api/factures/:id/journal | facture-emise | défaut | éléments [] | CREATION_BROUILLON facture-emise, EMISSION facture-emise, REGLEMENT_AFFECTE facture-emise
-SA | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments [] | (aucun)
-SA | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments [] | (aucun)
-SA | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments [] | (aucun)
-SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [] | id, montant, reglement
-SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments [] | (sans libellé)
-SA | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments [] | (aucun)
-SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés [] | id, montant, reglement
-SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés [].reglement | contrepasseLe, dateReglement, id, motifContrepassation, moyen, reference, statut
-SA | GET /api/factures/:id/reglements | facture-emise | défaut | éléments [] | reglement reglement
+SA | GET /api/factures/:id/reglements | avoir-emis | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | avoir-emis | défaut | éléments .parts[] | (aucun)
+SA | GET /api/factures/:id/reglements | avoir-facture-at | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | avoir-facture-at | défaut | éléments .parts[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-brouillon | défaut | éléments .parts[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[] | id, montant, reglement
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-at-emise | défaut | éléments .parts[] | (sans libellé)
+SA | GET /api/factures/:id/reglements | facture-brouillon | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-brouillon | défaut | éléments .parts[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés . | avoirs, parts, solde
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[] | id, montant, reglement
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés .parts[].reglement | contrepasseLe, createdAt, dateReglement, id, motifContrepassation, moyen, reference, statut
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | clés .solde | montantAvoirs, montantRegle, resteDu
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .avoirs[] | (aucun)
+SA | GET /api/factures/:id/reglements | facture-emise | défaut | éléments .parts[] | reglement reglement
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés . | devis, devisAmbigu, facture, interventionsLiees
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture | annee, chantier, chantierId, client, clientAdresse, clientId, clientRaisonSociale, contratMaintenance, contratMaintenanceId, createdAt, createdById, creeParType, dateEcheance, dateEmission, ecrituresScellees, emisLe, estAvoirAnnulation, factureOrigineId, id, identiteEmetteurId, intervention, interventionId, mentionsLegalesVersionId, motifHorsAffaire, numero, origine, statut, tempsPasse, totalHt, totalTtc, totalTva, type, updatedAt
 SA | GET /api/factures/:id/tracabilite | avoir-emis | défaut | clés .facture.client | id, raisonSociale

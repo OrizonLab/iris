@@ -31,9 +31,10 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 //     règlement » non ;
 //  4. l'administration crée un avoir partiel (5,00 € HT, 6,00 € TTC) et enregistre un règlement de 10,00 € sur sa facture : elle
 //     lit l'avoir (PDF), et l'envoie par la messagerie, noté à son nom (AT-4) ; le reste dû 6,20 € (22,20 − 6,00 − 10,00 ; lecture
-//     écartée : avoir déduit hors taxes, 7,20 €), et la part du règlement dans « Règlements de la facture » ; un autre avoir
-//     partiel lui est proposé, l'annulation non (« Annulation totale impossible : 1 avoir(s) partiel(s) déjà émis »), le règlement
-//     non ;
+//     écartée : avoir déduit hors taxes, 7,20 €), et, dans « Règlements de la facture », l'avoir puis la part du règlement, mêlés
+//     dans l'ordre de leur saisie, avec le pied « Paiements : 10,00 € · Avoirs : 6,00 € · Reste dû : 6,20 € » (lot « Détail des
+//     avoirs comme règlements », cadrage v2, § 1, et C1 du contrôle de mode 1) ; un autre avoir partiel lui est proposé,
+//     l'annulation non (« Annulation totale impossible : 1 avoir(s) partiel(s) déjà émis »), le règlement non ;
 //  5. la facture de l'administration au même client ne lui apparaît sur aucune page de la liste.
 
 type Compte = { id: string; name: string };
@@ -227,14 +228,20 @@ test('assistante technique : écran Factures sans erreur, brouillon créé et é
   await ligneReglee.getByRole('button', { name: 'Règlements', exact: true }).click();
   const reglements = page.getByRole('region', { name: 'Règlements de la facture' });
   await expect(reglements.getByRole('heading', { name: `Règlements de la facture ${emise.numero}` })).toBeVisible();
-  const parts = reglements.getByRole('table', { name: 'Parts de règlement affectées à la facture' });
-  await expect(parts.locator('tbody tr')).toHaveCount(1);
-  const part = parts.locator('tbody tr').first();
+  // Lot « Détail des avoirs comme règlements » : le tableau « Règlements et avoirs de la facture » compte deux lignes, l'avoir de
+  // l'administration (saisi le premier, le même jour) puis la part du règlement ; le pied vient du solde de la réponse.
+  const tableau = reglements.getByRole('table', { name: 'Règlements et avoirs de la facture' });
+  await expect(tableau.locator('tbody tr')).toHaveCount(2);
+  const ligneAvoirPanneau = tableau.locator('tbody tr').nth(0);
+  await expect(ligneAvoirPanneau.locator('td')).toHaveText([dateDuJour(), `Avoir ${avoir.numero}`, /^6,00\s€$/, 'Émis']);
+  const part = tableau.locator('tbody tr').nth(1);
   await expect(part).toContainText(dateDuJour());
   await expect(part).toContainText('Virement');
   await expect(part).toContainText('Réf. VIR-AT3');
   await expect(part).toContainText(/10,00\s€/);
   await expect(part).toContainText('Enregistré');
+  await expect(tableau.locator('tfoot')).toHaveText(/^Paiements : 10,00\s€ · Avoirs : 6,00\s€ · Reste dû : 6,20\s€$/);
+  await expect(reglements.getByText('Aucun règlement reçu.')).toHaveCount(0);
   await reglements.getByRole('button', { name: 'Fermer' }).click();
   await expect(reglements).toHaveCount(0);
 
