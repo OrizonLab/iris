@@ -165,7 +165,8 @@ test('assistante technique : écran Factures sans erreur, brouillon créé et é
 
   // 3. PDF et envoi de sa facture.
   const ligne = await ligneDe(page, client.raisonSociale, emise.numero!);
-  await expect(ligne).toContainText('EMISE');
+  // Cellule « Statut » (7e colonne) : libellé exact, et non le code stocké (correctif R1 de #540, cadrage, section « Tests »).
+  await expect(ligne.locator('td').nth(6)).toHaveText('Émise');
   // AT-4 : avoir partiel et annulation proposés sur sa facture émise sans avoir ni règlement ; la saisie d'un règlement, non.
   await expect(ligne.getByText('Enregistrer un règlement'), 'Enregistrer un règlement').toHaveCount(0);
   await expect(ligne.getByText(/Annulation totale impossible/)).toHaveCount(0);

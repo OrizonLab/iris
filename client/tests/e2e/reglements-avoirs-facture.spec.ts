@@ -294,3 +294,102 @@ test('panneau ouvert : un avoir partiel créé depuis l’écran y paraît, avec
   await expect(tableau.locator('tbody tr').nth(1).locator('td').nth(2)).toHaveText(/^12,00\s€$/);
   await expect(tableau.locator('tfoot')).toHaveText(/^Paiements : 50,00\s€ · Avoirs : 12,00\s€ · Reste dû : 58,00\s€$/);
 });
+
+// La ligne d'un avoir dans la liste, cherchée de page en page : `ligneDe` écarte les lignes « Origine : … » des avoirs, et le numéro
+// d'un avoir ne figure pas sur la ligne de sa facture.
+async function ligneAvoirDe(page: Page, raisonSociale: string, numero: string): Promise<Locator> {
+  await expect(page.getByTestId('pagination-factures')).toContainText('document(s)');
+  await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
+  while (await page.getByRole('button', { name: 'Page précédente' }).isEnabled()) {
+    await page.getByRole('button', { name: 'Page précédente' }).click();
+    await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
+  }
+  const ligne = page.locator('tbody tr', { hasText: raisonSociale }).filter({ hasText: numero });
+  const presente = async () => {
+    try { await expect(ligne.first()).toBeVisible({ timeout: 3_000 }); return true; } catch { return false; }
+  };
+  while (!(await presente())) {
+    const suivante = page.getByRole('button', { name: 'Page suivante' });
+    expect(await suivante.isEnabled(), `avoir ${numero} de ${raisonSociale} absent de la pagination`).toBeTruthy();
+    await suivante.click();
+    await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
+  }
+  return ligne;
+}
+
+// Correctif R1 du passage hebdomadaire du 14-11-2026 (#540), cadrage « libellés du statut et de l'origine des factures », section
+// « Tests » : T1 du contrôle (« un même avoir affiché « Émis » en correspondance exacte […] dans la cellule du statut de la liste
+// et dans le panneau « Règlements » ») et fiche chantier (« Émise » et « Émis » exacts pour une facture et un avoir liés) ; critère
+// « Un même avoir est « Émis » dans la liste, dans les factures liées de la fiche chantier et dans le panneau « Règlements » ».
+// Libellés : choix d'affichage par défaut, à confirmer (règle 5). « Émise » contient « Émis » : chaque statut est lu cellule par
+// cellule avec toHaveText, jamais avec toContainText. Le serveur garde le code EMISE pour les deux pièces ; seul l'écran accorde.
+//
+// Parcours dans Chromium, par l'administration : affaire vendue (devis signé converti en chantier) ; sa facture FA (1 × 100,00 € HT
+// à 20 %, TTC 120,00 €) émise ; un avoir partiel de FA (1 × 10,00 € HT, TTC 12,00 €) :
+//  1. liste des factures : FA « Émise » précisée « Partiellement réglée », origine « Affaire » ; l'avoir « Émis » (lecture écartée,
+//     constat de #540 : « EMISE », ou « Émise » comme une facture), origine « Affaire » ;
+//  2. panneau « Règlements » de FA : la ligne de l'avoir, statut « Émis » ;
+//  3. fiche de l'affaire, « Factures liées » : FA « Facture », « Émise » ; l'avoir « Avoir », « Émis ».
+test('un même avoir est « Émis » dans la colonne « Statut » de la liste, dans le panneau « Règlements » et dans les factures liées de la fiche affaire, sa facture « Émise » (correspondances exactes)', async ({ allerSurPageAdmin, request, session, creerClient }) => {
+  await horsDuPassageDeMinuit();
+  const admin = { Authorization: `Bearer ${session.token}` };
+  const appel = async <T>(path: string, data: object) => {
+    const reponse = await request.post(`${api}${path}`, { headers: admin, data });
+    expect(reponse.ok(), `${path} : ${await reponse.text()}`).toBeTruthy();
+    return reponse.json() as Promise<T>;
+  };
+  const client = await creerClient('libellés du statut');
+  const devis = await appel<{ id: string }>('/devis', { clientId: client.id, objet: `Affaire des libellés du statut ${Date.now()}`, lignes: [{ designation: 'Pose de la centrale', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
+  await appel(`/devis/${devis.id}/signature`, { signataire: 'Client E2E', confirme: true });
+  const chantier = await appel<{ id: string }>(`/devis/${devis.id}/convertir`, { cible: 'CHANTIER' });
+  const brouillon = await appel<Piece>('/factures', { clientId: client.id, origine: 'CHANTIER', chantierId: chantier.id, dateEmission: dateDuJour(), dateEcheance: dateDuJour(), lignes: [{ designation: 'Pose de la centrale', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
+  const facture = await appel<Piece>(`/factures/${brouillon.id}/emettre`, {});
+  expect([facture.type, facture.statut, facture.totalTtc]).toEqual(['FACTURE', 'EMISE', 120]);
+  const avoir = await appel<Piece>(`/factures/${facture.id}/avoirs`, { lignes: [{ designation: 'Geste commercial', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 20 }] });
+  expect([avoir.type, avoir.statut, avoir.totalTtc]).toEqual(['AVOIR', 'EMISE', 12]);
+
+  const page = await allerSurPageAdmin('/factures');
+  const erreursPage: string[] = [];
+  page.on('pageerror', (erreur) => erreursPage.push(erreur.message));
+  const refusApi: string[] = [];
+  page.on('response', (reponse) => {
+    if (new URL(reponse.url()).pathname.startsWith('/api/') && reponse.status() >= 400) refusApi.push(`${reponse.request().method()} ${new URL(reponse.url()).pathname} : ${reponse.status()}`);
+  });
+  await expect(page.getByRole('heading', { name: 'Factures', level: 1 })).toBeVisible();
+  await expect(page.locator('thead th')).toHaveText(['Type / numéro', 'Client', 'Émission', 'Origine', 'Total TTC', 'Reste dû', 'Statut', 'Actions']);
+
+  // 1. La liste : colonnes « Origine » (4e) et « Statut » (7e).
+  const ligneFa = await ligneDe(page, client.raisonSociale, facture.numero!);
+  await expect(ligneFa).toHaveCount(1);
+  await expect(ligneFa.locator('td').nth(3)).toHaveText('Affaire');
+  await expect(ligneFa.locator('td').nth(6)).toHaveText(/^Émise\s*Partiellement réglée$/);
+  const ligneAvoir = await ligneAvoirDe(page, client.raisonSociale, avoir.numero!);
+  await expect(ligneAvoir).toHaveCount(1);
+  await expect(ligneAvoir.locator('td').nth(0)).toContainText(`Origine : ${facture.numero}`);
+  await expect(ligneAvoir.locator('td').nth(3)).toHaveText('Affaire');
+  await expect(ligneAvoir.locator('td').nth(6)).toHaveText('Émis');
+
+  // 2. Le panneau « Règlements » de FA : la ligne du même avoir, au même libellé.
+  const panneau = await ouvrirPanneau(page, client.raisonSociale, facture);
+  const lignesPanneau = panneau.getByRole('table', { name: 'Règlements et avoirs de la facture' }).locator('tbody tr');
+  await expect(lignesPanneau).toHaveCount(1);
+  await expect(lignesPanneau.first().locator('td')).toHaveText([dateDuJour(), `Avoir ${avoir.numero}`, /^12,00\s€$/, 'Émis']);
+  await panneau.getByRole('button', { name: 'Fermer' }).click();
+  await expect(panneau).toHaveCount(0);
+
+  // 3. La fiche de l'affaire, « Factures liées » : colonnes « Numéro », « Type », « Statut ».
+  await page.goto(`/chantiers/${chantier.id}`, { waitUntil: 'networkidle' });
+  const liees = page.getByRole('region', { name: 'Factures liées' });
+  await expect(liees.locator('thead th').nth(2)).toHaveText('Statut');
+  await expect(liees.locator('tbody tr')).toHaveCount(2);
+  for (const [piece, type, statut] of [[facture, 'Facture', 'Émise'], [avoir, 'Avoir', 'Émis']] as const) {
+    const ligne = liees.locator('tbody tr').filter({ hasText: piece.numero! });
+    await expect(ligne).toHaveCount(1);
+    await expect(ligne.locator('td').nth(0)).toHaveText(piece.numero!);
+    await expect(ligne.locator('td').nth(1)).toHaveText(type);
+    await expect(ligne.locator('td').nth(2), `statut de ${piece.numero}`).toHaveText(statut);
+  }
+
+  expect(erreursPage, 'aucune erreur de la page').toEqual([]);
+  expect(refusApi, 'aucun refus d’API pendant le parcours').toEqual([]);
+});
