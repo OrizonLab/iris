@@ -137,11 +137,11 @@ En CI, les travaux « Backend — tests » et « Frontend — parcours utilisate
 
 #### Session cloud de Claude Code
 
-Pratiques apprises dans les sessions cloud de Claude Code ; elles ne changent aucune variable d'environnement. Aucun mot de passe ni rôle de test ne figure dans le dépôt : ils sont propres à l'environnement de la session.
+Pratiques apprises dans les sessions cloud de Claude Code ; elles ne changent aucune variable d'environnement. Le rôle et le mot de passe PostgreSQL de la session ne figurent pas dans le dépôt : ils sont propres à son environnement (le rôle `iris` de la CI, ci-dessus, est distinct).
 
 - **Dépôt source** : ouvrir la session avec `OrizonLab/iris`. Une session ouverte avant le transfert du dépôt, rattachée à `noxia-groupe/iris`, ne reçoit plus les événements GitHub (CI, revues) ([historique](HISTORIQUE-DECISIONS.md#lot-du-13-au-14-11-2026)).
 - **PostgreSQL local** : l'image de l'environnement fournit PostgreSQL 16. S'il est arrêté, le démarrer avec `pg_ctlcluster 16 main start`.
-- **Bases jetables, une par agent** : donner à chaque agent (auditeurs, contrôleur, rédacteur de tests) un nom de base à préfixe distinct (`audit_mt_`, `audit_dr_`, `ctrl_`, `redac_`…), qui contient `test` ou `e2e` (règle commune des bases jetables, ci-dessus), et la supprimer à la fin.
+- **Bases jetables, une par agent** : donner à chaque agent (auditeurs, contrôleur, rédacteur de tests) un nom de base à préfixe distinct (`audit_mt_`, `audit_dr_`, `ctrl_`, `redac_`…), qui porte `test` ou `e2e` comme mot (règle commune des bases jetables, ci-dessus), et la supprimer à la fin.
 - **Une seule suite complète à la fois** : PostgreSQL plafonne à 100 connexions par défaut ; deux suites backend complètes lancées en même temps par deux agents ont fait annuler 10 tests (« too many clients »). Ne pas confondre cet échec avec un défaut du code.
 - **E2E dans un conteneur** : surcouche Playwright non versionnée avec `executablePath`, un port d'API et un port de frontend par copie de travail (paragraphes ci-dessus).
 - **Le conteneur peut redémarrer** : seul ce qui est poussé survit. Le dossier temporaire, les copies de travail et les patchs d'audit sont alors perdus (arrivé pendant #537). Pousser tôt, et publier les constats et les patchs des auditeurs (ou leur contenu) dans la PR dès leur réception.
