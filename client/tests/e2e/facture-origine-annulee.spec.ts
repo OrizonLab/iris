@@ -56,7 +56,8 @@ test('facture : contrat annulé avec son devis, sa visite réalisée et l’inte
   const ligne = await ligneDeFacture(page, client.raisonSociale);
   await ligne.getByRole('button', { name: /Émettre/ }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Un contrat annulé ne peut pas être facturé.' })).toBeVisible();
-  await expect(ligne).toContainText('BROUILLON');
+  // Cellule « Statut », correspondance exacte : « Brouillon » figure aussi dans la colonne du numéro (T2 du contrôle de R1, #540).
+  await expect(ligne.locator('td').nth(6)).toHaveText('Brouillon');
   const lue = await request.get(`${api}/factures/${brouillon.id}/tracabilite`, { headers });
   expect((await lue.json() as { facture: { statut: string; numero: string | null } }).facture).toMatchObject({ statut: 'BROUILLON', numero: null });
 });

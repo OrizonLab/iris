@@ -23,7 +23,7 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 //     1 713,98 €) ;
 //  3. elle envoie son avoir par la messagerie : l'envoi est noté à son nom ;
 //  4. elle annule depuis l'écran sa facture FE2 (1 × 1 000,00 € HT à 20 %, TTC 1 200,00 €), émise sans avoir ni règlement : la
-//     fenêtre de confirmation, puis « Facture … annulée ; avoir … disponible. », la facture « ANNULEE » et son avoir total de
+//     fenêtre de confirmation, puis « Facture … annulée ; avoir … disponible. », la facture « Annulée » et son avoir total de
 //     1 200,00 €, à son type, aux montants de la facture.
 
 type Compte = { id: string; name: string };
@@ -89,7 +89,9 @@ test('assistante technique : avoir partiel créé depuis l’écran après celui
   await expect(page.getByRole('heading', { name: 'Factures', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: /Export comptable/ })).toHaveCount(0);
   const ligneFe = (await ligneDe(page, client.raisonSociale, fe.numero!)).filter({ hasNotText: 'Origine :' });
-  await expect(ligneFe).toContainText('EMISE');
+  // Cellule « Statut » (7e colonne) : « Émise », précisée « Partiellement réglée » par le premier avoir partiel (correctif R1 de
+  // #540 : libellé exact, et non le code stocké).
+  await expect(ligneFe.locator('td').nth(6)).toHaveText(/^Émise\s*Partiellement réglée$/);
   await expect(ligneFe).toContainText(/2\s962,96\s€/);
   await expect(ligneFe.getByRole('button', { name: 'Créer un avoir partiel', exact: true })).toBeVisible();
   await expect(ligneFe).toContainText('Annulation totale impossible : 1 avoir(s) partiel(s) déjà émis');
@@ -158,7 +160,8 @@ test('assistante technique : avoir partiel créé depuis l’écran après celui
     .toEqual(['ANNULEE', 'AVOIR', true, 'ASSISTANTE_TECHNIQUE', 1000, 200, 1200]);
   await expect(page.getByText(`Facture ${fe2.numero} annulée ; avoir ${annulee.avoir.numero} disponible.`)).toBeVisible();
   const ligneFe2Apres = (await ligneDe(page, client.raisonSociale, fe2.numero!)).filter({ hasNotText: 'Origine :' });
-  await expect(ligneFe2Apres).toContainText('ANNULEE');
+  // Cellule « Statut » (7e colonne) : libellé exact, et non le code stocké (correctif R1 de #540, cadrage, section « Tests »).
+  await expect(ligneFe2Apres.locator('td').nth(6)).toHaveText('Annulée');
   for (const absent of ['Annuler la facture', 'Créer un avoir partiel']) await expect(ligneFe2Apres.getByText(absent, { exact: true }), absent).toHaveCount(0);
   const ligneAvoirTotal = await ligneDe(page, client.raisonSociale, annulee.avoir.numero!);
   await expect(ligneAvoirTotal).toContainText(`Origine : ${fe2.numero}`);

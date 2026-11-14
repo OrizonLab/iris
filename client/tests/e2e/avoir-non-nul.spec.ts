@@ -79,7 +79,7 @@ test('facture à 0,00 € : « Aucun avoir possible : facture à 0,00 € » à 
   await expect(cellules(ligneFz).emission).toHaveText(dateDuJour());
   await expect(cellules(ligneFz).totalTtc).toHaveText(/^0,00\s€$/);
   await expect(cellules(ligneFz).resteDu).toHaveText(/^0,00\s€$/);
-  await expect(cellules(ligneFz).statut).toHaveText('EMISE');
+  await expect(cellules(ligneFz).statut).toHaveText('Émise');
   await expect(ligneFz.getByText(MENTION, { exact: true })).toBeVisible();
   for (const absent of ['Créer un avoir partiel', 'Annuler la facture', 'Enregistrer un règlement']) {
     await expect(ligneFz.getByText(absent, { exact: true }), absent).toHaveCount(0);
@@ -151,7 +151,7 @@ test('assistante technique : sa facture à 0,00 € porte « Aucun avoir possibl
   await expect(page.getByRole('heading', { name: 'Factures', level: 1 })).toBeVisible();
   const ligneFz = await ligneDe(page, client.raisonSociale, fz.numero!);
   await expect(cellules(ligneFz).totalTtc).toHaveText(/^0,00\s€$/);
-  await expect(cellules(ligneFz).statut).toHaveText('EMISE');
+  await expect(cellules(ligneFz).statut).toHaveText('Émise');
   await expect(ligneFz.getByText(MENTION, { exact: true })).toBeVisible();
   for (const absent of ['Créer un avoir partiel', 'Annuler la facture', 'Enregistrer un règlement']) {
     await expect(ligneFz.getByText(absent, { exact: true }), absent).toHaveCount(0);

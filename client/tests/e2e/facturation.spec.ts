@@ -1,11 +1,15 @@
 import { createHmac } from 'node:crypto';
-import type { Page, Request, Route } from '@playwright/test';
+import type { Locator, Page, Request, Route } from '@playwright/test';
 import { test, expect, choisirClient, dateDuJour } from './fixtures';
 
 // Aucune route de connexion par mot de passe n'existe (SSO Microsoft ou accès de secours) :
 // pour ouvrir une session dans un rôle non administrateur, on signe le jeton avec le
 // secret que playwright.config.ts donne au backend jetable.
 const base64url = (valeur: object) => Buffer.from(JSON.stringify(valeur)).toString('base64url');
+// Cellule « Statut » d'une ligne de la liste des factures (7e colonne). Correctif R1 de #540 (cadrage, section « Tests », T2 du
+// contrôle) : libellé en français, en correspondance exacte, et non le code stocké ; « Brouillon » figure aussi dans la colonne
+// du numéro d'un brouillon, et « Émise » contient « Émis », le libellé d'un avoir.
+const celluleStatut = (ligne: Locator) => ligne.locator('td').nth(6);
 function jetonPour(userId: string) {
   const corps = `${base64url({ alg: 'HS256', typ: 'JWT' })}.${base64url({ id: userId })}`;
   return `${corps}.${createHmac('sha256', 'secret-e2e-uniquement').update(corps).digest('base64url')}`;
@@ -332,6 +336,59 @@ test.describe('Facturation — parcours utilisateur', () => {
     await expect(detail).not.toContainText('Erreur ancienne #105');
     await expect(detail.getByRole('alert')).toHaveCount(0);
   });
+
+  // Correctif R1 du passage hebdomadaire du 14-11-2026 (#540), cadrage « libellés du statut et de l'origine des factures », section
+  // « Tests », T4 du contrôle, et critère « L'origine porte le même nom dans la liste et dans le panneau « Origine de la facture » ».
+  // Colonne « Origine » de la liste (4e colonne), en correspondance exacte : « Affaire », « Intervention SAV », « Contrat de
+  // maintenance » et « Hors affaire — <motif> » (lecture écartée, constat de #540 : les codes CHANTIER, INTERVENTION, CONTRAT) ; le
+  // panneau « Origine de la facture » porte le même nom. Libellés : choix d'affichage par défaut, à confirmer (règle 5). Un client
+  // par brouillon : chaque ligne se retrouve par sa raison sociale, de page en page.
+  test('colonne « Origine » : « Affaire », « Intervention SAV », « Contrat de maintenance » et « Hors affaire — motif », du même nom que le panneau « Origine de la facture »', async ({ allerSurPageAdmin, creerClient, request, session }) => {
+    const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
+    const headers = { Authorization: `Bearer ${session.token}` };
+    const post = async (path: string, data: object) => {
+      const response = await request.post(`${api}${path}`, { headers, data });
+      expect(response.ok(), `${path} : ${await response.text()}`).toBeTruthy();
+      return response.json();
+    };
+    const marqueur = Date.now();
+    const brouillon = (clientId: string, origine: Record<string, string>) => post('/factures', { clientId, ...origine, dateEmission: dateDuJour(), dateEcheance: dateDuJour(), lignes: [{ designation: 'Contrôle de l’origine affichée', quantite: 1, prixUnitaireHt: 10, tauxTva: 20 }] });
+
+    const clientAffaire = await creerClient('origine affichée : affaire');
+    const devis = await post('/devis', { clientId: clientAffaire.id, objet: `Affaire de l’origine affichée ${marqueur}`, lignes: [{ designation: 'Pose', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
+    await post(`/devis/${devis.id}/signature`, { signataire: 'Client E2E', confirme: true });
+    const chantier = await post(`/devis/${devis.id}/convertir`, { cible: 'CHANTIER' });
+    await brouillon(clientAffaire.id, { origine: 'CHANTIER', chantierId: chantier.id });
+    const clientSav = await creerClient('origine affichée : intervention');
+    const intervention = await post('/interventions', { clientId: clientSav.id, titre: `Dépannage de l’origine affichée ${marqueur}` });
+    await brouillon(clientSav.id, { origine: 'INTERVENTION', interventionId: intervention.id });
+    const clientContrat = await creerClient('origine affichée : contrat');
+    const contrat = await post('/contrats-maintenance', { clientId: clientContrat.id, titre: `Contrat de l’origine affichée ${marqueur}`, periodiciteMois: 12, dureePrevisionnelleMinutes: 60, dateDebut: '01-01-2026' });
+    await brouillon(clientContrat.id, { origine: 'CONTRAT', contratMaintenanceId: contrat.id });
+    const clientHorsAffaire = await creerClient('origine affichée : hors affaire');
+    const motif = `Vente au comptoir ${marqueur}`;
+    await brouillon(clientHorsAffaire.id, { origine: 'HORS_AFFAIRE', motifHorsAffaire: motif });
+
+    const page = await allerSurPageAdmin('/factures');
+    await expect(page.locator('thead th').nth(3)).toHaveText('Origine');
+    const detail = page.getByRole('region', { name: 'Origine de la facture' });
+    for (const [client, colonne, panneau] of [
+      [clientAffaire, 'Affaire', 'Affaire'],
+      [clientSav, 'Intervention SAV', 'Intervention SAV'],
+      [clientContrat, 'Contrat de maintenance', 'Contrat de maintenance'],
+      [clientHorsAffaire, `Hors affaire — ${motif}`, 'Hors affaire'],
+    ] as const) {
+      const ligne = await afficherFacture(page, client.raisonSociale);
+      await expect(ligne).toHaveCount(1);
+      await expect(ligne.locator('td').nth(3), `origine affichée pour ${client.raisonSociale}`).toHaveText(colonne);
+      await ligne.getByRole('button', { name: 'Voir l’origine' }).click();
+      // Le panneau de cette facture, et non celui de la précédente.
+      await expect(detail.locator('p').filter({ hasText: /^Client :/ })).toHaveText(`Client : ${client.raisonSociale}`);
+      await expect(detail.locator('p').filter({ hasText: /^Origine :/ })).toHaveText(`Origine : ${panneau}`);
+      await detail.getByRole('button', { name: 'Fermer' }).click();
+      await expect(detail).toHaveCount(0);
+    }
+  });
   const hier = () => {
     const [jour, mois, annee] = dateDuJour().split('-').map(Number);
     const date = new Date(Date.UTC(annee, mois - 1, jour - 1));
@@ -411,10 +468,10 @@ test.describe('Facturation — parcours utilisateur', () => {
     const facture = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
     // Un brouillon n'est pas créditable : attendre sa ligne rend l'assertion d'absence
     // significative, plutôt que vraie sur une ligne pas encore rendue.
-    await expect(facture).toContainText('BROUILLON');
+    await expect(celluleStatut(facture)).toHaveText('Brouillon');
     await expect(facture.getByRole('button', { name: /Créer un avoir partiel/ })).toHaveCount(0);
     await facture.getByRole('button', { name: /Émettre/ }).click();
-    await expect(facture).toContainText('EMISE');
+    await expect(celluleStatut(facture)).toHaveText('Émise');
     return facture;
   };
 
@@ -488,7 +545,7 @@ test.describe('Facturation — parcours utilisateur', () => {
     await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
     const facture = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
     await facture.getByRole('button', { name: /Émettre/ }).click();
-    await expect(facture).toContainText('EMISE');
+    await expect(celluleStatut(facture)).toHaveText('Émise');
 
     await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
     await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
@@ -993,7 +1050,8 @@ test.describe('Facturation — parcours utilisateur', () => {
 
     await page.goto('/factures');
     let apres = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
-    await expect(apres).toContainText('EMISE');
+    // Critère du cadrage de R1 (#540) : « Émise » puis la précision « Partiellement réglée ».
+    await expect(celluleStatut(apres)).toHaveText(/^Émise\s*Partiellement réglée$/);
     await expect(apres).toContainText('Partiellement réglée');
     await expect(apres).toContainText(/70,00\s€/);
     await expect(apres.getByRole('button', { name: /Annuler la facture/ })).toHaveCount(0);
@@ -1005,7 +1063,7 @@ test.describe('Facturation — parcours utilisateur', () => {
     await expect(page.getByText(/Règlement de 70,00\s€ enregistré/)).toBeVisible();
     await page.goto('/factures');
     apres = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
-    await expect(apres).toContainText('REGLEE');
+    await expect(celluleStatut(apres)).toHaveText('Réglée');
     await expect(apres.getByRole('link', { name: /Enregistrer un règlement/ })).toHaveCount(0);
 
     // Le chèque revient impayé : la contre-passation, motivée, rouvre le reste dû.
@@ -1019,7 +1077,7 @@ test.describe('Facturation — parcours utilisateur', () => {
     await expect(cheque.getByRole('button', { name: 'Contre-passer' })).toHaveCount(0);
     await page.goto('/factures');
     apres = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
-    await expect(apres).toContainText('EMISE');
+    await expect(celluleStatut(apres)).toHaveText(/^Émise\s*Partiellement réglée$/);
     await expect(apres).toContainText('Partiellement réglée');
     await expect(apres).toContainText(/50,00\s€/);
   });
@@ -1122,7 +1180,7 @@ test.describe('Facturation — parcours utilisateur', () => {
     await ligne.getByRole('button', { name: /Annuler la facture/ }).click();
     await expect(page.getByText(/annulée ; avoir .* disponible/i)).toBeVisible();
     expect(confirmationDemandee).toMatch(/Annuler la facture/);
-    await expect(ligne).toContainText('ANNULEE');
+    await expect(celluleStatut(ligne)).toHaveText('Annulée');
     const factures = await (await apiAdmin.get('/factures')).json() as Array<{ id: string; client: { id: string } }>;
     const facture = factures.find((item) => item.client.id === client.id);
     if (!facture) throw new Error('Facture annulée absente de l’API');
@@ -1334,7 +1392,7 @@ test.describe('Facturation — parcours utilisateur', () => {
       const cellules = ligne.locator('td');
       await expect(cellules.nth(0)).toHaveText(numero);
       await expect(cellules.nth(1)).toHaveText('Facture');
-      await expect(cellules.nth(2)).toHaveText('EMISE');
+      await expect(cellules.nth(2)).toHaveText('Émise');
       await expect(cellules.nth(3)).toHaveText(dateDuJour());
       await expect(cellules.nth(4)).toHaveText(/^100\s*€$/);
       await expect(cellules.nth(5)).toHaveText(/^120\s*€$/);
@@ -1366,9 +1424,9 @@ test.describe('Facturation — parcours utilisateur', () => {
       await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
 
       const ligne = (await afficherFacture(page, client.raisonSociale)).filter({ hasText: 'Facture' });
-      await expect(ligne).toContainText('BROUILLON');
+      await expect(celluleStatut(ligne)).toHaveText('Brouillon');
       await ligne.getByRole('button', { name: /Émettre/ }).click();
-      await expect(ligne).toContainText('EMISE');
+      await expect(celluleStatut(ligne)).toHaveText('Émise');
       await expect(ligne).toContainText(jourPropose);
     });
   });

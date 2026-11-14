@@ -178,8 +178,8 @@ test('facture : envoi d’une facture émise depuis l’écran Factures, au cour
   const envois = await envoisDe(request, session.token, `factures/${facture.id}`);
   expect(envois).toHaveLength(1);
   expect(envois[0]).toMatchObject({ destinataire: courriel, objet });
-  // La facture émise n'a pas changé de statut.
-  await expect(ligne).toContainText('EMISE');
+  // La facture émise n'a pas changé de statut : cellule « Statut » (7e colonne), libellé exact (correctif R1 de #540).
+  await expect(ligne.locator('td').nth(6)).toHaveText('Émise');
 });
 
 test('refus : identité incomplète à l’ouverture comme à la préparation, PDF en échec, sans aucun envoi enregistré', async ({ allerSurPageAdmin, creerClient, request, session }) => {

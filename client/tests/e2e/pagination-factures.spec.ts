@@ -88,7 +88,8 @@ test('#109 : pages, action sur page suivante, création et réponse périmée', 
   await page.getByRole('button', { name: 'Actualiser' }).click();
   await expect(ancienne).toBeVisible();
   await ancienne.getByRole('button', { name: 'Émettre' }).click();
-  await expect(ancienne).toContainText('EMISE');
+  // Cellule « Statut » (7e colonne) : libellé exact, et non le code stocké (correctif R1 de #540, cadrage, section « Tests »).
+  await expect(ancienne.locator('td').nth(6)).toHaveText('Émise');
   await expect(page.getByTestId('pagination-factures')).toContainText(`Page ${pageAncienne} sur ${nombrePages}`);
   for (let numero = pageAncienne; numero > 1; numero--) {
     await page.getByRole('button', { name: 'Page précédente' }).click();
@@ -162,7 +163,8 @@ test('#109 : pages, action sur page suivante, création et réponse périmée', 
     await suivante.click();
     await expect(page.locator('tbody [role="status"]')).toHaveCount(0);
   }
-  await expect(nouveau).toContainText('BROUILLON');
+  // Cellule « Statut », correspondance exacte : « Brouillon » figure aussi dans la colonne du numéro (T2 du contrôle de R1, #540).
+  await expect(nouveau.locator('td').nth(6)).toHaveText('Brouillon');
   while (await page.getByRole('button', { name: 'Page précédente' }).isEnabled()) {
     await page.getByRole('button', { name: 'Page précédente' }).click();
     await expect(page.locator('tbody [role="status"]')).toHaveCount(0);

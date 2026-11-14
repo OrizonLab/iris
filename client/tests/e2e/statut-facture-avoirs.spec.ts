@@ -13,14 +13,16 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 //
 // Parcours dans Chromium, par l'administration, libellés français, dates JJ-MM-AAAA, montants au format français :
 //  1. FA (1 × 1 234,50 € HT à 20 % : TVA 246,90 €, TTC 1 481,40 €), émise, sans règlement : elle reçoit depuis l'écran un avoir
-//     partiel de 1 × 1 234,50 € HT (aperçu TTC 1 481,40 €) ; sa ligne passe « REGLEE », précisée « Soldée par avoir », reste dû
+//     partiel de 1 × 1 234,50 € HT (aperçu TTC 1 481,40 €) ; sa ligne passe « Réglée », précisée « Soldée par avoir », reste dû
 //     0,00 € ; ni « Enregistrer un règlement », ni « Annuler la facture », ni la mention « Annulation totale impossible » ;
-//     « Créer un avoir partiel » reste proposé. Lecture écartée (avant le lot) : « EMISE » précisée « Soldée par avoir ».
+//     « Créer un avoir partiel » reste proposé. Lecture écartée (avant le lot) : « Émise » précisée « Soldée par avoir ».
 //  2. FB (1 × 1 000,00 € HT à 20 %, TTC 1 200,00 €) reçoit depuis l'écran un avoir de 1 × 250,00 € HT (TVA 50,00 €, TTC 300,00 €) :
-//     sa ligne reste « EMISE », précisée « Partiellement réglée », reste dû 900,00 € (lectures écartées : avant le lot, aucune
+//     sa ligne reste « Émise », précisée « Partiellement réglée », reste dû 900,00 € (lectures écartées : avant le lot, aucune
 //     précision ; avoir déduit hors taxes, 950,00 €), « Enregistrer un règlement » proposé et « Annulation totale impossible :
 //     1 avoir(s) partiel(s) déjà émis ».
 // Les espaces des montants (U+202F des milliers, U+00A0 avant « € ») sont lus par \s.
+// Libellés du statut (correctif R1 de #540, cadrage, section « Tests ») : la cellule affiche « Émise », « Réglée », et non le
+// code stocké ; sa précision la suit.
 
 type Piece = { id: string; numero: string | null; type: string; statut: string; totalHt: number; totalTva: number; totalTtc: number; resteDu?: number | null; montantAvoirs?: number | null; montantRegle?: number | null };
 
@@ -65,7 +67,7 @@ async function avoirDepuisLEcran(page: Page, ligne: Locator, factureId: string, 
   return avoir;
 }
 
-test('liste des factures : « REGLEE » précisée « Soldée par avoir » sous une facture soldée par son avoir partiel (1 481,40 €), « EMISE » précisée « Partiellement réglée » sous une facture couverte en partie par un avoir (reste dû 900,00 €), avoirs créés depuis l’écran', async ({ allerSurPageAdmin, request, session, creerClient }) => {
+test('liste des factures : « Réglée » précisée « Soldée par avoir » sous une facture soldée par son avoir partiel (1 481,40 €), « Émise » précisée « Partiellement réglée » sous une facture couverte en partie par un avoir (reste dû 900,00 €), avoirs créés depuis l’écran', async ({ allerSurPageAdmin, request, session, creerClient }) => {
   test.slow();
   await horsDuPassageDeMinuit();
   const admin = { Authorization: `Bearer ${session.token}` };
@@ -97,16 +99,17 @@ test('liste des factures : « REGLEE » précisée « Soldée par avoir » sous 
   // 1. FA, émise sans règlement ni avoir : aucune précision, annulable.
   let ligneFa = await ligneDe(page, client.raisonSociale, fa.numero!);
   await expect(ligneFa).toContainText(dateDuJour());
-  await expect(cellules(ligneFa).statut).toHaveText('EMISE');
+  await expect(cellules(ligneFa).statut).toHaveText('Émise');
   await expect(cellules(ligneFa).resteDu).toHaveText(/^1\s481,40\s€$/);
   await expect(ligneFa.getByRole('button', { name: 'Annuler la facture', exact: true })).toBeVisible();
   const avoirFa = await avoirDepuisLEcran(page, ligneFa, fa.id, 'Reprise de l’installation', '1234,50', /Total TTC\s*1\s481,40\s€/);
   expect([avoirFa.type, avoirFa.totalHt, avoirFa.totalTva, avoirFa.totalTtc]).toEqual(['AVOIR', 1234.5, 246.9, 1481.4]);
   ligneFa = await ligneDe(page, client.raisonSociale, fa.numero!);
-  // Statut stocké « réglée », précision « Soldée par avoir » (lecture écartée : « EMISE » précisée « Soldée par avoir »).
-  await expect(cellules(ligneFa).statut).toContainText('REGLEE');
+  // Statut stocké « réglée », précision « Soldée par avoir » (lecture écartée : « Émise » précisée « Soldée par avoir »).
+  await expect(cellules(ligneFa).statut).toHaveText(/^Réglée\s*Soldée par avoir$/);
   await expect(cellules(ligneFa).statut).toContainText('Soldée par avoir');
-  await expect(cellules(ligneFa).statut).not.toContainText('EMISE');
+  // « Émis » couvre aussi « Émise ».
+  await expect(cellules(ligneFa).statut).not.toContainText('Émis');
   await expect(cellules(ligneFa).statut).not.toContainText('Partiellement réglée');
   await expect(cellules(ligneFa).resteDu).toHaveText(/^0,00\s€$/);
   for (const absent of ['Enregistrer un règlement', 'Annuler la facture']) await expect(ligneFa.getByText(absent, { exact: true }), absent).toHaveCount(0);
@@ -118,12 +121,12 @@ test('liste des factures : « REGLEE » précisée « Soldée par avoir » sous 
 
   // 2. FB, couverte en partie par un avoir de 300,00 € TTC.
   let ligneFb = await ligneDe(page, client.raisonSociale, fb.numero!);
-  await expect(cellules(ligneFb).statut).toHaveText('EMISE');
+  await expect(cellules(ligneFb).statut).toHaveText('Émise');
   const avoirFb = await avoirDepuisLEcran(page, ligneFb, fb.id, 'Geste commercial', '250', /Total TTC\s*300,00\s€/);
   expect([avoirFb.totalHt, avoirFb.totalTva, avoirFb.totalTtc]).toEqual([250, 50, 300]);
   ligneFb = await ligneDe(page, client.raisonSociale, fb.numero!);
   // Lecture écartée (avant le lot) : aucune précision sans règlement.
-  await expect(cellules(ligneFb).statut).toContainText('EMISE');
+  await expect(cellules(ligneFb).statut).toHaveText(/^Émise\s*Partiellement réglée$/);
   await expect(cellules(ligneFb).statut).toContainText('Partiellement réglée');
   await expect(cellules(ligneFb).statut).not.toContainText('Soldée par avoir');
   // Lecture écartée : avoir déduit hors taxes (950,00 €).
