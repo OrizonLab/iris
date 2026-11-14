@@ -4982,7 +4982,7 @@ Réponse de Claude Code (constat, non une décision) : la méthode est dans `CLA
 
 ### Passage hebdomadaire du contrôleur
 
-Le dernier passage hebdomadaire du `controleur-coherence` avant cette reprise date du 02-11-2026 ([#444](https://github.com/Noxia-Groupe/iris/issues/444)) ; celui de la semaine du 09-11-2026 n'avait pas été fait. Un passage est **lancé le 14-11-2026** par Claude Code, dans une session de travail (décision du 31-10-2026).
+Le dernier passage hebdomadaire du `controleur-coherence` avant cette reprise date du 02-11-2026 ([#444](https://github.com/Noxia-Groupe/iris/issues/444)) ; celui de la semaine du 09-11-2026 n'avait pas été fait. Un passage est fait le 14-11-2026 par Claude Code, dans une session de travail (décision du 31-10-2026), sur `main` à `448bb25` : rapport publié dans [#540](https://github.com/Noxia-Groupe/iris/issues/540), 1 R, 1 C, 1 T, 15 N et 7 questions proposées pour Nelson. R1 (statut et origine des factures affichés en codes bruts) devient un correctif prioritaire, à mener dans sa propre PR ; C1 (« partielle » pour l'intervention de suivi liée, dans la passation) est corrigée par cette PR documentaire ; le reste suit dans #540 (`suivi-audit`).
 
 ### Suivis ouverts
 
