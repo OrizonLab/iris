@@ -181,6 +181,15 @@ describe('CI — décision du périmètre', () => {
     verifierDecision({ evenement: 'pull_request', baseRef: 'main', fichiers: DOC, avantAtteste: true, teteAttestee: true }, LEGERE);
     verifierDecision({ evenement: 'pull_request', baseRef: 'claude/lot-precedent', fichiers: DOC, teteAttestee: true }, COMPLETE);
   });
+  // Le workflow ne se déclenche que sur pull_request et push : tout autre événement mène à la série complète, même avec
+  // une liste de documentation et des arbres attestés.
+  it('un événement autre que pull_request ou push donne toujours la série complète', () => {
+    for (const evenement of ['workflow_dispatch', 'schedule', undefined, '', 'pull_request_target', 'merge_group', 'PUSH']) {
+      verifierDecision({ evenement, baseRef: 'main', fichiers: DOC }, COMPLETE);
+      verifierDecision({ evenement, baseRef: 'main', fichiers: DOC, avantAtteste: true, teteAttestee: true }, COMPLETE);
+      verifierDecision({ evenement, fichiers: CODE, avantAtteste: true, teteAttestee: true }, COMPLETE);
+    }
+  });
 });
 
 // Attestation d'un arbre (C2, R1', N14, N16) : artefact non expiré, série réussie de ce workflow, de ce dépôt, dont la
@@ -661,7 +670,8 @@ describe('CI — fichiers changés lus par un vrai git', () => {
 });
 
 // Fausse API GitHub, chargée avant le script : répond aux seules routes qu'il lit (artefacts d'un nom, page par page ;
-// série par identifiant) à partir d'un fichier de données, note chaque URL appelée, et peut tomber en panne pour un nom.
+// série par identifiant) à partir d'un fichier de données, note chaque URL appelée, et peut tomber en panne pour un nom
+// d'artefact (`panne`) ou pour une série (`panneSeries`).
 const FAUSSE_API = `import { appendFileSync, readFileSync } from 'node:fs';
 const donnees = JSON.parse(readFileSync(process.env.FAUSSE_API, 'utf8'));
 globalThis.fetch = async (url) => {
@@ -680,6 +690,7 @@ globalThis.fetch = async (url) => {
     return reponse(200, { total_count: tous.length, artifacts: tous.slice((page - 1) * parPage, page * parPage) });
   }
   const serie = /^runs\\/(\\d+)$/.exec(reste);
+  if (serie && donnees.panneSeries && donnees.panneSeries.includes(Number(serie[1]))) return reponse(500, {});
   if (serie && donnees.series[serie[1]]) return reponse(200, donnees.series[serie[1]]);
   return reponse(404, {});
 };
@@ -763,10 +774,10 @@ describe('CI — le script de périmètre de bout en bout', () => {
     name: `serie-validee-${arbreSha}`, expired: false, workflow_run: { id, repository_id: DEPOT_ID, head_sha }, ...surcharges,
   });
   // Données de la fausse API à partir d'une liste d'artefacts et de séries.
-  const api = (artefacts = [], series = [], panne = []) => {
+  const api = (artefacts = [], series = [], panne = [], panneSeries = []) => {
     const parNom = {};
     for (const a of artefacts) (parNom[a.name] ||= []).push(a);
-    return { artefacts: parNom, series: Object.fromEntries(series.map((s) => [String(s.id), s])), panne };
+    return { artefacts: parNom, series: Object.fromEntries(series.map((s) => [String(s.id), s])), panne, panneSeries };
   };
 
   // Clone à profondeur 2 de la branche, comme actions/checkout (fetch-depth: 2), puis `perimetre-ci.mjs perimetre`.
@@ -788,6 +799,7 @@ describe('CI — le script de périmètre de bout en bout', () => {
       FAUSSE_API: fichiers.donnees,
       APPELS_API: fichiers.appels,
     };
+    if (evenement === undefined) delete env.EVENEMENT;
     if (baseRef !== undefined) env.BASE_REF = baseRef;
     if (avant !== undefined) env.AVANT = avant;
     const execution = spawnSync(process.execPath, ['--import', pathToFileURL(chargeur).href, SCRIPT, 'perimetre'], { cwd: copie, env, encoding: 'utf8' });
@@ -879,22 +891,53 @@ describe('CI — le script de périmètre de bout en bout', () => {
       attendreSorties(lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant, donnees }), COMPLETE, h.documentation.arbre);
     }
   });
-  // Une API illisible ne rend jamais la série légère ni dédoublonnée : soit série complète, soit échec du périmètre.
-  it('une API illisible ne rend jamais la série légère ni dédoublonnée', () => {
-    const attestations = [
-      [artefact(h.arbreAvant, 61, h.c0), artefact(h.code.arbre, 62, h.code.tete), artefact(h.documentation.arbre, 63, h.documentation.tete)],
-      [serie(61, h.c0), serie(62, h.code.tete), serie(63, h.documentation.tete)],
-    ];
-    for (const [branche, panne] of [
-      ['fusion-documentation', [`serie-validee-${h.arbreAvant}`]],
-      ['fusion-documentation', [`serie-validee-${h.documentation.arbre}`]],
-      ['fusion-code', [`serie-validee-${h.code.arbre}`]],
-    ]) {
-      const resultat = lancerPerimetre({ branche, evenement: 'push', avant: h.c0, donnees: api(...attestations, panne) });
-      assert.ok(resultat.code !== 0 || resultat.sorties.lourds === 'true', `${branche}, panne ${panne} : ${resultat.journal}`);
-      assert.notEqual(resultat.sorties.lourds, 'false', `${branche}, panne ${panne}`);
-      assert.notEqual(resultat.sorties.documentation_seule, 'true');
-      assert.notEqual(resultat.sorties.deja_validee, 'true');
+  // Panne de l'API (règle précisée par Claude Code le 14-11-2026, d'après le cadrage : « Tout échec […] mène à la série
+  // complète ») : le script ne finit jamais en échec pour une panne (code 0, sorties cohérentes, avertissement) ; une
+  // panne ne rend jamais la série dédoublonnée ; une panne sur l'attestation de before donne toujours la série
+  // complète ; la série n'est légère que si l'attestation de before a réussi et que le diff n'est que de la
+  // documentation (la panne de l'attestation de la tête ne touche que le dédoublonnage).
+  describe('panne de l\'API pendant une attestation', () => {
+    // Toutes les attestations seraient valides sans la panne : arbre de before (61), arbre de tête de la PR de code
+    // (62) et de la PR de documentation (63).
+    const artefactsValides = () => [artefact(h.arbreAvant, 61, h.c0), artefact(h.code.arbre, 62, h.code.tete), artefact(h.documentation.arbre, 63, h.documentation.tete)];
+    const seriesValides = () => [serie(61, h.c0), serie(62, h.code.tete, { event: 'pull_request' }), serie(63, h.documentation.tete, { event: 'pull_request' })];
+    function attendrePanne({ branche, panne = [], panneSeries = [], sansAvant = false }, attendu, arbreSha) {
+      const artefacts = artefactsValides().filter((a) => !(sansAvant && a.workflow_run.id === 61));
+      const resultat = lancerPerimetre({ branche, evenement: 'push', avant: h.c0, donnees: api(artefacts, seriesValides(), panne, panneSeries) });
+      attendreSorties(resultat, attendu, arbreSha);
+      assert.equal(sortiesCoherentes(resultat.sorties), true);
+      assert.match(resultat.journal, /^::warning::/m, 'la panne est signalée par un avertissement');
+    }
+
+    it('panne sur l\'artefact de l\'arbre de before, push de documentation dont la tête serait attestée : série complète', () => {
+      attendrePanne({ branche: 'fusion-documentation', panne: [`serie-validee-${h.arbreAvant}`] }, COMPLETE, h.documentation.arbre);
+    });
+    it('panne sur la série qui atteste l\'arbre de before, push de documentation : série complète', () => {
+      attendrePanne({ branche: 'fusion-documentation', panneSeries: [61] }, COMPLETE, h.documentation.arbre);
+    });
+    it('panne sur l\'attestation de before, push de code dont la tête serait attestée : série complète, jamais dédoublonnée', () => {
+      attendrePanne({ branche: 'fusion-code', panne: [`serie-validee-${h.arbreAvant}`] }, COMPLETE, h.code.arbre);
+    });
+    it('panne sur l\'artefact de l\'arbre de tête, push de code : série complète, jamais dédoublonnée', () => {
+      attendrePanne({ branche: 'fusion-code', panne: [`serie-validee-${h.code.arbre}`] }, COMPLETE, h.code.arbre);
+    });
+    it('panne sur la série qui atteste l\'arbre de tête, push de code : série complète, jamais dédoublonnée', () => {
+      attendrePanne({ branche: 'fusion-code', panneSeries: [62] }, COMPLETE, h.code.arbre);
+    });
+    it('panne sur l\'attestation de la tête, push de documentation dont before est attesté : série légère, jamais dédoublonnée', () => {
+      attendrePanne({ branche: 'fusion-documentation', panne: [`serie-validee-${h.documentation.arbre}`] }, LEGERE, h.documentation.arbre);
+      attendrePanne({ branche: 'fusion-documentation', panneSeries: [63] }, LEGERE, h.documentation.arbre);
+    });
+    it('panne sur l\'attestation de la tête, push de documentation dont before n\'est pas attesté : série complète', () => {
+      attendrePanne({ branche: 'fusion-documentation', panne: [`serie-validee-${h.documentation.arbre}`], sansAvant: true }, COMPLETE, h.documentation.arbre);
+    });
+    it('panne sur les deux attestations, push de documentation : série complète', () => {
+      attendrePanne({ branche: 'fusion-documentation', panne: [`serie-validee-${h.arbreAvant}`, `serie-validee-${h.documentation.arbre}`] }, COMPLETE, h.documentation.arbre);
+    });
+  });
+  it('un événement autre que pull_request ou push : série complète, même pour de la documentation', () => {
+    for (const evenement of ['workflow_dispatch', undefined]) {
+      attendreSorties(lancerPerimetre({ branche: 'fusion-documentation', evenement, baseRef: 'main', avant: h.c0 }), COMPLETE, h.documentation.arbre);
     }
   });
 });
