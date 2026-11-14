@@ -6,6 +6,7 @@ import { CoutsSuitesChantier } from './CoutsSuitesChantier';
 import { hypotheseCoutHoraire, hypotheseMateriel, type EstimationMarge } from '../lib/suiviChantiers';
 import { arrondiEuro, arrondiCentime } from '../lib/montants';
 import { toDateFrancaise, fmtEuro, fmtHeures } from '../lib/formats';
+import { libelleStatutPiece } from '../lib/libellesFacture';
 
 export type FactureLiee = {
   id: string;
@@ -83,7 +84,7 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
                       <tr key={facture.id} className="border-t border-gray-100">
                         <td className="p-3 font-semibold text-gray-800">{facture.numero}</td>
                         <td className="p-3">{facture.type === 'AVOIR' ? 'Avoir' : 'Facture'}</td>
-                        <td className="p-3">{facture.statut}</td>
+                        <td className="p-3">{libelleStatutPiece(facture.type, facture.statut)}</td>
                         <td className="p-3">{toDateFrancaise(facture.dateEmission)}</td>
                         <td className="p-3 text-right font-semibold">{fmtEuro(facture.totalHt)}</td>
                         <td className="p-3 text-right font-semibold">{fmtEuro(facture.totalTtc)}</td>

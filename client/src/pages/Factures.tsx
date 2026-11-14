@@ -5,6 +5,7 @@ import { apiFetch } from '../api';
 import { isAdminRole, useCurrentUser } from '../roles';
 import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { situationReglement } from '../lib/reglements';
+import { libelleOrigineFacture, libelleStatutPiece } from '../lib/libellesFacture';
 import { telechargerPdf } from '../lib/documentPdf';
 import EnvoiDocument, { type DocumentAEnvoyer } from '../components/EnvoiDocument';
 import { nombreFr, totauxApercuAvoir, type AvoirPrecedent } from '../lib/apercuAvoir';
@@ -629,10 +630,10 @@ export default function Factures() {
                 <td className="p-3"><strong>{facture.type === 'AVOIR' ? 'Avoir' : 'Facture'}</strong><br />{facture.numero || 'Brouillon'}{facture.factureOrigine?.numero && <span className="block text-xs text-gray-500">Origine : {facture.factureOrigine.numero}</span>}</td>
                 <td className="p-3">{facture.client.raisonSociale}</td>
                 <td className="p-3">{formatDate(facture.dateEmission)}</td>
-                <td className="p-3">{facture.origine === 'HORS_AFFAIRE' ? `Hors affaire — ${facture.motifHorsAffaire || ''}` : facture.origine}{facture.tempsPasse && <span className="block text-xs text-gray-600">Au temps passé</span>}</td>
+                <td className="p-3">{facture.origine === 'HORS_AFFAIRE' ? `Hors affaire — ${facture.motifHorsAffaire || ''}` : libelleOrigineFacture(facture.origine)}{facture.tempsPasse && <span className="block text-xs text-gray-600">Au temps passé</span>}</td>
                 <td className="p-3">{fmtEuroCentime(facture.totalTtc)}</td>
                 <td className="p-3">{facture.resteDu === null || facture.resteDu === undefined ? '—' : fmtEuroCentime(facture.resteDu)}</td>
-                <td className="p-3">{facture.statut}{situationReglement(facture, fmtEuroCentime) && <span className="block text-xs text-gray-600">{situationReglement(facture, fmtEuroCentime)}</span>}</td>
+                <td className="p-3">{libelleStatutPiece(facture.type, facture.statut)}{situationReglement(facture, fmtEuroCentime) && <span className="block text-xs text-gray-600">{situationReglement(facture, fmtEuroCentime)}</span>}</td>
                 <td className="p-3"><div className="flex flex-wrap gap-2">
                   <button className="btn btn-secondary" aria-expanded={factureTraceId === facture.id} aria-controls="origine-facture" onClick={() => factureTraceId === facture.id ? fermerTrace() : void chargerTrace(facture.id)}>Voir l’origine</button>
                   {facture.type === 'FACTURE' && facture.statut === 'BROUILLON' && (emissionImpossible(facture)
@@ -676,7 +677,7 @@ export default function Factures() {
           {traceErreur && <div role="alert"><p>{traceErreur}</p><button type="button" className="btn btn-secondary" onClick={() => void chargerTrace(factureTraceId)}>Réessayer</button></div>}
           {trace && (
             <div className="space-y-2 text-sm">
-              <p><strong>Origine :</strong> {{ CHANTIER: 'Affaire', INTERVENTION: 'Intervention SAV', CONTRAT: 'Contrat de maintenance', HORS_AFFAIRE: 'Hors affaire' }[trace.facture.origine]}</p>
+              <p><strong>Origine :</strong> {libelleOrigineFacture(trace.facture.origine)}</p>
               <p><strong>Client :</strong> {trace.facture.client.raisonSociale}</p>
               {trace.facture.origine === 'HORS_AFFAIRE' && <p><strong>Motif :</strong> {trace.facture.motifHorsAffaire || 'Motif non renseigné'}</p>}
               {trace.facture.intervention && <p><strong>Intervention d’origine :</strong> {trace.facture.intervention.reference} — {trace.facture.intervention.titre}</p>}
