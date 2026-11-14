@@ -12,12 +12,23 @@ import type express from 'express';
 // (message de `JSON.parse`), comme avant. Les journaux que les gestionnaires écrivent eux-mêmes ne passent pas ici.
 const PROPRIETES_DE_LA_REPONSE = ['status', 'statusCode', 'headers'] as const;
 
+// `String(valeur)`, sans lever d'exception pour un objet sans prototype (`Object.create(null)`) ni pour un `toString`
+// qui échoue : la garde ne doit jamais changer le statut de la réponse.
+function enTexte(valeur: object): string {
+  try {
+    return String(valeur);
+  } catch {
+    return Object.prototype.toString.call(valeur);
+  }
+}
+
 export function erreurReduite(erreur: unknown): unknown {
-  if (erreur === null || typeof erreur !== 'object') return erreur;
+  // Une fonction peut porter des propriétés, comme un objet : elle est réduite de même.
+  if (erreur === null || (typeof erreur !== 'object' && typeof erreur !== 'function')) return erreur;
   const source = erreur as Record<string, unknown>;
-  const copie = new Error(erreur instanceof Error ? erreur.message : String(erreur));
+  const copie = new Error(erreur instanceof Error ? erreur.message : enTexte(erreur));
   // Un objet sans pile : `finalhandler` répond hors production avec `String(err)`, que la copie reprend.
-  Object.defineProperty(copie, 'stack', { value: typeof source.stack === 'string' ? source.stack : String(erreur), enumerable: false, writable: true, configurable: true });
+  Object.defineProperty(copie, 'stack', { value: typeof source.stack === 'string' ? source.stack : enTexte(erreur), enumerable: false, writable: true, configurable: true });
   for (const cle of PROPRIETES_DE_LA_REPONSE) {
     if (source[cle] !== undefined) Object.defineProperty(copie, cle, { value: source[cle], enumerable: false, writable: true, configurable: true });
   }
