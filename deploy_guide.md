@@ -41,7 +41,7 @@ Puisque votre code est synchronisé avec GitHub, il suffit de cloner ou mettre �
 
 ```bash
 # 1. Cloner (la première fois en utilisant notre Host personnalisé)
-git clone git@github-iris:Noxia-Groupe/iris.git noxia-iris-chantier
+git clone git@github-iris:OrizonLab/iris.git noxia-iris-chantier
 cd noxia-iris-chantier
 
 # Ou mettre à jour (les fois suivantes)

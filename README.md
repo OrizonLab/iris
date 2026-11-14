@@ -1,7 +1,7 @@
 # IRIS — ERP pour métiers techniques
 
-**Propriété logicielle** : Noxia-Groupe / OrizonLab  
-**Repo** : https://github.com/Noxia-Groupe/iris   
+**Propriété logicielle** : propriété exclusive de Nelson Cabral (OrizonLab), tous droits réservés ([LICENSE](LICENSE))\
+**Repo** : https://github.com/OrizonLab/iris (anciennement `Noxia-Groupe/iris`, dont les liens redirigent)\
 **Déploiement** : une instance Iris dédiée par société cliente, avec sa propre base PostgreSQL
 
 ## Configuration d’une instance
@@ -265,7 +265,9 @@ remplacer — voir [`docs/ACCES-SANS-MICROSOFT.md`](docs/ACCES-SANS-MICROSOFT.md
 - Réseaux : `iris-network` + `nginx-proxy` (NPM) + `backup-net` (pgBackWeb)
 
 ## Propriété
-Le logiciel reste la propriété de Noxia-Groupe / OrizonLab. Les clients obtiennent un accès à leur instance sans accès au code source. Chaque client dispose de son propre déploiement et de sa propre base de données ; aucune donnée métier n'est partagée entre sociétés.
+Copyright © 2026 Nelson Cabral (OrizonLab). Tous droits réservés.
+
+Iris est la propriété exclusive de Nelson Cabral (OrizonLab), son unique propriétaire. Aucune utilisation, copie, modification ni distribution du code n'est permise sans son autorisation écrite et préalable : voir la licence propriétaire [LICENSE](LICENSE). Les clients obtiennent un accès à leur instance sans accès au code source. Chaque client dispose de son propre déploiement et de sa propre base de données ; aucune donnée métier n'est partagée entre sociétés.
 
 ## Roadmap et état de livraison
 
@@ -326,7 +328,8 @@ Contrôlé le 04/09/2026 sur la branche dédiée `chore/phase-1-anti-amalgame-fi
 - [x] `server/prisma/schema.prisma` et migrations : aucune liaison technique active à une ancienne instance.
 - [x] `package.json` : aucune identité d'ancien produit exposée.
 - [x] `.agents/` : aucune instruction utile au projet Iris ne renvoie vers une ancienne application.
-- [x] `brand/` : uniquement des éléments de marque Noxia/CybexIA ; l'identité finale reste configurable par instance.
+- [x] `brand/` : retiré le 14-11-2026 par Nelson. Ce dossier portait la charte graphique d'autres marques, déposée par erreur ; ce n'était pas celle d'Iris. L'identité de chaque société cliente reste configurable par instance (lot P0).
+- [ ] Charte graphique propre à Iris : à définir (décision de Nelson du 14-11-2026, [historique](docs/HISTORIQUE-DECISIONS.md#décisions-du-14-11-2026-sur-la-propriété-le-dépôt-et-la-charte-graphique)).
 - [x] Documentation courante nettoyée des comparaisons et libellés historiques.
 
 Les occurrences restantes du mot français « marge » sont intentionnelles : elles désignent la marge commerciale, les commissions et les règles métier d'Iris.

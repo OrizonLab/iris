@@ -9,8 +9,9 @@
     "test:unit": "npm run build && node --test tests/validation.test.mjs tests/securite.test.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Nelson Cabral (OrizonLab)",
+  "license": "UNLICENSED",
+  "private": true,
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^5.22.0",

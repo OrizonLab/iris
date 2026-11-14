@@ -28,7 +28,7 @@ Un `ADMIN` gère les utilisateurs standards et les opérations métier, mais ne 
 
 ### Super administrateurs plateforme
 
-Le rôle `SUPERADMIN` est réservé à Noxia-Groupe / OrizonLab. Il peut :
+Le rôle `SUPERADMIN` est réservé à l'éditeur d'Iris, Nelson Cabral (OrizonLab), propriétaire exclusif du logiciel. Il peut :
 
 - voir tous les comptes de l'instance ;
 - créer, promouvoir et révoquer les autres super administrateurs ;
@@ -39,13 +39,13 @@ Un `ADMIN` client ne peut ni voir l'existence des super administrateurs, ni les 
 
 ## Accès plateforme hors Microsoft client
 
-L'accès utilisateur normal reste exclusivement Microsoft Entra ID. L'accès plateforme Noxia/OrizonLab sera une voie distincte, jamais un mot de passe local partagé :
+L'accès utilisateur normal reste exclusivement Microsoft Entra ID. L'accès plateforme de l'éditeur sera une voie distincte, jamais un mot de passe local partagé :
 
 1. route dédiée `/api/platform/*`, séparée des routes client ;
 2. authentification par passkey WebAuthn pour les super administrateurs plateforme ;
 3. protection réseau complémentaire : mTLS ou allowlist IP/VPN de gestion ;
 4. sessions courtes, scopes explicites et journal d'audit complet ;
-5. compte et clé d'urgence (« break-glass ») créés à l'installation, chiffrés hors Git et conservés sous contrôle Noxia/OrizonLab ;
+5. compte et clé d'urgence (« break-glass ») créés à l'installation, chiffrés hors Git et conservés sous le contrôle de l'éditeur ;
 6. aucune donnée de connexion de secours dans les fichiers du client ou le dépôt Git.
 
 L'API de diagnostic Hermes suivra le même modèle machine-à-machine : clé dédiée à portée minimale, rotation/révocation, journal d'audit et accès réseau limité. Elle ne sera pas assimilée à un compte utilisateur `SUPERADMIN`.

@@ -1,6 +1,8 @@
 {
   "name": "client",
   "private": true,
+  "author": "Nelson Cabral (OrizonLab)",
+  "license": "UNLICENSED",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

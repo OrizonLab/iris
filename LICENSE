@@ -1,0 +1,28 @@
+Iris — Licence propriétaire
+
+Copyright © 2026 Nelson Cabral (OrizonLab). Tous droits réservés.
+
+Iris, c'est-à-dire l'ensemble du présent dépôt, dont son code source, son code
+compilé, sa documentation, ses schémas et migrations de base de données, ses
+tests et ses éléments graphiques, est la propriété exclusive de
+Nelson Cabral (OrizonLab), ci-après « le titulaire ».
+
+Aucune licence ni aucun droit, exprès ou implicite, n'est accordé sur Iris par
+la mise à disposition de ce dépôt. Sauf autorisation écrite et préalable du
+titulaire, il est interdit, en tout ou en partie :
+
+- d'utiliser, d'exécuter, d'installer ou de faire exécuter Iris ;
+- de le copier ou de le reproduire, sur quelque support que ce soit ;
+- de le modifier, de l'adapter, de le traduire ou d'en créer des œuvres dérivées ;
+- de le distribuer, de le publier, de le prêter, de le louer, de le céder ou
+  d'en concéder l'usage à un tiers, à titre gratuit ou onéreux ;
+
+sous réserve des seules exceptions que la loi impose au titulaire.
+
+L'accès d'une société cliente à son instance d'Iris est régi par un contrat
+distinct conclu avec le titulaire. Il ne confère aucun droit sur le code source
+ni sur le présent dépôt.
+
+Les composants tiers utilisés par Iris (dépendances npm, images Docker, polices
+et bibliothèques) restent soumis à leurs propres licences, indiquées dans leurs
+paquets.
