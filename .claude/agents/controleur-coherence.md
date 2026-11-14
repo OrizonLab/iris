@@ -92,7 +92,7 @@ Une PR uniquement documentaire est auditée par toi (`CLAUDE.md`, section « Cir
    - Chaque choix de Claude Code est déclaré « choix par défaut, à confirmer », et rien n'est attribué à Nelson qu'il n'ait dit.
    - Ce que la PR dit du produit suit les vérifications du mode 2.
 5. **Liens et ancres internes** : avec l'outil que t'indique Claude Code, ou à défaut par la règle des ancres GitHub.
-6. **CI** de la SHA exacte : cinq contrôles verts.
+6. **CI** de la SHA exacte : synthèse « CI — synthèse » verte ; les travaux lourds y sont réussis, ou sautés pour une série de documentation seule ou un arbre déjà attesté (`docs/CONFIGURATION-ENVIRONNEMENT.md`, « Consommation de la CI »).
 
 Ton rapport prend alors la forme de celui des auditeurs :
 - verdict d'abord, « fusionnable » ou « non fusionnable », sur la SHA exacte ;
