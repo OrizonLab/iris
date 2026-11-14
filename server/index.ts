@@ -15,6 +15,7 @@ import 'pdfkit';
 // Chargement de server/.env au même moment qu'avant le découpage : après les bibliothèques,
 // dont certaines lisent l'environnement à leur chargement (DEBUG, NO_COLOR…).
 import './src/env';
+import { transmettreErreurReduite } from './src/http/erreurReduite';
 import { prisma } from './src/db';
 import { resolveJwtSecret } from './src/http/auth';
 import { enregistrerRoutesReferentiels } from './src/domaines/referentiels/routes';
@@ -160,6 +161,10 @@ enregistrerRoutesCommissions(app);
 
 // --- Analyse d'un chantier (src/domaines/chantiers/routes.ts) ---
 enregistrerRoutesAnalyseChantier(app);
+
+// --- Dernier gestionnaire d'erreurs, après toutes les routes : le gestionnaire final d'Express ne journalise que la
+// pile de l'erreur, sans corps de requête ni détails (src/http/erreurReduite.ts) ---
+app.use(transmettreErreurReduite);
 
 // Le serveur n'écoute que lorsque ce fichier est LANCÉ (node dist/index.js). Quand il est
 // simplement importé — c'est le cas des tests d'intégration, qui montent l'application

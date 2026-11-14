@@ -2,7 +2,11 @@
 // exportées par le serveur compilé (dist/index.js) et vérifient ce qu'elles renvoient.
 // Aucune base de données n'est nécessaire.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import test, { describe } from 'node:test';
+import { Readable } from 'node:stream';
+import util from 'node:util';
+import express from 'express';
 import request from 'supertest';
 
 const {
@@ -17,6 +21,9 @@ const {
   arrondiCommercialLigneHt, centimesTtcLigne, devisPayload,
   libelleComptableValide, alerteGenerationVisites,
 } = await import('../dist/index.js');
+// Garde des journaux du gestionnaire final d'Express (lot des failles des dépendances) : module compilé, que
+// dist/index.js n'exporte pas.
+const { erreurReduite, transmettreErreurReduite } = await import('../dist/src/http/erreurReduite.js');
 
 test('date demandée : défaut selon le jour civil entreprise à minuit et format français strict', () => {
   // Wallis voit déjà le 1er mars tandis que le serveur UTC voit encore février.
@@ -60,6 +67,285 @@ test('limite les corps JSON à 5 Mo avec erreur 413 JSON même sans connexion à
   assert.equal(reponse.status, 413);
   assert.match(reponse.headers['content-type'], /application\/json/);
   assert.match(reponse.body.error, /volumineux|taille/i);
+});
+
+// Garde des journaux du gestionnaire final d'Express (cadrage du lot des failles des dépendances, 14-11-2026, point 3 du
+// périmètre ; N7, puis C2 et N2 du contrôle du cadrage). Express 5.3 journalise l'erreur entière (`console.error(err)`),
+// là où Express 5.2 n'en journalisait que la pile. Le dernier gestionnaire d'erreurs d'Iris lui transmet une copie
+// réduite : la même pile, et seulement ce que `finalhandler` lit pour fixer la réponse (`status`, `statusCode`,
+// `headers`), en propriétés non énumérables. La réponse ne change pas ; le journal redevient la pile seule, sans le corps
+// brut d'un JSON mal formé (`body`), les détails Prisma (`meta`), une `cause` ni aucune autre propriété. Pour un JSON mal
+// formé, la tête de pile et le message, où JSON.parse cite le corps ou un extrait, sont remplacés par un texte fixe (audit
+// interne de #544, N1).
+const tourDeBoucle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('un JSON mal formé reçoit toujours 400, et le gestionnaire final d’Express n’en journalise que la pile, sans le corps brut', async () => {
+  const temoin = `TEMOIN-${randomUUID()}`;
+  // Le témoin est placé loin de la position fautive (le « x ») : le message de JSON.parse ne cite qu'un extrait autour
+  // d'elle (ou le corps entier s'il est court), et le témoin ne peut donc atteindre le journal que par le corps brut.
+  const corps = `{"a": x, "remplissage":"${'r'.repeat(200)}", "jeton":"${temoin}"}`;
+  const messageNatif = (() => { try { JSON.parse(corps); return null; } catch (erreur) { return erreur.message; } })();
+  assert.ok(messageNatif && !messageNatif.includes(temoin), `précondition : l’extrait cité par JSON.parse ne contient pas le témoin (${messageNatif})`);
+
+  const journal = [];
+  const consoleError = console.error;
+  const environnement = app.get('env');
+  let reponse;
+  // Express ne journalise pas quand l'environnement de l'application vaut `test` : production le temps du test.
+  app.set('env', 'production');
+  console.error = (...args) => { journal.push(args); };
+  try {
+    reponse = await request(app).post('/api/clients').set('Content-Type', 'application/json').send(corps);
+    // `finalhandler` journalise par `setImmediate`, souvent après l'arrivée de la réponse : on attend l'entrée (dix tours
+    // au plus), puis un tour de plus, pour qu'une entrée tardive n'échappe pas au test ni ne tombe dans le suivant.
+    for (let tour = 0; tour < 10 && journal.length === 0; tour += 1) await tourDeBoucle();
+    await tourDeBoucle();
+  } finally {
+    console.error = consoleError;
+    app.set('env', environnement);
+  }
+
+  // Réponse inchangée : 400, page d'erreur de `finalhandler` en production, ni pile ni corps.
+  assert.equal(reponse.status, 400);
+  assert.match(reponse.headers['content-type'], /^text\/html/);
+  assert.equal(reponse.headers['content-security-policy'], "default-src 'none'");
+  assert.equal(reponse.headers['x-content-type-options'], 'nosniff');
+  assert.match(reponse.text, /<pre>Bad Request<\/pre>/);
+  assert.ok(!reponse.text.includes(temoin), 'le témoin ne doit pas revenir dans la réponse');
+
+  // Journal : une entrée (un journal vide ferait passer le test à tort), l'erreur réduite, imprimée comme sa seule pile.
+  assert.equal(journal.length, 1, `une entrée attendue au journal du gestionnaire final, reçu : ${journal.length}`);
+  assert.equal(journal[0].length, 1, 'une seule valeur journalisée');
+  const [journalisee] = journal[0];
+  assert.match(journalisee.stack, /^SyntaxError: JSON mal formé \(extrait du corps non journalisé\)\n\s+at /);
+  const texte = util.format(...journal[0]);
+  assert.equal(texte, journalisee.stack, 'le journal est la pile seule, sans propriété imprimée à sa suite');
+  assert.ok(!texte.includes(temoin), 'le corps brut de la requête ne doit pas être journalisé');
+  assert.ok(!texte.includes('body:'), 'aucune propriété `body` journalisée');
+  // Ce que reçoit console.error, et non seulement ce qu'il imprime : ni propriété `body`, même cachée, ni témoin dans les
+  // propriétés non énumérables (qu'un autre journal que la console pourrait sérialiser).
+  assert.equal('body' in journalisee, false, 'la valeur journalisée ne porte pas de propriété `body`');
+  assert.ok(!util.inspect(journalisee, { showHidden: true, depth: Infinity }).includes(temoin), 'témoin absent des propriétés cachées de la valeur journalisée');
+});
+
+// Audit interne de la PR #544 (auditeur-droits-securite, T1) : l'erreur d'un JSON mal formé naît dans body-parser, avant
+// toutes les routes ; elle ne prouve donc pas la place de la garde après les routes (N2 du contrôle du cadrage). Une erreur
+// née en essayant les routes, ici le décodage du paramètre de GET /api/clients/:id (avant requireAuth, sans base), ne passe
+// par la garde que si celle-ci est montée après elles : sinon Express 5.3 imprime `status: 400` à la suite de la pile.
+test('une erreur née en essayant les routes (paramètre mal encodé) passe aussi par la garde : 400, journal réduit à la pile', async () => {
+  const journal = [];
+  const consoleError = console.error;
+  const environnement = app.get('env');
+  let reponse;
+  app.set('env', 'production');
+  console.error = (...args) => { journal.push(args); };
+  try {
+    reponse = await request(app).get('/api/clients/%E0%A4%A');
+    for (let tour = 0; tour < 10 && journal.length === 0; tour += 1) await tourDeBoucle();
+    await tourDeBoucle();
+  } finally {
+    console.error = consoleError;
+    app.set('env', environnement);
+  }
+
+  assert.equal(reponse.status, 400);
+  assert.match(reponse.text, /<pre>Bad Request<\/pre>/);
+  assert.equal(journal.length, 1, `une entrée attendue au journal du gestionnaire final, reçu : ${journal.length}`);
+  assert.equal(journal[0].length, 1, 'une seule valeur journalisée');
+  const [journalisee] = journal[0];
+  assert.match(journalisee.stack, /^URIError: Failed to decode param/);
+  assert.equal(util.format(...journal[0]), journalisee.stack, 'le journal est la pile seule, sans `status` imprimé à sa suite');
+});
+
+// Message que body-parser (express.json(), sans Iris) donne au corps : précondition des cas ci-dessous, pour qu'un test
+// ne passe pas à vide si le message natif cessait de citer le corps.
+const messageDuParseurJson = (corps) => new Promise((resolve) => {
+  const requete = Readable.from([Buffer.from(corps)]);
+  requete.method = 'POST';
+  requete.headers = { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(corps)) };
+  express.json()(requete, {}, (erreur) => resolve(erreur ? { type: erreur.type, message: erreur.message } : null));
+});
+
+// Audit interne de la PR #544 (auditeur-droits-securite, N1, traité dans le code) : JSON.parse cite en entier un corps de
+// moins de 21 caractères, et un extrait d'une dizaine de caractères autour de la faute dans un corps plus long ; le mode
+// strict de body-parser (corps qui ne commence ni par « { » ni par « [ ») cite de même un extrait. La garde remplace ce
+// message par un texte fixe : ni le jeton ni son extrait n'atteignent le journal.
+test('un JSON mal formé ne laisse au journal ni le corps court entier ni l’extrait cité autour de la faute, mode strict compris', async () => {
+  const cas = [
+    { corps: '{"token":TEMOIN-1}', citeLeCorpsEntier: true },
+    { corps: '{"email":"secours@iris.test","token":TEMOIN-LONG-jeton-de-secours-au-moins-32-caracteres}', citeLeCorpsEntier: false },
+    { corps: '"TEMOIN-STRICT-jeton-de-secours"', citeLeCorpsEntier: false },
+  ];
+  const consoleError = console.error;
+  const environnement = app.get('env');
+  for (const { corps, citeLeCorpsEntier } of cas) {
+    const natif = await messageDuParseurJson(corps);
+    assert.equal(natif?.type, 'entity.parse.failed', `précondition : ${corps} refusé par body-parser`);
+    assert.ok(natif.message.includes('TEMOIN'), `précondition : le message de body-parser cite le jeton (${natif.message})`);
+    assert.equal(natif.message.includes(corps), citeLeCorpsEntier, `précondition : corps ${citeLeCorpsEntier ? 'cité en entier' : 'cité par extrait'} (${natif.message})`);
+    const journal = [];
+    let reponse;
+    app.set('env', 'production');
+    console.error = (...args) => { journal.push(args); };
+    try {
+      reponse = await request(app).post('/api/auth/break-glass').set('Content-Type', 'application/json').send(corps);
+      for (let tour = 0; tour < 10 && journal.length === 0; tour += 1) await tourDeBoucle();
+      await tourDeBoucle();
+    } finally {
+      console.error = consoleError;
+      app.set('env', environnement);
+    }
+    assert.equal(reponse.status, 400, corps);
+    assert.equal(journal.length, 1, corps);
+    const texte = util.format(...journal[0]);
+    assert.match(texte, /^SyntaxError: JSON mal formé \(extrait du corps non journalisé\)\n\s+at /);
+    assert.equal(texte, journal[0][0].stack, 'le journal est la pile seule');
+    assert.ok(!texte.includes('TEMOIN'), `ni corps ni extrait au journal : ${texte.split('\n')[0]}`);
+  }
+});
+
+describe('Garde des journaux : copie réduite de l’erreur transmise au gestionnaire final d’Express', () => {
+  // Une propriété ajoutée à la copie (même non énumérable : `[cause]` est imprimé par Node) ou imprimée à la suite de la
+  // pile ferait apparaître le témoin ou différer l'impression de la pile.
+  const sansTemoin = (copie, temoin) => {
+    for (const options of [{}, { showHidden: true, depth: Infinity }]) {
+      assert.ok(!util.inspect(copie, options).includes(temoin), `témoin absent de util.inspect(copie, ${JSON.stringify(options)})`);
+    }
+  };
+
+  test('une erreur ne garde ni corps, ni détails Prisma, ni cause, ni autre propriété : même pile, même message, aucune trace du témoin', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const erreur = new Error('Requête refusée', { cause: new Error(`${temoin}-cause`) });
+    Object.assign(erreur, { body: `{"jeton":"${temoin}-body"}`, meta: { cible: `${temoin}-meta` }, autre: `${temoin}-autre` });
+    const pile = erreur.stack;
+    const copie = erreurReduite(erreur);
+    assert.notEqual(copie, erreur, 'une copie, et non l’erreur elle-même');
+    for (const cle of ['body', 'meta', 'cause', 'autre']) assert.equal(cle in copie, false, `${cle} absent de la copie`);
+    assert.equal(copie.stack, pile);
+    assert.equal(copie.message, 'Requête refusée');
+    assert.equal(Object.prototype.propertyIsEnumerable.call(copie, 'message'), false, 'message non énumérable');
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+    assert.equal(util.inspect(copie), pile, 'imprimée, la copie n’est que sa pile');
+    // Copie, et non réduction en place : l'erreur d'origine reste entière pour qui la tient encore.
+    assert.equal(erreur.body, `{"jeton":"${temoin}-body"}`);
+    assert.equal(erreur.cause.message, `${temoin}-cause`);
+  });
+
+  test('statut, code et en-têtes de la réponse conservés et lisibles, mais non énumérables', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    // `status` et `statusCode` distincts : une copie qui prendrait l'un pour l'autre échoue ici.
+    const erreur = Object.assign(new Error('Trop de requêtes'), { status: 429, statusCode: 503, headers: { 'Retry-After': '120' }, body: temoin });
+    const copie = erreurReduite(erreur);
+    assert.equal(copie.status, 429);
+    assert.equal(copie.statusCode, 503);
+    assert.deepEqual(copie.headers, { 'Retry-After': '120' });
+    assert.deepEqual(Object.keys(copie), [], 'aucune propriété énumérable, que console.error imprimerait');
+    for (const cle of ['status', 'statusCode', 'headers']) {
+      assert.equal(Object.getOwnPropertyDescriptor(copie, cle)?.enumerable, false, `${cle} non énumérable`);
+    }
+    assert.equal('body' in copie, false);
+    sansTemoin(copie, temoin);
+    assert.equal(util.inspect(copie), erreur.stack, 'ni statut ni en-têtes imprimés à la suite de la pile');
+  });
+
+  test('une SyntaxError de body-parser garde les cadres de sa pile et son statut 400, sans le corps, ni le type, ni l’extrait de son message', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const corps = `{"a": x, "remplissage":"${'r'.repeat(200)}", "jeton":"${temoin}"}`;
+    let erreur;
+    try { JSON.parse(corps); } catch (e) { erreur = e; }
+    // Propriétés que body-parser (`lib/read.js`) et http-errors posent sur l'erreur d'un JSON mal formé.
+    Object.assign(erreur, { expose: true, statusCode: 400, status: 400, body: corps, type: 'entity.parse.failed' });
+    const copie = erreurReduite(erreur);
+    assert.match(erreur.stack.split('\n')[0], /^SyntaxError: Unexpected token 'x'/);
+    assert.equal(copie.stack.split('\n')[0], 'SyntaxError: JSON mal formé (extrait du corps non journalisé)');
+    assert.equal(copie.message, 'JSON mal formé (extrait du corps non journalisé)');
+    assert.deepEqual(copie.stack.split('\n').slice(1), erreur.stack.split('\n').slice(1), 'mêmes cadres de pile');
+    assert.equal(copie.status, 400);
+    assert.equal(copie.statusCode, 400);
+    for (const cle of ['body', 'type', 'expose']) assert.equal(cle in copie, false, `${cle} absent de la copie`);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+  });
+
+  test('un objet sans pile reçoit String(objet) pour pile, et garde son statut', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const objet = { status: 404, body: temoin };
+    const copie = erreurReduite(objet);
+    assert.equal(copie.stack, '[object Object]');
+    assert.equal(copie.status, 404);
+    assert.equal('body' in copie, false);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+    // Un `toString` propre à l'objet : la pile vient bien de String(objet), et non d'un texte fixe.
+    const nomme = { statusCode: 410, detail: temoin, toString() { return 'Ressource retirée (TEST)'; } };
+    const copieNommee = erreurReduite(nomme);
+    assert.equal(copieNommee.stack, 'Ressource retirée (TEST)');
+    assert.equal(copieNommee.statusCode, 410);
+    assert.equal('detail' in copieNommee, false);
+    assert.deepEqual(Object.keys(copieNommee), []);
+    sansTemoin(copieNommee, temoin);
+  });
+
+  test('null, undefined, une chaîne et un nombre passent tels quels', () => {
+    assert.equal(erreurReduite(null), null);
+    assert.equal(erreurReduite(undefined), undefined);
+    assert.equal(erreurReduite('Refus en texte (TEST)'), 'Refus en texte (TEST)');
+    assert.equal(erreurReduite(42), 42);
+  });
+
+  // N1 du rapport du redacteur-tests, traité dans le code : `String(objet)` lève une exception pour un objet sans prototype
+  // (ou dont le `toString` échoue). Levée dans la garde, elle remplacerait l'erreur transmise et changerait le statut de
+  // la réponse (500 au lieu du statut d'origine) : la garde ne doit jamais lever.
+  test('un objet sans prototype, ou dont le toString échoue, est réduit sans exception : pile « [object Object] », statut conservé', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const sansPrototype = Object.assign(Object.create(null), { status: 404, body: temoin });
+    let copie;
+    assert.doesNotThrow(() => { copie = erreurReduite(sansPrototype); });
+    assert.equal(copie.stack, '[object Object]');
+    assert.equal(copie.status, 404);
+    assert.equal('body' in copie, false);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+    const toStringEnEchec = { statusCode: 409, body: temoin, toString() { throw new Error('toString en échec (TEST)'); } };
+    let copieEnEchec;
+    assert.doesNotThrow(() => { copieEnEchec = erreurReduite(toStringEnEchec); });
+    assert.equal(copieEnEchec.stack, '[object Object]');
+    assert.equal(copieEnEchec.statusCode, 409);
+    assert.equal('body' in copieEnEchec, false);
+    sansTemoin(copieEnEchec, temoin);
+  });
+
+  // N2 du rapport du redacteur-tests, traité dans le code : une fonction porte des propriétés comme un objet ; passée telle
+  // quelle, `console.error` les imprimerait (`[Function] { body: … }`). Elle est réduite comme un objet.
+  test('une fonction transmise comme erreur est réduite comme un objet : copie Error, statut conservé, sans ses propriétés', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const fonction = Object.assign(function refusDeTest() {}, { status: 418, body: temoin });
+    const copie = erreurReduite(fonction);
+    assert.notEqual(copie, fonction);
+    assert.ok(copie instanceof Error, 'la copie est une Error');
+    assert.equal(copie.status, 418);
+    assert.equal('body' in copie, false);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+  });
+
+  test('le dernier gestionnaire a quatre paramètres, comme tout gestionnaire d’erreurs d’Express, et transmet la copie réduite', () => {
+    // Express ne passe une erreur qu'aux gestionnaires déclarés avec quatre paramètres ; à trois, il serait sauté.
+    assert.equal(transmettreErreurReduite.length, 4);
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const erreur = Object.assign(new Error('Refus (TEST)'), { status: 400, statusCode: 400, body: temoin });
+    const transmis = [];
+    transmettreErreurReduite(erreur, {}, {}, (...args) => { transmis.push(args); });
+    assert.equal(transmis.length, 1, 'next appelé une fois');
+    assert.equal(transmis[0].length, 1, 'next appelé avec la seule erreur réduite');
+    const [copie] = transmis[0];
+    assert.notEqual(copie, erreur);
+    assert.equal(copie.stack, erreur.stack);
+    assert.equal(copie.status, 400);
+    assert.equal('body' in copie, false);
+    sansTemoin(copie, temoin);
+  });
 });
 
 describe('Fiche client', () => {

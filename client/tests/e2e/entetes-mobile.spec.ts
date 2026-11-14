@@ -1,8 +1,12 @@
 import { createHmac } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, dateDuJour } from './fixtures';
 
 const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
+// Version de jsPDF installée par le verrou du client : le « Rapport interne (PDF) » doit être produit par elle.
+const versionJsPdf = (createRequire(import.meta.url)('jspdf/package.json') as { version: string }).version;
 
 // Session d'un compte non administrateur : jeton signé avec le secret du backend jetable, comme
 // dans les autres parcours.
@@ -282,7 +286,7 @@ test('fiche chantier, de 375 à 1 920 px : barre d’actions au-dessus du titre 
     }, chantier.nom);
     const telechargement = page.waitForEvent('download');
     await rapportInterne.click();
-    await telechargement;
+    const fichier = await telechargement;
     // Le fichier n'arrive qu'après le retrait du clone : un clone jamais vu échoue ici, sans attendre la fin du délai.
     const mesure = await page.evaluate(() => Promise.race([(window as unknown as FenetreMesuree).miseEnPageCapture, new Promise<null>((resolve) => setTimeout(() => resolve(null), 1_000))]));
     expect(mesure, `clone de la fiche inséré par la capture à ${largeur} px`).not.toBeNull();
@@ -295,6 +299,18 @@ test('fiche chantier, de 375 à 1 920 px : barre d’actions au-dessus du titre 
       enteteSurTouteLaLargeur: Math.abs(capture.largeurEntete - capture.largeurUtile) <= 1,
       barreAuDessusDuTitre: capture.barreAuDessusDuTitre,
     }, `capture à ${largeur} px : ${JSON.stringify(capture)}`).toEqual({ pageA4: true, retraitEntete: '0px', enteteSurTouteLaLargeur: true, barreAuDessusDuTitre: true });
+    // Lot des failles des dépendances (14-11-2026, T1 du contrôle du cadrage) : html2pdf.js, servi par ses sources (alias de
+    // vite.config.ts), donc avec jsPDF et DOMPurify du verrou, produit un vrai fichier PDF, non vide et complet. L'E2E
+    // prouve le chargement du module et la production du PDF, pas l'assainissement (N8 : Iris passe un élément, que
+    // dompurify ne traite pas). Le nom proposé n'est pas contrôlé : sous une locale POSIX, Chromium remplace un nom
+    // accentué (celui du chantier) par « download ».
+    const octets = await readFile(await fichier.path() as string);
+    expect(octets.length, `taille du rapport à ${largeur} px`).toBeGreaterThan(1_000);
+    expect(octets.subarray(0, 5).toString('latin1'), `en-tête du rapport à ${largeur} px`).toBe('%PDF-');
+    expect(octets.subarray(-16).toString('latin1'), `fin du rapport à ${largeur} px`).toContain('%%EOF');
+    // Audit interne de #544 (C1) : jsPDF inscrit sa version dans le champ Producer du PDF. Le fichier principal de
+    // html2pdf.js (dist/) embarque jsPDF 4.0.0 ; servi par ses sources, il produit le PDF avec le jsPDF du verrou.
+    expect(octets.includes(Buffer.from(`/Producer (jsPDF ${versionJsPdf})`, 'latin1')), `rapport produit par jsPDF ${versionJsPdf} à ${largeur} px`).toBe(true);
   }
 });
 

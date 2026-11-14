@@ -257,6 +257,7 @@ GET /api/stats/fournisseurs requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c
 GET /api/stats/types-chantiers requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#e403d98394dc
 GET /api/stats/commerciaux requireAuth#07b983da0ce5 > <anonymous>#3ec062c1a65f
 POST /api/chantiers/:id/analyze requireAuth#07b983da0ce5 > <anonymous>#0c1d287413d9
+USE / transmettreErreurReduite#a1032d3acaca
 EXPORT alerteGenerationVisites
 EXPORT anneeEntreprise
 EXPORT apiKeyHash
