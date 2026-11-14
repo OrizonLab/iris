@@ -7,7 +7,7 @@ Chaque fonctionnalité, correctif ou phase est développée sur une branche déd
 3. Partir de `main` à jour puis créer une branche nommée `feat/…`, `fix/…`, `chore/…` ou `docs/…`.
 4. Exécuter les builds, tests et contrôles pertinents.
 5. Commiter, pousser la branche et ouvrir une pull request vers `main`.
-6. Ne jamais pousser directement sur `main` : la fusion intervient uniquement après revue et CI verte (synthèse « CI — synthèse » verte sur la SHA exacte, [`CLAUDE.md`](../CLAUDE.md#mode-de-livraison)).
+6. Ne jamais pousser directement sur `main` : la fusion intervient uniquement après revue et CI verte (synthèse « CI — synthèse » de conclusion `success` sur la SHA exacte, [`CLAUDE.md`](../CLAUDE.md#mode-de-livraison)).
 
 ## Revue croisée entre agents
 

@@ -16,11 +16,13 @@ export const WORKFLOW = '.github/workflows/ci.yml';
 const SHA_NULLE = /^0+$/;
 
 // Documentation : tout fichier sous docs/, tout fichier Markdown, la licence, hors des dossiers que Vite livre
-// (client/src, client/public : un `.md` peut y être importé). Les seuls tests de la CI qui lisent ces fichiers
-// (server/tests/environnement.test.mjs, tests unitaires du client dont identite.test.ts) tournent dans le travail de
-// périmètre quand la série ne porte que de la documentation.
+// (client/src, client/public : un `.md` peut y être importé) et hors de server/prisma : Prisma tient tout dossier de
+// migrations/ pour une migration, et un dossier qui ne porte qu'un README.md fait échouer `prisma migrate deploy`
+// (P3015), dans les travaux « Backend — tests » et « Frontend — parcours utilisateur » comme au déploiement. Les seuls
+// tests de la CI qui lisent ces fichiers (server/tests/environnement.test.mjs, tests unitaires du client dont
+// identite.test.ts) tournent dans le travail de périmètre quand la série ne porte que de la documentation.
 export function estDocumentation(chemin) {
-  if (chemin.startsWith('client/src/') || chemin.startsWith('client/public/')) return false;
+  if (['client/src/', 'client/public/', 'server/prisma/'].some((dossier) => chemin.startsWith(dossier))) return false;
   return chemin.startsWith('docs/') || chemin.endsWith('.md') || chemin === 'LICENSE';
 }
 
@@ -39,8 +41,10 @@ export const toucheLeWorkflow = (fichiers) => fichiers.some((chemin) => chemin.s
 
 // Un arbre est attesté par un artefact `serie-validee-<arbre>` : non expiré, déposé par une série réussie de ce
 // workflow, de ce dépôt, dont la tête est l'une des têtes admises. `series` associe l'identifiant d'une série à sa
-// description par l'API (event, conclusion, path, head_sha, repository.id).
-export function arbreAtteste({ artefacts, series, depotId, tetesAdmises }) {
+// description par l'API (event, conclusion, path, head_sha, head_branch, repository.id). `exigences` : champs que la
+// série doit porter en plus (pour l'arbre de before : une série de push sur main, et non une PR empilée dont la tête
+// serait ce commit et dont la base porterait un autre workflow ; audit droits et sécurité de #546, N2).
+export function arbreAtteste({ artefacts, series, depotId, tetesAdmises, exigences = {} }) {
   return artefacts.some((artefact) => {
     if (artefact.expired) return false;
     const serie = series.get(artefact.workflow_run?.id);
@@ -50,7 +54,8 @@ export function arbreAtteste({ artefacts, series, depotId, tetesAdmises }) {
       && serie.repository?.id === depotId
       && artefact.workflow_run.repository_id === depotId
       && tetesAdmises.includes(serie.head_sha)
-      && serie.head_sha === artefact.workflow_run.head_sha;
+      && serie.head_sha === artefact.workflow_run.head_sha
+      && Object.entries(exigences).every(([cle, valeur]) => serie[cle] === valeur);
   });
 }
 
@@ -131,7 +136,7 @@ async function api(chemin) {
 }
 
 // Tous les artefacts du nom, page par page, puis la série de chacun.
-async function attestation(depot, depotId, arbre, tetesAdmises) {
+async function attestation(depot, depotId, arbre, tetesAdmises, exigences = {}) {
   const artefacts = [];
   for (let page = 1; ; page += 1) {
     const { artifacts } = await api(`repos/${depot}/actions/artifacts?name=serie-validee-${arbre}&per_page=100&page=${page}`);
@@ -142,7 +147,7 @@ async function attestation(depot, depotId, arbre, tetesAdmises) {
   for (const id of new Set(artefacts.map((artefact) => artefact.workflow_run?.id).filter(Boolean))) {
     series.set(id, await api(`repos/${depot}/actions/runs/${id}`));
   }
-  return arbreAtteste({ artefacts, series, depotId, tetesAdmises });
+  return arbreAtteste({ artefacts, series, depotId, tetesAdmises, exigences });
 }
 
 async function perimetre() {
@@ -161,7 +166,7 @@ async function perimetre() {
         git('fetch', '--no-tags', '--depth=1', 'origin', avant);
         faits.fichiers = fichiersChanges(avant, 'HEAD');
         const arbreAvant = git('rev-parse', `${avant}^{tree}`).trim();
-        faits.avantAtteste = await attestation(depot, depotId, arbreAvant, [avant]);
+        faits.avantAtteste = await attestation(depot, depotId, arbreAvant, [avant], { event: 'push', head_branch: 'main' });
       } catch (erreur) {
         console.log(`::warning::arbre précédent illisible (${erreur.message}) : série complète`);
         faits.fichiers = [];

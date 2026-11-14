@@ -58,9 +58,13 @@ describe('CI — ce qui compte comme documentation', () => {
     'server/src/README.md',
     '.claude/agents/x.md',
     'LICENSE',
-    'server/prisma/migrations/x/README.md',
   ];
   const pasDocumentation = [
+    // Prisma tient tout dossier de migrations/ pour une migration : un dossier qui ne porte qu'un README.md fait
+    // échouer `prisma migrate deploy` (P3015). Audit droits et sécurité de #546, R1.
+    'server/prisma/migrations/x/README.md',
+    'server/prisma/migrations/20261120000000_note_seule/README.md',
+    'server/prisma/README.md',
     'client/src/x.md',
     'client/src/sous/dossier/x.md',
     'client/public/x.md',
@@ -259,6 +263,14 @@ describe('CI — attestation d\'un arbre par un artefact', () => {
     assert.equal(atteste({
       artefacts: [artefact({}, { head_sha: AVANT_P2 })], series: [serie({ head_sha: AVANT_P2 })], tetesAdmises: [AVANT],
     }), false);
+  });
+  it('refuse une série qui ne porte pas les champs exigés (N2 : série de push sur main pour l\'arbre de before)', () => {
+    const exigences = { event: 'push', head_branch: 'main' };
+    const avant = (s) => arbreAtteste({ artefacts: [artefact({}, { head_sha: AVANT })], series: new Map([[101, serie({ head_sha: AVANT, ...s })]]), depotId: DEPOT, tetesAdmises: [AVANT], exigences });
+    assert.equal(avant({ event: 'push', head_branch: 'main' }), true);
+    assert.equal(avant({ event: 'pull_request', head_branch: 'main' }), false);
+    assert.equal(avant({ event: 'push', head_branch: 'autre' }), false);
+    assert.equal(avant({ event: 'push', head_branch: undefined }), false);
   });
   it('refuse une liste d\'artefacts vide', () => {
     assert.equal(atteste({ artefacts: [], series: [serie()] }), false);
@@ -579,6 +591,38 @@ describe('CI — le workflow ci.yml', () => {
       assert.deepEqual(cleDuTravail(lignes, 'concurrency'), [], `${nom} : pas de concurrence propre au travail`);
     }
   });
+  // Audit droits et sécurité de #546, T1 : le jeton du workflow n'a que contents: read et actions: read, et aucun travail
+  // ne redéfinit ses droits.
+  it('le jeton du workflow n\'a que contents: read et actions: read, sans droits propres à un travail', () => {
+    const debut = LIGNES_CI.indexOf('permissions:');
+    assert.notEqual(debut, -1, 'bloc « permissions: » de premier niveau introuvable');
+    const bloc = [];
+    for (const ligne of LIGNES_CI.slice(debut + 1)) {
+      if (!/^ {2}\S/.test(ligne)) break;
+      bloc.push(ligne.trim());
+    }
+    assert.deepEqual(bloc.sort(), ['actions: read', 'contents: read']);
+    assert.equal(LIGNES_CI.filter((l) => /^\s*permissions:/.test(l)).length, 1, 'un seul bloc permissions');
+    for (const [nom, lignes] of travaux) assert.deepEqual(cleDuTravail(lignes, 'permissions'), [], `${nom} : pas de droits propres`);
+  });
+  // Audit droits et sécurité de #546, T2 : en documentation seule, le périmètre lance les deux seuls tests de la CI qui
+  // lisent la documentation, après le calcul et sous la seule condition documentation_seule == 'true'.
+  it('en documentation seule, le périmètre lance environnement.test.mjs et les tests unitaires du client', () => {
+    const etapes = etapesDuTravail(travail('perimetre'));
+    const calcul = etapes.findIndex((e) => /run: node \.github\/scripts\/perimetre-ci\.mjs perimetre\s*$/m.test(e));
+    const condition = /^ {8}if: steps\.perimetre\.outputs\.documentation_seule == 'true'\s*$/m;
+    const environnement = etapes.findIndex((e) => /^ {8}run: node --test server\/tests\/environnement\.test\.mjs\s*$/m.test(e));
+    const unitaires = etapes.findIndex((e) => /^ {10}npm run test:unit\s*$/m.test(e));
+    assert.notEqual(environnement, -1, 'étape environnement.test.mjs introuvable');
+    assert.notEqual(unitaires, -1, 'étape des tests unitaires du client introuvable');
+    for (const [nom, index] of [['environnement', environnement], ['unitaires', unitaires]]) {
+      assert.ok(index > calcul, `${nom} : après le calcul du périmètre`);
+      assert.match(etapes[index], condition, `${nom} : condition documentation_seule == 'true'`);
+      assert.doesNotMatch(etapes[index], /continue-on-error/, `${nom} : un échec fait échouer le périmètre`);
+    }
+    assert.match(etapes[unitaires], /^ {8}working-directory: client\s*$/m);
+    assert.match(etapes[unitaires], /^ {10}npm ci\s*$/m);
+  });
   // Cadrage, point 6 (N6) : le jeton de saut ne s'écrit pas en clair. La chaîne est construite ici, jamais écrite.
   it('ne contient aucun jeton de saut de CI entre crochets', () => {
     const jetons = [['skip', 'ci'], ['ci', 'skip'], ['no', 'ci'], ['skip', 'actions'], ['actions', 'skip']];
@@ -752,6 +796,7 @@ describe('CI — le script de périmètre de bout en bout', () => {
       workflow: { ...etatAvant, '.github/workflows/ci.yml': 'name: CI revue\n' },
       renommage: { ...sansCode, 'docs/code.md': codeInitial },
       vide: etatAvant,
+      migration: { ...etatAvant, 'server/prisma/migrations/20261120000000_note_seule/README.md': '# Note\n' },
     };
     // Chaque PR p-<nom> part de c0 ; sa fusion (premier parent c0, second parent la tête de la PR) est à la fois le
     // commit de fusion testé d'une pull request (refs/pull/N/merge) et le commit de main après la fusion.
@@ -768,7 +813,7 @@ describe('CI — le script de périmètre de bout en bout', () => {
   });
 
   const serie = (id, head_sha, surcharges = {}) => ({
-    id, event: 'push', conclusion: 'success', path: CHEMIN_WORKFLOW, head_sha, repository: { id: DEPOT_ID }, ...surcharges,
+    id, event: 'push', conclusion: 'success', path: CHEMIN_WORKFLOW, head_sha, head_branch: 'main', repository: { id: DEPOT_ID }, ...surcharges,
   });
   const artefact = (arbreSha, id, head_sha, surcharges = {}) => ({
     name: `serie-validee-${arbreSha}`, expired: false, workflow_run: { id, repository_id: DEPOT_ID, head_sha }, ...surcharges,
@@ -831,6 +876,15 @@ describe('CI — le script de périmètre de bout en bout', () => {
     assert.match(resultat.journal, /^server\/code\.ts$/m);
     assert.match(resultat.journal, /^docs\/code\.md$/m);
   });
+  // Audit droits et sécurité de #546, R1 : `prisma migrate deploy` refuse un dossier de migration sans migration.sql
+  // (P3015) ; les travaux qui le lancent ne sont donc pas sautés.
+  it('pull request qui n\'ajoute qu\'un README.md dans un nouveau dossier de migration : série complète', () => {
+    attendreSorties(lancerPerimetre({ branche: 'fusion-migration', evenement: 'pull_request', baseRef: 'main' }), COMPLETE, h.migration.arbre);
+  });
+  it('push qui n\'ajoute qu\'un README.md dans un nouveau dossier de migration, arbre précédent attesté : série complète', () => {
+    const donnees = api([artefact(h.arbreAvant, 13, h.c0)], [serie(13, h.c0)]);
+    attendreSorties(lancerPerimetre({ branche: 'fusion-migration', evenement: 'push', avant: h.c0, donnees }), COMPLETE, h.migration.arbre);
+  });
   it('pull request sans aucun fichier changé : série complète', () => {
     attendreSorties(lancerPerimetre({ branche: 'fusion-vide', evenement: 'pull_request', baseRef: 'main' }), COMPLETE, h.vide.arbre);
   });
@@ -844,6 +898,14 @@ describe('CI — le script de périmètre de bout en bout', () => {
     const resultat = lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0, donnees });
     attendreSorties(resultat, COMPLETE, h.documentation.arbre);
     assert.ok(resultat.appels.some((url) => url.includes(`name=serie-validee-${h.arbreAvant}&`)), `artefact de l'arbre de before demandé : ${resultat.appels.join(' ')}`);
+  });
+  // Audit droits et sécurité de #546, N2 : une PR empilée dont la tête est before (et dont la base porterait un autre
+  // workflow) n'atteste pas l'arbre de before.
+  it('push de documentation dont l\'arbre précédent n\'est attesté que par une PR de tête before : série complète', () => {
+    for (const surcharges of [{ event: 'pull_request', head_branch: 'branche-empilee' }, { head_branch: 'autre' }, { event: 'pull_request' }]) {
+      const donnees = api([artefact(h.arbreAvant, 14, h.c0)], [serie(14, h.c0, surcharges)]);
+      attendreSorties(lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0, donnees }), COMPLETE, h.documentation.arbre);
+    }
   });
   it('push de documentation sans attestation de l\'arbre précédent : série complète', () => {
     attendreSorties(lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0 }), COMPLETE, h.documentation.arbre);

@@ -18,8 +18,8 @@
 # Consommation (décision de Nelson du 14-11-2026 : dépôt privé, 2 000 minutes par mois, « sans affaiblir les
 # contrôles ») : une série complète coûte une cinquantaine de minutes facturables, presque toutes dans `parcours` et
 # `tests`. Les travaux lourds ne tournent donc pas :
-#   - pour une série qui ne porte que de la documentation (`docs/**`, fichiers `*.md`, `LICENSE`, hors client/src et
-#     client/public) ; les seuls tests qui lisent ces fichiers tournent alors dans `perimetre` ;
+#   - pour une série qui ne porte que de la documentation (`docs/**`, fichiers `*.md`, `LICENSE`, hors client/src,
+#     client/public et server/prisma) ; les seuls tests qui lisent ces fichiers tournent alors dans `perimetre` ;
 #   - pour un push sur `main` dont l'arbre exact est attesté par la série réussie de la PR fusionnée (la fusion par
 #     commit de fusion d'une PR dont la base n'a pas bougé reproduit l'arbre testé, `refs/pull/N/merge`), sauf si
 #     le push touche `.github/**`.
@@ -122,7 +122,10 @@ jobs:
         id: installation-navigateur
         if: github.event_name == 'push' && steps.cache-main.outcome == 'success' && steps.cache-main.outputs.cache-hit != 'true'
         continue-on-error: true
-        run: npx --yes "playwright@${{ steps.cle-navigateur.outputs.version }}" install chromium
+        timeout-minutes: 5
+        env:
+          VERSION_PLAYWRIGHT: ${{ steps.cle-navigateur.outputs.version }}
+        run: npx --yes "playwright@$VERSION_PLAYWRIGHT" install chromium
       - name: Enregistrer le cache du navigateur
         if: github.event_name == 'push' && steps.installation-navigateur.outcome == 'success'
         continue-on-error: true
@@ -346,7 +349,9 @@ jobs:
       # dépendances système s'installent alors. Sans cache, téléchargement complet, enregistré à la fin du travail.
       - name: Clé du cache du navigateur
         id: cle-navigateur
-        run: echo "cle=playwright-$ImageOS-$RUNNER_ARCH-$(node -p "require('./client/package-lock.json').packages['node_modules/@playwright/test'].version")-chromium" >> "$GITHUB_OUTPUT"
+        run: |
+          version="$(node -p "require('./client/package-lock.json').packages['node_modules/@playwright/test'].version")"
+          echo "cle=playwright-$ImageOS-$RUNNER_ARCH-$version-chromium" >> "$GITHUB_OUTPUT"
       - name: Cache du navigateur Playwright
         id: cache-navigateur
         uses: actions/cache@v4
@@ -399,7 +404,9 @@ jobs:
       # n'atteste rien.
       - name: Attester l'arbre validé
         if: steps.verdict.outputs.attester == 'true'
-        run: echo "${{ needs.perimetre.outputs.arbre }}" > "$RUNNER_TEMP/arbre-valide.txt"
+        env:
+          ARBRE: ${{ needs.perimetre.outputs.arbre }}
+        run: printf '%s\n' "$ARBRE" > "$RUNNER_TEMP/arbre-valide.txt"
       - uses: actions/upload-artifact@v4
         if: steps.verdict.outputs.attester == 'true'
         with:
