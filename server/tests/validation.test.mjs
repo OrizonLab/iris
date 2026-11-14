@@ -113,7 +113,7 @@ test('un JSON mal formé reçoit toujours 400, et le gestionnaire final d’Expr
   assert.equal(journal.length, 1, `une entrée attendue au journal du gestionnaire final, reçu : ${journal.length}`);
   assert.equal(journal[0].length, 1, 'une seule valeur journalisée');
   const [journalisee] = journal[0];
-  assert.match(journalisee.stack, /^SyntaxError: Unexpected token/);
+  assert.match(journalisee.stack, /^SyntaxError: JSON mal formé \(extrait du corps non journalisé\)\n\s+at /);
   const texte = util.format(...journal[0]);
   assert.equal(texte, journalisee.stack, 'le journal est la pile seule, sans propriété imprimée à sa suite');
   assert.ok(!texte.includes(temoin), 'le corps brut de la requête ne doit pas être journalisé');
@@ -122,6 +122,33 @@ test('un JSON mal formé reçoit toujours 400, et le gestionnaire final d’Expr
   // propriétés non énumérables (qu'un autre journal que la console pourrait sérialiser).
   assert.equal('body' in journalisee, false, 'la valeur journalisée ne porte pas de propriété `body`');
   assert.ok(!util.inspect(journalisee, { showHidden: true, depth: Infinity }).includes(temoin), 'témoin absent des propriétés cachées de la valeur journalisée');
+});
+
+// Audit interne de la PR #544 (auditeur-droits-securite, N1, proposé pour une issue de suivi) : un JSON court et mal formé
+// est cité en entier par le message de JSON.parse ; un long l'est par un extrait d'une dizaine de caractères autour de la
+// faute. La garde remplace ce message par un texte fixe : ni le jeton ni son extrait n'atteignent le journal.
+test('un JSON mal formé ne laisse au journal ni le corps court entier ni l’extrait cité autour de la faute', async () => {
+  const consoleError = console.error;
+  const environnement = app.get('env');
+  for (const corps of ['{"token": TEMOIN-COURT-1234}', '{"email":"secours@iris.test","token":TEMOIN-LONG-jeton-de-secours-au-moins-32-caracteres}']) {
+    const journal = [];
+    let reponse;
+    app.set('env', 'production');
+    console.error = (...args) => { journal.push(args); };
+    try {
+      reponse = await request(app).post('/api/auth/break-glass').set('Content-Type', 'application/json').send(corps);
+      for (let tour = 0; tour < 10 && journal.length === 0; tour += 1) await tourDeBoucle();
+      await tourDeBoucle();
+    } finally {
+      console.error = consoleError;
+      app.set('env', environnement);
+    }
+    assert.equal(reponse.status, 400);
+    assert.equal(journal.length, 1);
+    const texte = util.format(...journal[0]);
+    assert.match(texte, /^SyntaxError: JSON mal formé \(extrait du corps non journalisé\)\n\s+at /);
+    assert.ok(!texte.includes('TEMOIN'), `ni corps ni extrait au journal : ${texte.split('\n')[0]}`);
+  }
 });
 
 describe('Garde des journaux : copie réduite de l’erreur transmise au gestionnaire final d’Express', () => {
@@ -169,7 +196,7 @@ describe('Garde des journaux : copie réduite de l’erreur transmise au gestion
     assert.equal(util.inspect(copie), erreur.stack, 'ni statut ni en-têtes imprimés à la suite de la pile');
   });
 
-  test('une SyntaxError de body-parser garde sa pile, dont la première ligne, et son statut 400, sans le corps ni le type', () => {
+  test('une SyntaxError de body-parser garde les cadres de sa pile et son statut 400, sans le corps, ni le type, ni l’extrait de son message', () => {
     const temoin = `TEMOIN-${randomUUID()}`;
     const corps = `{"a": x, "remplissage":"${'r'.repeat(200)}", "jeton":"${temoin}"}`;
     let erreur;
@@ -177,9 +204,10 @@ describe('Garde des journaux : copie réduite de l’erreur transmise au gestion
     // Propriétés que body-parser (`lib/read.js`) et http-errors posent sur l'erreur d'un JSON mal formé.
     Object.assign(erreur, { expose: true, statusCode: 400, status: 400, body: corps, type: 'entity.parse.failed' });
     const copie = erreurReduite(erreur);
-    assert.match(copie.stack.split('\n')[0], /^SyntaxError: Unexpected token 'x'/);
-    assert.equal(copie.stack.split('\n')[0], erreur.stack.split('\n')[0]);
-    assert.equal(copie.stack, erreur.stack);
+    assert.match(erreur.stack.split('\n')[0], /^SyntaxError: Unexpected token 'x'/);
+    assert.equal(copie.stack.split('\n')[0], 'SyntaxError: JSON mal formé (extrait du corps non journalisé)');
+    assert.equal(copie.message, 'JSON mal formé (extrait du corps non journalisé)');
+    assert.deepEqual(copie.stack.split('\n').slice(1), erreur.stack.split('\n').slice(1), 'mêmes cadres de pile');
     assert.equal(copie.status, 400);
     assert.equal(copie.statusCode, 400);
     for (const cle of ['body', 'type', 'expose']) assert.equal(cle in copie, false, `${cle} absent de la copie`);

@@ -296,9 +296,10 @@ test('fiche chantier, de 375 à 1 920 px : barre d’actions au-dessus du titre 
       enteteSurTouteLaLargeur: Math.abs(capture.largeurEntete - capture.largeurUtile) <= 1,
       barreAuDessusDuTitre: capture.barreAuDessusDuTitre,
     }, `capture à ${largeur} px : ${JSON.stringify(capture)}`).toEqual({ pageA4: true, retraitEntete: '0px', enteteSurTouteLaLargeur: true, barreAuDessusDuTitre: true });
-    // Lot des failles des dépendances (14-11-2026, T1 du contrôle du cadrage) : html2pdf.js, avec dompurify mis à jour,
-    // produit un vrai fichier PDF, non vide et complet. L'E2E prouve le chargement du module et la production du PDF, pas
-    // l'assainissement (N8 : Iris passe un élément, que dompurify ne traite pas). Le nom proposé n'est pas contrôlé : sous
+    // Lot des failles des dépendances (14-11-2026, T1 du contrôle du cadrage) : html2pdf.js, servi par ses sources (alias de
+    // vite.config.ts), donc avec jsPDF et DOMPurify du verrou, produit un vrai fichier PDF, non vide et complet. L'E2E
+    // prouve le chargement du module et la production du PDF, pas l'assainissement (N8 : Iris passe un élément, que
+    // dompurify ne traite pas). Le nom proposé n'est pas contrôlé : sous
     // une locale POSIX, Chromium remplace un nom accentué (celui du chantier) par « download ».
     const octets = await readFile(await fichier.path() as string);
     expect(octets.length, `taille du rapport à ${largeur} px`).toBeGreaterThan(1_000);
