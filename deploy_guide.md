@@ -48,6 +48,8 @@ cd noxia-iris-chantier
 git pull origin main
 ```
 
+*Installation clonée avant le transfert du dépôt (14-11-2026), depuis `git@github-iris:Noxia-Groupe/iris.git` : GitHub redirige l'ancienne adresse, `git pull` continue donc de fonctionner. Pour viser directement la nouvelle, en gardant l'hôte `github-iris` et sa clé de déploiement : `git remote set-url origin git@github-iris:OrizonLab/iris.git`. Ne renommez pas le dossier `noxia-iris-chantier` : il donne son nom au projet Compose, qui préfixe le volume de la base (`noxia-iris-chantier_postgres_data`) ; sous un autre nom, Compose verrait un autre projet et créerait un volume de base neuf et vide, les données restant dans l'ancien.*
+
 ## 2. Configuration (Fichiers .env)
 
 L'application utilise désormais **PostgreSQL** (conteneurisé). Deux fichiers de
