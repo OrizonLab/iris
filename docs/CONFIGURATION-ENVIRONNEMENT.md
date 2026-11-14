@@ -135,6 +135,18 @@ Si le Chromium installé ne correspond pas à la version attendue par `@playwrig
 
 En CI, les travaux « Backend — tests » et « Frontend — parcours utilisateur » démarrent le PostgreSQL 16 préinstallé du runner Ubuntu 24.04, et non un conteneur tiré d'un registre public, dont les refus (`toomanyrequests`) faisaient échouer des jobs avant tout test. Le script `.github/scripts/postgresql-runner.sh` crée le rôle `iris`, super-utilisateur (`SUPERUSER`), comme l'exigent les matrices des écritures réelles du lot D1a-5 (`session_replication_role`), et la base jetable en UTF-8 et `C.UTF-8`. Il affiche puis vérifie la version majeure (16), le fuseau du serveur (UTC) ainsi que l'encodage et la collation de la base et de `template1`. En cas d'échec, le job affiche la fin du journal du serveur PostgreSQL.
 
+#### Session cloud de Claude Code
+
+Pratiques apprises dans les sessions cloud de Claude Code ; elles ne changent aucune variable d'environnement. Le rôle et le mot de passe PostgreSQL de la session ne figurent pas dans le dépôt : ils sont propres à son environnement (le rôle `iris` de la CI, ci-dessus, est distinct).
+
+- **Dépôt source** : ouvrir la session avec `OrizonLab/iris`. Une session ouverte avant le transfert du dépôt, rattachée à `noxia-groupe/iris`, ne reçoit plus les événements GitHub (CI, revues) ([historique](HISTORIQUE-DECISIONS.md#lot-du-13-au-14-11-2026)).
+- **PostgreSQL local** : l'image de l'environnement fournit PostgreSQL 16. S'il est arrêté, le démarrer avec `pg_ctlcluster 16 main start`.
+- **Bases jetables, une par agent** : donner à chaque agent (auditeurs, contrôleur, rédacteur de tests) un nom de base à préfixe distinct (`audit_mt_`, `audit_dr_`, `ctrl_`, `redac_`…), qui porte `test` ou `e2e` comme mot (règle commune des bases jetables, ci-dessus), et la supprimer à la fin.
+- **Une seule suite complète à la fois** : PostgreSQL plafonne à 100 connexions par défaut ; deux suites backend complètes lancées en même temps par deux agents ont fait annuler 10 tests (« too many clients »). Ne pas confondre cet échec avec un défaut du code.
+- **E2E dans un conteneur** : surcouche Playwright non versionnée avec `executablePath`, un port d'API et un port de frontend par copie de travail (paragraphes ci-dessus).
+- **Le conteneur peut redémarrer** : seul ce qui est poussé survit. Le dossier temporaire, les copies de travail et les patchs d'audit sont alors perdus (arrivé pendant #537). Pousser tôt, et publier les constats et les patchs des auditeurs (ou leur contenu) dans la PR dès leur réception.
+- **Sous-agents** : le proxy de l'environnement leur refuse l'API GitHub. Claude Code lit lui-même le corps des PR, leurs commentaires et la CI, et leur transmet le contenu utile. Après le passage d'un sous-agent en lecture seule, il vérifie que la copie de travail n'a pas changé (`git status` vide, même tête, même branche : [CLAUDE.md](../CLAUDE.md#circuit-dune-pr-et-sous-agents-de-projet-décision-de-nelson-du-31-10-2026)).
+
 #### Comparaison du rendu (découpage des écrans)
 
 Les PR qui découpent un gros écran du client ([docs/DECOUPAGE-ECRANS-CIBLE.md](DECOUPAGE-ECRANS-CIBLE.md)) prouvent que le rendu ne change pas avec `cd client && npm run comparer:rendu -- --reference <dossier client de main>`.
