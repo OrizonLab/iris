@@ -4,7 +4,9 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { describe } from 'node:test';
+import { Readable } from 'node:stream';
 import util from 'node:util';
+import express from 'express';
 import request from 'supertest';
 
 const {
@@ -72,7 +74,9 @@ test('limite les corps JSON à 5 Mo avec erreur 413 JSON même sans connexion à
 // là où Express 5.2 n'en journalisait que la pile. Le dernier gestionnaire d'erreurs d'Iris lui transmet une copie
 // réduite : la même pile, et seulement ce que `finalhandler` lit pour fixer la réponse (`status`, `statusCode`,
 // `headers`), en propriétés non énumérables. La réponse ne change pas ; le journal redevient la pile seule, sans le corps
-// brut d'un JSON mal formé (`body`), les détails Prisma (`meta`), une `cause` ni aucune autre propriété.
+// brut d'un JSON mal formé (`body`), les détails Prisma (`meta`), une `cause` ni aucune autre propriété. Pour un JSON mal
+// formé, la tête de pile et le message, où JSON.parse cite le corps ou un extrait, sont remplacés par un texte fixe (audit
+// interne de #544, N1).
 const tourDeBoucle = () => new Promise((resolve) => setImmediate(resolve));
 
 test('un JSON mal formé reçoit toujours 400, et le gestionnaire final d’Express n’en journalise que la pile, sans le corps brut', async () => {
@@ -124,13 +128,61 @@ test('un JSON mal formé reçoit toujours 400, et le gestionnaire final d’Expr
   assert.ok(!util.inspect(journalisee, { showHidden: true, depth: Infinity }).includes(temoin), 'témoin absent des propriétés cachées de la valeur journalisée');
 });
 
-// Audit interne de la PR #544 (auditeur-droits-securite, N1, proposé pour une issue de suivi) : un JSON court et mal formé
-// est cité en entier par le message de JSON.parse ; un long l'est par un extrait d'une dizaine de caractères autour de la
-// faute. La garde remplace ce message par un texte fixe : ni le jeton ni son extrait n'atteignent le journal.
-test('un JSON mal formé ne laisse au journal ni le corps court entier ni l’extrait cité autour de la faute', async () => {
+// Audit interne de la PR #544 (auditeur-droits-securite, T1) : l'erreur d'un JSON mal formé naît dans body-parser, avant
+// toutes les routes ; elle ne prouve donc pas la place de la garde après les routes (N2 du contrôle du cadrage). Une erreur
+// née en essayant les routes, ici le décodage du paramètre de GET /api/clients/:id (avant requireAuth, sans base), ne passe
+// par la garde que si celle-ci est montée après elles : sinon Express 5.3 imprime `status: 400` à la suite de la pile.
+test('une erreur née en essayant les routes (paramètre mal encodé) passe aussi par la garde : 400, journal réduit à la pile', async () => {
+  const journal = [];
   const consoleError = console.error;
   const environnement = app.get('env');
-  for (const corps of ['{"token": TEMOIN-COURT-1234}', '{"email":"secours@iris.test","token":TEMOIN-LONG-jeton-de-secours-au-moins-32-caracteres}']) {
+  let reponse;
+  app.set('env', 'production');
+  console.error = (...args) => { journal.push(args); };
+  try {
+    reponse = await request(app).get('/api/clients/%E0%A4%A');
+    for (let tour = 0; tour < 10 && journal.length === 0; tour += 1) await tourDeBoucle();
+    await tourDeBoucle();
+  } finally {
+    console.error = consoleError;
+    app.set('env', environnement);
+  }
+
+  assert.equal(reponse.status, 400);
+  assert.match(reponse.text, /<pre>Bad Request<\/pre>/);
+  assert.equal(journal.length, 1, `une entrée attendue au journal du gestionnaire final, reçu : ${journal.length}`);
+  assert.equal(journal[0].length, 1, 'une seule valeur journalisée');
+  const [journalisee] = journal[0];
+  assert.match(journalisee.stack, /^URIError: Failed to decode param/);
+  assert.equal(util.format(...journal[0]), journalisee.stack, 'le journal est la pile seule, sans `status` imprimé à sa suite');
+});
+
+// Message que body-parser (express.json(), sans Iris) donne au corps : précondition des cas ci-dessous, pour qu'un test
+// ne passe pas à vide si le message natif cessait de citer le corps.
+const messageDuParseurJson = (corps) => new Promise((resolve) => {
+  const requete = Readable.from([Buffer.from(corps)]);
+  requete.method = 'POST';
+  requete.headers = { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(corps)) };
+  express.json()(requete, {}, (erreur) => resolve(erreur ? { type: erreur.type, message: erreur.message } : null));
+});
+
+// Audit interne de la PR #544 (auditeur-droits-securite, N1, traité dans le code) : JSON.parse cite en entier un corps de
+// moins de 21 caractères, et un extrait d'une dizaine de caractères autour de la faute dans un corps plus long ; le mode
+// strict de body-parser (corps qui ne commence ni par « { » ni par « [ ») cite de même un extrait. La garde remplace ce
+// message par un texte fixe : ni le jeton ni son extrait n'atteignent le journal.
+test('un JSON mal formé ne laisse au journal ni le corps court entier ni l’extrait cité autour de la faute, mode strict compris', async () => {
+  const cas = [
+    { corps: '{"token":TEMOIN-1}', citeLeCorpsEntier: true },
+    { corps: '{"email":"secours@iris.test","token":TEMOIN-LONG-jeton-de-secours-au-moins-32-caracteres}', citeLeCorpsEntier: false },
+    { corps: '"TEMOIN-STRICT-jeton-de-secours"', citeLeCorpsEntier: false },
+  ];
+  const consoleError = console.error;
+  const environnement = app.get('env');
+  for (const { corps, citeLeCorpsEntier } of cas) {
+    const natif = await messageDuParseurJson(corps);
+    assert.equal(natif?.type, 'entity.parse.failed', `précondition : ${corps} refusé par body-parser`);
+    assert.ok(natif.message.includes('TEMOIN'), `précondition : le message de body-parser cite le jeton (${natif.message})`);
+    assert.equal(natif.message.includes(corps), citeLeCorpsEntier, `précondition : corps ${citeLeCorpsEntier ? 'cité en entier' : 'cité par extrait'} (${natif.message})`);
     const journal = [];
     let reponse;
     app.set('env', 'production');
@@ -143,10 +195,11 @@ test('un JSON mal formé ne laisse au journal ni le corps court entier ni l’ex
       console.error = consoleError;
       app.set('env', environnement);
     }
-    assert.equal(reponse.status, 400);
-    assert.equal(journal.length, 1);
+    assert.equal(reponse.status, 400, corps);
+    assert.equal(journal.length, 1, corps);
     const texte = util.format(...journal[0]);
     assert.match(texte, /^SyntaxError: JSON mal formé \(extrait du corps non journalisé\)\n\s+at /);
+    assert.equal(texte, journal[0][0].stack, 'le journal est la pile seule');
     assert.ok(!texte.includes('TEMOIN'), `ni corps ni extrait au journal : ${texte.split('\n')[0]}`);
   }
 });
