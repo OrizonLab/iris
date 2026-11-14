@@ -515,6 +515,12 @@ describe('CI — le workflow ci.yml', () => {
   it('compte exactement le périmètre, les cinq travaux lourds et la synthèse', () => {
     assert.deepEqual([...travaux.keys()].sort(), ['perimetre', ...LOURDS, 'synthese'].sort());
   });
+  // Contrôle de cohérence de #546, T1 : la définition de « CI verte » (CLAUDE.md, .agents/AGENTS.md, agents de projet,
+  // configuration) désigne ces travaux par leur nom affiché. « CI — synthèse » s'écrit avec un tiret cadratin (U+2014).
+  it('la synthèse s\'affiche « CI — synthèse » (tiret cadratin) et le périmètre « Périmètre des changements »', () => {
+    assert.deepEqual(cleDuTravail(travail('synthese'), 'name'), ['CI — synthèse']);
+    assert.deepEqual(cleDuTravail(travail('perimetre'), 'name'), ['Périmètre des changements']);
+  });
   // Périmètre point 2 : une sortie vide ou invalide lance les travaux lourds (R1).
   it('chaque travail lourd dépend du périmètre et ne saute que sur lourds explicitement « false »', () => {
     for (const nom of LOURDS) {

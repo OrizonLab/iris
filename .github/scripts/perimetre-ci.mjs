@@ -193,7 +193,7 @@ async function perimetre() {
     '### Périmètre de la série',
     `- fichiers changés : ${faits.fichiers.length}`,
     `- documentation seule : ${sorties.documentation_seule}`,
-    `- arbre déjà validé : ${sorties.deja_validee}`,
+    `- arbre déjà attesté : ${sorties.deja_validee}`,
     `- travaux lourds : ${sorties.lourds}`,
     '',
   ].join('\n'));
