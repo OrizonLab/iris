@@ -59,6 +59,8 @@ export function arbreAtteste({ artefacts, series, depotId, tetesAdmises }) {
 // - push sur main : `fichiers` = before..HEAD ; `avantAtteste` = l'arbre de before est attesté par la série de main de
 //   before ; `teteAttestee` = l'arbre de HEAD est attesté (tête de la PR fusionnée ou HEAD).
 export function decider({ evenement, baseRef, fichiers, avantAtteste = false, teteAttestee = false }) {
+  // Un autre événement que ceux du workflow : série complète.
+  if (evenement !== 'pull_request' && evenement !== 'push') return { documentation_seule: false, deja_validee: false, lourds: true };
   let documentation = documentationSeule(fichiers);
   if (evenement === 'pull_request' && baseRef !== 'main') documentation = false; // PR empilée : série complète
   if (evenement === 'push' && !avantAtteste) documentation = false; // arbre parent jamais validé : série complète
@@ -168,7 +170,13 @@ async function perimetre() {
     let secondParent = null;
     try { secondParent = git('rev-parse', 'HEAD^2').trim(); } catch { /* pas un commit de fusion */ }
     if (faits.fichiers.length > 0 && !toucheLeWorkflow(faits.fichiers)) {
-      faits.teteAttestee = await attestation(depot, depotId, arbre, [tete, secondParent].filter(Boolean));
+      // Une panne de l'API mène à la série complète, comme tout échec du calcul.
+      try {
+        faits.teteAttestee = await attestation(depot, depotId, arbre, [tete, secondParent].filter(Boolean));
+      } catch (erreur) {
+        console.log(`::warning::attestation de l'arbre illisible (${erreur.message}) : série complète`);
+        faits.teteAttestee = false;
+      }
     }
   }
   const decision = decider(faits);
