@@ -7,8 +7,9 @@ import type express from 'express';
 //
 // Le dernier gestionnaire d'erreurs, monté après toutes les routes, transmet donc au gestionnaire final une copie
 // réduite : la même pile, et seulement ce que `finalhandler` lit pour fixer la réponse (`status`, `statusCode`,
-// `headers`), en propriétés non énumérables, que `console.error` n'imprime pas. La réponse ne change pas, et le
-// journal redevient la pile seule. Pour un JSON mal formé, le message de `JSON.parse`, qui cite un extrait du corps,
+// `headers`), en propriétés non énumérables, que `console.error` n'imprime pas. La réponse ne change pas en production
+// (hors production, Express montre la pile, où un JSON mal formé porte le texte fixe ci-dessous), et le journal
+// redevient la pile seule. Pour un JSON mal formé, le message de `JSON.parse`, qui cite un extrait du corps,
 // est en outre remplacé par un texte fixe (audit de #544, N1). Les journaux que les gestionnaires écrivent eux-mêmes
 // ne passent pas ici.
 const PROPRIETES_DE_LA_REPONSE = ['status', 'statusCode', 'headers'] as const;

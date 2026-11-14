@@ -63,7 +63,7 @@ Tu ne reçois que ce fichier et la demande de Claude Code, la session principale
     - Tests client et E2E du parcours touché.
     - `node scripts/routes.mjs --verifier`, lancé dans `server/` après compilation.
     - `git diff --check`.
-    - CI de la SHA exacte : cinq contrôles verts.
+    - CI de la SHA exacte : synthèse « CI — synthèse » verte (conclusion `success`, et non `skipped`) ; les travaux lourds y sont réussis, ou sautés pour une série de documentation seule ou un arbre déjà attesté (`docs/CONFIGURATION-ENVIRONNEMENT.md`, « Consommation de la CI »).
 
 ## Règles
 

@@ -11,6 +11,20 @@
 #   - tests     : migrations et suite complète contre un vrai PostgreSQL 16 ;
 #   - frontend  : compilation TypeScript stricte, build Vite et lint ;
 #   - parcours  : parcours navigateur contre la SPA, l'API et PostgreSQL.
+# Encadrés par deux travaux légers :
+#   - perimetre : fichiers changés, contrôles d'une série de documentation seule, arbre déjà attesté ;
+#   - synthese  : statut unique de la série, celui que regarde la fusion (« CI — synthèse »).
+#
+# Consommation (décision de Nelson du 14-11-2026 : dépôt privé, 2 000 minutes par mois, « sans affaiblir les
+# contrôles ») : une série complète coûte une cinquantaine de minutes facturables, presque toutes dans `parcours` et
+# `tests`. Les travaux lourds ne tournent donc pas :
+#   - pour une série qui ne porte que de la documentation (`docs/**`, fichiers `*.md`, `LICENSE`, hors client/src,
+#     client/public et server/prisma) ; les seuls tests qui lisent ces fichiers tournent alors dans `perimetre` ;
+#   - pour un push sur `main` dont l'arbre exact est attesté par la série réussie de la PR fusionnée (la fusion par
+#     commit de fusion d'une PR dont la base n'a pas bougé reproduit l'arbre testé, `refs/pull/N/merge`), sauf si
+#     le push touche `.github/**`.
+# Ils apparaissent alors « skipped », et la synthèse est verte par un chemin exact. Quand ils tournent, leurs contrôles
+# sont inchangés. Logique et tests : .github/scripts/perimetre-ci.mjs et perimetre-ci.test.mjs.
 name: CI
 
 # `push` est limité à main, `pull_request` couvre les branches de travail. Déclencher sur
@@ -25,15 +39,106 @@ on:
     branches: [main]
   pull_request:
 
-# Une nouvelle poussée sur la même branche annule la série précédente : inutile de payer
-# pour un code déjà remplacé.
+# Une nouvelle poussée sur la même pull request annule sa série précédente : inutile de payer pour un code déjà
+# remplacé. Une série de `main` n'est jamais annulée ni remplacée en attente (un groupe par commit) : elle va au bout,
+# et son arbre est attesté ou rouge ; la série suivante peut s'appuyer sur cette attestation.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# `actions: read` : `perimetre` lit les artefacts qui attestent un arbre, et la série qui les a déposés. Rien d'autre.
+permissions:
+  contents: read
+  actions: read
 
 jobs:
+  perimetre:
+    name: Périmètre des changements
+    runs-on: ubuntu-24.04
+    outputs:
+      arbre: ${{ steps.perimetre.outputs.arbre }}
+      documentation_seule: ${{ steps.perimetre.outputs.documentation_seule }}
+      deja_validee: ${{ steps.perimetre.outputs.deja_validee }}
+      lourds: ${{ steps.perimetre.outputs.lourds }}
+    steps:
+      # Profondeur 2 : pour une pull request, le commit testé est le commit de fusion de la PR dans sa base, dont le
+      # premier parent est la base ; pour un push sur `main`, le second parent du commit de fusion est la tête de la PR.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Tests des scripts de la CI
+        run: node --test .github/scripts/perimetre-ci.test.mjs
+      - name: Fichiers changés et périmètre
+        id: perimetre
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          AVANT: ${{ github.event.before }}
+          DEPOT: ${{ github.repository }}
+          DEPOT_ID: ${{ github.repository_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/perimetre-ci.mjs perimetre
+      # Documentation seule : les deux seuls tests de la CI qui lisent ces fichiers, sans base. environnement.test.mjs
+      # relit docs/CONFIGURATION-ENVIRONNEMENT.md et les modèles .env.example ; les tests unitaires du client
+      # comprennent identite.test.ts, qui parcourt server/src et les migrations (où se trouvent des README.md).
+      # Un test qui lirait un autre fichier de documentation doit être ajouté ici.
+      - uses: actions/setup-node@v4
+        if: steps.perimetre.outputs.documentation_seule == 'true'
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Documentation — variables d'environnement documentées
+        if: steps.perimetre.outputs.documentation_seule == 'true'
+        run: node --test server/tests/environnement.test.mjs
+      - name: Documentation — tests unitaires du client
+        if: steps.perimetre.outputs.documentation_seule == 'true'
+        working-directory: client
+        run: |
+          npm ci
+          npm run test:unit
+      # Les caches d'une pull request ne servent qu'à elle ; ceux de `main` servent à toutes. Sur un push sur `main`,
+      # le navigateur n'est installé et mis en cache que s'il manque (changement de version de Playwright). Après le
+      # calcul des sorties et sans pouvoir faire échouer ce travail : un incident de téléchargement ne saute pas les
+      # travaux lourds.
+      - name: Clé du cache du navigateur
+        id: cle-navigateur
+        if: github.event_name == 'push'
+        continue-on-error: true
+        run: |
+          version="$(node -p "require('./client/package-lock.json').packages['node_modules/@playwright/test'].version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "cle=playwright-$ImageOS-$RUNNER_ARCH-$version-chromium" >> "$GITHUB_OUTPUT"
+      - name: Cache du navigateur sur main
+        id: cache-main
+        if: github.event_name == 'push' && steps.cle-navigateur.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.cle-navigateur.outputs.cle }}
+          lookup-only: true
+      - name: Navigateur à mettre en cache
+        id: installation-navigateur
+        if: github.event_name == 'push' && steps.cache-main.outcome == 'success' && steps.cache-main.outputs.cache-hit != 'true'
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          VERSION_PLAYWRIGHT: ${{ steps.cle-navigateur.outputs.version }}
+        run: npx --yes "playwright@$VERSION_PLAYWRIGHT" install chromium
+      - name: Enregistrer le cache du navigateur
+        if: github.event_name == 'push' && steps.installation-navigateur.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.cle-navigateur.outputs.cle }}
+
   compose:
     name: Docker Compose — gardes PostgreSQL
+    needs: perimetre
+    # Lancé sauf si le périmètre dit explicitement « false » : une sortie vide ou invalide lance la série complète.
+    if: needs.perimetre.outputs.lourds != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +186,9 @@ jobs:
 
   backend:
     name: Backend — compilation
+    needs: perimetre
+    # Lancé sauf si le périmètre dit explicitement « false » : une sortie vide ou invalide lance la série complète.
+    if: needs.perimetre.outputs.lourds != 'false'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -128,6 +236,9 @@ jobs:
 
   tests:
     name: Backend — tests
+    needs: perimetre
+    # Lancé sauf si le périmètre dit explicitement « false » : une sortie vide ou invalide lance la série complète.
+    if: needs.perimetre.outputs.lourds != 'false'
     # Version épinglée : c'est l'image Ubuntu 24.04 qui fournit PostgreSQL 16 (voir l'étape
     # PostgreSQL ci-dessous).
     runs-on: ubuntu-24.04
@@ -179,6 +290,9 @@ jobs:
 
   frontend:
     name: Frontend — build et lint
+    needs: perimetre
+    # Lancé sauf si le périmètre dit explicitement « false » : une sortie vide ou invalide lance la série complète.
+    if: needs.perimetre.outputs.lourds != 'false'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -199,6 +313,9 @@ jobs:
 
   parcours:
     name: Frontend — parcours utilisateur
+    needs: perimetre
+    # Lancé sauf si le périmètre dit explicitement « false » : une sortie vide ou invalide lance la série complète.
+    if: needs.perimetre.outputs.lourds != 'false'
     # Même PostgreSQL 16 du runner que le travail `tests`.
     runs-on: ubuntu-24.04
     # Les tests API et jsdom ne reproduisent pas la saisie du navigateur : ce travail
@@ -228,9 +345,27 @@ jobs:
       - name: Frontend — dépendances
         working-directory: client
         run: npm ci
+      # Navigateur restauré du cache (clé : image du runner, architecture, version de Playwright) ; seules les
+      # dépendances système s'installent alors. Sans cache, téléchargement complet, enregistré à la fin du travail.
+      - name: Clé du cache du navigateur
+        id: cle-navigateur
+        run: |
+          version="$(node -p "require('./client/package-lock.json').packages['node_modules/@playwright/test'].version")"
+          echo "cle=playwright-$ImageOS-$RUNNER_ARCH-$version-chromium" >> "$GITHUB_OUTPUT"
+      - name: Cache du navigateur Playwright
+        id: cache-navigateur
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.cle-navigateur.outputs.cle }}
       - name: Navigateur de test
+        if: steps.cache-navigateur.outputs.cache-hit != 'true'
         working-directory: client
         run: npx playwright install --with-deps chromium
+      - name: Dépendances système du navigateur
+        if: steps.cache-navigateur.outputs.cache-hit == 'true'
+        working-directory: client
+        run: npx playwright install-deps chromium
       # playwright.config.ts démarre le backend compilé et Vite.
       - name: Parcours E2E
         working-directory: client
@@ -244,3 +379,38 @@ jobs:
       - name: Journal de PostgreSQL
         if: failure()
         run: sudo tail -n 300 /var/log/postgresql/postgresql-16-main.log
+
+  # Statut unique de la série, fermé par défaut : vert seulement si le périmètre a réussi avec des sorties cohérentes,
+  # si aucun travail n'a échoué ni été annulé, et si exactement un chemin est rempli : travaux lourds demandés et tous
+  # réussis ; documentation seule, travaux lourds sautés ; push sur `main` d'un arbre attesté, travaux lourds sautés.
+  # `!cancelled()` : la synthèse tourne après un échec, pour le signaler, mais pas pour une série annulée.
+  synthese:
+    name: CI — synthèse
+    needs: [perimetre, compose, backend, tests, frontend, parcours]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Verdict de la série
+        id: verdict
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          RESULTATS: ${{ toJSON(needs) }}
+        run: node .github/scripts/perimetre-ci.mjs synthese
+      # Série verte qui a testé l'arbre (série complète) ou l'a dérivé d'un arbre attesté (série légère ou dédoublonnée
+      # de `main`) : l'arbre est attesté, pour les séries de `main` qui suivront. Une série légère de pull request
+      # n'atteste rien.
+      - name: Attester l'arbre validé
+        if: steps.verdict.outputs.attester == 'true'
+        env:
+          ARBRE: ${{ needs.perimetre.outputs.arbre }}
+        run: printf '%s\n' "$ARBRE" > "$RUNNER_TEMP/arbre-valide.txt"
+      - uses: actions/upload-artifact@v4
+        if: steps.verdict.outputs.attester == 'true'
+        with:
+          name: serie-validee-${{ needs.perimetre.outputs.arbre }}
+          path: ${{ runner.temp }}/arbre-valide.txt
+          retention-days: 14
+          overwrite: true
