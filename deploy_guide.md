@@ -117,7 +117,7 @@ backend (`prisma migrate deploy`). Pour faire évoluer le schéma par la suite :
 
 ### Sauvegarde de la base
 
-Les données vivent dans le volume Docker `postgres_data`. Pour un export :
+Les données vivent dans le volume Docker `postgres_data` de `docker-compose.yml`, nommé `noxia-iris-chantier_postgres_data` par Docker sur une installation clonée dans le dossier `noxia-iris-chantier` (voir plus haut). Pour un export :
 
 ```bash
 docker exec iris_db pg_dump -U iris iris > sauvegarde_$(date +%F).sql
