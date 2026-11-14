@@ -213,6 +213,42 @@ describe('Garde des journaux : copie réduite de l’erreur transmise au gestion
     assert.equal(erreurReduite(42), 42);
   });
 
+  // N1 du rapport du redacteur-tests, traité dans le code : `String(objet)` lève une exception pour un objet sans prototype
+  // (ou dont le `toString` échoue). Levée dans la garde, elle remplacerait l'erreur transmise et changerait le statut de
+  // la réponse (500 au lieu du statut d'origine) : la garde ne doit jamais lever.
+  test('un objet sans prototype, ou dont le toString échoue, est réduit sans exception : pile « [object Object] », statut conservé', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const sansPrototype = Object.assign(Object.create(null), { status: 404, body: temoin });
+    let copie;
+    assert.doesNotThrow(() => { copie = erreurReduite(sansPrototype); });
+    assert.equal(copie.stack, '[object Object]');
+    assert.equal(copie.status, 404);
+    assert.equal('body' in copie, false);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+    const toStringEnEchec = { statusCode: 409, body: temoin, toString() { throw new Error('toString en échec (TEST)'); } };
+    let copieEnEchec;
+    assert.doesNotThrow(() => { copieEnEchec = erreurReduite(toStringEnEchec); });
+    assert.equal(copieEnEchec.stack, '[object Object]');
+    assert.equal(copieEnEchec.statusCode, 409);
+    assert.equal('body' in copieEnEchec, false);
+    sansTemoin(copieEnEchec, temoin);
+  });
+
+  // N2 du rapport du redacteur-tests, traité dans le code : une fonction porte des propriétés comme un objet ; passée telle
+  // quelle, `console.error` les imprimerait (`[Function] { body: … }`). Elle est réduite comme un objet.
+  test('une fonction transmise comme erreur est réduite comme un objet : copie Error, statut conservé, sans ses propriétés', () => {
+    const temoin = `TEMOIN-${randomUUID()}`;
+    const fonction = Object.assign(function refusDeTest() {}, { status: 418, body: temoin });
+    const copie = erreurReduite(fonction);
+    assert.notEqual(copie, fonction);
+    assert.ok(copie instanceof Error, 'la copie est une Error');
+    assert.equal(copie.status, 418);
+    assert.equal('body' in copie, false);
+    assert.deepEqual(Object.keys(copie), []);
+    sansTemoin(copie, temoin);
+  });
+
   test('le dernier gestionnaire a quatre paramètres, comme tout gestionnaire d’erreurs d’Express, et transmet la copie réduite', () => {
     // Express ne passe une erreur qu'aux gestionnaires déclarés avec quatre paramètres ; à trois, il serait sauté.
     assert.equal(transmettreErreurReduite.length, 4);
