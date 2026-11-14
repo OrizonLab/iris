@@ -5054,13 +5054,14 @@ Les numéros de ligne des notes datent de `da1d0b5` et de `a0a8760` ; chaque lig
 *Rédigé le 14-11-2026.* Messages de Nelson dans la session de travail, mot pour mot.
 
 - **Failles d'abord.** « Continu en reglant les faille d'abord ». C'est une dérogation explicite à l'ordre du 19-10-2026 (« Jusqu'à la fin du pilote, un correctif ne passe avant un lot que s'il est bloquant ou s'il touche un montant. »), appliquée par #544.
-- **Préférence générale sur les paquets.** « Tu verifiera et choisira les pacquet les plus recent possible et exclura les pacquet avec une faille connu. Les but etant d’avoir des le depart les pacquet ou le code le plus recent. » Elle vaut pour toute dépendance, au-delà de #544.
+- **Documentation ensuite.** « Fait ensuite la pr bloquante de la documentation ». Nelson l'a précisé en répondant à une question de Claude Code, par l'option « Passation après failles (Recommandé) », décrite comme « La PR documentaire obligatoire de l'étape 6 du circuit, après la fusion de la PR des dépendances » : c'est la PR qui consigne ces lots (#547).
+- **Préférence générale sur les paquets.** « Tu verifiera et choisira les pacquet les plus recent possible et exclura les pacquet avec une faille connu. Les but etant d’avoir des le depart les pacquet ou le code le plus recent. » Lecture retenue, choix par défaut, à confirmer : elle vaut pour toute dépendance, au-delà de #544.
 - **Consommation de la CI.** « Le dépôt est redevenu privé : la CI est limitée à 2 000 minutes GitHub Actions par mois. Réduis sa consommation sans affaiblir les contrôles. Ne lance pas les travaux lourds quand une PR ne touche que de la documentation, en gardant un statut vert pour la fusion. Mets en cache le navigateur Playwright. Regroupe les corrections d'audit avant de pousser. Mesure la durée d'une série avant et après. » Appliquée par #546 ; la règle est écrite dans `CLAUDE.md` (puce « Consommation de la CI » du mode de livraison) et détaillée dans [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci).
 
 ### Ce qui en découle
 
-- **Règle des 7 jours** (lecture de Claude Code de la préférence sur les paquets, **choix par défaut, à confirmer** : passation, section 4, bloc « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) »). La préférence demande « le plus recent possible » sans faille connue ; Claude Code retient la version la plus récente sans avis connu et publiée depuis au moins 7 jours, au moyen de `npm --before=2026-11-07T00:00:00Z`.
-- **Risque accepté de l'attestation** (#546, à faire confirmer par Nelson puisque sa décision demande « sans affaiblir les contrôles » : passation, section 4, bloc « Consommation de la CI (#546) »).
+- **Règle des 7 jours** (lecture de Claude Code de la préférence sur les paquets, **choix par défaut, à confirmer** : passation, section 4, bloc « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) »). La préférence demande « les pacquet les plus recent possible » sans faille connue ; Claude Code retient la version la plus récente sans avis connu et publiée depuis au moins 7 jours, au moyen de `npm --before=2026-11-07T00:00:00Z` ; une version plus jeune n'est retenue que si aucune version plus ancienne ne corrige les avis connus.
+- **Risque accepté de l'attestation** (#546, **choix par défaut, à confirmer** par Nelson, puisque sa décision demande « sans affaiblir les contrôles » : passation, section 4, bloc « Consommation de la CI (#546) »).
 - Détail des deux lots : [Lot du 14-11-2026 (#544, #546)](#lot-du-14-11-2026-544-546).
 
 ## Lot du 14-11-2026 (#544, #546)
@@ -5070,7 +5071,7 @@ Les numéros de ligne des notes datent de `da1d0b5` et de `a0a8760` ; chaque lig
 ### PR fusionnées
 
 - **#543** (documentaire, `19a6533`, tête `6bd921d`, fusionnée le 14-11-2026), passation après #542 : elle est consignée par elle-même ; « validé pour mise en service » est sans objet.
-- **#544**, « failles connues des dépendances corrigées, garde des journaux d'Express » : fusionnée le 14-11-2026 par commit de fusion `7039914`, tête `ddf252a`.
+- **#544**, « Dépendances : failles connues corrigées (npm audit à 0), garde des journaux d'Express » : fusionnée le 14-11-2026 par commit de fusion `7039914`, tête `ddf252a`.
   - **Versions.** Serveur : express 5.3.0, body-parser 2.4.0, proxy-addr 2.0.8, qs 6.17.1. Client : dompurify 3.4.17, react-router et react-router-dom 7.18.5, vite 8.3.6, postcss 8.5.32, nanoid 3.3.20, source-map-js 1.2.2. `npm audit` est à 0 des deux côtés.
   - **Issues fermées** : #168 à #174 et #385.
   - **Règle des 7 jours**, choix par défaut, à confirmer : la version la plus récente sans avis connu, publiée depuis au moins 7 jours, au moyen de `npm --before=2026-11-07T00:00:00Z`.
@@ -5081,18 +5082,18 @@ Les numéros de ligne des notes datent de `da1d0b5` et de `a0a8760` ; chaque lig
   - **Travail « Périmètre des changements »** et script `.github/scripts/perimetre-ci.mjs`, avec 122 tests. Documentation seule : `docs/**`, `*.md` et `LICENSE`, hors `client/src`, `client/public` et `server/prisma`. Arbre déjà attesté : artefact `serie-validee-<arbre>`.
   - **« CI — synthèse »**, fermée par défaut, à trois chemins. « CI verte » égale « CI — synthèse » en `success` ; la définition est écrite dans `CLAUDE.md`, `.agents/AGENTS.md` et les agents.
   - **Séries de `main` jamais annulées** ; **cache du navigateur** Playwright ; règle « regrouper les corrections d'audit avant de pousser » ; section « Consommation de la CI » de [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci).
-  - **Choix par défaut, à confirmer** : lecture « une seule série de CI » sur la tête qui regroupe les corrections, étendue au contrôle de cohérence quand il tourne en parallèle ; sauvegarde intermédiaire par le jeton de saut de GitHub (« skip ci » entre crochets ; le jeton lui-même n'est écrit nulle part) ; le push qui lance la série porte un changement réel, jamais un commit vide ni une réécriture ; variables propres au workflow, hors de la règle permanente 3. **Risque accepté**, à faire confirmer par Nelson : la limite de l'attestation par `HEAD^2` (un artefact ne prouve pas quel workflow l'a déposé ; le risque est accepté parce que seuls Nelson et Claude Code poussent).
+  - **Choix par défaut, à confirmer** : lecture « une seule série de CI » sur la tête qui regroupe les corrections, étendue au contrôle de cohérence quand il tourne en parallèle ; sauvegarde intermédiaire par le jeton de saut de GitHub (« skip ci » entre crochets ; le jeton lui-même n'est écrit nulle part) ; le push qui lance la série porte un changement réel, jamais un commit vide ni une réécriture ; variables propres au workflow, hors de la règle permanente 3. **Risque accepté** (**choix par défaut, à confirmer** par Nelson), à faire confirmer par Nelson : la limite de l'attestation par `HEAD^2` (un artefact ne prouve pas quel workflow l'a déposé ; le risque est accepté parce que seuls Nelson et Claude Code poussent).
 
 ### Audits
 
 - **#544.**
   - Cadrage contrôlé en trois passages.
-  - **Audit droits-sécurité** : C1, l'alias html2pdf, corrigée ; puis T1, N1 et N5 (commentaires 6882459786 et 6882983574).
-  - **Contrôle de cohérence** : C1, sur le corps « un seul push », corrigée (commentaires 6883002504 et 6883019940).
+  - **Audit droits-sécurité** : C1, l'alias html2pdf, corrigée ; puis T1, N1 et N5 (commentaires 6882459786 et 6882983574). Passage de vérification sur `ddf252a` : **fusionnable**.
+  - **Contrôle de cohérence** : C1, sur le corps « un seul push », corrigée (commentaires 6883002504 et 6883019940). Passage de vérification sur `ddf252a` : **fusionnable**.
 - **#546.**
   - **Cadrage contrôlé en trois passages** : R1 à R3, C1 et C2, puis R1' et C3, et les notes N1 à N17.
-  - **Audit droits-sécurité** : R1, `server/prisma/` était classé documentation, alors qu'un dossier de migration qui ne porte qu'un `README.md` fait échouer `prisma migrate deploy` (P3015) ; corrigée. Puis T1 et T2, et les notes N1 à N8 (commentaire 6883769407).
-  - **Contrôle de cohérence** : C1, le risque accepté était sans la mention requise (commentaires 6884395215 et 6884850851) ; corrigée. N6 : lancer le contrôle de cohérence en parallèle de l'audit. N11 : rattacher à la lecture retenue la phrase de `CLAUDE.md` sur le push qui lance la série, versée par la PR documentaire qui consigne ces lots (ajout de « même lecture »).
+  - **Audit droits-sécurité** : R1, `server/prisma/` était classé documentation, alors qu'un dossier de migration qui ne porte qu'un `README.md` fait échouer `prisma migrate deploy` (P3015) ; corrigée. Puis T1 et T2, et les notes N1 à N8 (commentaire 6883769407). Passages de vérification sur `4c5ebb5` puis `7bc2a3e` : **fusionnable**.
+  - **Contrôle de cohérence** : C1, le risque accepté était sans la mention requise (commentaires 6884395215 et 6884850851) ; corrigée. Passage de vérification sur `7bc2a3e` : **fusionnable**. N6 : lancer le contrôle de cohérence en parallèle de l'audit. N11 : rattacher à la lecture retenue la phrase de `CLAUDE.md` sur le push qui lance la série, versée par la PR documentaire qui consigne ces lots (ajout de « même lecture »).
 
 ### Mesure avant et après
 
@@ -5117,7 +5118,13 @@ Minutes facturables, chaque travail arrondi à la minute supérieure.
 | 43638653242 | 56 min | 39,9 min | navigateur en cache, E2E plus lents |
 | 43642652236 | 52 min | 34,4 min | navigateur en cache, tête de #546 (`7bc2a3e`) |
 
-Le cache du navigateur ne fait gagner qu'une vingtaine de secondes, et les deux travaux légers ajoutent 2 minutes facturées à une série complète. **À mesurer** (la série légère de la PR documentaire qui consigne ces lots, et celle de `main` après sa fusion) : voir la PR documentaire de ce lot ; les chiffres seront ajoutés à cette section.
+Le cache du navigateur ne fait gagner qu'une vingtaine de secondes, et les deux travaux légers ajoutent 2 minutes facturées à une série complète. Série légère de documentation seule, sous le nouveau workflow :
+
+| Série | Contenu | Facturable | Durée murale |
+|---|---|---|---|
+| 43646215909 | #547, PR documentaire de ce lot (`8c9a21c`) : périmètre (contrôles de la documentation compris) et synthèse seulement, travaux lourds sautés | 2 min | 0,9 min |
+
+Soit 2 minutes au lieu de 44 à 52 pour les PR documentaires d'avant. **À mesurer** : la série complète de `main` de `445d310` (43645767419, complète puisque `.github/**` est touché) et la série légère de `main` après la fusion de #547 ; les chiffres seront ajoutés à la passation suivante.
 
 ### Suivis
 
@@ -5319,7 +5326,7 @@ Le cache du navigateur ne fait gagner qu'une vingtaine de secondes, et les deux 
 
 *Archivé le 14-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main` au commit `195a6ae` (14-11-2026), après la PR #542 ; la PR documentaire qui consigne #544 et #546 le remplace par l'état au commit `445d310`. Seul le début de l'en-tête (état de `main` et statut des lots) est déplacé ici, sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la convention sur « administration », la liste des suivis et la suite de l'en-tête restent dans la passation, mises à jour.
 
-> > **État de `main` au commit `195a6ae` (14-11-2026), après la PR [#542](https://github.com/Noxia-Groupe/iris/pull/542).** Depuis le commit `448bb25` : **deux PR fusionnées** ([historique](#lot-du-14-11-2026-542)) : #541, PR documentaire (`a1bf8b8`, point de reprise, en-tête à `448bb25`, passage hebdomadaire #540, notes de #533 et #538 ; « validé pour mise en service » est sans objet) ; #542, correctif prioritaire R1 du passage hebdomadaire #540 (« Factures : libellés du statut et de l'origine au lieu des codes bruts »), fusionnée le 14-11-2026 (`195a6ae`, tête `0952c78`). **Ce lot est implémenté, non validé pour mise en service** : affichage seul, sans changement du serveur, de l'API, d'un montant ni d'un droit, donc sans validation comptable. Ses libellés, choix par défaut à confirmer : section 4, bloc « Libellés du statut et de l'origine des factures (#542) ». **Aucun autre lot ne change de statut** : les lots du pilote sont **implémentés** (sections 1 et 2) ; hors la main d'œuvre paramétrable et le devis au temps passé, validés pour mise en service par Nelson les 24 et 26-10-2026 (section 2), **aucun n'est validé pour mise en service**, et la validation comptable des lots de montants (#524, #530, #534 compris) reste un préalable (section 5). Le texte de cet en-tête avant ce lot (état au commit `448bb25` : #537, `548270e`, #538) est archivé : [en-tête de la passation au 14-11-2026 (commit `448bb25`)](#en-tête-de-la-passation-au-14-11-2026-commit-448bb25). Choix par défaut en vigueur, à confirmer : section 4.
+> **État de `main` au commit `195a6ae` (14-11-2026), après la PR [#542](https://github.com/Noxia-Groupe/iris/pull/542).** Depuis le commit `448bb25` : **deux PR fusionnées** ([historique](#lot-du-14-11-2026-542)) : #541, PR documentaire (`a1bf8b8`, point de reprise, en-tête à `448bb25`, passage hebdomadaire #540, notes de #533 et #538 ; « validé pour mise en service » est sans objet) ; #542, correctif prioritaire R1 du passage hebdomadaire #540 (« Factures : libellés du statut et de l'origine au lieu des codes bruts »), fusionnée le 14-11-2026 (`195a6ae`, tête `0952c78`). **Ce lot est implémenté, non validé pour mise en service** : affichage seul, sans changement du serveur, de l'API, d'un montant ni d'un droit, donc sans validation comptable. Ses libellés, choix par défaut à confirmer : section 4, bloc « Libellés du statut et de l'origine des factures (#542) ». **Aucun autre lot ne change de statut** : les lots du pilote sont **implémentés** (sections 1 et 2) ; hors la main d'œuvre paramétrable et le devis au temps passé, validés pour mise en service par Nelson les 24 et 26-10-2026 (section 2), **aucun n'est validé pour mise en service**, et la validation comptable des lots de montants (#524, #530, #534 compris) reste un préalable (section 5). Le texte de cet en-tête avant ce lot (état au commit `448bb25` : #537, `548270e`, #538) est archivé : [en-tête de la passation au 14-11-2026 (commit `448bb25`)](#en-tête-de-la-passation-au-14-11-2026-commit-448bb25). Choix par défaut en vigueur, à confirmer : section 4.
 
 ## Découpage du lot 6, état au 01-11-2026
 
