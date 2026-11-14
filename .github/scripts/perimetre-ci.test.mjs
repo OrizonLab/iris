@@ -49,7 +49,8 @@ describe('CI — constantes du périmètre', () => {
 });
 
 // Cadrage, périmètre point 1 : « chaque fichier changé est sous docs/, ou un fichier *.md, ou LICENSE, hors
-// client/src/ et client/public/ (fichiers livrés par Vite, N3) ».
+// client/src/ et client/public/ (fichiers livrés par Vite, N3) », et hors server/prisma/ (audit droits et sécurité de
+// #546, R1 : un dossier de migration qui ne porte qu'un README.md fait échouer `prisma migrate deploy`, P3015).
 describe('CI — ce qui compte comme documentation', () => {
   const documentation = [
     'docs/x.md',
@@ -812,8 +813,17 @@ describe('CI — le script de périmètre de bout en bout', () => {
     if (racine) rmSync(racine, { recursive: true, force: true });
   });
 
+  // Une série de pull request porte la branche de la PR (head_branch), une série de push sur main porte main : la tête
+  // attestée par la série de la PR fusionnée ne doit pas exiger head_branch=main (seul l'arbre de before l'exige, N2).
   const serie = (id, head_sha, surcharges = {}) => ({
-    id, event: 'push', conclusion: 'success', path: CHEMIN_WORKFLOW, head_sha, head_branch: 'main', repository: { id: DEPOT_ID }, ...surcharges,
+    id,
+    event: 'push',
+    conclusion: 'success',
+    path: CHEMIN_WORKFLOW,
+    head_sha,
+    head_branch: surcharges.event === 'pull_request' ? 'claude/lot-test' : 'main',
+    repository: { id: DEPOT_ID },
+    ...surcharges,
   });
   const artefact = (arbreSha, id, head_sha, surcharges = {}) => ({
     name: `serie-validee-${arbreSha}`, expired: false, workflow_run: { id, repository_id: DEPOT_ID, head_sha }, ...surcharges,
@@ -894,15 +904,20 @@ describe('CI — le script de périmètre de bout en bout', () => {
   });
   // N16 / R1' : l'arbre de before n'est attesté que par la série de main de before, jamais par celle de before^2.
   it('push de documentation dont l\'arbre précédent n\'est attesté que par la série de before^2 : série complète', () => {
-    const donnees = api([artefact(h.arbreAvant, 12, h.q1)], [serie(12, h.q1, { event: 'pull_request' })]);
-    const resultat = lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0, donnees });
-    attendreSorties(resultat, COMPLETE, h.documentation.arbre);
-    assert.ok(resultat.appels.some((url) => url.includes(`name=serie-validee-${h.arbreAvant}&`)), `artefact de l'arbre de before demandé : ${resultat.appels.join(' ')}`);
+    // La série réelle de before^2 est celle de sa PR ; la seconde remplit l'exigence N2 (push sur main) et n'est donc
+    // refusée que par sa tête : le refus de before^2 est prouvé indépendamment de N2.
+    for (const surcharges of [{ event: 'pull_request' }, { event: 'push', head_branch: 'main' }]) {
+      const donnees = api([artefact(h.arbreAvant, 12, h.q1)], [serie(12, h.q1, surcharges)]);
+      const resultat = lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0, donnees });
+      attendreSorties(resultat, COMPLETE, h.documentation.arbre);
+      assert.ok(resultat.appels.some((url) => url.includes(`name=serie-validee-${h.arbreAvant}&`)), `artefact de l'arbre de before demandé : ${resultat.appels.join(' ')}`);
+    }
   });
   // Audit droits et sécurité de #546, N2 : une PR empilée dont la tête est before (et dont la base porterait un autre
   // workflow) n'atteste pas l'arbre de before.
   it('push de documentation dont l\'arbre précédent n\'est attesté que par une PR de tête before : série complète', () => {
-    for (const surcharges of [{ event: 'pull_request', head_branch: 'branche-empilee' }, { head_branch: 'autre' }, { event: 'pull_request' }]) {
+    // Le deuxième cas ne viole que head_branch, le troisième que event : chaque exigence est prouvée seule.
+    for (const surcharges of [{ event: 'pull_request', head_branch: 'branche-empilee' }, { head_branch: 'autre' }, { event: 'pull_request', head_branch: 'main' }]) {
       const donnees = api([artefact(h.arbreAvant, 14, h.c0)], [serie(14, h.c0, surcharges)]);
       attendreSorties(lancerPerimetre({ branche: 'fusion-documentation', evenement: 'push', avant: h.c0, donnees }), COMPLETE, h.documentation.arbre);
     }
