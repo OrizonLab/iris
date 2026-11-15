@@ -5160,6 +5160,155 @@ Sa section « Incidents » ajoutait : « la règle interdit désormais de relanc
 
 **Où c'est appliqué** : passation, section 4, blocs « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) » et « Consommation de la CI (#546) » ; [`CLAUDE.md`](../CLAUDE.md#mode-de-livraison) ; [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci). Lot concerné : [Lot du 14-11-2026 (#544, #546)](#lot-du-14-11-2026-544-546).
 
+## Décisions du 15-11-2026 sur la marge d'un contrat de maintenance
+
+*Rédigé le 15-11-2026.* Onze questions de Claude Code et les réponses de Nelson, posées pendant le cadrage du lot « valorisation sous contrat », après son premier contrôle par le `controleur-coherence` (« cadrage à reprendre ») et avant sa deuxième version, lot livré par [#550](https://github.com/Noxia-Groupe/iris/pull/550) ([Lot du 15-11-2026 (#550)](#lot-du-15-11-2026-550)). Elles ont été posées le 15-11-2026 par l'outil de questions, en trois séries (15:30:52, 16:06:47 et 16:08:20 UTC), après la désignation du lot (question « Prochain lot », ci-dessous). Les heures indiquées sont celles de l'envoi des questions ; d'après le journal de la session, Nelson a répondu à 16:06:07 UTC (première série), 16:07:57 UTC (deuxième) et 16:09:32 UTC (troisième). Les citations sont reprises par programme du relevé des questions de la session (libellés, descriptions, options choisies et écartées) et comparées au caractère près. **Les descriptions des options sont des textes de Claude Code ; seul le choix d'une option est de Nelson.** Chaque réponse est consignée avec ce qu'elle applique à #550 et rien au-delà de son texte ; ce qui reste à décider est écrit comme tel.
+
+### Le lot désigné
+
+Question « Prochain lot » (posée le 15-11-2026 à 15:06:06 UTC), mot pour mot : « Quel est le prochain lot, une fois la PR documentaire de ta validation fusionnée ? (Les lots du pilote sont tous implémentés ; aucun lot n'est cadré.) » Nelson a choisi « Valorisation sous contrat (Recommandé) ». La question, l'option, sa description et les options écartées sont déjà consignées dans [Décision du 15-11-2026 sur les choix par défaut de #544 et #546](#décision-du-15-11-2026-sur-les-choix-par-défaut-de-544-et-546), section « Prochain lot » ; elles ne sont pas reprises ici.
+
+### Les onze réponses
+
+#### 1. Règles
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 15:30:52 UTC), mot pour mot : « Lot « valorisation sous contrat » : pour la marge à l'heure d'une visite et de ses suites, faut-il reprendre telles quelles les règles déjà appliquées au SAV hors contrat ? Prix figé à la saisie de l'heure, main d'œuvre rattachée à l'intervenant, matériel compté à son coût, suites additionnées sur la visite, arrondi au centime ligne par ligne, heures sans prix qui gardent leur coût et sont signalées. »
+- **Option choisie par Nelson** : « Non, à revoir » (option que Claude Code n'avait pas marquée « Recommandé » ; l'autre l'était), décrite ainsi, mot pour mot : « Certaines règles doivent différer pour les visites ; précise lesquelles dans « Other ». »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Oui, les mêmes (Recommandé) » : « Les règles du hors contrat (#354, #357) valent pour les visites et leurs suites ; seul le prix change, sous contrat au lieu de hors contrat. ».
+- **Ce que la réponse applique à #550** : Les règles du hors contrat (#354, #357) ne sont pas reprises en bloc pour les visites de contrat et leurs suites. Les points que la question citait ont été posés un à un ensuite : le prix figé (question 5), la main d'œuvre de l'intervenant (4), le matériel (7), les suites additionnées sur la visite et l'endroit de la marge (6), les heures sans prix (9). **L'arrondi au centime ligne par ligne**, cité par la question, n'a pas été reposé : #550 l'applique comme lecture retenue de Claude Code, à confirmer par Nelson (passation, section 3). L'option demandait de préciser les règles différentes dans « Other » ; Nelson n'a écrit aucun texte libre : sa réponse est le seul libellé de l'option (journal de la session).
+
+#### 2. Contrat annulé
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 15:30:52 UTC), mot pour mot : « Une visite d'un contrat annulé ne se facture pas (règle de #361). Dans sa marge, ses heures et celles de ses suites doivent-elles compter à leur coût sans être vendues, comme les heures d'une suite annulée ? »
+- **Option choisie par Nelson** : « Coût seul, non vendues (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Comme une suite annulée : la marge n'est jamais surestimée. Contrat suspendu ou terminé : heures vendues normalement. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Vendues quand même » : « Les heures sont valorisées au prix sous contrat quel que soit le statut du contrat. ».
+- **Ce que la réponse applique à #550** : Les heures d'une visite d'un contrat annulé, et celles de ses suites, comptent à leur coût sans être vendues ; un contrat suspendu ou terminé vend ses heures normalement. Le matériel inclus d'un contrat annulé, que la question ne visait pas, est compté à son coût comme ses heures : lecture retenue, à confirmer (passation, section 3).
+
+#### 3. MO incluse
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 15:30:52 UTC), mot pour mot : « Un contrat dont la main d'œuvre est « incluse » ne factura pas les heures à part. Faut-il quand même valoriser les heures de ses visites au prix sous contrat dans leur marge ? »
+- **Option choisie par Nelson** : « Oui, valoriser (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Même prix sous contrat, que la main d'œuvre soit incluse ou hors forfait : la marge mesure la valeur des heures au tarif du contrat (ta décision du 27-10 ne distingue pas). »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Non si incluse » : « Main d'œuvre incluse : heures non vendues dans la marge (coût seul) ; hors forfait : valorisées au prix sous contrat. ».
+- **Ce que la réponse applique à #550** : Les heures des visites d'un contrat dont la main d'œuvre est « incluse » sont valorisées au prix sous contrat dans leur marge, comme celles d'un contrat hors forfait.
+
+#### 4. Prix de qui
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:06:47 UTC), mot pour mot : « Pour valoriser les heures d'une visite, quelle main d'œuvre fournit le prix sous contrat ? »
+- **Option choisie par Nelson** : « Celle de l'intervenant » (aucune option de cette question n'était marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Comme le hors contrat : la main d'œuvre rattachée à la fiche de chaque intervenant (une par intervenant), à son prix à l'heure sous contrat. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Une par contrat » : « Chaque contrat désigne sa main d'œuvre, dont le prix sous contrat vaut pour tous les intervenants de ses visites. Change le modèle de données (nouveau champ sur le contrat). ».
+- **Ce que la réponse applique à #550** : Le prix à l'heure sous contrat est celui de la main d'œuvre rattachée à la fiche de l'intervenant le jour de la saisie ; le contrat ne désigne pas de main d'œuvre et aucun champ n'est ajouté au modèle de données. Une main d'œuvre désactivée valorise encore les heures de ses intervenants rattachés : lecture retenue de « Celle de l'intervenant », à confirmer (passation, section 3).
+
+#### 5. Prix figé
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:06:47 UTC), mot pour mot : « Le prix d'une heure de visite est-il figé au jour de la saisie, ou suit-il le prix courant du catalogue ? »
+- **Option choisie par Nelson** : « Figé à la saisie » (aucune option de cette question n'était marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Comme le hors contrat : un changement de tarif ultérieur ne modifie pas les heures déjà saisies. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Prix courant » : « La marge se recalcule au prix actuel du catalogue à chaque lecture. ».
+- **Ce que la réponse applique à #550** : Le prix est copié sur l'heure à sa saisie (`CoutInterventionHeure.prixVenteHoraireApplique`) ; un changement de tarif ou de rattachement ne modifie pas les heures déjà saisies. Les heures saisies sur des visites avant le lot ne sont pas reprises (règle 4) : elles sont signalées.
+
+#### 6. Où
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:06:47 UTC), mot pour mot : « Où se lit la marge des visites ? »
+- **Option choisie par Nelson** : « Par contrat » (aucune option de cette question n'était marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Une marge globale du contrat, qui additionne toutes ses visites et leurs suites (affichée sur l'écran des contrats). »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Sur chaque visite » : « Comme le hors contrat : chaque visite porte sa marge, ses suites comprises ; une suite n'a pas de marge propre. ».
+  - « Les deux » : « Marge sur chaque visite, et total par contrat. ».
+- **Ce que la réponse applique à #550** : La marge se lit par contrat, sur l'écran des contrats de maintenance (`GET /api/contrats-maintenance/:id/marge`) : elle additionne toutes les visites du contrat et leurs suites. Une marge par visite n'est pas livrée.
+
+#### 7. Matériel
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:06:47 UTC), mot pour mot : « Le matériel saisi sur une visite entre-t-il dans sa marge ? »
+- **Option choisie par Nelson** : « Selon la politique » (aucune option de cette question n'était marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Matériel inclus au contrat : compté à son coût ; matériel hors forfait : exclu de la marge (facturé à part). »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « À son coût, toujours » : « Comme le hors contrat : le matériel compte à son coût dans la marge, quelle que soit la politique matériel du contrat. ».
+  - « Jamais » : « La marge d'une visite ne porte que sur les heures. ».
+- **Ce que la réponse applique à #550** : Le matériel inclus au contrat est compté à son coût dans la marge ; le matériel hors forfait est exclu de la marge et chiffré à part. L'application au matériel d'une intervention annulée, et le repli quand une intervention n'a pas d'instantané de couverture, sont des lectures retenues, à confirmer (passation, section 3).
+
+#### 8. Période
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:08:20 UTC), mot pour mot : « La marge d'un contrat couvre quelle période ? »
+- **Option choisie par Nelson** : « Depuis le début (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Cumul de toutes les visites et suites depuis le début du contrat. Le plus simple ; une période pourra s'ajouter plus tard. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Par année civile » : « Une marge par année (01-01 au 31-12), selon la date de la visite. ».
+  - « Par période du contrat » : « Une marge par période d'échéance (périodicité du contrat). ».
+- **Ce que la réponse applique à #550** : La marge d'un contrat cumule toutes ses visites et leurs suites depuis son début ; aucune période n'est livrée.
+
+#### 9. Sans prix
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:08:20 UTC), mot pour mot : « Une heure sans prix (intervenant sans main d'œuvre le jour de la saisie, ou heure saisie avant ce lot) : comment compte-t-elle dans la marge du contrat ? »
+- **Option choisie par Nelson** : « Coût gardé, signalée (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Comme le hors contrat : son coût compte, elle n'est pas vendue, et l'écran signale la marge incomplète avec les heures et les intervenants concernés. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Exclue » : « Ni coût ni vente : l'heure est ignorée, et signalée. ».
+- **Ce que la réponse applique à #550** : Pour la marge d'un contrat de maintenance, une heure sans prix garde son coût, n'est pas vendue, et l'écran signale la marge incomplète avec les heures et les intervenants concernés (dédoublonnés par identifiant). **Cette réponse porte sur la marge d'un contrat de maintenance : elle ne confirme pas la lecture identique de la marge d'un SAV hors contrat, qui reste « à confirmer » (passation, section 3).**
+
+#### 10. Annulées
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:08:20 UTC), mot pour mot : « Les heures d'une visite ou d'une suite annulée : comment comptent-elles ? »
+- **Option choisie par Nelson** : « Coût seul (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Comme une suite annulée hors contrat et comme un contrat annulé (ta réponse) : leur coût compte, elles ne sont pas vendues. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Exclues » : « Ni coût ni vente. ».
+- **Ce que la réponse applique à #550** : Les heures d'une visite ou d'une suite annulée gardent leur coût sans être vendues ; l'écran les compte et les nomme (« dont 1 annulée »).
+
+#### 11. Politique
+
+- **Question de Claude Code** (outil de questions, posée le 15-11-2026 à 16:08:20 UTC), mot pour mot : « Pour le matériel, quelle politique du contrat s'applique à une visite : celle figée sur la visite à sa création, ou celle du contrat aujourd'hui ? »
+- **Option choisie par Nelson** : « Figée sur la visite (Recommandé) » (option marquée « Recommandé » par Claude Code), décrite ainsi, mot pour mot : « Chaque visite garde l'instantané de la couverture du contrat pris à sa création (déjà enregistré) : un changement de couverture ne modifie pas les visites passées. »
+- **Options écartées**, avec leurs descriptions, mot pour mot :
+  - « Celle du contrat actuel » : « La politique matériel en vigueur sur le contrat vaut pour toutes ses visites, passées comprises. ».
+- **Ce que la réponse applique à #550** : La politique matériel qui s'applique à une visite est l'instantané de couverture pris à sa création (`couvertureContrat`) ; un changement de couverture du contrat ne modifie pas les visites passées.
+
+### Lectures et choix par défaut de montant que ces réponses ne tranchent pas
+
+Cinq lectures de Claude Code, appliquées par #550, ne figurent dans aucune réponse ; elles sont **à confirmer par Nelson**, avec la validation comptable du lot, et posées comme questions explicites (passation, section 3, bloc « Marge d'un contrat de maintenance (#550) ») :
+
+1. **Arrondi au centime ligne par ligne**, comme la marge à l'heure d'un SAV hors contrat (#354), la marge d'une intervention issue d'un devis et la main-d'œuvre cumulée ; la marge d'un chantier fait au contraire la somme des produits exacts. Nelson a répondu « Non, à revoir » à une question qui citait cet arrondi parmi les règles du hors contrat, sans y revenir ensuite. La convention commune reste la question ouverte « Arrondi du coût de main-d'œuvre » (passation, section 3).
+2. **Matériel inclus d'une intervention annulée ou d'un contrat annulé** : compté à son coût, comme leurs heures.
+3. **Intervention sans instantané de couverture** : elle suit la politique matériel actuelle du contrat (aucun chemin de l'API n'en crée ; seules des données antérieures à la migration `20260925100000` seraient concernées, règle 4).
+4. **Main d'œuvre désactivée** : elle valorise encore les heures de ses intervenants rattachés.
+5. **Prix sous contrat à 0,00 €** : l'heure est valorisée à 0 et n'est pas signalée.
+
+Les choix par défaut d'affichage et de droits (règle 5) sont dans la passation, section 4, bloc « Marge d'un contrat de maintenance (#550) ».
+
+**Place dans les règles de Nelson.** Ces réponses du 15-11-2026 ne valent ni validation comptable ni feu de mise en service : le lot est **implémenté**, **non validé comptablement** et **non validé pour mise en service**.
+
+## Lot du 15-11-2026 (#550)
+
+*Rédigé le 15-11-2026.* Une PR de montants fusionnée par Claude Code, selon la décision de Nelson du 20-10-2026 (CI verte et audit fusionnable sur la même SHA) et le circuit du 31-10-2026. Décisions de Nelson qui fondent le lot : « [Décisions du 15-11-2026 sur la marge d'un contrat de maintenance](#décisions-du-15-11-2026-sur-la-marge-dun-contrat-de-maintenance) » ; prix du catalogue sous contrat, à l'heure : [Décisions du 27-10-2026](#décisions-du-27-10-2026-sur-la-marge-des-suites-et-lintervention-dun-devis) et nuit du 26 au 27-10-2026, point 5. **Statut : implémenté, non validé comptablement, non validé pour mise en service.**
+
+### PR fusionnée
+
+- **#550**, « Marge d'un contrat de maintenance : heures au prix sous contrat figé à la saisie » : fusionnée le 15-11-2026 par commit de fusion `3edd0d8`, tête `7293fac`, sur `main` à `f65b614` (#549). Branche `claude/dreamy-albattani-jvfz0z`, imposée par la session cloud (elle déroge à la règle de nommage de `.agents/AGENTS.md`). CI verte sur `7293fac`. Aucune migration, aucune variable d'environnement.
+  - **Prix figé à la saisie d'une heure** (`POST /api/interventions/:id/couts/heures`) : sur une visite de contrat ou sa suite (suites de suites comprises), l'heure reçoit le prix à l'heure sous contrat (`prixHeureSousContratHt`) de la main d'œuvre rattachée à l'intervenant ce jour-là ; sans rattachement, rien. Même transaction sérialisable, mêmes verrous et même immuabilité que le hors contrat, qui ne change pas. Une seule fonction lit le prix : `prixVenteHoraireAFiger` (`server/src/domaines/interventions/margeSav.ts`), qui remplace `prixVenteHoraireHorsContrat`.
+  - **Marge d'un contrat** (`server/src/domaines/contrats/marge.ts`, `margeContrat`) : toutes les interventions du contrat (filtre par `contratMaintenanceId`, jamais par client ou par site), depuis son début, dans un même instantané (REPEATABLE READ). Ventes : heures non archivées, d'interventions non annulées, d'un contrat non annulé, qui portent un prix figé. Coût : toutes les heures non archivées, au taux chargé figé. Matériel : achats des interventions dont la politique figée (`couvertureContrat`) est « inclus » ; le matériel hors forfait est chiffré à part (`materielExcluHT`), hors marge. Signalements : heures sans prix et intervenants concernés (dédoublonnés par identifiant), heures des interventions annulées, contrat annulé. Ventes et coût sont arrondis au centime ligne par ligne, par des aides partagées avec la marge à l'heure du hors contrat (`ventesHeuresAuCentime`, `totalHeuresInterventionAuCentime`).
+  - **API** : `GET /api/contrats-maintenance/:id/marge`, sous `requireAuth, requireAdmin`, en session seulement (403 « Accès réservé aux administrateurs » pour les autres types de compte, 401 sans session, 404 pour un contrat inexistant). La marge à l'heure d'une intervention (`margeSav`) reste inchangée et toujours nulle pour une intervention de contrat. Routes de session : 194 (193 avant).
+  - **Écran Contrats de maintenance**, administration seule : bouton « Voir la marge », « Marge à l’heure : X € HT », détail en une phrase et signalements (`client/src/components/MargeDuContrat.tsx`, `client/src/lib/margeContrat.ts`).
+  - **Documentation** mise à jour par la PR : commentaires du schéma, de la visibilité et du rattachement, README du serveur, référence des droits (`docs/MODELE-DROITS-COMPTES.md`) ; `server/scripts/routes-reference.txt` réécrite (nouvelle route, empreinte de la saisie d'une heure).
+  - **Hors périmètre** : une marge par visite et une marge par période ; la facturation des heures ou du matériel hors forfait, et la valorisation au forfait ; les heures déjà saisies sur des visites (trigger d'immuabilité ; signalées comme « saisie avant la valorisation sous contrat », règle 4) ; la course entre un changement de tarif et une saisie (#355, N2).
+  - **Tests** (écrits par le `redacteur-tests`, montants classés C) : `server/tests/marge-contrat.test.mjs` (17 tests, base jetable propre au fichier) ; deux tests du bloc #354 de `api.test.mjs` attendent désormais le prix sous contrat ; matrice des droits (`routes.mjs`, `entrees.txt`, `donnees.txt`, `cles.txt`, compte des routes de session de 193 à 194) ; client : `margeContrat.test.ts` (9 tests) et E2E `marge-contrat.spec.ts`. Mutants tous tués (rédacteur : 31 serveur, 4 E2E, 7 unitaires ; auditeur des montants : A1 à A7 et B1 à B18 ; auditeur des droits : M1 à M13). Sur `7293fac` : `npm test` serveur 1 388/1 388 deux fois sur une même base conservée ; client 215/215, build et lint verts ; `node scripts/routes.mjs --verifier` identique (228 routes).
+
+### Audits
+
+- **Cadrage** : contrôlé trois fois par le `controleur-coherence` avant le code (« cadrage à reprendre », 3 C ; « cadrage à reprendre », 3 C et 2 T sur la v2 ; « cadrage prêt à coder » sur la v3).
+- **Trois premiers passages sur `196c014`, non fusionnables, une C chacun, corrigées** : `auditeur-montants`, C1 (prix figé à la saisie non séparé de la lecture « Non si incluse » ni d'un prix envoyé par le technicien ; test ajouté) ; `auditeur-droits-securite`, C1 (`docs/MODELE-DROITS-COMPTES.md` non mis à jour ; patch appliqué) ; `controleur-coherence`, C1 (repères de lignes de `montants-masques.mjs` décalés ; patch appliqué). Aucune R.
+- **Remarques non bloquantes traitées dans la PR** : T1 de l'audit des droits (test du directeur) ; N2 du contrôle (commentaires du rattachement) ; N3 du contrôle (accord du signalement d'un contrat annulé) ; N4 du contrôle et de l'audit des montants (interventions annulées nommées) ; N6 de l'audit des montants (erreur sans corps JSON) ; N1 et N5 du contrôle et N2 des montants (corps de la PR).
+- **Vérification sur `7293fac`** : les trois (`auditeur-montants`, `auditeur-droits-securite`, `controleur-coherence`) la jugent fusionnable, chacun sur sa remarque bloquante et sur les changements depuis `196c014`. CI verte sur cette tête (« CI — synthèse » `success`).
+
+### Suivis ouverts
+
+- **#551** (`suivi-audit`) : le niveau d'isolation de la lecture de la marge d'un contrat n'est éprouvé par aucun test (N5 de l'audit des montants).
+- **#552** (`suivi-audit`) : une base jetable propre au fichier n'est pas toujours supprimée (suppression sans `finally` dans plusieurs fichiers de tests existants, relevée par le `redacteur-tests`), et le processus peut ne jamais se terminer.
+- **#355** : N8 (heure saisie avant le lot, signalée) et N7 (homonymes, dédoublonnés par identifiant) sont traitées par #550 **pour la marge du contrat seulement** ; la marge à l'heure hors contrat dédoublonne toujours par nom, et reste suivie dans #355. N2 (course entre un changement de tarif et une saisie) : comportement actuel gardé.
+- **#540** : N3 (le contrat terminé appelé « Terminé », « terminé » ou « clos ») n'est pas touchée par #550, dont l'écran ne nomme pas ce statut ; elle reste ouverte.
+- **PR documentaire** : la passation, l'historique, la correspondance des droits cibles et l'écart de la passation sur la marge à l'heure du directeur (N6 et N7 du contrôle, N3 des deux audits) sont versés par la PR documentaire qui suit #550, qui retouche aussi le `README.md` racine (phases 0–4 et 7).
+
+### À valider par Nelson
+
+Validation comptable de Nelson requise après la fusion, avant toute mise en service, comme pour #354 et #357 : les cinq lectures de montant ci-dessus, posées en questions explicites. Un point resté sans réponse reste une question.
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.
@@ -5355,6 +5504,12 @@ Sa section « Incidents » ajoutait : « la règle interdit désormais de relanc
 *Archivé le 14-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main` au commit `195a6ae` (14-11-2026), après la PR #542 ; la PR documentaire qui consigne #544 et #546 le remplace par l'état au commit `445d310`. Seul le début de l'en-tête (état de `main` et statut des lots) est déplacé ici, sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la convention sur « administration », la liste des suivis et la suite de l'en-tête restent dans la passation, mises à jour.
 
 > **État de `main` au commit `195a6ae` (14-11-2026), après la PR [#542](https://github.com/Noxia-Groupe/iris/pull/542).** Depuis le commit `448bb25` : **deux PR fusionnées** ([historique](#lot-du-14-11-2026-542)) : #541, PR documentaire (`a1bf8b8`, point de reprise, en-tête à `448bb25`, passage hebdomadaire #540, notes de #533 et #538 ; « validé pour mise en service » est sans objet) ; #542, correctif prioritaire R1 du passage hebdomadaire #540 (« Factures : libellés du statut et de l'origine au lieu des codes bruts »), fusionnée le 14-11-2026 (`195a6ae`, tête `0952c78`). **Ce lot est implémenté, non validé pour mise en service** : affichage seul, sans changement du serveur, de l'API, d'un montant ni d'un droit, donc sans validation comptable. Ses libellés, choix par défaut à confirmer : section 4, bloc « Libellés du statut et de l'origine des factures (#542) ». **Aucun autre lot ne change de statut** : les lots du pilote sont **implémentés** (sections 1 et 2) ; hors la main d'œuvre paramétrable et le devis au temps passé, validés pour mise en service par Nelson les 24 et 26-10-2026 (section 2), **aucun n'est validé pour mise en service**, et la validation comptable des lots de montants (#524, #530, #534 compris) reste un préalable (section 5). Le texte de cet en-tête avant ce lot (état au commit `448bb25` : #537, `548270e`, #538) est archivé : [en-tête de la passation au 14-11-2026 (commit `448bb25`)](#en-tête-de-la-passation-au-14-11-2026-commit-448bb25). Choix par défaut en vigueur, à confirmer : section 4.
+
+## En-tête de la passation au 15-11-2026 (commit `445d310`)
+
+*Archivé le 15-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main` au commit `445d310` (14-11-2026), après les PR #543, #544 et #546, complété le 15-11-2026 par la décision de Nelson sur trois choix par défaut ; la PR documentaire qui consigne #550 le remplace par l'état au commit `3edd0d8`. Seul le début de l'en-tête (état de `main` et statut des lots) est déplacé ici, sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la convention sur « administration », la liste des suivis et la suite de l'en-tête restent dans la passation, mises à jour.
+
+> **Depuis le 15-11-2026 : décision de Nelson qui confirme trois choix par défaut de #544 et #546 : règle des 7 jours, risque accepté de l'attestation, lecture « une seule série de CI » ([historique](#décision-du-15-11-2026-sur-les-choix-par-défaut-de-544-et-546)).** **État de `main` au commit `445d310` (14-11-2026), après les PR [#543](https://github.com/Noxia-Groupe/iris/pull/543), [#544](https://github.com/Noxia-Groupe/iris/pull/544) et [#546](https://github.com/Noxia-Groupe/iris/pull/546).** Depuis le commit `195a6ae` : **trois PR fusionnées** le 14-11-2026 ([historique](#lot-du-14-11-2026-544-546)) : #543, PR documentaire (`19a6533`, passation après #542 ; « validé pour mise en service » est sans objet) ; #544, failles connues des dépendances corrigées et garde des journaux d'Express (`7039914`, tête `ddf252a` ; décision de Nelson « Continu en reglant les faille d'abord », dérogation à l'ordre du 19-10-2026) ; #546, CI : travaux lourds sautés pour la documentation seule et les arbres déjà attestés, cache du navigateur Playwright (`445d310`, tête `7bc2a3e` ; [consommation de la CI](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci)). **Ces deux lots sont implémentés, non validés pour mise en service** : dépendances et CI, sans changement fonctionnel, de montant ni de droit, donc sans validation comptable. Décisions de Nelson : [historique](#décisions-du-14-11-2026-sur-les-failles-des-dépendances-et-la-consommation-de-la-ci) ; mesure des séries de CI : [historique](#lot-du-14-11-2026-544-546). Choix par défaut à confirmer : section 4, blocs « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) » et « Consommation de la CI (#546) » ; questions : section 3, bloc « Dépendances et CI (#544, #546) ». **Aucun autre lot ne change de statut** : les lots du pilote sont **implémentés** (sections 1 et 2) ; hors la main d'œuvre paramétrable et le devis au temps passé, validés pour mise en service par Nelson les 24 et 26-10-2026 (section 2), **aucun n'est validé pour mise en service**, et la validation comptable des lots de montants (#524, #530, #534 compris) reste un préalable (section 5). Le texte de cet en-tête avant ces lots (état au commit `195a6ae` : #541, #542) est archivé : [en-tête de la passation au 14-11-2026 (commit `195a6ae`)](#en-tête-de-la-passation-au-14-11-2026-commit-195a6ae). Choix par défaut en vigueur, à confirmer : section 4.
 
 ## Découpage du lot 6, état au 01-11-2026
 
