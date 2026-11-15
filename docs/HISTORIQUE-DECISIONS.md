@@ -5309,6 +5309,33 @@ Les choix par défaut d'affichage et de droits (règle 5) sont dans la passation
 
 Validation comptable de Nelson requise après la fusion, avant toute mise en service, comme pour #354 et #357 : les cinq lectures de montant ci-dessus, posées en questions explicites. Un point resté sans réponse reste une question.
 
+## Décisions du 15-11-2026 (soir) sur les lectures de montant de #550
+
+*Rédigé le 15-11-2026.* Quatre questions de Claude Code et les réponses de Nelson, posées après la fusion de [#550](https://github.com/Noxia-Groupe/iris/pull/550) et de #553 (PR documentaire qui la suit), par l'outil de questions, en une série de quatre : question posée le 15-11-2026 à 19:24:50 UTC, réponses reçues à 19:44:05 UTC (heures du journal de la session). Elles portent sur quatre des cinq lectures de montant que #550 applique sans qu'aucune des onze réponses du 15-11-2026 ne les couvre ([Décisions du 15-11-2026 sur la marge d'un contrat de maintenance](#décisions-du-15-11-2026-sur-la-marge-dun-contrat-de-maintenance)). Lot concerné : [Lot du 15-11-2026 (#550)](#lot-du-15-11-2026-550).
+
+**Lecture retenue** (de Claude Code, à corriger par Nelson si besoin) : les quatre lectures sont **confirmées** par Nelson. Chacune reste au comportement de #550 : **aucun code ne change**. Ces réponses ne valent pas, à elles seules, validation comptable de #550 au sens de la [section 5 de la passation](ROADMAP-PASSATION.md#5-préalables-à-la-mise-en-service-et-contrat-dune-pr) (validation du cabinet et de Nelson avant la mise en service) : le lot reste **implémenté, non validé comptablement (validation du cabinet et de Nelson attendue), non validé pour mise en service**.
+
+**1. Arrondi** (en-tête « Arrondi »). Question, mot pour mot : « Marge d'un contrat de maintenance (#550, fusionnée, validation comptable attendue) : les ventes et le coût des heures sont arrondis au centime ligne par ligne, comme la marge d'un SAV hors contrat. La marge d'un chantier, elle, additionne les produits exacts puis n'arrondit qu'une fois. Quelle convention retenir pour la marge du contrat ? »
+- **Choisie** : « Ligne par ligne (Recommandé) » — « Comportement actuel de #550, identique à la marge d'un SAV hors contrat et à la main-d'œuvre cumulée d'une intervention : chaque ligne d'heures est arrondie au centime, puis additionnée. Rien ne change. »
+- Écartée : « Un seul arrondi » — « Somme des produits exacts, puis un seul arrondi au centime, comme la marge d'un chantier. Change #550 dans une PR de montants, et rouvre la question pour les autres marges. »
+- Portée : la réponse vaut **pour la marge du contrat**. Elle n'est pas étendue à la question générale « Arrondi du coût de main-d'œuvre » de la section 3 de la passation, qui reste ouverte (« Quelle convention retenir partout ? »). La marge du contrat suit désormais une convention confirmée.
+
+**2. Matériel annulé** (en-tête « Matériel annulé »). Question, mot pour mot : « Marge d'un contrat (#550) : le matériel « inclus au contrat » saisi sur une visite ou une suite ensuite annulée, ou sur un contrat annulé avec son devis, compte aujourd'hui à son coût dans la marge, comme leurs heures. Est-ce le comportement voulu ? »
+- **Choisie** : « Compté à son coût (Recommandé) » — « Comportement actuel : un coût réellement engagé reste dans la marge, qui n'est jamais surestimée. Rien ne change. »
+- Écartée : « Exclu de la marge » — « Le matériel d'une intervention annulée ou d'un contrat annulé sort de la marge. Change #550 dans une PR de montants. »
+
+**3. Main d'œuvre désactivée** (en-tête « MO désactivée »). Question, mot pour mot : « Marge d'un contrat (#550) : une main d'œuvre du catalogue désactivée, mais encore rattachée à un intervenant, valorise toujours ses heures de visite à son prix sous contrat (comme en hors contrat). Est-ce le comportement voulu ? »
+- **Choisie** : « Valorise encore (Recommandé) » — « Comportement actuel : le rattachement est gardé, l'heure prend le prix sous contrat de la main d'œuvre désactivée. Rien ne change. »
+- Écartée : « Heures non vendues » — « Une main d'œuvre désactivée ne valorise plus les heures saisies ensuite : coût gardé, heures signalées « sans prix ». Change #550 dans une PR de montants. »
+
+**4. Prix à 0 €** (en-tête « Prix à 0 € »). Question, mot pour mot : « Marge d'un contrat (#550) : une main d'œuvre dont le prix à l'heure sous contrat vaut 0,00 € valorise ses heures à zéro, sans signalement (comme un prix hors contrat à 0,00 €). Est-ce le comportement voulu ? »
+- **Choisie** : « Vendue à 0, non signalée (Recommandé) » — « Comportement actuel : 0,00 € est un prix réglé par la société, l'heure est vendue à zéro et la marge n'est pas dite incomplète. Rien ne change. »
+- Écartée : « Signalée » — « Un prix à 0,00 € est traité comme une heure sans prix : coût gardé, marge signalée incomplète. Change #550 dans une PR de montants. »
+
+**Non posée : l'intervention sans instantané de couverture** (cinquième lecture). Elle suit la politique matériel actuelle du contrat ; aucun chemin de l'API n'en crée, et seules des données antérieures à la migration `20260925100000` seraient concernées : cas sans donnée réelle (règle 4 de la méthode ; note N11 du contrôle de #553). Elle reste un **choix par défaut, à confirmer** (passation, section 3, bloc « Marge d'un contrat de maintenance (#550, implémentée) », et section 4, même bloc).
+
+**Où c'est appliqué** : passation, point de reprise, en-tête d'état, sections 1 et 2 (quatre lectures confirmées, la cinquième à confirmer), section 3, bloc « Marge d'un contrat de maintenance (#550, implémentée) » (les quatre lectures tranchées sortent de la liste à poser ; seule la cinquième, l'intervention sans instantané de couverture, y reste, à confirmer), section 4, bloc « Marge d'un contrat de maintenance (#550) » (lectures « Confirmées par Nelson le 15-11-2026 ») et section 5 (statut inchangé).
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.
