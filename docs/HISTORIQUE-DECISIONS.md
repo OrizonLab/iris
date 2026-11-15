@@ -5131,6 +5131,27 @@ Soit 2 minutes au lieu de 44 à 52 pour les PR documentaires d'avant. **À mesur
 - **#545** (`suivi-audit`, ouverte) : les Dockerfiles installent en `npm install`.
 - **Hors périmètre, versés à la passation comme questions** (section 3, bloc « Dépendances et CI (#544, #546) ») : contrôle `npm audit` en CI ; Node 20 dans la CI et les images, en fin de vie selon le calendrier de Node ; passage à react-router 8 ; N4 de l'audit de #544 (l'empreinte de `jsonParser` dans `server/scripts/routes.mjs` ne voit pas les changements internes de body-parser).
 - **Dépendances** : les issues #168 à #174 et #385, citées comme ouvertes dans les états précédents, sont fermées par #544 ; ces états gardent leur texte d'origine.
+- **Confirmation de Nelson, 15-11-2026** : la règle des 7 jours, le risque accepté de l'attestation et la lecture « une seule série de CI » (avec ses deux compléments) sont confirmés ; les mentions « choix par défaut, à confirmer » ci-dessus, pour ces trois choix, sont levées : [Décision du 15-11-2026](#décision-du-15-11-2026-sur-les-choix-par-défaut-de-544-et-546).
+
+## Décision du 15-11-2026 sur les choix par défaut de #544 et #546
+
+*Rédigé le 15-11-2026.* Message de Nelson dans la session de travail, mot pour mot : « Ok continu je valide ce que tu as proposer. »
+
+**À quoi il répond.** Au compte rendu final de Claude Code, après les fusions de #544, #546 et #547. Ce compte rendu soumettait à Nelson, dans une section « Choix que je t'ai laissés à confirmer », exactement trois choix.
+
+**Les trois choix confirmés** :
+
+1. **La règle des 7 jours** (#544) : pour chaque dépendance, la version la plus récente sans faille connue, publiée depuis au moins 7 jours. Une version plus jeune n'est retenue que si aucune plus ancienne ne corrige les avis connus.
+2. **Le risque résiduel accepté sur l'attestation de la CI** (#546). Une PR empilée sur un workflow modifié pourrait faire passer pour validé un arbre qui ne l'est pas, par la limite de l'attestation par `HEAD^2`. Ce risque est accepté parce que seuls Nelson et Claude Code poussent.
+3. **La lecture « une seule série de CI » de « Regroupe les corrections d'audit avant de pousser »** (#546), avec ses deux compléments : les sauvegardes intermédiaires sur une PR ouverte se poussent avec le jeton de saut de GitHub, qui ne lance aucune série ; le push qui lance la série porte un changement réel, jamais un commit vide ni une réécriture.
+
+**Lecture retenue** (de Claude Code, à corriger par Nelson si besoin) : « je valide ce que tu as proposer » porte sur ces trois choix, et sur eux seuls ; « continu » est lu comme : poursuivre le travail.
+
+**Restent « choix par défaut, à confirmer »** : l'extension de la règle de regroupement au contrôle de cohérence quand il tourne en parallèle, les variables propres au workflow hors de la règle permanente 3, l'alias `html2pdf.js` et la garde des journaux de #544, la préférence générale sur les paquets au-delà de #544 (lecture retenue, section « [Décisions du 14-11-2026 sur les failles des dépendances et la consommation de la CI](#décisions-du-14-11-2026-sur-les-failles-des-dépendances-et-la-consommation-de-la-ci) »), et tous les choix plus anciens.
+
+**Prochain lot** (question 8 de la passation, posée par Claude Code dans la même session, juste après ce message). Nelson a choisi l'option « Valorisation sous contrat (Recommandé) », décrite comme « Lot prévu, décidé le 27-10-2026, non codé : valoriser au prix sous contrat du catalogue, à l'heure, les heures des visites de maintenance et de leurs suites, pour leur marge (le hors contrat est fait par #354). Lot de montants : audit des montants, puis ta validation comptable. » Le lot est désigné, pas encore cadré ; son cadrage passe au `controleur-coherence` avant le code. Les deux autres options, « Questions métier d'abord » et « Suivis techniques » (#545, #548), n'ont pas été retenues ; les questions prioritaires restent posées.
+
+**Où c'est appliqué** : passation, section 4, blocs « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) » et « Consommation de la CI (#546) » ; [`CLAUDE.md`](../CLAUDE.md#mode-de-livraison) ; [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci). Lot concerné : [Lot du 14-11-2026 (#544, #546)](#lot-du-14-11-2026-544-546).
 
 ## En-tête de la passation au 30-10-2026
 
