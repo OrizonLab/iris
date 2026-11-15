@@ -529,8 +529,8 @@ const Admin = () => {
     }
   };
 
-  // Rattache un intervenant à une main d'œuvre du catalogue (ses heures hors contrat sont valorisées à
-  // son prix de vente, figé à la saisie). Le serveur n'accepte qu'une main d'œuvre active et journalise le
+  // Rattache un intervenant à une main d'œuvre du catalogue (ses heures sont valorisées à son prix à l'heure,
+  // hors contrat ou sous contrat, figé à la saisie). Le serveur n'accepte qu'une main d'œuvre active et journalise le
   // changement ; la liste est relue dans tous les cas.
   const rattacherMainOeuvre = async (intervenantId: string, mainOeuvreId: string) => {
     try {

@@ -26,7 +26,7 @@ import { enregistrerRemiseAPlanifier } from './remiseAPlanifier';
 import { enregistrerSuites } from './suites';
 import { enregistrerEnvoisCompteRendu } from './envois';
 import { margeDevisIntervention } from './margeDevis';
-import { margeSavHorsContrat, prixVenteHoraireHorsContrat } from './margeSav';
+import { margeSavHorsContrat, prixVenteHoraireAFiger } from './margeSav';
 import { RefusAffaireSuite, verifierAffaireDeLaSuite } from './affaireSuite';
 
 class ChantierInterventionIntrouvable extends Error {}
@@ -147,9 +147,10 @@ export function enregistrerRoutesInterventions(app: Express): void {
         await verifierAffaireDeLaSuite(tx, interventionActuelle, req.user!.role, true);
         const intervenantActuel = await tx.intervenant.findFirst({ where: { id: intervenant.id, userId: req.user!.id, affectationsIntervention: { some: { interventionId: intervention.id } } } });
         if (!intervenantActuel) return null;
-        // Hors contrat, le prix de vente à l'heure de la main d'œuvre de l'intervenant est figé sur l'heure,
-        // comme le taux chargé (lot « marge d'un SAV hors contrat », cf. margeSav.ts) ; une visite n'en reçoit pas.
-        const prixVenteHoraireApplique = interventionActuelle.contratMaintenanceId ? null : await prixVenteHoraireHorsContrat(tx, intervenantActuel.id);
+        // Le prix à l'heure de la main d'œuvre de l'intervenant est figé sur l'heure, comme le taux chargé : hors
+        // contrat, son prix hors contrat (lot « marge d'un SAV hors contrat ») ; sur une visite de contrat ou sa
+        // suite, son prix sous contrat (lot « marge d'un contrat », contrats/marge.ts) ; cf. margeSav.ts.
+        const prixVenteHoraireApplique = await prixVenteHoraireAFiger(tx, intervenantActuel.id, interventionActuelle.contratMaintenanceId !== null);
         const cout = await tx.coutInterventionHeure.create({ data: { interventionId: interventionActuelle.id, intervenantId: intervenantActuel.id, date, nbrHeures, tauxHoraireApplique: intervenantActuel.tauxHoraireCharge, prixVenteHoraireApplique, commentaire: req.body?.commentaire ? String(req.body.commentaire).trim() : null, createdById: req.user!.id } });
         await journaliserCoutIntervention(tx, req, 'COUT_INTERVENTION_HEURE', 'CREATION', cout.id, interventionActuelle.id, null, cout, nbrHeures === 0 ? motif! : undefined);
         return heureOperationnelleTechnicien(cout);
