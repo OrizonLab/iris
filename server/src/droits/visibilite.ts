@@ -35,9 +35,9 @@ export function voitCoutMainOeuvre(req: express.Request): boolean {
   return isAdminRole((req as AuthRequest).user?.role);
 }
 
-// Le prix de vente à l'heure figé sur une heure SAV hors contrat (lot « marge d'un SAV hors contrat ») suit
-// le taux : il vient du catalogue des mains d'œuvre, que l'administration seule voit en session, et sert à
-// une marge qui lui est réservée.
+// Le prix de vente à l'heure figé sur une heure SAV, hors contrat (lot « marge d'un SAV hors contrat ») ou sous
+// contrat (lot « marge d'un contrat »), suit le taux : il vient du catalogue des mains d'œuvre, que
+// l'administration seule voit en session, et sert à des marges qui lui sont réservées.
 const CLES_TAUX_HORAIRE = ['tauxHoraireApplique', 'tauxHoraireCharge', 'prixVenteHoraireApplique'] as const;
 
 export function sansTauxHoraire<T>(valeur: T): T {

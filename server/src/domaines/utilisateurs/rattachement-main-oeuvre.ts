@@ -8,9 +8,10 @@ import { journaliserAdministration } from '../../commun/journal-administration';
 
 // --- Rattachement d'un intervenant à une main d'œuvre (décision de Nelson du 24-10-2026) ---
 // « Liée à l'intervenant » : chaque technicien (fiche intervenant) est rattaché à une main d'œuvre du
-// catalogue ; sur une intervention hors contrat, ses heures sont valorisées au prix de vente à l'heure
-// hors contrat de cette main d'œuvre, figé sur l'heure à sa saisie, pour la marge d'un SAV hors contrat
-// (margeSav.ts ; rien n'est calculé ici). Le rattachement est facultatif et réglé par l'administration
+// catalogue ; ses heures sont valorisées au prix de cette main d'œuvre, figé sur l'heure à sa saisie : à
+// l'heure hors contrat sur une intervention hors contrat, pour la marge d'un SAV hors contrat (margeSav.ts),
+// à l'heure sous contrat sur une visite de contrat ou sa suite, pour la marge du contrat (contrats/marge.ts) ;
+// rien n'est calculé ici. Le rattachement est facultatif et réglé par l'administration
 // seule, comme le taux horaire. Il exige une main d'œuvre active ; désactiver une main d'œuvre garde
 // les rattachements existants (choix par défaut, à confirmer). Chaque changement est écrit au journal
 // des paramètres et des droits, la fiche intervenant n'ayant pas de journal propre.

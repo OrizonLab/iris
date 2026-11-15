@@ -70,6 +70,7 @@ GET /api/contrats-maintenance requireAuth#07b983da0ce5 > requireGestionContrats#
 GET /api/contrats-maintenance/generation-visites requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > <anonymous>#373a35ed462c
 POST /api/contrats-maintenance/generation-visites requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > <anonymous>#1e9928683461
 GET /api/contrats-maintenance/:id/journal-saisies requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > <anonymous>#3f95c0d7c799
+GET /api/contrats-maintenance/:id/marge requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#ec95192cc513
 GET /api/contrats-maintenance/:id/document.pdf requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > imprimerContrat#66662fc8c94e
 GET /api/contrats-maintenance/:id/envois requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > lireEnvoisContrat#c5e2c38e52c5
 POST /api/contrats-maintenance/:id/envois requireAuth#07b983da0ce5 > requireGestionContrats#2ab5bdaf047c > envoyerContrat#aa51e57bc40f
@@ -84,7 +85,7 @@ GET /api/interventions/journee requireAuth#07b983da0ce5 > blockCommercial#990744
 GET /api/interventions/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#4d7dee0b11a1
 GET /api/interventions/:id/document.pdf requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#540caccce552
 GET /api/interventions/:id/couts requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#cf770672fe56
-POST /api/interventions/:id/couts/heures requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#857c638bde3f
+POST /api/interventions/:id/couts/heures requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#bc91eb39fd8d
 POST /api/interventions/:id/couts/achats requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#ecb2f2a84911
 PATCH /api/interventions/:id/couts/:type/:coutId requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#4bf9500165b8
 POST /api/interventions/:id/couts/:type/:coutId/:action requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#ce676d97a40b

@@ -32,18 +32,30 @@ export type MargeSavHorsContrat = {
   heuresSuitesAnnulees: Prisma.Decimal;
 };
 
-const auCentime = (montant: Prisma.Decimal) => montant.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+export const auCentime = (montant: Prisma.Decimal) => montant.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
-// Prix à copier sur une heure saisie hors contrat : le prix de vente à l'heure hors contrat de la main
-// d'œuvre rattachée à l'intervenant, même désactivée (le rattachement est gardé) ; null sans rattachement.
+// Ventes d'heures au prix de vente figé à la saisie, arrondies au centime ligne par ligne, comme leur coût
+// (totalHeuresInterventionAuCentime) ; l'appelant ne passe que des heures vendues, qui portent un prix.
+// Partagé par la marge à l'heure d'un SAV hors contrat et par celle d'un contrat (contrats/marge.ts).
+export function ventesHeuresAuCentime(heures: Array<{ nbrHeures: Prisma.Decimal; prixVenteHoraireApplique: Prisma.Decimal | null }>): Prisma.Decimal {
+  return auCentime(heures.reduce((total, heure) => total.plus(auCentime(heure.nbrHeures.mul(heure.prixVenteHoraireApplique!))), new Prisma.Decimal(0)));
+}
+
+// Prix à copier sur une heure saisie : celui de la main d'œuvre rattachée à l'intervenant, même désactivée
+// (le rattachement est gardé) ; null sans rattachement. Hors contrat, son prix de vente à l'heure hors
+// contrat (lot « marge d'un SAV hors contrat ») ; sur une intervention d'un contrat, visite ou suite, son
+// prix à l'heure sous contrat (lot « marge d'un contrat », décisions de Nelson du 27-10-2026, « Oui prix du
+// catalogue, continue », et du 15-11-2026, « Celle de l'intervenant », « Figé à la saisie » ; la main d'œuvre
+// désactivée qui valorise encore est une lecture de « Celle de l'intervenant », à confirmer).
 // L'appelant tient le verrou de la fiche intervenant (verrouillerContexteCout). Le rattachement (pose,
 // changement ou retrait) prend ce verrou et réécrit la fiche : il attend une saisie qui le tient ; validé
 // avant l'instantané de la saisie (sa première lecture), il est lu ; validé après, qu'elle attende ou non
 // ce verrou, il la fait refuser (conflit, 409, à relancer), comme un changement de taux, la saisie,
 // sérialisable, lisant sinon le rattachement de son instantané.
-export async function prixVenteHoraireHorsContrat(tx: Prisma.TransactionClient, intervenantId: string): Promise<Prisma.Decimal | null> {
-  const rattachement = await tx.intervenantMainOeuvre.findUnique({ where: { intervenantId }, select: { prestation: { select: { prixVenteHt: true } } } });
-  return rattachement?.prestation.prixVenteHt ?? null;
+export async function prixVenteHoraireAFiger(tx: Prisma.TransactionClient, intervenantId: string, sousContrat: boolean): Promise<Prisma.Decimal | null> {
+  const rattachement = await tx.intervenantMainOeuvre.findUnique({ where: { intervenantId }, select: { prestation: { select: { prixVenteHt: true, prixHeureSousContratHt: true } } } });
+  if (!rattachement) return null;
+  return sousContrat ? rattachement.prestation.prixHeureSousContratHt : rattachement.prestation.prixVenteHt;
 }
 
 export async function margeSavHorsContrat(intervention: { id: string; contratMaintenanceId: string | null; chantierId: string | null; auTempsPasse: boolean; interventionInitialeId: string | null; statut: string }): Promise<MargeSavHorsContrat | null> {
@@ -70,7 +82,7 @@ export async function margeSavHorsContrat(intervention: { id: string; contratMai
   const vendues = heures.filter((heure) => !suitesAnnulees.has(heure.interventionId));
   const nonValorisees = vendues.filter((heure) => heure.prixVenteHoraireApplique === null);
   const somme = (lignes: typeof heures, montant: (heure: (typeof heures)[number]) => Prisma.Decimal) => lignes.reduce((total, heure) => total.plus(montant(heure)), new Prisma.Decimal(0));
-  const ventesHT = auCentime(somme(vendues.filter((heure) => heure.prixVenteHoraireApplique !== null), (heure) => auCentime(heure.nbrHeures.mul(heure.prixVenteHoraireApplique!))));
+  const ventesHT = ventesHeuresAuCentime(vendues.filter((heure) => heure.prixVenteHoraireApplique !== null));
   const coutsHT = totalHeuresInterventionAuCentime(heures);
   const materielHT = auCentime(achats.reduce((total, achat) => total.plus(achat.montantHT), new Prisma.Decimal(0)));
   return {

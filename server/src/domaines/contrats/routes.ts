@@ -13,6 +13,7 @@ import { journaliserContrat, motifContratValide, lirePolitiqueCouverture, verrou
 import { produirePdf, repondrePdf } from '../documents/productionPdf';
 import { lireContratPdf, rendreFichierContratPdf } from './productionPdf';
 import { envoiContrat } from './envois';
+import { margeContrat } from './marge';
 
 // Un contrat annulé avec son devis (lot 4 suite) ne se modifie, ne se suspend, ne se clôt ni ne se
 // réactive plus ; la base le refuse aussi (trigger contrat_annule_fige). La suspension et la clôture
@@ -119,6 +120,21 @@ export function enregistrerRoutesContrats(app: Express): void {
       res.json(decimalToNumber(entrees));
     } catch (error) {
       res.status(500).json({ error: 'Lecture du journal du contrat impossible.' });
+    }
+  });
+
+  // Marge d'un contrat (lot « marge d'un contrat », cf. marge.ts) : ses heures vendues au prix sous contrat figé à
+  // la saisie, moins leur coût et le matériel inclus. Réservée à l'administration, comme le prix figé, le taux et la
+  // marge à l'heure d'un SAV hors contrat (cf. voitCoutMainOeuvre) ; l'assistante technique, qui gère les contrats,
+  // ne la reçoit pas (choix par défaut, le plus restrictif, à confirmer). En session seulement.
+  app.get('/api/contrats-maintenance/:id/marge', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const marge = await margeContrat(paramId(req));
+      if (!marge) return res.status(404).json({ error: 'Contrat de maintenance introuvable.' });
+      res.json(decimalToNumber(marge));
+    } catch (error) {
+      console.error('Contrat de maintenance, marge :', error);
+      res.status(500).json({ error: 'Lecture de la marge du contrat impossible.' });
     }
   });
 

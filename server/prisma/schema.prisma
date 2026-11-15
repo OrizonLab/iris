@@ -310,11 +310,13 @@ model CoutInterventionHeure {
   date                DateTime
   nbrHeures           Decimal      @db.Decimal(10, 2)
   tauxHoraireApplique Decimal      @db.Decimal(10, 2)
-  // Prix de vente à l'heure hors contrat de la main d'œuvre de l'intervenant, copié le jour de la saisie
-  // sur une intervention hors contrat, comme le taux horaire chargé, et figé en base (lot « marge d'un SAV
-  // hors contrat », décisions de Nelson de la nuit du 26 au 27-10-2026, points 4 à 7, et du 27-10-2026 à
-  // 10:27 UTC). Vide pour un intervenant sans main d'œuvre, pour une visite de contrat et pour une heure
-  // saisie avant le lot : l'heure n'est alors pas valorisée dans la marge (interventions/margeSav.ts).
+  // Prix de vente à l'heure de la main d'œuvre de l'intervenant, copié le jour de la saisie comme le taux
+  // horaire chargé, et figé en base : son prix hors contrat sur une intervention hors contrat (lot « marge
+  // d'un SAV hors contrat », décisions de Nelson de la nuit du 26 au 27-10-2026, points 4 à 7, et du
+  // 27-10-2026 à 10:27 UTC), son prix à l'heure sous contrat sur une visite de contrat ou sa suite (lot
+  // « marge d'un contrat », décisions du 15-11-2026). Vide pour un intervenant sans main d'œuvre et pour une
+  // heure saisie avant ces lots : l'heure n'est alors pas valorisée dans la marge (interventions/margeSav.ts,
+  // contrats/marge.ts).
   prixVenteHoraireApplique Decimal? @db.Decimal(12, 2)
   commentaire         String?
   createdById         String
