@@ -135,11 +135,11 @@ export const MONTANTS_MASQUES = [
   // --- Journal des saisies : instantanés avant et après, selon la cible de l'entrée ---
   M('journal-saisie', ['avant.montantHT', 'apres.montantHT'], `saisieSelonDroits : ${MONTANTS_CHANTIER}`, 'chantiers/routes.ts:200-201', { cible: 'ACHAT', voit: [...ADMIN, 'CT', 'AT'], masque: ['TECH'] }),
   M('journal-saisie', ['avant.tauxHoraireApplique', 'apres.tauxHoraireApplique'], `saisieSelonDroits : ${COUT_MO}`, 'chantiers/routes.ts:200-201', { cible: 'HEURE', voit: ADMIN, masque: ['CT', 'AT', 'TECH'] }),
-  M('journal-saisie', ['avant.tauxHoraireApplique', 'apres.tauxHoraireApplique'], `saisieSelonDroits : ${COUT_MO}`, 'interventions/routes.ts:269-270', { cible: 'COUT_INTERVENTION_HEURE', voit: ADMIN, masque: ['CT', 'AT'] }),
-  M('journal-saisie', ['avant.prixVenteHoraireApplique', 'apres.prixVenteHoraireApplique'], `saisieSelonDroits : ${COUT_MO}`, 'interventions/routes.ts:269-270 ; droits/visibilite.ts:41', { cible: 'COUT_INTERVENTION_HEURE', voit: ADMIN, masque: ['CT', 'AT'] }),
-  M('journal-saisie', ['avant.montantHT', 'apres.montantHT'], `saisieSelonDroits : ${MONTANTS_CHANTIER}`, 'interventions/routes.ts:269-270', {
+  M('journal-saisie', ['avant.tauxHoraireApplique', 'apres.tauxHoraireApplique'], `saisieSelonDroits : ${COUT_MO}`, 'interventions/routes.ts:271-272', { cible: 'COUT_INTERVENTION_HEURE', voit: ADMIN, masque: ['CT', 'AT'] }),
+  M('journal-saisie', ['avant.prixVenteHoraireApplique', 'apres.prixVenteHoraireApplique'], `saisieSelonDroits : ${COUT_MO}`, 'interventions/routes.ts:271-272 ; droits/visibilite.ts:41', { cible: 'COUT_INTERVENTION_HEURE', voit: ADMIN, masque: ['CT', 'AT'] }),
+  M('journal-saisie', ['avant.montantHT', 'apres.montantHT'], `saisieSelonDroits : ${MONTANTS_CHANTIER}`, 'interventions/routes.ts:271-272', {
     cible: 'COUT_INTERVENTION_ACHAT', voit: [...ADMIN, 'CT', 'AT'],
-    inatteignable: 'seul le technicien perd ce montant, et le journal SAV lui est refusé (403) avant toute lecture (interventions/routes.ts:267)',
+    inatteignable: 'seul le technicien perd ce montant, et le journal SAV lui est refusé (403) avant toute lecture (interventions/routes.ts:269)',
   }),
 
   // --- Fiches intervenant ---

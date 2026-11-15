@@ -35,6 +35,22 @@ test('détail de la marge d’un contrat : une seule intervention au singulier, 
   assert.match(detailMargeContrat({ ...MARGE, nombreInterventions: 2 }, euros), /^Heures des 2 interventions du contrat, depuis son début,/);
 });
 
+// Notes N3 et N4 du contrôle de cohérence et N4 de l'audit des montants : les interventions annulées, comptées dans la
+// portée (nombreInterventions les comprend), y sont nommées ; leurs heures gardent leur coût sans être vendues.
+test('détail de la marge d’un contrat : interventions annulées nommées dans la portée, au singulier ou au pluriel, rien sans annulée', () => {
+  const suite = ', depuis son début, vendues <236.02> HT au prix sous contrat des mains d’œuvre, moins leur coût de <205.35> HT.';
+  // k = 0 : aucune mention, sur une ou plusieurs interventions.
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 1, nombreInterventionsAnnulees: 0 }, euros), `Heures de l’intervention du contrat${suite}`);
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 3, nombreInterventionsAnnulees: 0 }, euros), `Heures des 3 interventions du contrat${suite}`);
+  // k = 1 sur n = 1 : la seule intervention est annulée.
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 1, nombreInterventionsAnnulees: 1 }, euros), `Heures de l’intervention du contrat (annulée)${suite}`);
+  // k = 1 sur n > 1 : singulier ; k = 2 : pluriel (écarte un accord sur n, et « dont 2 annulée »).
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 3, nombreInterventionsAnnulees: 1 }, euros), `Heures des 3 interventions du contrat (dont 1 annulée)${suite}`);
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 3, nombreInterventionsAnnulees: 2 }, euros), `Heures des 3 interventions du contrat (dont 2 annulées)${suite}`);
+  // Toutes annulées sur n > 1 : « dont » reste, au pluriel.
+  assert.equal(detailMargeContrat({ ...MARGE, nombreInterventions: 2, nombreInterventionsAnnulees: 2 }, euros), `Heures des 2 interventions du contrat (dont 2 annulées)${suite}`);
+});
+
 test('détail de la marge d’un contrat : matériel inclus compté à son coût dans la phrase, matériel hors forfait montré à part, hors marge', () => {
   // Décision « Selon la politique » : matériel inclus compté à son coût ; hors forfait exclu de la marge, montré à part
   // (choix par défaut d'affichage, à confirmer).
@@ -95,9 +111,9 @@ test('signalements : un contrat annulé n’a qu’un signalement, sans marge in
   // Décision « Coût seul, non vendues (Recommandé) » : aucune heure vendue, coût gardé. Le serveur envoie alors toutes les
   // heures en heuresAnnulees et aucun intervenant non valorisé ; même si des champs l'étaient, seul ce signalement reste.
   assert.deepEqual(alertesMargeContrat({ ...MARGE, contratAnnule: true, ventesHT: 0, heuresAnnulees: 4.5 }), [
-    'Contrat annulé : aucune heure n’est vendue ; leur coût reste compté.',
+    'Contrat annulé : ses heures ne sont pas vendues ; leur coût reste compté.',
   ]);
   assert.deepEqual(alertesMargeContrat({ ...MARGE, contratAnnule: true, heuresAnnulees: 4.5, heuresNonValorisees: 1, intervenantsNonValorises: ['TEST Dupont'] }), [
-    'Contrat annulé : aucune heure n’est vendue ; leur coût reste compté.',
+    'Contrat annulé : ses heures ne sont pas vendues ; leur coût reste compté.',
   ]);
 });

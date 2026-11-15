@@ -59,7 +59,8 @@ test('l’administration voit la marge d’un contrat au prix sous contrat, son 
   // Ventes : 3 h × 43,70 € = 131,10 € (au prix hors contrat, 156,90 €) ; coûts : 3 h × 25 € + 0,5 h × 20 € + 0,5 h × 25 €
   // (suite annulée) = 97,50 € ; matériel inclus 12,50 € ; marge 131,10 − 97,50 − 12,50 = 21,10 €.
   await expect(detail).toContainText(/Marge à l’heure : 21,10\s€ HT/);
-  await expect(detail).toContainText(/Heures des 2 interventions du contrat, depuis son début, vendues 131,10\s€ HT au prix sous contrat des mains d’œuvre, moins leur coût de 97,50\s€ HT et le matériel inclus au contrat, à son coût de 12,50\s€ HT\./);
+  // La suite annulée est nommée dans la portée (notes N3 et N4 du contrôle de cohérence, N4 de l'audit des montants).
+  await expect(detail).toContainText(/Heures des 2 interventions du contrat \(dont 1 annulée\), depuis son début, vendues 131,10\s€ HT au prix sous contrat des mains d’œuvre, moins leur coût de 97,50\s€ HT et le matériel inclus au contrat, à son coût de 12,50\s€ HT\./);
   const notes = detail.getByRole('note');
   await expect(notes).toHaveCount(2);
   await expect(notes.nth(0)).toHaveText(`Marge incomplète : 0,5 h sans prix de vente (${sansMainOeuvre.fiche.nom}). Une heure d’un intervenant sans main d’œuvre le jour de la saisie, ou saisie avant la valorisation sous contrat, n’est pas vendue ; son coût reste compté.`);

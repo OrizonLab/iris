@@ -652,6 +652,48 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await lireMarge(horsForfait.id), attendu);
     });
 
+    // « Oui, valoriser (Recommandé) » appliqué à la saisie : la copie du prix ne dépend pas de la politique de main
+    // d'œuvre, ni de celle figée sur la visite, ni de celle du contrat le jour de la saisie (le test précédent écrit ses
+    // heures en base et n'éprouve que la lecture). Le serveur fixe seul le prix et le taux : ceux qu'envoie le technicien
+    // sont ignorés (cadrage, périmètre 1 ; audit des montants).
+    test('saisie d’une heure sur la visite d’un contrat à main d’œuvre incluse, avant et après un changement de couverture : prix sous contrat figé ; prix et taux envoyés ignorés', async () => {
+      const mainOeuvre = await creerMainOeuvre({ horsContrat: '52.30', sousContrat: '43.70' });
+      const tech = await technicien('mo-incluse-saisie', '30', mainOeuvre.id);
+      const incluse = await creerContrat({ politiqueMainOeuvre: 'INCLUSE', politiqueMateriel: 'INCLUS' });
+      const horsForfait = await creerContrat({ politiqueMainOeuvre: 'HORS_FORFAIT', politiqueMateriel: 'INCLUS' });
+      const visiteIncluse = await genererVisite(incluse);
+      const visiteHorsForfait = await genererVisite(horsForfait);
+      assert.deepEqual([visiteIncluse.couvertureContrat?.politiqueMainOeuvre, visiteHorsForfait.couvertureContrat?.politiqueMainOeuvre], ['INCLUSE', 'HORS_FORFAIT']);
+      await affecter(visiteIncluse.id, tech.fiche);
+      await affecter(visiteHorsForfait.id, tech.fiche);
+
+      // Visite et contrat à main d'œuvre incluse ; le corps porte un prix et un taux, que le serveur ignore. Écarte : pas
+      // de prix pour une main d'œuvre incluse (option « Non si incluse »), le prix hors contrat (52,30), le prix envoyé.
+      const envoyee = await envoyer('post', `/api/interventions/${visiteIncluse.id}/couts/heures`, tech.auth, {
+        date: await aujourdhui(), nbrHeures: 1, prixVenteHoraireApplique: '999.99', tauxHoraireApplique: '1',
+      });
+      assert.equal(envoyee.status, 201, JSON.stringify(envoyee.body));
+      assert.equal('prixVenteHoraireApplique' in envoyee.body, false, 'aucun prix renvoyé au technicien');
+      const ligne = await prisma.coutInterventionHeure.findUniqueOrThrow({ where: { id: envoyee.body.id } });
+      assert.deepEqual([Number(ligne.prixVenteHoraireApplique), Number(ligne.tauxHoraireApplique)], [43.7, 30]);
+      // Couverture passée hors forfait : la visite garde son instantané « incluse ».
+      await changerCouverture(incluse, { politiqueMainOeuvre: 'HORS_FORFAIT' });
+      assert.equal(await prixEnBase((await saisir(tech, visiteIncluse.id, 0.5)).id), 43.7);
+      // Visite figée hors forfait, contrat passé à main d'œuvre incluse : la politique du jour ne change rien.
+      await changerCouverture(horsForfait, { politiqueMainOeuvre: 'INCLUSE' });
+      assert.equal(await prixEnBase((await saisir(tech, visiteHorsForfait.id, 0.25)).id), 43.7);
+
+      // Contrat d'abord à main d'œuvre incluse : 1 × 43,70 + 0,5 × 43,70 (21,85) = 65,55 ; coûts 30 + 15 = 45 ; marge
+      // 20,55. Contrat passé à main d'œuvre incluse : 0,25 × 43,70 (10,925 → 10,93) ; coût 7,50 ; marge 3,43.
+      assert.deepEqual([euros(sommeLignes([['1', '43.70'], ['0.5', '43.70']])), euros(sommeLignes([['0.25', '43.70']]))], [65.55, 10.93]);
+      assert.deepEqual(await lireMarge(incluse.id), {
+        ...MARGE_VIDE, ventesHT: 65.55, coutsHT: 45, margeHT: 20.55, heuresValorisees: 1.5, nombreInterventions: 1,
+      });
+      assert.deepEqual(await lireMarge(horsForfait.id), {
+        ...MARGE_VIDE, ventesHT: 10.93, coutsHT: 7.5, margeHT: 3.43, heuresValorisees: 0.25, nombreInterventions: 1,
+      });
+    });
+
     // « Selon la politique » et « Figée sur la visite (Recommandé) » : chaque intervention garde l'instantané de la
     // couverture pris à sa création ; un changement de couverture ne modifie pas les visites passées. Lecture retenue :
     // une intervention sans instantané suit la politique matériel actuelle du contrat.
@@ -797,6 +839,31 @@ if (!TEST_DATABASE_URL) {
       assert.equal(inexistantRefuse.status, 403);
 
       assert.deepEqual(await empreinteBase(prisma, tables), avant, 'aucune lecture de la marge n’écrit');
+    });
+
+    // Audit des droits (T1) : le réglage « Rentabilité : directeurs » ne masque au directeur que les chantiers (réponse de
+    // Nelson du 06-11-2026, « Chantiers seulement » : « Le reste (tableau de bord, commissions, factures, coûts, prix
+    // d'achat) comme l'administration ») ; décoché, le directeur lit toujours la marge d'un contrat, comme l'administration.
+    test('droits : réglage « Rentabilité : directeurs » décoché, le directeur lit encore la marge du contrat, à l’identique de l’administration', async () => {
+      const contrat = await creerContrat();
+      const visite = await genererVisite(contrat);
+      await heure(visite.id, await fiche(`TEST Marge contrat directeur ${unique()}`), '1', '30', '43.70');
+      const directeur = (await creerCompte('DIRECTEUR', 'directeur-reglage')).auth;
+      const attendu = { ...MARGE_VIDE, ventesHT: 43.7, coutsHT: 30, margeHT: 13.7, heuresValorisees: 1, nombreInterventions: 1 };
+      const regler = async (valeur) => {
+        const res = await envoyer('put', '/api/parametres', admin, { rentabiliteDirecteurs: valeur });
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal((await prisma.parametres.findFirstOrThrow()).rentabiliteDirecteurs, valeur);
+      };
+      await regler(false);
+      try {
+        const res = await marge(contrat.id, directeur);
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.deepEqual(res.body, attendu);
+        assert.deepEqual(res.body, await lireMarge(contrat.id), 'même réponse que l’administration');
+      } finally {
+        await regler(true);
+      }
     });
   });
 }
