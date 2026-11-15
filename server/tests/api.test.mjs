@@ -21673,7 +21673,11 @@ if (!TEST_DATABASE_URL) {
       assert.equal('margeSav' in lectureTechnicien.body, false);
     });
 
-    test('une heure saisie sur une visite de contrat ne reçoit pas de prix de vente hors contrat', async () => {
+    // Lot « marge d'un contrat » (décisions de Nelson du 27-10-2026, « Oui prix du catalogue, continue », et du
+    // 15-11-2026, « Celle de l'intervenant », « Figé à la saisie ») : la visite reçoit le prix à l'heure sous contrat
+    // de la main d'œuvre (41 € dans corpsMainOeuvre), et non son prix hors contrat (45,50 €) ; avant ce lot, aucun prix.
+    // Les autres cas sont dans marge-contrat.test.mjs.
+    test('une heure saisie sur une visite de contrat reçoit le prix à l’heure sous contrat, et non le prix hors contrat', async () => {
       const mainOeuvre = await creerMainOeuvre('TEST-MSAV-VISITE', '45.50');
       const tech = await technicien('visite', 30, mainOeuvre.id);
       const contrat = await prisma.contratMaintenance.create({ data: {
@@ -21684,7 +21688,7 @@ if (!TEST_DATABASE_URL) {
         reference: `I26-MSAV-${suffixe}`, clientId: client.id, contratMaintenanceId: contrat.id, dateDemande: contrat.prochaineEcheance, titre: 'TEST Marge SAV visite',
       } });
       await affecter(visite.id, tech.fiche);
-      assert.equal(await prixEnBase((await saisir(tech, visite.id, 1)).id), null);
+      assert.equal(await prixEnBase((await saisir(tech, visite.id, 1)).id), 41);
       const lecture = await couts(visite.id);
       assert.equal(lecture.status, 200, JSON.stringify(lecture.body));
       assert.equal(lecture.body.margeSav, null, 'une visite de contrat n’a pas de marge à l’heure hors contrat');
@@ -21785,9 +21789,9 @@ if (!TEST_DATABASE_URL) {
       assert.equal(marge.heuresSuitesAnnulees, 3);
     });
 
-    // Audit n° 1 de #354 : la suite d'une visite reprend son contrat ; elle ne reçoit pas davantage le prix hors
-    // contrat, qui resterait figé sur ses heures quand viendra la valorisation sous contrat (lot à part).
-    test('une heure saisie sur la suite d’une visite de contrat ne reçoit pas de prix de vente hors contrat', async () => {
+    // Audit n° 1 de #354 : la suite d'une visite reprend son contrat ; elle ne reçoit pas le prix hors contrat. Depuis
+    // le lot « marge d'un contrat », elle reçoit le prix à l'heure sous contrat (41 €), comme la visite.
+    test('une heure saisie sur la suite d’une visite de contrat reçoit le prix à l’heure sous contrat, et non le prix hors contrat', async () => {
       const mainOeuvre = await creerMainOeuvre('TEST-MSAV-SUITE-VISITE', '45.50');
       const tech = await technicien('suite-visite', 30, mainOeuvre.id);
       const contrat = await prisma.contratMaintenance.create({ data: {
@@ -21800,7 +21804,7 @@ if (!TEST_DATABASE_URL) {
       const suite = await suiteDe(visite.id);
       assert.equal(suite.contratMaintenanceId, contrat.id);
       await affecter(suite.id, tech.fiche);
-      assert.equal(await prixEnBase((await saisir(tech, suite.id, 1)).id), null);
+      assert.equal(await prixEnBase((await saisir(tech, suite.id, 1)).id), 41);
       assert.equal((await couts(suite.id)).body.margeSav, null);
     });
 

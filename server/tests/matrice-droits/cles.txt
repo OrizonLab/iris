@@ -1048,6 +1048,7 @@ CLE-TOUS-SCOPES | GET /api/contrats-maintenance | — | défaut | 401 « Session
 CLE-TOUS-SCOPES | GET /api/contrats-maintenance/:id/document.pdf | inexistant | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/contrats-maintenance/:id/envois | inexistant | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/contrats-maintenance/:id/journal-saisies | inexistant | défaut | 401 « Session expirée ou invalide »
+CLE-TOUS-SCOPES | GET /api/contrats-maintenance/:id/marge | inexistant | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/contrats-maintenance/generation-visites | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/devis | — | défaut | 401 « Session expirée ou invalide »
 CLE-TOUS-SCOPES | GET /api/devis/:id/document.pdf | inexistant | défaut | 401 « Session expirée ou invalide »

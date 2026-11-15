@@ -82,6 +82,9 @@ export const ROUTES_SESSION = {
   'GET /api/contrats-maintenance/generation-visites': L(),
   'POST /api/contrats-maintenance/generation-visites': C3(),
   'GET /api/contrats-maintenance/:id/journal-saisies': L('contrat'),
+  // Marge d'un contrat (lot « marge d'un contrat », cadrage v3, § 3) : l'administration seule (requireAdmin), assistante
+  // technique comprise refusée ; ses montants sont éprouvés par marge-contrat.test.mjs.
+  'GET /api/contrats-maintenance/:id/marge': L('contrat'),
   'GET /api/contrats-maintenance/:id/document.pdf': L('contrat'),
   'GET /api/contrats-maintenance/:id/envois': L('contrat'),
   'POST /api/contrats-maintenance/:id/envois': A('contrat'),

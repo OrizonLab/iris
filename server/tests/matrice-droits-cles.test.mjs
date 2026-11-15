@@ -418,8 +418,9 @@ if (!TEST_DATABASE_URL) {
     test('aucune clé n’ouvre une route de session : la clé qui porte les 13 scopes reçoit 401 sur chaque route de session, sans rien écrire', async () => {
       const routesSession = Object.keys(ROUTES_SESSION);
       // 191, plus GET /api/factures/:id/reglements (AT-3 : règlements reçus par une pièce, en lecture), plus
-      // GET /api/factures/deja-facturee (AT-4 : repère « déjà facturée », session seulement).
-      assert.equal(routesSession.length, 193, 'routes de session de la table de D1a-1');
+      // GET /api/factures/deja-facturee (AT-4 : repère « déjà facturée », session seulement), plus
+      // GET /api/contrats-maintenance/:id/marge (lot « marge d'un contrat » : administration seule, session seulement).
+      assert.equal(routesSession.length, 194, 'routes de session de la table de D1a-1');
       const cas = routesSession.map((cle) => {
         const [methode, chemin] = cle.split(' ');
         const definition = ROUTES_SESSION[cle];
