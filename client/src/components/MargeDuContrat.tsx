@@ -17,8 +17,9 @@ export function MargeDuContrat({ contratId, titre }: { contratId: string; titre:
     setErreur('');
     try {
       const reponse = await apiFetch(`/contrats-maintenance/${encodeURIComponent(contratId)}/marge`);
-      const donnees = await reponse.json();
-      if (!reponse.ok) throw new Error(donnees.error || ERREUR_LECTURE);
+      // Une réponse d'erreur sans corps JSON (proxy, panne) garde le message de l'écran.
+      const donnees = await reponse.json().catch(() => null);
+      if (!reponse.ok || !donnees) throw new Error(donnees?.error || ERREUR_LECTURE);
       setMarge(donnees as MargeContrat);
     } catch (error) {
       setMarge(null);
