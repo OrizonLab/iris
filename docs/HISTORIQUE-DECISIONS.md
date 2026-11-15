@@ -4978,7 +4978,7 @@ Complète la section des décisions du 14-11-2026, qui consigne le message de Ne
 
 Demande de Nelson, mot pour mot (message de la session de travail ; ce n'est pas une décision) : « ok continuedt ce que je pourrai reprendre ou on s'etait arreté et notemment dur des question qui restait ouverte ? Et la methode de codage et verification et test le tout fait avec plusieurs sous agent est ce bien renseigné dans le repo ou doit on encore faire une consigne en plus pour la passationa une autre session que ici pour reprendre le reste du developpement ? »
 
-Réponse de Claude Code (constat, non une décision) : la méthode est dans `CLAUDE.md` et `.claude/agents/` ; il manquait un point de reprise court, les pratiques de l'environnement et la mention des sessions à ouvrir sur `OrizonLab/iris`. La PR documentaire de reprise y répond par la section « Point de reprise (14-11-2026) » de la [passation](ROADMAP-PASSATION.md#point-de-reprise-14-11-2026), la sous-section « Session cloud de Claude Code » de la configuration et ce lot. `CLAUDE.md` n'est pas modifié par cette PR.
+Réponse de Claude Code (constat, non une décision) : la méthode est dans `CLAUDE.md` et `.claude/agents/` ; il manquait un point de reprise court, les pratiques de l'environnement et la mention des sessions à ouvrir sur `OrizonLab/iris`. La PR documentaire de reprise y répond par la section « Point de reprise (14-11-2026) » de la [passation](ROADMAP-PASSATION.md) (première section du fichier, redatée à chaque reprise), la sous-section « Session cloud de Claude Code » de la configuration et ce lot. `CLAUDE.md` n'est pas modifié par cette PR.
 
 ### Passage hebdomadaire du contrôleur
 
@@ -5131,6 +5131,34 @@ Soit 2 minutes au lieu de 44 à 52 pour les PR documentaires d'avant. **À mesur
 - **#545** (`suivi-audit`, ouverte) : les Dockerfiles installent en `npm install`.
 - **Hors périmètre, versés à la passation comme questions** (section 3, bloc « Dépendances et CI (#544, #546) ») : contrôle `npm audit` en CI ; Node 20 dans la CI et les images, en fin de vie selon le calendrier de Node ; passage à react-router 8 ; N4 de l'audit de #544 (l'empreinte de `jsonParser` dans `server/scripts/routes.mjs` ne voit pas les changements internes de body-parser).
 - **Dépendances** : les issues #168 à #174 et #385, citées comme ouvertes dans les états précédents, sont fermées par #544 ; ces états gardent leur texte d'origine.
+- **Mesures faites** (14-11-2026, après la fusion de #547, publiées sur #546, commentaire 6885310118) : la série complète de `main` de `445d310` (43645767419) coûte 53 min facturables, la série légère de `main` de `8ee2d69` (43649056924) 2 min.
+- **Confirmation de Nelson, 15-11-2026** : la règle des 7 jours, le risque accepté de l'attestation et la lecture « une seule série de CI » (avec ses deux compléments) sont confirmés ; les mentions « choix par défaut, à confirmer » ci-dessus, pour ces trois choix, sont levées : [Décision du 15-11-2026](#décision-du-15-11-2026-sur-les-choix-par-défaut-de-544-et-546).
+
+## Décision du 15-11-2026 sur les choix par défaut de #544 et #546
+
+*Rédigé le 15-11-2026.* Message de Nelson dans la session de travail, mot pour mot : « Ok continu je valide ce que tu as proposer. »
+
+**À quoi il répond.** Au compte rendu final de Claude Code, après les fusions de #544, #546 et #547. Ce compte rendu soumettait à Nelson, dans une section « Choix que je t'ai laissés à confirmer », exactement trois choix, cités mot pour mot :
+
+- **Règle des 7 jours** : « je prends la version la plus récente sans faille connue, publiée depuis au moins 7 jours, pour éviter une publication compromise. Par exemple, dompurify 3.4.18, sortie le jour même, a été écartée au profit de la 3.4.17. »
+- **Un risque résiduel sur la CI** : « une PR empilée sur un workflow modifié pourrait faire passer pour validé un arbre qui ne l'est pas, et éviter ainsi les tests sur `main`. Je l'ai accepté parce que seuls toi et moi poussons. C'est à toi de dire si ce risque est acceptable, puisque ta consigne était « sans affaiblir les contrôles ». »
+- **« Regroupe les corrections d'audit »** : « je l'ai lu comme « une seule série de CI par passage de corrections ». Pour ne rien perdre si le conteneur redémarre, je pousse les sauvegardes intermédiaires avec un marqueur qui ne lance aucune série. »
+
+Sa section « Incidents » ajoutait : « la règle interdit désormais de relancer la CI par un commit vide ou une réécriture ».
+
+**Les trois choix confirmés** :
+
+1. **La règle des 7 jours** (#544) : pour chaque dépendance, la version la plus récente sans faille connue, publiée depuis au moins 7 jours. Une version plus jeune n'est retenue que si aucune plus ancienne ne corrige les avis connus.
+2. **Le risque résiduel accepté sur l'attestation de la CI** (#546). Une PR empilée sur un workflow modifié pourrait faire passer pour validé un arbre qui ne l'est pas, par la limite de l'attestation par `HEAD^2`. Ce risque est accepté parce que seuls Nelson et Claude Code poussent.
+3. **La lecture « une seule série de CI » de « Regroupe les corrections d'audit avant de pousser »** (#546), avec ses deux compléments : les sauvegardes intermédiaires sur une PR ouverte se poussent avec le jeton de saut de GitHub, qui ne lance aucune série ; le push qui lance la série porte un changement réel, jamais un commit vide ni une réécriture.
+
+**Lecture retenue** (de Claude Code, à corriger par Nelson si besoin) : « je valide ce que tu as proposer » porte sur ces trois choix, et sur eux seuls ; « continu » est lu comme : poursuivre le travail. Deux précisions, absentes des trois puces, sont rangées dans ces choix tels que la passation les décrit (section 4) : l'exception de la règle des 7 jours (une version plus jeune quand aucune plus ancienne ne corrige les avis connus), et le push qui lance la série, porteur d'un changement réel, que le compte rendu citait dans ses « Incidents » et que `CLAUDE.md` rattache à la même lecture.
+
+**Restent « choix par défaut, à confirmer »** : l'extension de la règle de regroupement au contrôle de cohérence quand il tourne en parallèle, les variables propres au workflow hors de la règle permanente 3, l'alias `html2pdf.js` et la garde des journaux de #544, la préférence générale sur les paquets au-delà de #544 (lecture retenue, section « [Décisions du 14-11-2026 sur les failles des dépendances et la consommation de la CI](#décisions-du-14-11-2026-sur-les-failles-des-dépendances-et-la-consommation-de-la-ci) »), et tous les choix plus anciens.
+
+**Prochain lot** (question 8 de la passation, posée par Claude Code dans la même session, juste après ce message). Nelson a choisi l'option « Valorisation sous contrat (Recommandé) », décrite comme « Lot prévu, décidé le 27-10-2026, non codé : valoriser au prix sous contrat du catalogue, à l'heure, les heures des visites de maintenance et de leurs suites, pour leur marge (le hors contrat est fait par #354). Lot de montants : audit des montants, puis ta validation comptable. » Le lot est désigné, pas encore cadré ; son cadrage passe au `controleur-coherence` avant le code. Les deux autres options, « Questions métier d'abord » et « Suivis techniques » (#545, #548), n'ont pas été retenues ; les questions prioritaires restent posées.
+
+**Où c'est appliqué** : passation, section 4, blocs « Dépendances : failles corrigées, règle des 7 jours, html2pdf.js et garde des journaux (#544) » et « Consommation de la CI (#546) » ; [`CLAUDE.md`](../CLAUDE.md#mode-de-livraison) ; [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md#consommation-de-la-ci). Lot concerné : [Lot du 14-11-2026 (#544, #546)](#lot-du-14-11-2026-544-546).
 
 ## En-tête de la passation au 30-10-2026
 
