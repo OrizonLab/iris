@@ -4,7 +4,7 @@ import { prisma } from '../../db';
 import { ROLE_SUPERADMIN } from '../../droits/roles';
 import { permissionsEffectives } from '../../droits/permissions';
 import { type AuthRequest, JWT_SECRET, requireAuth } from '../../http/auth';
-import { AZURE_TENANT_ID, AZURE_CLIENT_ID, SSO_CONFIGURED, resolveAuthorizedSsoUser, verifyMicrosoftIdentity } from './sso';
+import { AZURE_TENANT_ID, AZURE_CLIENT_ID, SSO_CONFIGURED, autoriserConnexionMicrosoft, tracerRefusSso, verifyMicrosoftIdentity } from './sso';
 import {
   BREAK_GLASS_EMAIL, BREAK_GLASS_TOKEN, BREAK_GLASS_MIN_LONGUEUR, BREAK_GLASS_ACTIF, BREAK_GLASS_ADRESSE_RESERVEE, secretIdentique, essaisSecours, tropDEssaisSecours,
 } from './secours';
@@ -25,23 +25,30 @@ export function enregistrerRoutesAuthentification(app: Express): void {
   });
 
   // Connexion via SSO Microsoft — point d'application de la couche d'autorisation.
-  // Une fois l'identité Microsoft VÉRIFIÉE, l'email est confronté à la liste blanche
-  // (table User) : autorisé => jeton applicatif avec le rôle associé ; sinon 403 (le client
-  // redirige alors vers « /acces-refuse »). Le flux OAuth lui-même reste à câbler ; tant que
-  // le SSO n'est pas configuré la route est inactive et n'émet aucun jeton.
+  // Une fois l'identité Microsoft VÉRIFIÉE (adresse, oid et tid du jeton), elle est confrontée aux
+  // comptes (table User) sur l'identifiant immuable, lié à la première connexion (#264,
+  // autoriserConnexionMicrosoft) : autorisé => jeton applicatif avec le rôle associé ; aucun compte
+  // actif => 403 (le client redirige alors vers « /acces-refuse ») ; adresse et identifiants qui
+  // désignent deux comptes différents => la même réponse 401 qu'un jeton invalide, sans détail, et
+  // une trace serveur. Tant que le SSO n'est pas configuré la route est inactive et n'émet aucun jeton.
   app.post('/api/auth/sso', async (req, res) => {
     try {
       if (!SSO_CONFIGURED) {
         return res.status(503).json({ code: 'SSO_NOT_CONFIGURED', error: "La connexion Microsoft SSO n'est pas encore activée. Contactez l'administrateur." });
       }
-      const email = await verifyMicrosoftIdentity(req);
-      if (!email) {
+      const identite = await verifyMicrosoftIdentity(req);
+      if (!identite) {
         return res.status(401).json({ code: 'SSO_TOKEN_INVALID', error: 'Jeton Microsoft invalide ou non vérifié.' });
       }
-      const user = await resolveAuthorizedSsoUser(email);
-      if (!user) {
+      const connexion = await autoriserConnexionMicrosoft(identite);
+      if (connexion.statut === 'REFUSEE') {
+        tracerRefusSso(req, connexion.motif);
+        return res.status(401).json({ code: 'SSO_TOKEN_INVALID', error: 'Jeton Microsoft invalide ou non vérifié.' });
+      }
+      if (connexion.statut === 'NON_AUTORISEE') {
         return res.status(403).json({ code: 'SSO_NOT_AUTHORIZED', error: "Accès refusé : votre compte n'est pas autorisé. Contactez l'administrateur." });
       }
+      const user = connexion.compte;
       const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
       res.json({ token, user: { ...user, permissions: permissionsEffectives(user) } });
     } catch (error) {

@@ -13,8 +13,9 @@ server/
     db.ts               client Prisma, transactionVerifiee
     app.ts              l'application Express, créée après le chargement de .env
     demarrage.ts        initialisation de la base, comptes super administrateurs de départ,
-                        délais de connexion du serveur HTTP, configuration refusée au
-                        démarrage (MICROSOFT_GRAPH_URL non admise)
+                        délais de connexion du serveur HTTP, proxys de confiance
+                        (TRUST_PROXY), configuration refusée au démarrage
+                        (MICROSOFT_GRAPH_URL non admise, TRUST_PROXY hors forme)
     http/               couche HTTP commune à tous les domaines
       auth.ts           secret JWT, requireAuth, AuthRequest, branche hiérarchique
       gardes.ts         gardes de type de compte (requireAdmin, blockCommercial…)
