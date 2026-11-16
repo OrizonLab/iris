@@ -29650,6 +29650,10 @@ if (!TEST_DATABASE_URL) {
       const valeurs = [];
       JSON.parse(brut, (_cle, valeur) => { if (typeof valeur === 'number' || typeof valeur === 'string') valeurs.push(String(valeur)); return valeur; });
       for (const absent of ['29.99', '1000', '1015.55', '50']) assert.ok(!valeurs.includes(absent), `absent de sa lecture : ${absent}`);
+      // Montants décimaux de l'administration écrits dans un texte de la réponse (un libellé, par exemple) : l'ancienne recherche
+      // dans le texte les trouvait, la comparaison aux valeurs ne les voit pas. Un deux-points ou un chiffre avant eux les écarte
+      // des secondes d'un horodatage ISO (« :29.99… »), seule source de faux positif (audit des droits de la PR de suivi, T).
+      assert.doesNotMatch(brut, /(?<![\d:])(?:29\.99|1015\.55)(?!\d)/, 'montant de l’administration écrit dans un texte de sa lecture');
       assert.deepEqual(parElle.body.parts.map((p) => p.id).sort(), (await prisma.affectationReglement.findMany({ where: { factureId: fa.id }, select: { id: true } })).map((a) => a.id).sort());
       // La facture de l'administration lui reste fermée, règlements compris.
       assert.deepEqual([(await lire(`/api/factures/${fb.id}/reglements`, assistante)).status], [404]);
