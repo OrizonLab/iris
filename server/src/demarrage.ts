@@ -9,15 +9,38 @@ import { normalizeEmail } from './domaines/authentification/sso';
 import { libelleCompteJournal, delierFicheSiPlusTechnicien, journaliserDroitsCompte, lireCompteVerrouille, ISOLATION_RETRAIT } from './domaines/utilisateurs/comptes';
 import { adresseGraph } from './domaines/documents/microsoftGraph';
 
+// --- Proxys de confiance (#261, décision de Nelson du 16-11-2026) ---
+// TRUST_PROXY, lue dans server/.env : nombre de proxys inverses de confiance devant le backend, pour le
+// réglage `trust proxy` d'Express (index.ts). L'adresse du client (req.ip), qui compte les essais de
+// l'accès de secours et figure dans ses journaux, est alors celle que le plus lointain de ces proxys a
+// vue, lue dans X-Forwarded-For. Absente ou vide : 0, aucun proxy, l'adresse de la connexion elle-même
+// (comportement d'avant, sûr ; choix par défaut, à confirmer). Seul un entier de 0 à 5 est admis :
+// `true` ferait confiance au premier X-Forwarded-For venu, que le client écrit lui-même (#168), et une
+// liste d'adresses supposerait celles du réseau Docker connues d'avance. Rendu null pour toute autre
+// valeur, que verifierConfigurationDemarrage refuse.
+export const PROXYS_DE_CONFIANCE_MAX = 5;
+export function proxysDeConfiance(): number | null {
+  const valeur = process.env.TRUST_PROXY?.trim() ?? '';
+  if (valeur === '') return 0;
+  if (!/^(0|[1-9][0-9]*)$/.test(valeur)) return null;
+  const nombre = Number(valeur);
+  return nombre <= PROXYS_DE_CONFIANCE_MAX ? nombre : null;
+}
+
 // --- Configuration refusée au démarrage ---
 // Comme un JWT_SECRET absent en production (http/auth.ts), une configuration dangereuse arrête le
 // serveur avant qu'il n'écoute. MICROSOFT_GRAPH_URL (lot 6b-1b, réservée aux tests) hors des adresses
 // admises (domaines/documents/microsoftGraph.ts) porterait les jetons Microsoft des utilisateurs
 // ailleurs que chez Microsoft ou que sur le poste de test : aucun appel n'est fait, et le démarrage est
-// refusé. La valeur refusée n'est pas recopiée dans le message : elle pourrait porter des identifiants.
+// refusé. TRUST_PROXY hors forme (#261) laisserait un client forger son adresse, ou ferait compter tous
+// les clients pour une seule : le démarrage est refusé de même. La valeur refusée n'est pas recopiée
+// dans le message : elle pourrait porter des identifiants.
 export function verifierConfigurationDemarrage(): void {
   if (adresseGraph() === null) {
     throw new Error('MICROSOFT_GRAPH_URL refusée : seules https://graph.microsoft.com/… et, pour les tests, http://127.0.0.1:<port>… ou http://localhost:<port>… sont admises. Retirez-la de server/.env en production.');
+  }
+  if (proxysDeConfiance() === null) {
+    throw new Error(`TRUST_PROXY refusée : seul un nombre entier de proxys de confiance, de 0 à ${PROXYS_DE_CONFIANCE_MAX}, est admis (absente ou vide : 0, aucun proxy). Corrigez-la dans server/.env.`);
   }
 }
 

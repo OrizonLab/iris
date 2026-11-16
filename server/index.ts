@@ -60,12 +60,17 @@ import { weekBoundsFrom, periodBounds } from './src/domaines/statistiques/metier
 import { enregistrerRoutesStatistiques } from './src/domaines/statistiques/routes';
 import { commissionBaremeProgressif } from './src/domaines/commissions/metier';
 import { enregistrerRoutesCommissions } from './src/domaines/commissions/routes';
-import { initDb, ensureSuperAdmins, reglerDelaisConnexion, verifierConfigurationDemarrage } from './src/demarrage';
+import { initDb, ensureSuperAdmins, reglerDelaisConnexion, verifierConfigurationDemarrage, proxysDeConfiance } from './src/demarrage';
 
 const port = process.env.PORT || 3001;
 
 // Ne pas révéler la techno serveur (en-tête `X-Powered-By: Express`).
 app.disable('x-powered-by');
+
+// Proxys de confiance (#261) : TRUST_PROXY, lue une fois ici, après le chargement de server/.env
+// (src/demarrage.ts). Une valeur hors forme vaut 0, aucun proxy, le temps que
+// verifierConfigurationDemarrage refuse le démarrage, plus bas.
+app.set('trust proxy', proxysDeConfiance() ?? 0);
 
 app.use(cors());
 // Le seul import du plan peut atteindre 5 000 comptes ; les autres routes gardent la limite par défaut.
@@ -172,8 +177,8 @@ app.use(transmettreErreurReduite);
 // peuvent alors tourner en parallèle sans se disputer le 3001, et aucun test n'oublie de
 // fermer un serveur derrière lui.
 if (require.main === module) {
-  // Une configuration refusée (MICROSOFT_GRAPH_URL hors des adresses admises) arrête le processus
-  // avant toute écoute, avec son message.
+  // Une configuration refusée (MICROSOFT_GRAPH_URL hors des adresses admises, TRUST_PROXY hors forme)
+  // arrête le processus avant toute écoute, avec son message.
   try {
     verifierConfigurationDemarrage();
   } catch (error) {

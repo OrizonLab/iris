@@ -5336,6 +5336,87 @@ Validation comptable de Nelson requise après la fusion, avant toute mise en ser
 
 **Où c'est appliqué** : passation, point de reprise, en-tête d'état, sections 1 et 2 (quatre lectures confirmées, la cinquième à confirmer), section 3, bloc « Marge d'un contrat de maintenance (#550, implémentée) » (les quatre lectures tranchées sortent de la liste à poser ; seule la cinquième, l'intervention sans instantané de couverture, y reste, à confirmer), section 4, bloc « Marge d'un contrat de maintenance (#550) » (lectures « Confirmées par Nelson le 15-11-2026 ») et section 5 (statut inchangé).
 
+## Décisions du 16-11-2026
+
+*Rédigé le 16-11-2026.* Un message de Nelson dans la session de travail, puis cinq questions de Claude Code et ses réponses, par l'outil de questions : le message est reçu à 10:14:20 UTC ; les quatre premières questions sont posées à 10:47:19 UTC et reçoivent leurs réponses à 11:02:41 UTC ; la cinquième, sur les branches, est posée après les quatre autres, à 11:03:16 UTC, et reçoit sa réponse à 11:18:49 UTC (heures du journal de la session, `main` à `6e0cfd3`). Les lectures retenues sont celles de Claude Code, à corriger par Nelson si besoin. Les choix qui touchent le code sont **à appliquer** par des PR à venir : **aucun n'est implémenté** à la date de cette section.
+
+### Le message de Nelson
+
+Message de Nelson, mot pour mot :
+
+> « pour la 550 la validation comptable est faite et ok.
+> continu avec les issu.
+> est ce que l'on nettoie bien les issues traiter et ainsi avoir la liste des issues toujours a jour ?
+> il est l'heure egalement du passage hebdomadaire du controleur de coherence »
+
+### 1. Validation comptable de #550
+
+- **Lecture retenue** : [#550](https://github.com/Noxia-Groupe/iris/pull/550) (marge d'un contrat de maintenance, [lot](#lot-du-15-11-2026-550)) est **validé comptablement le 16-11-2026**. Il reste **implémenté, non validé pour mise en service** : seul Nelson décide de la mise en service ([section 5 de la passation](ROADMAP-PASSATION.md#5-préalables-à-la-mise-en-service-et-contrat-dune-pr)). Le statut précédent, « non validé comptablement », est donc levé pour #550 seulement ; les lots #524, #530 et #534 gardent le leur.
+- **Ce que cette validation ne tranche pas** : la lecture de l'intervention sans instantané de couverture n'a pas été posée à Nelson (cas sans donnée réelle, règle 4). Elle reste un **choix par défaut, à confirmer** ([section 3](ROADMAP-PASSATION.md#3-questions-ouvertes-pour-nelson), bloc « Marge d'un contrat de maintenance (#550, implémentée) »). Le message ne dit pas qu'elle la couvre ; on ne présume pas qu'elle la couvre.
+- Les quatre lectures de montant confirmées le 15-11-2026 au soir ([décisions du 15-11-2026 (soir)](#décisions-du-15-11-2026-soir-sur-les-lectures-de-montant-de-550)) ne changent pas.
+
+### 2. « continu avec les issu. »
+
+**Lecture retenue** : Claude Code traite les issues ouvertes, par ordre de priorité de la règle 2 de la méthode (droits et périmètres, montants, factures et documents figés, journaux d'audit, sécurité ; le reste ensuite).
+
+### 3. Nettoyage des issues et liste à jour
+
+**Question de Nelson**, mot pour mot : « est ce que l'on nettoie bien les issues traiter et ainsi avoir la liste des issues toujours a jour ? »
+
+**Réponse de Claude Code** : il a trié les **140 issues ouvertes** le 16-11-2026, sur `main` à `6e0cfd3`, en quatre tranches, par des agents en lecture seule :
+
+- aucune n'est entièrement traitée ni obsolète ;
+- **49** sont traitées en partie, #444 comprise ; les **48** autres, restées ouvertes, ont chacune reçu un commentaire d'état ;
+- [#444](https://github.com/Noxia-Groupe/iris/issues/444), rapport du passage hebdomadaire du 02-11-2026, est **fermée** ; ses sept remarques orphelines sont reprises dans [#556](https://github.com/Noxia-Groupe/iris/issues/556) ;
+- issues `suivi-audit` ouvertes depuis #550 : [#551](https://github.com/Noxia-Groupe/iris/issues/551) (isolation de la lecture de la marge d'un contrat), [#552](https://github.com/Noxia-Groupe/iris/issues/552) (bases jetables des tests sans `finally`), [#554](https://github.com/Noxia-Groupe/iris/issues/554) (un seul nom pour le lot de #550) ; puis, après le passage hebdomadaire, [#558](https://github.com/Noxia-Groupe/iris/issues/558) (N1 de #557).
+
+**Règle proposée pour la suite**, **choix par défaut, à confirmer** (non posée à Nelson, aucune réponse n'est présumée ; [passation, section 4](ROADMAP-PASSATION.md#4-choix-par-défaut-à-confirmer), bloc « Tenue de la liste des issues »), inscrite aussi dans `CLAUDE.md` par la PR documentaire qui consigne ces décisions :
+
+- une PR qui traite entièrement une issue la ferme par « Closes #N » dans son corps ;
+- une PR qui la traite en partie y laisse un commentaire d'état (fait, reste) ;
+- le passage hebdomadaire du `controleur-coherence` vérifie la liste des issues ouvertes : issues traitées non fermées, doublons, remarques orphelines.
+
+### 4. Passage hebdomadaire du `controleur-coherence`
+
+Demandé par Nelson dans son message (« il est l'heure egalement du passage hebdomadaire du controleur de coherence »). **Lancé le 16-11-2026, rapport publié dans une issue** : [#557](https://github.com/Noxia-Groupe/iris/issues/557) : cohérent sur le plan fonctionnel, R 0, C 2 (deux tests existants instables, versés par la PR de tests de suivi), N 7 ; N1 suivie par [#558](https://github.com/Noxia-Groupe/iris/issues/558), N2 en complément de #482, N3 à N7 versées par la PR documentaire qui consigne ces décisions ; trois questions proposées pour Nelson (Q1 à Q3, non posées).
+
+### 5. Quatre questions de cadrage
+
+Quatre questions de Claude Code, posées en une série par l'outil de questions (10:47:19 UTC), et les réponses de Nelson (11:02:41 UTC). Chaque réponse retient l'option recommandée. Les quatre comportements sont **à appliquer** : ils le seront par des PR à venir, selon l'ordre de la section 6 ; rien n'est encore implémenté.
+
+**5.1. Chantier terminé, date de fin vidée ([#289](https://github.com/Noxia-Groupe/iris/issues/289)).** Question, mot pour mot : « Chantier terminé (issue #289) : l'administration peut aujourd'hui vider sa date de fin. Le mois du CA validé (commissions) prend alors la date de dernière modification, qui change à chaque écriture. Faut-il refuser ce vidage ? »
+- **Choisie** : « Refuser le vidage (Recommandé) » — « Un chantier terminé garde toujours une date de fin : le mois de commission ne glisse plus. L'administration peut encore changer la date, pas la supprimer. »
+- Écartée : « Laisser vider » — « Comportement actuel : la date de fin d'un chantier terminé peut être vidée, le mois de commission suit alors la dernière modification. »
+
+**5.2. Facture émise à 0,00 € ([#529](https://github.com/Noxia-Groupe/iris/issues/529)).** Question, mot pour mot : « Facture émise à 0,00 € (issue #529) : depuis ta décision du 10-11, elle ne s'annule plus et ne reçoit pas d'avoir. Elle compte pourtant comme « déjà facturée » et bloque à jamais la facture au temps passé de son intervention. Que faire ? » Elle tranche la question posée le 10-11-2026 ([décisions du 10-11-2026 sur les avoirs](#décisions-du-10-11-2026-sur-les-avoirs)).
+- **Choisie** : « Ne bloque pas (Recommandé) » — « Une facture émise à 0,00 € ne compte ni comme « déjà facturée » ni comme obstacle à la facture au temps passé : elle reste visible et figée, mais n'empêche plus de facturer les heures. »
+- Écartée : « Bloque, message adapté » — « Elle continue de bloquer la facture au temps passé ; seul le message change (« la facture existante est à 0,00 € et ne s'annule pas »). Les heures de cette intervention ne pourront jamais être facturées au temps passé. »
+
+**5.3. Taux d'acompte d'un devis ([#252](https://github.com/Noxia-Groupe/iris/issues/252)).** Question, mot pour mot : « Devis (issue #252) : un taux d'acompte saisi invalide (« abc », -5, 1000…) est aujourd'hui remplacé en silence par le taux par défaut (30 %). Il sera refusé (400). Et un taux de 0 % avec « acompte exigé » coché : refusé ou admis ? »
+- **Choisie** : « Refuser 0 % (Recommandé) » — « « Acompte exigé » avec 0 % est contradictoire : refusé avec un message. Pour ne pas demander d'acompte, on décoche « acompte exigé ». »
+- Écartée : « Admettre 0 % » — « 0 % est accepté même avec « acompte exigé » coché : le devis ne demande alors aucun acompte. »
+- Le refus (400) d'un taux invalide est annoncé dans la question elle-même ; la réponse porte sur le cas de 0 %.
+
+**5.4. Sécurité de la connexion ([#261](https://github.com/Noxia-Groupe/iris/issues/261) et [#264](https://github.com/Noxia-Groupe/iris/issues/264)).** Question, mot pour mot : « Sécurité de la connexion (issues #261 et #264) : l'accès de secours peut être bloqué pour tous derrière un proxy (réglage « trust proxy »), et l'autorisation Microsoft 365 repose sur l'adresse e-mail plutôt que sur l'identifiant immuable (oid + tid). Quand les corriger ? » Elle tranche la question de la passation « Sécurité de la connexion (#261, #264) ».
+- **Choisie** : « Maintenant (Recommandé) » — « Les deux passent avant les autres issues non urgentes : ce sont des parcours de sécurité (règle 2). #264 ajoute deux champs au compte (migration), sans reprise de données. »
+- Écartées : « #261 seulement » — « Le réglage du proxy maintenant (petit, sans migration) ; l'identifiant Microsoft (#264) après le pilote. » ; « Après le pilote » — « Les deux attendent la fin du pilote, comme aujourd'hui. »
+
+### 6. Plusieurs branches en parallèle
+
+Cinquième question, posée après les quatre autres (11:03:16 UTC), mot pour mot : « Pour avancer plus vite sur les issues, puis-je mener plusieurs PR en parallèle sur des domaines indépendants, chacune sur sa propre branche (`fix/...`, `test/...`, nommées selon .agents/AGENTS.md) ? Aujourd'hui, la session ne pousse que sur une seule branche, donc une seule PR à la fois. »
+- **Choisie** (réponse reçue à 11:18:49 UTC) : « Oui, plusieurs branches (Recommandé) » — « Jusqu'à trois PR en parallèle sur des domaines séparés (par exemple : saisie des montants, tests de suivi, sécurité de la connexion), chacune avec ses audits. Jamais sur main directement. »
+- Écartée : « Une seule branche » — « On garde une PR à la fois sur la branche de la session ; plus lent, mais plus simple à suivre. »
+- **Lecture retenue** : elle applique le parallélisme que `CLAUDE.md` prévoit déjà pour des domaines indépendants (jamais deux lots sur le même domaine, ni sur les montants d'un même document), avec trois PR au plus. Les branches prévues sont `fix/saisie-montants`, `chore/tests-suivi` et `fix/securite-connexion`, puis les lots devis (#252) et factures (#529).
+- **Choix par défaut, à confirmer** (non posé à Nelson) : chaque branche dans une copie de travail séparée ; la branche de la session cloud (`claude/…`) reste celle des PR documentaires, par exception au point 3 de `.agents/AGENTS.md`, comme pour #542 à #555 ([configuration](CONFIGURATION-ENVIRONNEMENT.md#session-cloud-de-claude-code)).
+
+### Ce qui change dans la passation
+
+- #550 : « implémenté, validé comptablement le 16-11-2026, non validé pour mise en service », sections 1 à 5, point de reprise et en-tête ; la question prioritaire de sa validation comptable est retirée. Même statut dans `README.md`, `docs/MODELE-DROITS-COMPTES.md` et `docs/PARAMETRAGE-INVENTAIRE.md`.
+- Les questions tranchées (#261 et #264, #529) sortent de la section 3 et renvoient ici ; le taux d'acompte (#252) n'y figurait pas comme question.
+- Point de reprise : prochaine action, mener les PR de correctifs d'issues.
+- Section 4 : règle de tenue des issues, choix par défaut, à confirmer.
+- `CLAUDE.md` : la règle de tenue des issues y sera écrite par Claude Code (hors du périmètre du documentaliste).
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.

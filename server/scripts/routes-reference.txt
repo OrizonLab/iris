@@ -24,6 +24,8 @@ ENV apres PATH
 ENV apres PORT
 ENV apres PRISMA_CLIENT_ENGINE_TYPE
 ENV apres PRISMA_QUERY_ENGINE_LIBRARY
+ENV apres TRUST_PROXY
+SET trust proxy=0
 SET x-powered-by=false
 USE / corsMiddleware#26a091524dc5
 USE /api/comptabilite/importer jsonParser{readOptions.defaultCharset="utf-8",readOptions.inflate=true,readOptions.limit=5242880,readOptions.verify=false}#223e9f48a546
@@ -102,7 +104,7 @@ GET /api/interventions/:id/envois requireAuth#07b983da0ce5 > blockCommercial#990
 POST /api/interventions/:id/envois requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > refuserTechnicien#ac4a6f5390df > <anonymous>{permission="clients:read"}#c4dc4769916b > envoyerCompteRendu#ec11561c1a9f
 GET /api/health <anonymous>#8e6d60bb30d8
 GET /api/config <anonymous>#8496550e7475
-POST /api/auth/sso <anonymous>#29d388e00d09
+POST /api/auth/sso <anonymous>#dbe416e30bcb
 GET /api/auth/secours/etat <anonymous>#24b8a487cf83
 POST /api/auth/secours <anonymous>#0ef9b6e1b9ae
 GET /api/me requireAuth#07b983da0ce5 > <anonymous>#eefe8f938bf2

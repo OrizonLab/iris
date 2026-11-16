@@ -32,6 +32,7 @@ Iris est un ERP français natif pour métiers techniques, **en développement et
   - **Toutes les PR, propositions comprises.** Le 20-10-2026, Nelson a confirmé la portée de sa décision, mot pour mot : « C’est toi qui fusionne TOUTES les PR » (message de la session de travail, consigné sur #182 et #183). Claude Code fusionne donc aussi les propositions 3 et 4 (#182, #183), dont la fusion vaut validation de la proposition, que Nelson s'était réservée le 17-10-2026. Les conditions sont celles de toute PR, ci-dessus : rafraîchies sur `main`, CI verte et audit interne fusionnable sur la même SHA, fusion par commit de fusion sur la SHA attendue. La PR d'un autre agent suit toujours [`.agents/AGENTS.md`](.agents/AGENTS.md).
   - La délégation du 17-10-2026 ([historique](docs/HISTORIQUE-DECISIONS.md)) excluait les PR qui changent des montants et les propositions soumises à Nelson. La décision du 20-10-2026 lève ces deux exceptions (#253, puis la confirmation ci-dessus).
 - Faire évoluer la roadmap dans une PR documentaire lorsque l'état des lots change. Distinguer systématiquement « implémenté », « partiel », « prévu » et « validé pour mise en service ».
+- **Tenue des issues** (question de Nelson du 16-11-2026, mot pour mot : « est ce que l'on nettoie bien les issues traiter et ainsi avoir la liste des issues toujours a jour ? » ; choix par défaut, à confirmer, [historique](docs/HISTORIQUE-DECISIONS.md#décisions-du-16-11-2026)) : une PR qui traite entièrement une issue la ferme par « Closes #N » dans son corps ; une PR qui la traite en partie y laisse un commentaire d'état (fait, reste à faire) ; le passage hebdomadaire du `controleur-coherence` vérifie aussi la liste des issues ouvertes (issues traitées non fermées, doublons, remarques reportées nulle part).
 
 ## Circuit d'une PR et sous-agents de projet (décision de Nelson du 31-10-2026)
 
@@ -73,6 +74,7 @@ Chaque auditeur rend toutes ses remarques en un seul passage, classées bloquant
 - **Rédaction des tests** : le `redacteur-tests` travaille sur la même branche que le code. Il écrit aussi les tests unitaires du client. Il possède les fichiers de tests du lot : le code ne les modifie pas sans passer par lui.
 - **Passage hebdomadaire** du `controleur-coherence` :
   - Claude Code le lance lors de la première session de travail de chaque semaine, sans déclencheur automatique ;
+  - il vérifie aussi la liste des issues ouvertes (puce « Tenue des issues » du mode de livraison) ;
   - son rapport est publié dans une issue ;
   - une remarque bloquante devient un correctif prioritaire (voir « Ordre pendant le pilote »), une autre une issue `suivi-audit`.
 - **Lecture seule** : Nelson dit « lecture seule » des deux auditeurs, et « lecture seule, peut lancer les tests » du `controleur-coherence`. Lecture retenue : elle vaut pour le dépôt ; les auditeurs lancent tests et mutants sur une copie extraite hors du dépôt, et livrent leurs correctifs en patchs. Elle repose sur les consignes de chaque sous-agent. Après le passage d'un sous-agent en lecture seule, Claude Code vérifie que la copie de travail n'a pas changé : `git status` vide, même tête (`git rev-parse HEAD`) et même branche.
