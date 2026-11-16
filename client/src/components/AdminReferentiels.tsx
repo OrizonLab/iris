@@ -36,7 +36,7 @@ export function AdminReferentiels({ activeTab, isAdmin, users, intervenants, fou
             </div>
             <div className="form-group mb-0 flex-1 w-full">
               <label className="form-label">Taux Horaire Chargé (€/h)</label>
-              <input required type="number" step="0.1" name="tauxHoraireCharge" className="form-input" />
+              <input required type="text" inputMode="decimal" pattern="\d{1,8}([.,]\d{1,2})?" title="Nombre positif ou nul, deux décimales au plus (par exemple 42,50)" name="tauxHoraireCharge" className="form-input" />
             </div>
             <button className="btn btn-primary w-full sm:w-auto">Enregistrer</button>
           </form>
@@ -97,7 +97,7 @@ export function AdminReferentiels({ activeTab, isAdmin, users, intervenants, fou
                       </td>
                       <td style={{padding: '8px'}}>
                         {isEditing
-                          ? <input type="number" step="0.1" className="form-input" value={editRow.tauxHoraireCharge} onChange={e => editField('tauxHoraireCharge', e.target.value)} />
+                          ? <input type="text" inputMode="decimal" aria-label={`Taux horaire chargé de ${i.nom}`} className="form-input" value={editRow.tauxHoraireCharge} onChange={e => editField('tauxHoraireCharge', e.target.value)} />
                           : fmtEuroCentime(Number(i.tauxHoraireCharge))}
                       </td>
                       <td style={{padding: '8px', textAlign: 'right', whiteSpace: 'nowrap'}}>
@@ -108,7 +108,7 @@ export function AdminReferentiels({ activeTab, isAdmin, users, intervenants, fou
                           </>
                         ) : (
                           <>
-                            <button type="button" onClick={() => setEditRow({ type: 'intervenant', id: i.id, nom: i.nom, role: i.role, tauxHoraireCharge: i.tauxHoraireCharge })} className="text-sm px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded">Modifier</button>
+                            <button type="button" onClick={() => setEditRow({ type: 'intervenant', id: i.id, nom: i.nom, role: i.role, tauxHoraireCharge: String(i.tauxHoraireCharge ?? '').replace('.', ',') })} className="text-sm px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded">Modifier</button>
                             <button type="button" onClick={() => deleteEntity('intervenant', i.id, i.nom)} className="ml-2 text-sm px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded">Supprimer</button>
                           </>
                         )}
