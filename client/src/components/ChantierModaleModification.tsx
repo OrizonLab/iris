@@ -4,6 +4,12 @@ import { TYPES_CHANTIER } from '../chantierTypes';
 import { gereLesChantiersEnCours } from '../roles';
 import { jourCivilChantier } from '../lib/dateFormatting';
 
+// Valeur pré-remplie d'un champ décimal, à la française (« 18,75 ») : les champs sont en texte, et non
+// `type="number"`, qu'un navigateur réglé dans une autre langue lit autrement (« 18,75 » y devenait 1875,
+// #394). Le serveur lit la virgule et refuse une saisie hors forme ; le `pattern` la refuse avant l'envoi
+// (choix par défaut, à confirmer, qui remplace `min="0"` et le pas de 0,01).
+const valeurSaisie = (valeur: unknown) => (valeur == null ? '' : String(valeur).replace('.', ','));
+
 export function ChantierModaleModification({ setEditingChantier, handleChantierSubmit, chantier, userRole, editClientId, setEditClientId, clientActuel, editResponsableId, setEditResponsableId, conducteurs, commerciaux, editCommercialId, setEditCommercialId, companyTimezone, fuseauConnu, libelleBaremeReduit, savingChantier }: {
   setEditingChantier: React.Dispatch<React.SetStateAction<boolean>>;
   handleChantierSubmit: (e: React.FormEvent) => void;
@@ -100,24 +106,24 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
               {chantier.budgetGlobalVendu != null && (
                 <div className="form-group mb-0">
                   <label className="form-label font-bold text-primary">Budget Global (€ HT)</label>
-                  <input required type="number" min="0" step="0.01" name="budgetGlobalVendu" defaultValue={chantier.budgetGlobalVendu} className="form-input" />
+                  <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetGlobalVendu" defaultValue={valeurSaisie(chantier.budgetGlobalVendu)} className="form-input" />
                 </div>
               )}
               <div className="form-group mb-0">
                 <label className="form-label">Total Heures Vendues (h)</label>
-                <input required type="number" min="0" step="0.01" name="heuresVendues" defaultValue={chantier.heuresVendues} className="form-input" />
+                <input required type="text" inputMode="decimal" pattern="\d{1,8}([.,]\d{1,2})?" title="Nombre d’heures positif ou nul, deux décimales au plus (par exemple 18,75)" name="heuresVendues" defaultValue={valeurSaisie(chantier.heuresVendues)} className="form-input" />
               </div>
               {/* Budgets par poste : seulement pour qui les voit (le serveur refuse qu'un technicien les modifie). */}
               {chantier.budgetMaterielVendu != null && (
                 <div className="form-group mb-0">
                   <label className="form-label">Dont Matériel (€ HT)</label>
-                  <input required type="number" min="0" step="0.01" name="budgetMaterielVendu" defaultValue={chantier.budgetMaterielVendu} className="form-input" />
+                  <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetMaterielVendu" defaultValue={valeurSaisie(chantier.budgetMaterielVendu)} className="form-input" />
                 </div>
               )}
               {chantier.budgetMainOeuvreVendu != null && (
                 <div className="form-group mb-0">
                   <label className="form-label">Dont Main d'Œuvre (€ HT)</label>
-                  <input required type="number" min="0" step="0.01" name="budgetMainOeuvreVendu" defaultValue={chantier.budgetMainOeuvreVendu} className="form-input" />
+                  <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetMainOeuvreVendu" defaultValue={valeurSaisie(chantier.budgetMainOeuvreVendu)} className="form-input" />
                 </div>
               )}
               <div className="form-group mb-0 md:col-span-2">

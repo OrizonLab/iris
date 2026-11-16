@@ -43,7 +43,8 @@
 //    saisies Travaux d'une affaire en cours de toute la société, client du chantier compris, gereLesChantiersEnCours) ; sur
 //    un chantier clôturé, AT a la ligne de CT, son titulaire (refus du conducteur : seule l'administration y écrit) ; une
 //    affaire annulée reste refusée comme à AD (409) ;
-//  - exceptions nommées : le statut envoyé à la fiche est ignoré en silence (R1 : « 200 inchangé », là où AD écrit) ; le
+//  - exceptions nommées : le statut envoyé à la fiche est ignoré en silence (R1 : « 200 inchangé », là où AD reçoit 400
+//    depuis le correctif « saisie des montants refusée plutôt que faussée », #289) ; le
 //    vendu ne s'écrit que sous son réglage (C5 (a) : refus « Le montant vendu n’est modifiable… » hors du contexte
 //    RENTABILITE_AT) ;
 //  - refus nommé reformulé sur …/statut, même titulaire (piège P2) ; l'encaissement et l'archivage (chantiers:archive non donné,
@@ -421,7 +422,8 @@ function regle(fichier, cle, lignes) {
     if (CIBLES_AFFAIRE_CLOSE.includes(cible)) return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
     // AT-2b : sur une affaire clôturée, la ligne de CT, son titulaire (seule l'administration y écrit encore).
     if (ROUTES_EN_COURS_AT2B.includes(route) && CIBLE_CLOTUREE.test(cible)) return { modele: 'CT', attendu: commeAt(lignes.CT.get(cle), 'CT') };
-    // R1 du cadrage v4 : le statut envoyé à la fiche d'une affaire en cours est ignoré en silence (AD l'écrit).
+    // R1 du cadrage v4 : le statut envoyé à la fiche d'une affaire en cours est ignoré en silence (AD, lui, reçoit 400 depuis
+    // le correctif « saisie des montants refusée plutôt que faussée », #289).
     if (route === 'PATCH /api/chantiers/:id' && /corps statut=TERMINE seul$/.test(contexte) && !CIBLE_ANNULEE.test(cible)) return { modele: 'nommé', attendu: '200 inchangé' };
     // C5 (a) du cadrage v4 : le vendu ne s'écrit que sous son réglage ; hors du contexte RENTABILITE_AT, refusé sans écriture.
     if (route === 'PATCH /api/chantiers/:id' && /corps montant vendu$/.test(contexte) && !sousReglageAt(contexte) && !CIBLE_ANNULEE.test(cible)) {

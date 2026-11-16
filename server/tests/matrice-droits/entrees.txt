@@ -1219,7 +1219,7 @@ AD | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | 409 « Ce po
 AD | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | 409 « Ce pointage est déjà actif. »
 AD | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | 409 « Ce pointage est déjà actif. »
 AD | POST /api/heures/:id/restaurer | inexistant | défaut | 404 « Pointage introuvable. »
-AD | POST /api/intervenants | — | défaut | 500 « Error creating intervenant »
+AD | POST /api/intervenants | — | défaut | 400
 AD | POST /api/interventions | — | défaut | 400
 AD | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut | 400
 AD | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-sous-intervention-autre | défaut | 404 « Coût introuvable. »
@@ -1918,7 +1918,7 @@ AD-COM | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | 409 « C
 AD-COM | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | 409 « Ce pointage est déjà actif. »
 AD-COM | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | 409 « Ce pointage est déjà actif. »
 AD-COM | POST /api/heures/:id/restaurer | inexistant | défaut | 404 « Pointage introuvable. »
-AD-COM | POST /api/intervenants | — | défaut | 500 « Error creating intervenant »
+AD-COM | POST /api/intervenants | — | défaut | 400
 AD-COM | POST /api/interventions | — | défaut | 400
 AD-COM | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut | 400
 AD-COM | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-sous-intervention-autre | défaut | 404 « Coût introuvable. »
@@ -7898,7 +7898,7 @@ DIR | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | 409 « Ce p
 DIR | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | 409 « Ce pointage est déjà actif. »
 DIR | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | 409 « Ce pointage est déjà actif. »
 DIR | POST /api/heures/:id/restaurer | inexistant | défaut | 404 « Pointage introuvable. »
-DIR | POST /api/intervenants | — | défaut | 500 « Error creating intervenant »
+DIR | POST /api/intervenants | — | défaut | 400
 DIR | POST /api/interventions | — | défaut | 400
 DIR | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut | 400
 DIR | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-sous-intervention-autre | défaut | 404 « Coût introuvable. »
@@ -10193,7 +10193,7 @@ SA | POST /api/heures/:id/restaurer | heure-chantier-ct | défaut | 409 « Ce po
 SA | POST /api/heures/:id/restaurer | heure-chantier-ct-branche-resp | défaut | 409 « Ce pointage est déjà actif. »
 SA | POST /api/heures/:id/restaurer | heure-chantier-termine | défaut | 409 « Ce pointage est déjà actif. »
 SA | POST /api/heures/:id/restaurer | inexistant | défaut | 404 « Pointage introuvable. »
-SA | POST /api/intervenants | — | défaut | 500 « Error creating intervenant »
+SA | POST /api/intervenants | — | défaut | 400
 SA | POST /api/interventions | — | défaut | 400
 SA | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut | 400
 SA | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-sous-intervention-autre | défaut | 404 « Coût introuvable. »

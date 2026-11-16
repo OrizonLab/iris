@@ -504,7 +504,8 @@ const Admin = () => {
   const saveEdit = async () => {
     const { type, id, ...rest } = editRow || {};
     let payload: Record<string, unknown>;
-    if (type === 'intervenant') payload = { nom: rest.nom, role: rest.role, tauxHoraireCharge: parseFloat(rest.tauxHoraireCharge) || 0 };
+    // Taux envoyé tel que saisi (virgule admise) : le serveur refuse une saisie hors forme au lieu de la ramener à 0 (#443).
+    if (type === 'intervenant') payload = { nom: rest.nom, role: rest.role, tauxHoraireCharge: String(rest.tauxHoraireCharge ?? '').trim() };
     else if (type === 'fournisseur') payload = { nom: rest.nom, contact: rest.contact || null };
     else payload = { nom: rest.nom, description: rest.description || null };
     try {

@@ -117,7 +117,7 @@ GET /api/chantiers/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#7244
 GET /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > lireEnvoisRapportChantier#686d69fd2e44
 POST /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > envoyerRapportChantier#b8c79c1eee9b
 POST /api/chantiers requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#5a2a6ae542c5
-PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#398836ff7ee0
+PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#00d95d66dd00
 DELETE /api/chantiers/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c4bcd35fe13f
 PATCH /api/chantiers/:id/statut requireAuth#07b983da0ce5 > blockCommercialSeulement#f36b50e5b6cd > refuserAssistanteTechniqueStatut#cc5d47d07441 > <anonymous>#7e280a3c7ca9
 PATCH /api/chantiers/:id/commercial requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#6584b46898e4
@@ -133,8 +133,8 @@ PATCH /api/users/:id/actif requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab 
 GET /api/commerciaux requireAuth#07b983da0ce5 > <anonymous>#bed7235de09c
 GET /api/conducteurs requireAuth#07b983da0ce5 > <anonymous>#73f7374f60c7
 GET /api/intervenants requireAuth#07b983da0ce5 > <anonymous>#5f66470a380c
-POST /api/intervenants requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c6ba071ecbe1
-PUT /api/intervenants/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#783c0d87a196
+POST /api/intervenants requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#8b3c376a819c
+PUT /api/intervenants/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#71d68a7db038
 PUT /api/intervenants/:id/compte requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#5e61db3bb78c
 PUT /api/intervenants/:id/main-oeuvre requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > rattacherMainOeuvre#f080f1a68b8e
 DELETE /api/intervenants/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c87065a29eb2

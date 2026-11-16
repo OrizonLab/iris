@@ -10,7 +10,9 @@
 //    son commercial ? » : « A. Non, admin seule » (commentaire 6570976812 de #440).
 // Choix par défaut du correctif, à confirmer (cadrage, points 2 bis et 3) : le commercial d'une affaire annulée ne change
 // plus (409) ; la fiche n'admet plus, de l'administration, d'autre statut que EN_COURS ou TERMINE (400) ; le statut d'une
-// affaire annulée pendant l'attente de sa clôture ne change plus (409).
+// affaire annulée pendant l'attente de sa clôture ne change plus (409). Depuis le correctif « saisie des montants refusée
+// plutôt que faussée » (#289, cadrage v3, point 3, choix par défaut, à confirmer), la fiche refuse à l'administration tout
+// statut, EN_COURS et TERMINE compris (400, renvoi à la clôture et à la réouverture par PATCH /api/chantiers/:id/statut).
 //
 // Ces règles touchent un montant (cadrage, « Ordre ») : le CA et la marge validés d'un commercial exigent un chantier
 // terminé et encaissé (commissions/metier.ts) ; la fiche (dates, barème réduit, budgets) et le commercial d'un chantier
@@ -42,6 +44,7 @@ const REFUS = {
   ficheCloture: 'Ce chantier est clôturé : seul un administrateur peut encore le modifier.',
   commercialCloture: 'Ce chantier est clôturé : seul un administrateur peut encore en changer le commercial.',
   statutInvalide: 'Statut invalide.',
+  statutParLaFiche: 'Le statut d’un chantier ne se change pas par sa fiche : clôturez-le ou rouvrez-le depuis la liste des chantiers.',
   introuvable: 'Chantier introuvable',
   technicienFiche: 'Un compte technicien n’est pas autorisé à modifier une affaire. Adressez-vous à votre responsable.',
   technicienCommercial: 'Un compte technicien n’est pas autorisé à réattribuer le commercial d’une affaire. Adressez-vous à votre responsable.',
@@ -482,9 +485,13 @@ if (!TEST_DATABASE_URL) {
 
     // Cadrage, point 2 bis : « PATCH /api/chantiers/:id refuse un statut autre que EN_COURS ou TERMINE, par 400 « Statut
     // invalide. », le message de /statut. Un chantier ne s'annule ainsi que par son devis » ; critère : « statut=ANNULE
-    // par l'administration donne 400, sans écriture ». Écarte un contrôle limité à la valeur ANNULE, ou insensible à la
-    // casse, et un statut écrit avec les autres champs du même corps.
-    test('statut envoyé à la fiche par l’administration : tout autre que EN_COURS ou TERMINE donne 400 « Statut invalide. », sans écriture, même avec d’autres champs ; EN_COURS et TERMINE restent admis', async () => {
+    // par l'administration donne 400, sans écriture ». Repris par le correctif « saisie des montants refusée plutôt que
+    // faussée » (#289, cadrage v3, point 3 : « pour l'administration seule, comme le 400 de #449, un `statut` envoyé reçoit
+    // un 400 qui renvoie à la clôture et à la réouverture » ; choix par défaut, à confirmer) : tout statut est désormais
+    // refusé à l'administration par la fiche, EN_COURS et TERMINE compris, au message qui renvoie à la liste des chantiers,
+    // et non plus « Statut invalide. ». Écarte un contrôle limité aux valeurs hors EN_COURS et TERMINE (ancien témoin), ou
+    // insensible à la casse, et un statut écrit avec les autres champs du même corps.
+    test('statut envoyé à la fiche par l’administration : tout statut, EN_COURS et TERMINE compris, donne 400 et renvoie à la clôture et à la réouverture, sans écriture, même avec d’autres champs ; la route dédiée clôture et rouvre toujours', async () => {
       const enCours = await creerChantier();
       const termine = await creerTermine();
       for (const [compte, auth] of ADMINISTRATION()) {
@@ -492,9 +499,10 @@ if (!TEST_DATABASE_URL) {
           ['ANNULE', { statut: 'ANNULE' }], ['ANNULE avec un nom', { statut: 'ANNULE', nom: 'TEST nom glissé avec le statut' }],
           ['annule en minuscules', { statut: 'annule' }], ['TERMINE suivi d’une espace', { statut: 'TERMINE ' }], ['chaîne vide', { statut: '' }],
           ['null', { statut: null }], ['ARCHIVE', { statut: 'ARCHIVE' }], ['tableau', { statut: ['TERMINE'] }],
+          ['TERMINE', { statut: 'TERMINE' }], ['EN_COURS', { statut: 'EN_COURS' }], ['TERMINE avec un nom', { statut: 'TERMINE', nom: 'TEST nom glissé avec la clôture' }],
         ]) {
-          await refuse(() => modifierFiche(enCours.id, corps, auth), 400, REFUS.statutInvalide, `${compte}, chantier en cours, statut ${quoi}`, enCours.id);
-          await refuse(() => modifierFiche(termine.id, corps, auth), 400, REFUS.statutInvalide, `${compte}, chantier terminé, statut ${quoi}`, termine.id);
+          await refuse(() => modifierFiche(enCours.id, corps, auth), 400, REFUS.statutParLaFiche, `${compte}, chantier en cours, statut ${quoi}`, enCours.id);
+          await refuse(() => modifierFiche(termine.id, corps, auth), 400, REFUS.statutParLaFiche, `${compte}, chantier terminé, statut ${quoi}`, termine.id);
         }
       }
       assert.deepEqual([(await ligne(enCours.id)).statut, (await ligne(termine.id)).statut], ['EN_COURS', 'TERMINE']);
@@ -503,12 +511,14 @@ if (!TEST_DATABASE_URL) {
       await refuse(() => modifierFiche(annule.id, { statut: 'ANNULE' }), 409, REFUS.ficheAnnulee, 'affaire annulée, statut ANNULE', annule.id);
       await refuse(() => modifierFiche(annule.id, { statut: 'EN_COURS' }), 409, REFUS.ficheAnnulee, 'affaire annulée, réouverture', annule.id);
       await refuse(() => modifierFiche('00000000-0000-0000-0000-000000000000', { statut: 'ANNULE' }), 404, REFUS.introuvable, 'chantier inexistant');
-      // Témoins : EN_COURS et TERMINE restent admis par l'administration.
+      // Témoins : la clôture et la réouverture passent par la route dédiée, qui pose la date de fin à la clôture ; elle
+      // garde son propre refus d'un statut hors EN_COURS et TERMINE.
       const aClore = await creerChantier();
-      assert.equal((await modifierFiche(aClore.id, { statut: 'TERMINE' })).status, 200);
-      assert.equal((await ligne(aClore.id)).statut, 'TERMINE');
-      assert.equal((await modifierFiche(aClore.id, { statut: 'EN_COURS' }, comptes.AD.auth)).status, 200);
+      assert.equal((await changerStatut(aClore.id, { statut: 'TERMINE' })).status, 200);
+      assert.deepEqual([(await ligne(aClore.id)).statut, (await ligne(aClore.id)).dateFin instanceof Date], ['TERMINE', true]);
+      assert.equal((await changerStatut(aClore.id, { statut: 'EN_COURS' }, comptes.AD.auth)).status, 200);
       assert.equal((await ligne(aClore.id)).statut, 'EN_COURS');
+      await refuse(() => changerStatut(aClore.id, { statut: 'ANNULE' }), 400, REFUS.statutInvalide, 'route dédiée, statut ANNULE', aClore.id);
       // Hors administration, le statut reste un champ ignoré (bloc S de D1a-5b) : l'affaire ne passe pas à ANNULE.
       const duConducteur = await creerChantier();
       const res = await modifierFiche(duConducteur.id, { statut: 'ANNULE', nom: 'TEST nom du conducteur 285' }, comptes.CT.auth);

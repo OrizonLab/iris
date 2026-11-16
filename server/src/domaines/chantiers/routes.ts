@@ -93,6 +93,9 @@ const listerChantiers: express.RequestHandler = async (req, res) => {
 // non 403) : même règle qu'à la lecture, on ne révèle pas l'existence du chantier.
 class ChangementClientRefuse extends Error {}
 
+const REFUS_STATUT_PAR_LA_FICHE = 'Le statut d’un chantier ne se change pas par sa fiche : clôturez-le ou rouvrez-le depuis la liste des chantiers.';
+const REFUS_DATE_FIN_VIDEE = 'Un chantier terminé garde sa date de fin : elle fixe le mois de son chiffre d’affaires validé. Vous pouvez la changer, pas la vider.';
+
 // Clôture : cette route n'exclut que le commercial (décision de Nelson du 14-10-2026, pour la clôture
 // par les directeurs). Rouvrir reste réservé à l'administration, dont le directeur fait partie depuis
 // la décision de Nelson du 24-10-2026 (point 14).
@@ -251,22 +254,22 @@ export function enregistrerRoutesChantiers(app: Express): void {
       // verrouillée, dans la transaction de l'enregistrement (cf. refusEcritureChantier).
       const refus = refusEcritureChantier(authUser, existant, REFUS_FICHE);
       if (refus) return res.status(refus.statut).json({ error: refus.message });
-      // Un chantier ne s'annule que par son devis, qui en vérifie les conditions (POST
-      // /api/devis/:id/annulation) : comme à la clôture, seuls EN_COURS et TERMINE sont admis (#285).
-      if (isAdminRole(authUser.role) && 'statut' in req.body && req.body.statut !== 'EN_COURS' && req.body.statut !== 'TERMINE') {
-        return res.status(400).json({ error: 'Statut invalide.' });
+      // Le statut ne se change plus par la fiche (#289 ; passation, section 4 : « Statut d'un chantier : retiré
+      // de la modification générale ») : la clôture et la réouverture passent par PATCH /api/chantiers/:id/statut,
+      // qui pose la date de fin à la clôture et garde leurs règles propres (un conducteur clôt sans jamais
+      // rouvrir) ; l'annulation, par le devis (POST /api/devis/:id/annulation). Envoyé par l'administration,
+      // le champ est refusé, comme le statut invalide de #285 l'était ; envoyé par un autre compte, assistante
+      // technique comprise, il reste ignoré en silence (choix par défaut, à confirmer).
+      if (isAdminRole(authUser.role) && 'statut' in req.body) {
+        return res.status(400).json({ error: REFUS_STATUT_PAR_LA_FICHE });
       }
 
-      // 'statut' n'est modifiable ici que par un admin : la clôture et surtout la RÉOUVERTURE
-      // d'un chantier obéissent à des règles propres (cf. PATCH /api/chantiers/:id/statut, où
-      // un conducteur peut clôturer mais jamais rouvrir). L'ouvrir ici les contournerait. Envoyé par
-      // un autre compte, assistante technique comprise, il est ignoré en silence.
       // Les affaires historiques non appariées par la migration doivent pouvoir être réparées
       // sans modifier leur libellé client historique. Après la première facture, ce lien est figé.
       // Le client du chantier se change aussi par l'assistante technique, sur une affaire en cours
       // (réponse de Nelson du 07-11-2026 sur la fiche, « Oui, comme l'admin »), avec les mêmes refus.
       const allowed = isAdminRole(authUser.role)
-        ? ['nom', 'numeroDevis', 'statut', 'responsableId', 'clientId']
+        ? ['nom', 'numeroDevis', 'responsableId', 'clientId']
         : gereLesChantiersEnCours(authUser.role)
           ? ['nom', 'numeroDevis', 'responsableId', 'clientId']
           : ['nom', 'numeroDevis', 'responsableId'];
@@ -331,7 +334,8 @@ export function enregistrerRoutesChantiers(app: Express): void {
       for (const key of dateFields) {
         if (key in req.body) {
           if (!req.body[key]) {
-            // dateFin est facultative ; la vider explicitement conserve ce comportement.
+            // dateFin est facultative ; la vider explicitement conserve ce comportement, sauf sur un chantier
+            // terminé (refusé plus bas, sur la ligne verrouillée).
             if (key === 'dateFin') data[key] = null;
             continue;
           }
@@ -354,6 +358,10 @@ export function enregistrerRoutesChantiers(app: Express): void {
         const [verrouille] = await tx.$queryRaw<Array<{ statut: string; responsableId: string | null; clientId: string | null; client: string }>>(Prisma.sql`SELECT "statut", "responsableId", "clientId", "client" FROM "Chantier" WHERE "id" = ${existant.id} FOR UPDATE`);
         const refusSousVerrou = refusEcritureChantier(authUser, verrouille, REFUS_FICHE);
         if (refusSousVerrou) throw refusSousVerrou;
+        // Un chantier terminé garde sa date de fin (décision de Nelson du 16-11-2026, « Refuser le vidage
+        // (Recommandé) ») : sans elle, le mois de son chiffre d'affaires validé suit sa dernière modification
+        // (commissions/metier.ts). Relu sur la ligne verrouillée : une clôture validée pendant l'attente compte.
+        if (data.dateFin === null && verrouille.statut === 'TERMINE') throw new RefusChantier(400, REFUS_DATE_FIN_VIDEE);
         if (cibleClient) {
           if (verrouille.clientId !== cibleClient.id) {
             // Toutes les factures de l'affaire comptent, celles de l'administration comprises : le refus apprend

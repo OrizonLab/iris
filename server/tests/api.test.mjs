@@ -28685,10 +28685,13 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
-    // R1 du cadrage v4 : le champ statut de PATCH /api/chantiers/:id reste à l'administration ; envoyé par elle, il est ignoré en
-    // silence, comme pour tout compte qui n'est pas de l'administration (MODELE-DROITS-CIBLE.md). Mutant du cadrage : « allowed
-    // lu par gereLesChantiersEnCours » (le statut écrit). Témoin : l'administration clôture par la même route.
-    test('fiche : le statut envoyé par l’assistante technique (TERMINE, ANNULE ou inconnu) est ignoré en silence : 200, le nom est écrit, le statut reste EN_COURS et la date de fin inchangée en base ; l’administration, témoin, clôture par la même route', async () => {
+    // R1 du cadrage v4 : le champ statut de PATCH /api/chantiers/:id n'est pas écrit pour l'assistante technique ; envoyé par elle,
+    // il est ignoré en silence, comme pour tout compte qui n'est pas de l'administration (MODELE-DROITS-CIBLE.md). Mutant du
+    // cadrage : « allowed lu par gereLesChantiersEnCours » (le statut écrit). Témoin repris par le correctif « saisie des montants
+    // refusée plutôt que faussée » (#289, cadrage v3, point 3, choix par défaut, à confirmer) : la fiche n'écrit plus le statut de
+    // personne, et l'administration qui l'envoie reçoit un 400 qui la renvoie à la clôture et à la réouverture (PATCH
+    // /api/chantiers/:id/statut), sans écriture.
+    test('fiche : le statut envoyé par l’assistante technique (TERMINE, ANNULE ou inconnu) est ignoré en silence : 200, le nom est écrit, le statut reste EN_COURS et la date de fin inchangée en base ; l’administration, témoin, est refusée par la même route (400), sans écriture', async () => {
       const affaire = await chantierDe('statut ignoré', comptes.conducteur.id, { dateFin: new Date('2026-12-15T00:00:00Z') });
       for (const [i, statut] of ['TERMINE', 'ANNULE', 'INVENTE'].entries()) {
         const nom = `TEST AT-2b renommée ${i} ${suffixe}`;
@@ -28698,11 +28701,13 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual([relu.nom, relu.statut, relu.dateFin.toISOString()], [nom, 'EN_COURS', '2026-12-15T00:00:00.000Z'], statut);
         assert.equal(res.body.statut, 'EN_COURS', `${statut} : réponse`);
       }
-      // Témoin : la même route écrit le statut de l'administration (le champ est effectif, son masquage est propre au compte).
-      const parAdmin = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('admin'), { statut: 'TERMINE' });
-      assert.equal(parAdmin.status, 200, JSON.stringify(parAdmin.body));
-      assert.equal((await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } })).statut, 'TERMINE');
-      assert.equal((await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('admin'), { statut: 'EN_COURS' })).status, 200);
+      // Témoin : la même route lit le statut de l'administration, et le refuse (400) au lieu de l'écrire ; ni le statut, ni le nom
+      // envoyé avec lui, ni la date de fin ne changent en base.
+      const avant = await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } });
+      const parAdmin = await envoyer('patch', `/api/chantiers/${affaire.id}`, jeton('admin'), { statut: 'TERMINE', nom: `TEST AT-2b renommée par l’administration ${suffixe}` });
+      assert.deepEqual([parAdmin.status, parAdmin.body.error], [400, 'Le statut d’un chantier ne se change pas par sa fiche : clôturez-le ou rouvrez-le depuis la liste des chantiers.'], JSON.stringify(parAdmin.body));
+      const apres = await prisma.chantier.findUniqueOrThrow({ where: { id: affaire.id } });
+      assert.deepEqual([apres.nom, apres.statut, apres.dateFin.toISOString(), apres.updatedAt.toISOString()], [avant.nom, 'EN_COURS', '2026-12-15T00:00:00.000Z', avant.updatedAt.toISOString()]);
     });
 
     // C6 de la v3 (« fiche : modification des champs, barème réduit et date de fin compris, relue en base ») ; réponse 3 du
