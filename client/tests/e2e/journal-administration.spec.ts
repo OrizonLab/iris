@@ -51,13 +51,16 @@ test('un administrateur consulte, filtre et exporte le journal, sans les entrée
     // Historique des clés d'intégration : ni dans le tableau, ni proposé au filtre.
     await expect(page.getByText(`Clé journal ${suffixe}`)).toHaveCount(0);
     const filtres = page.getByRole('form', { name: 'Filtres du journal' });
-    await expect(filtres.getByLabel('Type').locator('option', { hasText: 'Clés d’intégration' })).toHaveCount(0);
+    await expect(filtres.getByLabel(/^Type/).locator('option', { hasText: 'Clés d’intégration' })).toHaveCount(0);
     // Pas de réglage de la conservation pour un simple administrateur.
     await expect(page.getByRole('form', { name: 'Conservation du journal' })).toHaveCount(0);
 
-    // Filtre par auteur et par type.
-    await filtres.getByLabel('Auteur').selectOption({ label: `Admin journal ${suffixe}` });
-    await filtres.getByLabel('Type').selectOption({ label: 'Paramètres (marge, acompte, alertes, destinataires)' });
+    // Filtre par auteur et par type. Les champs se désignent par le début de leur libellé : une fois un auteur choisi,
+    // getByLabel lit aussi le texte des options du <select> enveloppé par le <label> (constaté avec Playwright 1.63), et
+    // un auteur dont le nom contient « Type » (comptes de types-compte.spec.ts, restés sur une base conservée) ferait
+    // désigner deux champs par getByLabel('Type').
+    await filtres.getByLabel(/^Auteur/).selectOption({ label: `Admin journal ${suffixe}` });
+    await filtres.getByLabel(/^Type/).selectOption({ label: 'Paramètres (marge, acompte, alertes, destinataires)' });
     await filtres.getByRole('button', { name: 'Filtrer' }).click();
     await expect(tableau.locator('tbody tr')).toHaveCount(1);
     await expect(tableau.locator('tbody tr')).toContainText(`Jours sans saisie : ${jours}`);
@@ -74,8 +77,8 @@ test('un administrateur consulte, filtre et exporte le journal, sans les entrée
     expect(contenu).toContain(`"joursSansSaisie : ${jours}"`);
 
     // Export sans filtre : toujours aucune entrée de clé d'intégration.
-    await filtres.getByLabel('Auteur').selectOption({ label: 'Tous' });
-    await filtres.getByLabel('Type').selectOption({ label: 'Tous' });
+    await filtres.getByLabel(/^Auteur/).selectOption({ label: 'Tous' });
+    await filtres.getByLabel(/^Type/).selectOption({ label: 'Tous' });
     await filtres.getByRole('button', { name: 'Filtrer' }).click();
     await expect(tableau.locator('tbody tr').nth(1)).toBeVisible();
     const telechargementComplet = page.waitForEvent('download');

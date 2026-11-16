@@ -148,3 +148,39 @@ test('l’accès de secours réglé sur l’adresse du compte système est ferm�
   // Adresse ordinaire : l'accès est proposé ; la connexion lit alors la base, ici injoignable (500).
   assert.deepEqual(sonder('secours@iris.test').etat, { disponible: true });
 });
+
+// #411, T2 (suivi de l'audit des droits de #410) : server/index.ts, « Une configuration refusée (MICROSOFT_GRAPH_URL hors des
+// adresses admises, TRUST_PROXY hors forme) arrête le processus avant toute écoute, avec son message » ; demarrage.ts : « La
+// valeur refusée n'est pas recopiée dans le message : elle pourrait porter des identifiants ». Le serveur compilé est lancé
+// pour de vrai, avec une base qui refuse la connexion : code 1 et « [DÉMARRAGE] Configuration refusée », sans
+// « Initialisation impossible » ni « Server running » (initDb, première lecture de la base, ne tourne qu'une fois le port
+// ouvert : ni écoute ni lecture de la base), et rien de la valeur refusée dans la sortie. Témoin : la même commande, la
+// variable vide (adresse de Microsoft par défaut), écoute puis s'arrête sur la base injoignable.
+test('une MICROSOFT_GRAPH_URL refusée arrête le serveur au démarrage (code 1), avant d’écouter et de lire la base, sans recopier la valeur', () => {
+  const lancer = (adresseGraph) => spawnSync(process.execPath, [fileURLToPath(new URL('../dist/index.js', import.meta.url))], {
+    env: {
+      // NODE_DEBUG=net : Node écrit « setupListenHandle » sur la sortie d'erreur quand le serveur ouvre son port.
+      ...process.env, PORT: '0', SUPERADMIN_EMAILS: '', MICROSOFT_GRAPH_URL: adresseGraph, NODE_DEBUG: 'net',
+      DATABASE_URL: 'postgresql://iris:iris@127.0.0.1:1/iris_injoignable?schema=public&connect_timeout=5',
+    },
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+  const refusee = 'https://compte-graph:mot-de-passe-graph-secret@graph-simule.exemple.invalid:8443/v1.0?cle=valeur-graph-secrete#ancre-graph';
+  const refus = lancer(refusee);
+  const sortie = `${refus.stdout}\n${refus.stderr}`;
+  assert.equal(refus.status, 1, `sortie : ${refus.status} ${refus.signal}\n${sortie}`);
+  assert.match(refus.stderr, /\[DÉMARRAGE\] Configuration refusée : MICROSOFT_GRAPH_URL refusée/);
+  assert.doesNotMatch(sortie, /Initialisation impossible|Server running/, 'ni écoute ni lecture de la base');
+  // Ni écoute, constatée directement : une vérification déplacée dans le rappel de listen, avant initDb, ouvrirait le port
+  // puis s'arrêterait avec le même message, sans « Initialisation impossible » (audit des droits de la PR de suivi, T).
+  assert.doesNotMatch(refus.stderr, /setupListenHandle/, 'aucun port ouvert avant le refus');
+  for (const morceau of ['compte-graph', 'mot-de-passe-graph-secret', 'graph-simule', 'exemple.invalid', 'valeur-graph-secrete', 'ancre-graph']) {
+    assert.ok(!sortie.includes(morceau), `la valeur refusée est recopiée (« ${morceau} »)\n${sortie}`);
+  }
+  const temoin = lancer('');
+  assert.equal(temoin.status, 1, `témoin : ${temoin.status} ${temoin.signal}\n${temoin.stderr}`);
+  assert.match(temoin.stderr, /\[DÉMARRAGE\] Initialisation impossible/, 'témoin : le serveur écoute, puis lit la base');
+  assert.match(temoin.stderr, /setupListenHandle/, 'témoin : l’ouverture du port se voit sur la sortie d’erreur');
+  assert.doesNotMatch(temoin.stderr, /Configuration refusée/);
+});

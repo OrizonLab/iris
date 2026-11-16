@@ -887,7 +887,13 @@ if (!TEST_DATABASE_URL) {
         nom: `TEST Centimes ${suffixe}`, client: 'TEST Client centimes', dateDebut: new Date(), responsableId: conducteur.id,
         budgetGlobalVendu: 10, budgetMaterielVendu: 0.6, budgetMainOeuvreVendu: 0.6, heuresVendues: 0.6,
       } });
-      const date = new Date();
+      // #407 : achats et heures datés du jour civil de la société (date-seule, à minuit UTC), comme une saisie par
+      // l'API, et non de l'instant. Le dernier jour d'un mois, entre minuit à Paris et minuit UTC, l'instant tombe
+      // encore dans le mois UTC alors que le jour de la société, qui désigne la période demandée, est déjà le 1er du
+      // mois suivant : l'achat sortait de la période et la ligne du fournisseur manquait (« reading 'total' »).
+      const societe = await prisma.companySettings.findUnique({ where: { id: 'singleton' } });
+      const ref = jourCivilEntreprise(new Date(), societe?.fuseauHoraire || 'Europe/Paris');
+      const date = new Date(`${ref}T00:00:00.000Z`);
       for (const valeur of [0.1, 0.2, 0.3]) {
         await prisma.achatReel.create({ data: {
           date, fournisseurId: fournisseur.id, categorieId: categorie.id, chantierId: chantier.id, description: `TEST achat ${valeur}`,
@@ -911,7 +917,6 @@ if (!TEST_DATABASE_URL) {
         assert.ok(!m.alertes.includes(alerte), `aucune alerte ${alerte} à budget exactement consommé`);
       }
 
-      const ref = jourCivilEntreprise(date);
       const fournisseurs = await request(app).get('/api/stats/fournisseurs').query({ period: 'month', ref }).set(auth);
       assert.equal(fournisseurs.status, 200, JSON.stringify(fournisseurs.body));
       const ligneFournisseur = (fournisseurs.body.fournisseurs ?? fournisseurs.body).find((f) => f.id === fournisseur.id);
@@ -29643,7 +29648,17 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual(Object.keys(part.reglement).sort(), ['contrepasseLe', 'createdAt', 'dateReglement', 'id', 'motifContrepassation', 'moyen', 'reference', 'statut']);
       }
       const brut = JSON.stringify(parElle.body);
-      for (const absent of [fb.id, fb.numero, '29.99', '1000', '1015.55', '"50"']) assert.ok(!brut.includes(absent), `absent de sa lecture : ${absent}`);
+      for (const absent of [fb.id, fb.numero]) assert.ok(!brut.includes(absent), `absent de sa lecture : ${absent}`);
+      // Montants de l'administration absents : comparés aux valeurs de la réponse, et non à son texte, où un identifiant ou la
+      // référence horodatée d'un règlement peut contenir « 1000 » (même cause que l'audit n° 11 du PDF du devis, plus haut
+      // dans ce fichier ; passage hebdomadaire du 16-11-2026).
+      const valeurs = [];
+      JSON.parse(brut, (_cle, valeur) => { if (typeof valeur === 'number' || typeof valeur === 'string') valeurs.push(String(valeur)); return valeur; });
+      for (const absent of ['29.99', '1000', '1015.55', '50']) assert.ok(!valeurs.includes(absent), `absent de sa lecture : ${absent}`);
+      // Montants décimaux de l'administration écrits dans un texte de la réponse (un libellé, par exemple) : l'ancienne recherche
+      // dans le texte les trouvait, la comparaison aux valeurs ne les voit pas. Un deux-points ou un chiffre avant eux les écarte
+      // des secondes d'un horodatage ISO (« :29.99… »), seule source de faux positif (audit des droits de la PR de suivi, T).
+      assert.doesNotMatch(brut, /(?<![\d:])(?:29\.99|1015\.55)(?!\d)/, 'montant de l’administration écrit dans un texte de sa lecture');
       assert.deepEqual(parElle.body.parts.map((p) => p.id).sort(), (await prisma.affectationReglement.findMany({ where: { factureId: fa.id }, select: { id: true } })).map((a) => a.id).sort());
       // La facture de l'administration lui reste fermée, règlements compris.
       assert.deepEqual([(await lire(`/api/factures/${fb.id}/reglements`, assistante)).status], [404]);

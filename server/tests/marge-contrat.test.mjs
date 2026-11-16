@@ -793,6 +793,59 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await lireMarge(contrat.id), { ...MARGE_VIDE, nombreInterventions: 1 });
     });
 
+    // #551 (N5 de l'auditeur-montants sur #550, test manquant) : margeContrat (marge.ts) lit le contrat, ses interventions,
+    // leurs heures et leurs achats dans une même transaction en REPEATABLE READ, pour calculer la marge sur un seul
+    // instantané. Montage : la transaction du test tient la table des heures (LOCK … ACCESS EXCLUSIVE) ; la lecture de la
+    // marge passe le contrat et les interventions, prend son instantané, puis attend sur la lecture des heures ; pendant
+    // cette attente, la transaction du test ajoute une heure valorisée et valide. La réponse doit être exactement l'état
+    // d'avant : au niveau par défaut (READ COMMITTED, mutant tué), la lecture des heures, reprise après le verrou, prend un
+    // nouvel instantané et compte l'heure ajoutée, avec les interventions lues avant elle. La lecture suivante la compte.
+    test('isolation de la lecture de la marge : une heure ajoutée et validée pendant la lecture, après celle des interventions, n’entre pas dans la marge rendue ; la lecture suivante la compte (#551)', async () => {
+      const contrat = await creerContrat({ politiqueMateriel: 'INCLUS' });
+      const visite = await genererVisite(contrat);
+      const a = await fiche(`TEST Marge contrat instantané A ${unique()}`, 30);
+      const b = await fiche(`TEST Marge contrat instantané B ${unique()}`, 31);
+      await heure(visite.id, a, '1.25', '30', '43.70'); // vente 54,625 → 54,63 ; coût 37,50
+      await achat(visite.id, '4.34'); // matériel inclus
+
+      // Témoin : avant, ventes 54,63, coûts 37,50, marge 54,63 − 37,50 − 4,34 = 12,79 ; l'heure concurrente (2 h vendues
+      // 41,15 €, coût 31 €) ajoute 82,30 de ventes et 62,00 de coûts : après, 136,93, 99,50 et marge 33,09. Deux états
+      // distincts sur chaque montant et sur les heures valorisées : une lecture des heures hors de l'instantané se voit.
+      const avantVentes = sommeLignes([['1.25', '43.70']]);
+      const avantCouts = sommeLignes([['1.25', '30']]);
+      const apresVentes = sommeLignes([['1.25', '43.70'], ['2', '41.15']]);
+      const apresCouts = sommeLignes([['1.25', '30'], ['2', '31']]);
+      const materiel = sommeMontants(['4.34']);
+      assert.deepEqual([avantVentes, avantCouts, avantVentes - avantCouts - materiel].map(euros), [54.63, 37.5, 12.79]);
+      assert.deepEqual([apresVentes, apresCouts, apresVentes - apresCouts - materiel].map(euros), [136.93, 99.5, 33.09]);
+      const avant = { ...MARGE_VIDE, ventesHT: 54.63, coutsHT: 37.5, materielHT: 4.34, margeHT: 12.79, heuresValorisees: 1.25, nombreInterventions: 1 };
+      const apres = { ...avant, ventesHT: 136.93, coutsHT: 99.5, margeHT: 33.09, heuresValorisees: 3.25 };
+      assert.deepEqual(await lireMarge(contrat.id), avant, 'état d’avant');
+
+      let lecture;
+      let ajoutee;
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('LOCK TABLE "CoutInterventionHeure" IN ACCESS EXCLUSIVE MODE');
+        const [{ pid }] = await tx.$queryRaw`SELECT pg_backend_pid() AS pid`;
+        lecture = marge(contrat.id).then((r) => r);
+        // La lecture de la marge attend sur la table des heures, tenue par cette transaction : elle a donc déjà lu le
+        // contrat et ses interventions (marge.ts), et pris son instantané.
+        await attendre(async () => (await prisma.$queryRaw`SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = current_database() AND ${pid}::int = ANY(pg_blocking_pids(pid)) AND query LIKE '%"CoutInterventionHeure"%'`)[0].n > 0,
+        'la lecture de la marge attend sur la table des heures');
+        ajoutee = await tx.coutInterventionHeure.create({ data: {
+          interventionId: visite.id, intervenantId: b.id, date: new Date('2026-10-21T00:00:00Z'), nbrHeures: '2', tauxHoraireApplique: '31', prixVenteHoraireApplique: '41.15', createdById: adminId,
+        } });
+      }, { timeout: 20000 });
+      const reponse = await lecture;
+      assert.equal(reponse.status, 200, JSON.stringify(reponse.body));
+      // Exactement l'état d'avant : ni l'état d'après (ventes 136,93, coûts 99,50, marge 33,09, 3,25 h), ni un mélange.
+      assert.deepEqual(reponse.body, avant, 'la marge rendue est celle de l’instantané pris avant l’ajout de l’heure');
+      // L'heure a bien été validée : la lecture suivante la compte.
+      assert.ok(await prisma.coutInterventionHeure.findUnique({ where: { id: ajoutee.id } }), 'heure concurrente validée');
+      assert.deepEqual(await lireMarge(contrat.id), apres, 'état d’après');
+    });
+
     // ===================== Droits (cadrage, périmètre 3 ; choix par défaut, à confirmer) =====================
 
     // GET /api/contrats-maintenance/:id/marge, sous requireAuth et requireAdmin : l'administration (SUPERADMIN, ADMIN,
