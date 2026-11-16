@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../api';
 import { useCompanyTimezone } from '../companyTimezoneContext';
 import { companyDateInputValue, formatCompanyDateTime } from '../lib/dateFormatting';
-import { CHAMPS_JOURNAL, lisible } from '../lib/journalAdministration';
+import { ACTIONS_JOURNAL, CHAMPS_JOURNAL, lisible } from '../lib/journalAdministration';
 
 // Journal des paramètres et des droits (lot (a), décision de Nelson du 13-10-2026) : qui a changé
 // quoi, avant et après, filtrable par date, type et auteur, avec export CSV. Le serveur ne renvoie
@@ -47,32 +47,10 @@ const TYPES_JOURNAL: Record<string, string> = {
   INTERVENANT: 'Fiche intervenant',
 };
 
-const ACTIONS_JOURNAL: Record<string, string> = {
-  CREATION: 'Création',
-  SUPPRESSION: 'Suppression',
-  MODIFICATION: 'Modification',
-  TYPE_COMPTE: 'Type de compte',
-  RATTACHEMENT: 'Rattachement hiérarchique',
-  AUSSI_COMMERCIAL: '« Aussi commercial »',
-  PERMISSIONS: 'Permissions',
-  ACCES_FINANCE: 'Accès financier',
-  ACTIVATION: 'Activation',
-  DESACTIVATION: 'Désactivation',
-  REVOCATION: 'Révocation',
-  PUBLICATION: 'Publication',
-  NOUVEAU_LIEN: 'Nouveau lien',
-  FICHE_INTERVENANT: 'Fiche intervenant',
-  LOGO_DOCUMENTS: 'Logo des documents',
-  LOGO_DOCUMENTS_RETIRE: 'Logo des documents retiré',
-  REACTIVATION: 'Réactivation',
-  PASSAGE_MAIN_OEUVRE: 'Prestation passée en main d’œuvre',
-  RETRAIT_MAIN_OEUVRE: 'Main d’œuvre redevenue prestation',
-  RATTACHEMENT_MAIN_OEUVRE: 'Main d’œuvre rattachée',
-};
-
 const FILTRES_VIDES: Filtres = { du: '', au: '', type: '', auteur: '' };
 
-// Libellés des champs journalisés et des valeurs (CHAMPS_JOURNAL, lisible) : lib/journalAdministration.ts.
+// Libellés des actions, des champs journalisés et des valeurs (ACTIONS_JOURNAL, CHAMPS_JOURNAL, lisible) :
+// lib/journalAdministration.ts.
 
 function Valeurs({ valeurs }: { valeurs: Record<string, unknown> | null }) {
   if (!valeurs || !Object.keys(valeurs).length) return <span className="text-gray-400">—</span>;
