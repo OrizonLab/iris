@@ -31,8 +31,8 @@ import { type RefusGraph, TAILLE_MAX_REQUETE_ENVOI, adresseGraph, connexionMicro
 //   2. jeton absent ou vide : 400 ;
 //   3. verdict de GET /me : 502 (Graph ne répond pas : délai, coupure, 5xx), 409 (401 ou 403 de
 //      Graph), 502 (autre 4xx), ou 403 si la boîte (mail, à défaut userPrincipalName) n'est pas
-//      l'adresse du compte Iris de la session, sans tenir compte de la casse : même règle d'adresse
-//      que la connexion, sous réserve de #264 ;
+//      l'adresse du compte Iris de la session, sans tenir compte de la casse : la règle d'adresse de
+//      la connexion avant #264, qui l'autorise depuis sur les identifiants Microsoft immuables (#560) ;
 //   4. refus de la lecture du PDF (possible seulement par une écriture concurrente) : 409, avec son
 //      message ;
 //   5. corps de sendMail de plus de 4 000 000 octets : 413.

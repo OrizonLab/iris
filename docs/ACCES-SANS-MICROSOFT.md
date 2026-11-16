@@ -31,11 +31,23 @@ Dans `server/.env`, sur le VPS uniquement :
 ```env
 BREAK_GLASS_EMAIL="direction@votre-societe.fr"
 BREAK_GLASS_TOKEN="<le résultat de : openssl rand -hex 32>"
+TRUST_PROXY=2
 ```
 
 Ajouter la même adresse à `SUPERADMIN_EMAILS`, pour que le compte existe avec le rôle `SUPERADMIN`.
 Générer le jeton en hexadécimal, et non en base64 : un `+` du jeton serait lu comme une espace
 dans le signet `#token=` ci-dessous (#262).
+
+`TRUST_PROXY` est le nombre de proxys inverses de confiance devant le backend (#261), un entier
+de 0 à 5 ; absente ou vide, elle vaut 0. Pour la chaîne de production Docker (navigateur, Nginx
+Proxy Manager, nginx du frontend, backend), la valeur est **2**, tant que le frontend n'est
+joignable que par Nginx Proxy Manager (le réseau partagé `nginx-proxy` ne doit porter que des
+conteneurs de confiance) : le backend retient alors l'adresse du client, et non celle du nginx du
+frontend. Une valeur trop grande laisse un client forger son adresse (en-tête
+`X-Forwarded-For`), et donc contourner la limite des essais ; une valeur trop petite fait compter
+tous les clients pour une seule adresse, si bien qu'un tiers peut bloquer l'accès de secours pour
+tous. Une valeur hors forme (texte, nombre négatif ou décimal, liste d'adresses, `true`) refuse le
+démarrage du serveur. Détail : `docs/CONFIGURATION-ENVIRONNEMENT.md`.
 
 Puis recréer le conteneur du backend (`docker compose up -d --force-recreate backend` ; un
 simple `restart` ne relit pas `server/.env`). Au démarrage, il confirme dans ses journaux :
@@ -69,11 +81,12 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
 - La comparaison se fait à temps constant, sur les empreintes SHA-256 des deux valeurs :
   ni la durée de la réponse ni la longueur du secret attendu ne fuient.
 - Cinq tentatives par quart d'heure et par adresse IP, puis blocage. Derrière les proxys de
-  production, l'adresse vue est aujourd'hui celle du conteneur nginx, si bien que le blocage
-  est commun à tous (#261).
+  production, l'adresse retenue est celle du client si `TRUST_PROXY` est réglée (2 pour la
+  chaîne Docker décrite plus haut) ; sans ce réglage, c'est celle du conteneur nginx, si bien
+  que le blocage est commun à tous (#261).
 - La session dure **1 heure**, contre 7 jours pour une connexion Microsoft.
-- Chaque tentative, réussie ou non, est écrite dans les journaux du conteneur avec l'IP
-  (aujourd'hui l'adresse interne du proxy, #261) :
+- Chaque tentative, réussie ou non, est écrite dans les journaux du conteneur avec l'IP, celle
+  du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne du proxy, #261) :
   `docker logs iris_backend | grep SECOURS`.
 
 ### Après usage

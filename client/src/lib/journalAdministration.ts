@@ -4,6 +4,36 @@
 import { roleLabel } from './droits';
 import { LIBELLES_MODE_ENVOI } from './envoiMicrosoft365';
 
+// Libellés des actions journalisées ; une action absente de la liste garde son code. Sorties du composant avec
+// les deux actions de la connexion Microsoft (#264), écrites au nom du compte lui-même.
+export const ACTIONS_JOURNAL: Record<string, string> = {
+  CREATION: 'Création',
+  SUPPRESSION: 'Suppression',
+  MODIFICATION: 'Modification',
+  TYPE_COMPTE: 'Type de compte',
+  RATTACHEMENT: 'Rattachement hiérarchique',
+  AUSSI_COMMERCIAL: '« Aussi commercial »',
+  PERMISSIONS: 'Permissions',
+  ACCES_FINANCE: 'Accès financier',
+  ACTIVATION: 'Activation',
+  DESACTIVATION: 'Désactivation',
+  REVOCATION: 'Révocation',
+  PUBLICATION: 'Publication',
+  NOUVEAU_LIEN: 'Nouveau lien',
+  FICHE_INTERVENANT: 'Fiche intervenant',
+  LOGO_DOCUMENTS: 'Logo des documents',
+  LOGO_DOCUMENTS_RETIRE: 'Logo des documents retiré',
+  REACTIVATION: 'Réactivation',
+  PASSAGE_MAIN_OEUVRE: 'Prestation passée en main d’œuvre',
+  RETRAIT_MAIN_OEUVRE: 'Main d’œuvre redevenue prestation',
+  RATTACHEMENT_MAIN_OEUVRE: 'Main d’œuvre rattachée',
+  // Première connexion Microsoft d'un compte : ses identifiants immuables lui sont liés (ils ne sont pas journalisés).
+  LIAISON_MICROSOFT: 'Liaison Microsoft enregistrée',
+  // Connexion d'un compte lié sous une autre adresse que la sienne : avant, l'adresse du compte Iris, qui ne
+  // change pas ; après, celle que Microsoft a renvoyée.
+  ADRESSE_MICROSOFT_CHANGEE: 'Changement d’adresse Microsoft détecté',
+};
+
 // Libellés des champs journalisés ; un champ absent de la liste garde son nom technique.
 export const CHAMPS_JOURNAL: Record<string, string> = {
   role: 'Type de compte',
@@ -13,6 +43,8 @@ export const CHAMPS_JOURNAL: Record<string, string> = {
   actif: 'Actif',
   responsableHierarchique: 'Responsable hiérarchique',
   ficheIntervenant: 'Fiche intervenant',
+  // Changement d'adresse Microsoft détecté (#264).
+  email: 'Adresse e-mail',
   margeCommercialeActive: 'Marge commerciale',
   tauxAcompteDefaut: 'Acompte par défaut (%)',
   seuilMargeFaible: 'Seuil de marge faible (%)',
