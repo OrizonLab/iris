@@ -5377,7 +5377,7 @@ Message de Nelson, mot pour mot :
 
 ### 4. Passage hebdomadaire du `controleur-coherence`
 
-Demandé par Nelson dans son message (« il est l'heure egalement du passage hebdomadaire du controleur de coherence »). **Lancé le 16-11-2026, rapport publié dans une issue** : [numéro à compléter].
+Demandé par Nelson dans son message (« il est l'heure egalement du passage hebdomadaire du controleur de coherence »). **Lancé le 16-11-2026, rapport publié dans une issue** : [#557](https://github.com/Noxia-Groupe/iris/issues/557) : cohérent sur le plan fonctionnel, R 0, C 2 (deux tests existants instables, versés par la PR de tests de suivi), N 7 ; N1 suivie par [#558](https://github.com/Noxia-Groupe/iris/issues/558), N2 en complément de #482, N3 à N7 versées par la PR documentaire qui consigne ces décisions ; trois questions proposées pour Nelson (Q1 à Q3, non posées).
 
 ### 5. Quatre questions de cadrage
 
