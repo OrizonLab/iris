@@ -110,6 +110,9 @@ const FORMES_REFUSEES = [
   ['{} (objet)', {}], // objet.
   ['["30"] (tableau)', ['30']], // écarte une lecture du premier élément (30).
   ['« 37,5 % »', '37,5 %'], // le signe % n'est pas lu.
+  ['« 0100 » (quatre chiffres)', '0100'], // au plus trois chiffres avant la virgule (cadrage, section 1), zéros de tête compris : écarte un contrôle
+  // de la seule valeur (≤ 100) ou une forme à quatre chiffres et plus (audit des montants de #571, mutant S06).
+  ['« 0037,5 » (zéros de tête)', '0037,5'], // idem.
 ];
 
 // Le 0 sous ses écritures (cadrage : « Le refus vise un taux **envoyé** égal à 0 »).
@@ -551,6 +554,30 @@ if (!TEST_DATABASE_URL) {
           const nonExige = await creerOk({ acompteExige: false });
           await ok(modifier(nonExige.id, corpsDevis({ tauxAcompte: valeur }), auth, porte));
           assert.deepEqual(await conditions(nonExige.id), { acompteExige: false, tauxAcompte: null }, `${qui}, devis non exigé, case absente, ${quoi}`);
+        }
+      }
+    });
+
+    // Cadrage, section 1 : « Valeur non vide, contrôlée qu'un acompte soit exigé ou non » ; sans acompte exigé, un taux bien
+    // formé est admis et, comme le 0, n'est pas enregistré (« le taux n'est pas enregistré, comme aujourd'hui » ;
+    // acompteDevisPayload : `if (!acompteExige) return { acompteExige, tauxAcompte: null }`). Lecture écartée (audit des montants
+    // de #571, mutant S20) : un taux valide non nul gardé sur un devis sans acompte, servi par l'API et entré dans le contenu
+    // signé. La case cochée ensuite, sans taux, prend le taux par défaut (30), et non le taux envoyé plus tôt.
+    test('sans acompte exigé : un taux valide non nul (50, « 37,5 », 100) est admis sans être enregistré, à la création et à la modification, en session et par clé ; la case cochée ensuite sans taux prend le taux par défaut', async () => {
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        for (const valeur of [50, '37,5', 100]) {
+          const cree = await ok(creer(corpsDevis({ acompteExige: false, tauxAcompte: valeur }), auth, porte), 201);
+          assert.equal(cree.tauxAcompte, null, `${qui}, création, ${valeur} : réponse`);
+          assert.deepEqual(await conditions(cree.id), { acompteExige: false, tauxAcompte: null }, `${qui}, création, ${valeur}`);
+          const exigeA35 = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+          const decoche = await ok(modifier(exigeA35.id, corpsDevis({ objet: exigeA35.objet, acompteExige: false, tauxAcompte: valeur }), auth, porte));
+          assert.equal(decoche.tauxAcompte, null, `${qui}, case décochée, ${valeur} : réponse`);
+          assert.deepEqual(await conditions(exigeA35.id), { acompteExige: false, tauxAcompte: null }, `${qui}, case décochée, ${valeur}`);
+          const nonExige = await creerOk({ acompteExige: false });
+          await ok(modifier(nonExige.id, corpsDevis({ objet: nonExige.objet, tauxAcompte: valeur }), auth, porte));
+          assert.deepEqual(await conditions(nonExige.id), { acompteExige: false, tauxAcompte: null }, `${qui}, devis non exigé, case absente, ${valeur}`);
+          await ok(modifier(cree.id, corpsDevis({ objet: cree.objet, acompteExige: true }), auth, porte));
+          assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: '30' }, `${qui}, case cochée ensuite sans taux, ${valeur}`);
         }
       }
     });

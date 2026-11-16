@@ -159,6 +159,27 @@ test('devis à l’écran, Chromium en anglais : « 1,5 » × « 18,75 » à « 
   }
 });
 
+// Audit des montants de #571 (C2) : le taux de l'acompte, au plus deux décimales (cadrage, section 1), s'affiche à l'écran au
+// centième, comme sur le PDF (devis/document.ts, « Acompte demandé : », `maximumFractionDigits: 2`) : « 12,25 % », « 0,05 % »,
+// « 100 % ». Lectures écartées : un dixième (`toFixed(1)`, `maximumFractionDigits: 1` : « 12,3 % », « 0,1 % »), que le seul
+// témoin « 37,5 % » ne sépare pas ; l'unité (« 12 % », « 0 % ») ; deux décimales toujours (« 100,00 % ») ; le point (« 12.25 % »).
+test('taux de l’acompte affiché au centième, comme le PDF : « 12,25 % », « 0,05 % » et « 100 % »', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
+  const client = await creerClient('Taux acompte affiché');
+  const suffixe = `${Date.now()}`;
+  const cas = [['12,25', '12,25'], ['0,05', '0,05'], ['100', '100']] as const;
+  for (const [taux] of cas) {
+    await envoyer(request, session.token, 'post', '/devis', {
+      clientId: client.id, objet: `Taux affiché E2E ${suffixe} ${taux}`, acompteExige: true, tauxAcompte: taux,
+      lignes: [{ designation: 'Prestation', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }],
+    });
+  }
+  await allerSurPageAdmin('/devis');
+  for (const [taux, affiche] of cas) {
+    const item = page.getByRole('listitem').filter({ hasText: `Taux affiché E2E ${suffixe} ${taux}` });
+    await expect(item.getByText(/^Acompte de/)).toHaveText(`Acompte de ${affiche} % exigé avant conversion du devis`);
+  }
+});
+
 // Critère du cadrage : « la valeur pré-remplie (…) depuis le catalogue s'écrit à la virgule » (`ligneDepuisCatalogue`, PU
 // « 2,5 » et TVA « 5,5 ») ; la ligne vierge du formulaire (« 0 » écrit en chaîne) est remplacée par la fiche (`ligneVierge`).
 // Montant : 4,5 × 2,50 = 11,25 € HT ; TVA 5,5 % = 0,61875, soit 0,62 € ; TTC 11,87 €. Lectures écartées : PU pré-rempli

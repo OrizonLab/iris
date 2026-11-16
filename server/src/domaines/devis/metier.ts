@@ -306,7 +306,8 @@ export async function verrouillerDevis(tx: Prisma.TransactionClient, id: string)
   const lignes = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "Devis" WHERE "id" = ${id} FOR UPDATE`);
   return lignes.length === 1;
 }
-// Taux d'acompte envoyé (#252 ; décision de Nelson du 16-11-2026 : un taux saisi invalide « sera refusé (400) »).
+// Taux d'acompte envoyé (#252). Le refus d'un taux saisi invalide est annoncé par la question de Claude Code du
+// 16-11-2026 (« Il sera refusé (400). ») ; la réponse de Nelson, « Refuser 0 % (Recommandé) », porte sur 0 %.
 // La clé absente et la valeur vide (null, chaîne vide) ne sont pas une saisie ; toute autre valeur est contrôlée,
 // qu'un acompte soit exigé ou non : un nombre de 0 à 100, au plus trois chiffres et deux décimales, virgule
 // admise. Ce contrôle de forme précède la transaction, comme celui des lignes : il passe avant le 404 et les 409.

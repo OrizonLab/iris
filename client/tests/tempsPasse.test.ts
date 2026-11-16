@@ -161,6 +161,12 @@ test('flèches : un pas de plus ou de moins, recalé sur minimum + k × pas, jam
   assert.equal(heuresAuPas('1,001', ancien, 1), '1,002');
   assert.equal(heuresAuPas('1,999', ancien, 1), '2');
   assert.equal(heuresAuPas('2,5', ancien, -1), '2,499');
+  // Audit des montants de #571 (N, mutant C21) : en millièmes entiers, chaque valeur de 1 à 20 heures au millième avance et
+  // recule d'un millième exact ; un calcul en flottant (minimum + rang × pas) écrirait « 1,1219999999999999 » après 1,121.
+  for (let m = 1000; m < 20_000; m += 1) {
+    assert.equal(heuresAuPas(String(m / 1000).replace('.', ','), ancien, 1), String((m + 1) / 1000).replace('.', ','), `${m} ‰ vers le haut`);
+    if (m > 1000) assert.equal(heuresAuPas(String(m / 1000).replace('.', ','), ancien, -1), String((m - 1) / 1000).replace('.', ','), `${m} ‰ vers le bas`);
+  }
   // Nouveau devis (réglages inconnus) : un quart d'heure au moins, par quarts d'heure.
   const nouveau = { min: 0.25, step: 0.25 };
   assert.equal(heuresAuPas('0,25', nouveau, -1), '0,25');
