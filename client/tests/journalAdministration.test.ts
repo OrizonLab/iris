@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // Ce module se charge sous tsx --test : il n'importe pas roles.ts, qui charge api.ts et lit
 // import.meta.env, introuvable ici, mais lib/droits.ts (V-N6). Son import seul le prouve.
-import { CHAMPS_JOURNAL, lisible } from '../src/lib/journalAdministration.ts';
+import { ACTIONS_JOURNAL, CHAMPS_JOURNAL, lisible } from '../src/lib/journalAdministration.ts';
 
 // Lot 6b-2, « Journal d'administration » (cadrage du lot 6b, version 8 ; C-N1 de #410, N3) : le réglage
 // du mode d'envoi des documents se lit en clair, « Mode d’envoi des documents », et ses valeurs
@@ -66,4 +66,16 @@ test('le réglage de rentabilité des assistantes techniques se lit en clair dan
     ['Rentabilité : conducteur', 'Rentabilité : hiérarchie', 'Rentabilité : directeurs']);
   assert.equal(lisible(true, 'rentabiliteAssistantesTechniques'), 'oui');
   assert.equal(lisible(false, 'rentabiliteAssistantesTechniques'), 'non');
+});
+
+// Correctif « sécurité de la connexion », #264 : les deux entrées que la connexion Microsoft écrit au nom du compte
+// se lisent en clair, et le changement d'adresse montre son champ sous « Adresse e-mail », l'adresse telle quelle.
+// Les libellés des actions sortent de JournalAdministration.tsx sans changer pour les autres actions.
+test('les entrées de la connexion Microsoft (#264) se lisent en clair au journal d’administration', () => {
+  assert.equal(ACTIONS_JOURNAL.LIAISON_MICROSOFT, 'Liaison Microsoft enregistrée');
+  assert.equal(ACTIONS_JOURNAL.ADRESSE_MICROSOFT_CHANGEE, 'Changement d’adresse Microsoft détecté');
+  assert.equal(CHAMPS_JOURNAL.email, 'Adresse e-mail');
+  assert.equal(lisible('prenom.nom@exemple.test', 'email'), 'prenom.nom@exemple.test');
+  assert.equal(ACTIONS_JOURNAL.DESACTIVATION, 'Désactivation');
+  assert.equal(ACTIONS_JOURNAL.RATTACHEMENT_MAIN_OEUVRE, 'Main d’œuvre rattachée');
 });

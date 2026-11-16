@@ -184,6 +184,13 @@ export async function autoriserConnexionMicrosoft(identite: IdentiteMicrosoft): 
   }
 
   if (!deLAdresse || !deLAdresse.actif) return { statut: 'NON_AUTORISEE' };
+  // Compte de l'adresse déjà lié au couple de ce jeton, alors que la lecture par le couple ne l'a pas trouvé : les deux
+  // lectures, parallèles, ne sont pas faites au même instant, et une connexion simultanée de la même personne l'a lié
+  // entre les deux. Il est admis comme un compte lié (son adresse est celle du jeton : rien à journaliser), et non
+  // refusé comme lié à d'autres identifiants.
+  if (deLAdresse.microsoftOid === oid && deLAdresse.microsoftTid === tid) {
+    return { statut: 'AUTORISEE', compte: compteConnexion(deLAdresse) };
+  }
   if (deLAdresse.microsoftOid !== null || deLAdresse.microsoftTid !== null) {
     return { statut: 'REFUSEE', motif: 'adresse d’un compte lié à d’autres identifiants Microsoft' };
   }

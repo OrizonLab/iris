@@ -500,6 +500,118 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
+    // --- Course de la même personne (même oid) ---
+
+    // Deux premières connexions simultanées de la même personne (double clic, deux onglets) portent le même couple. La
+    // première lie le compte ; la seconde le trouve lié à ce même couple : elle est admise comme toute connexion d'un
+    // compte lié (cadrage : « compte déjà lié […] : connexion autorisée »), et la liaison n'est journalisée qu'une fois.
+    // Correction R1 du contrôle de cohérence, proposition de test du contrôleur reprise ici : la lecture par le couple
+    // et celle par l'adresse ne sont pas faites au même instant, et sans R1 une connexion qui lisait le couple encore
+    // libre, puis le compte de l'adresse déjà lié par l'autre, était refusée (401) comme une adresse liée à d'autres
+    // identifiants (4 courses sur 100 relevées par le contrôleur).
+    test('course de la même personne, ligne verrouillée par le test : deux premières connexions avec le même oid sont toutes deux admises, une seule liaison journalisée', async () => {
+      const compte = await creerCompte('CONDUCTEUR_TRAVAUX', 'meme-oid-verrou');
+      const oid = nouvelOid();
+      const verrou = new pg.Client({ connectionString: cible.toString() });
+      await verrou.connect();
+      let reponses;
+      let attentesVues = 0;
+      try {
+        await verrou.query('BEGIN');
+        await verrou.query('SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE', [compte.id]);
+        const enCours = [0, 1].map(() => connecter({ oid, adresse: compte.email }).then((r) => r));
+        const limite = Date.now() + 3_500;
+        while (Date.now() < limite) {
+          const [{ n }] = await prisma.$queryRaw`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+          attentesVues = n;
+          if (n >= 2) break;
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        await verrou.query('COMMIT');
+        reponses = await Promise.all(enCours);
+      } finally {
+        await verrou.query('ROLLBACK').catch(() => {});
+        await verrou.end();
+      }
+      assert.ok(attentesVues >= 2, `les deux connexions attendaient d’écrire le compte : la course a bien eu lieu (${attentesVues} en attente)`);
+      assert.deepEqual(reponses.map((r) => [r.status, r.body.user?.id]), [[200, compte.id], [200, compte.id]], JSON.stringify(reponses.map((r) => r.body)));
+      assert.deepEqual(await identifiants(compte.id).then(({ oid: o, tid }) => [o, tid]), [oid, LOCATAIRE]);
+      assert.deepEqual((await journalDe(compte.id)).map((e) => e.action), [ACTION_LIAISON], 'une seule liaison journalisée');
+    });
+
+    // L'entrelacement exact qui faisait échouer la course sans R1, rendu certain : une sonde posée sur le client Prisma
+    // de l'application laisse passer la lecture par le couple (encore libre), puis, avant la lecture par l'adresse, lie
+    // le compte au même couple, comme l'aurait fait la connexion simultanée de la même personne. La connexion doit être
+    // admise (200), sans rien journaliser elle-même ; sans R1, elle répond 401. La sonde vérifie que l'ordre attendu a
+    // bien eu lieu : si le code ne lisait plus le couple puis l'adresse, ce test le dirait au lieu de passer à vide.
+    let sondeLectures = null;
+    let sondePosee = false;
+    const poserSondeLectures = () => {
+      if (sondePosee) return;
+      sondePosee = true;
+      appPrisma.$use(async (params, next) => {
+        const sonde = sondeLectures;
+        if (!sonde || params.model !== 'User' || params.action !== 'findUnique') return next(params);
+        const ou = params.args?.where ?? {};
+        if (ou.microsoftOid_microsoftTid?.microsoftOid === sonde.oid && !sonde.coupleLu) {
+          const resultat = await next(params);
+          sonde.coupleLu = true;
+          sonde.coupleTrouve = resultat !== null;
+          sonde.signalerCouple();
+          return resultat;
+        }
+        if (ou.email === sonde.email && !sonde.lieeAilleurs) {
+          sonde.lieeAilleurs = true;
+          sonde.ordre = await Promise.race([
+            sonde.couple.then(() => 'couple puis adresse'),
+            new Promise((r) => setTimeout(() => r('adresse lue sans lecture préalable du couple'), 2_000)),
+          ]);
+          await sonde.lier();
+          return next(params);
+        }
+        return next(params);
+      });
+    };
+    test('course de la même personne, entrelacement certain : couple lu encore libre, compte lié au même couple avant la lecture par l’adresse, la connexion est admise sans rien journaliser', async () => {
+      poserSondeLectures();
+      const compte = await creerCompte('COMMERCIAL', 'meme-oid-entrelace');
+      const oid = nouvelOid();
+      let signalerCouple;
+      const couple = new Promise((r) => { signalerCouple = r; });
+      sondeLectures = { oid, email: compte.email, couple, signalerCouple, lier: () => poserIdentifiants(compte.id, oid) };
+      let res;
+      try {
+        res = await connecter({ oid, adresse: compte.email });
+      } finally {
+        const sonde = sondeLectures;
+        sondeLectures = null;
+        assert.equal(sonde.ordre, 'couple puis adresse', 'la sonde a vu la lecture par le couple, puis celle par l’adresse');
+        assert.equal(sonde.coupleTrouve, false, 'la lecture par le couple a trouvé le couple encore libre');
+      }
+      assert.deepEqual([res.status, res.body.user?.id], [200, compte.id], JSON.stringify(res.body));
+      assert.deepEqual(await identifiants(compte.id).then(({ oid: o, tid }) => [o, tid]), [oid, LOCATAIRE]);
+      assert.deepEqual(await journalDe(compte.id), [], 'la connexion admise n’a rien journalisé : la liaison est celle de l’autre connexion');
+      // Ensuite, le même couple ouvre le compte, un autre est refusé.
+      assert.equal((await connecter({ oid, adresse: compte.email })).status, 200);
+      assert.equal((await connecter({ oid: nouvelOid(), adresse: compte.email })).status, 401);
+    });
+
+    // Course naturelle, répétée sur cent comptes : deux premières connexions de la même personne lancées ensemble ne
+    // reçoivent jamais de refus, et chaque compte n'a qu'une liaison journalisée. Avec R1, l'issue ne dépend pas de
+    // l'entrelacement ; sans R1, le contrôleur a relevé 4 refus sur 100 courses.
+    test('course naturelle de la même personne, sur cent comptes : aucun refus, une seule liaison journalisée par compte', async () => {
+      const refus = [];
+      for (let i = 1; i <= 100; i += 1) {
+        const compte = await creerCompte('CONDUCTEUR_TRAVAUX', `meme-oid-libre-${i}`);
+        const oid = nouvelOid();
+        const reponses = await Promise.all([0, 1].map(() => connecter({ oid, adresse: compte.email })));
+        for (const r of reponses) if (r.status !== 200 || r.body.user?.id !== compte.id) refus.push(`course ${i} : ${r.status} ${JSON.stringify(r.body)}`);
+        assert.equal((await identifiants(compte.id)).oid, oid, `course ${i}`);
+        assert.deepEqual((await journalDe(compte.id)).map((e) => e.action), [ACTION_LIAISON], `course ${i} : une seule liaison journalisée`);
+      }
+      assert.deepEqual(refus, [], `${refus.length} refus pour la même personne`);
+    });
+
     // --- Super administrateur ---
 
     // Cadrage : « avec concerneSuperAdmin: isSuperAdminRole(compte.role), comme toute entrée qui porte sur un compte
@@ -670,6 +782,74 @@ if (!TEST_DATABASE_URL) {
       await refuseSansEcriture({ oid: nouvelOid(), adresse: ' Systeme@IRIS.invalid ' }, NON_AUTORISE, 403, [systeme], 'compte système');
       assert.deepEqual(await identifiants(systeme.id).then(({ oid, tid }) => [oid, tid]), [null, null]);
       assert.equal(await prisma.user.count(), comptesAvant);
+    });
+
+    // --- Garanties de la base et liaison concurrente sur un autre compte (audit droits et sécurité) ---
+
+    // Migration 20261116120000_identifiant_microsoft : « un compte est lié par les deux identifiants à la fois, jamais
+    // par un seul, ni par une valeur vide » (CHECK) ; « un couple n'appartient qu'à un compte » (index unique) ; deux
+    // comptes non liés ne se gênent pas. Le code n'écrit jamais un couple partiel ni un couple déjà pris : seule la base
+    // les refuse, et ce test écarte une migration qui perdrait l'une ou l'autre garde.
+    test('base : un couple partiel ou vide est refusé (23514), un couple déjà lié à un autre compte aussi (23505) ; deux comptes non liés coexistent', async () => {
+      const a = await creerCompte('CONDUCTEUR_TRAVAUX', 'base-a');
+      const b = await creerCompte('CONDUCTEUR_TRAVAUX', 'base-b');
+      const codeDe = async (requete) => {
+        try { await requete; return 'accepté'; } catch (error) { return error?.meta?.code ?? error?.code ?? String(error); }
+      };
+      const oid = nouvelOid();
+      assert.equal(await codeDe(prisma.$executeRaw`UPDATE "User" SET "microsoftOid" = ${oid} WHERE "id" = ${a.id}`), '23514', 'oid sans tid');
+      assert.equal(await codeDe(prisma.$executeRaw`UPDATE "User" SET "microsoftTid" = ${LOCATAIRE} WHERE "id" = ${a.id}`), '23514', 'tid sans oid');
+      assert.equal(await codeDe(prisma.$executeRaw`UPDATE "User" SET "microsoftOid" = '', "microsoftTid" = ${LOCATAIRE} WHERE "id" = ${a.id}`), '23514', 'oid vide');
+      assert.equal(await codeDe(prisma.$executeRaw`UPDATE "User" SET "microsoftOid" = ${oid}, "microsoftTid" = '' WHERE "id" = ${a.id}`), '23514', 'tid vide');
+      assert.deepEqual(await identifiants(a.id).then(({ oid: o, tid }) => [o, tid]), [null, null]);
+      assert.equal(await codeDe(poserIdentifiants(a.id, oid)), 'accepté');
+      assert.equal(await codeDe(poserIdentifiants(b.id, oid)), '23505', 'couple déjà lié à un autre compte');
+      assert.equal(await codeDe(poserIdentifiants(b.id, oid, '00000000-0000-4000-8000-0000000e2640')), 'accepté', 'même oid, autre locataire');
+      const nonLies = await prisma.$queryRaw`SELECT count(*)::int AS n FROM "User" WHERE "microsoftOid" IS NULL AND "microsoftTid" IS NULL`;
+      assert.ok(nonLies[0].n >= 2, 'plusieurs comptes non liés coexistent');
+    });
+
+    // Course entre deux comptes : la connexion lit le couple libre et le compte de l'adresse non lié, puis, avant
+    // qu'elle n'écrive, le même couple est lié à un autre compte. L'index unique refuse la seconde liaison (P2002) :
+    // la connexion est refusée comme un jeton invalide (401 générique), sans lier le compte de l'adresse ni rien
+    // journaliser, avec une trace sans identifiants. Pour que l'entrelacement ait lieu à coup sûr, la ligne du compte
+    // de l'adresse est verrouillée par le test le temps de lier l'autre compte. Écarte un refus de l'index non
+    // intercepté (500) ou une liaison qui passerait outre.
+    test('course entre deux comptes : un couple lié à un autre compte entre la lecture et l’écriture est refusé (401 générique), sans liaison ni journal', async () => {
+      const compte = await creerCompte('CONDUCTEUR_TRAVAUX', 'course-autre-compte');
+      const autre = await creerCompte('CONDUCTEUR_TRAVAUX', 'course-autre-compte-lie');
+      const oid = nouvelOid();
+      const totalAvant = await totalJournal();
+      const verrou = new pg.Client({ connectionString: cible.toString() });
+      await verrou.connect();
+      let reponse; let lignes; let attentesVues = 0;
+      try {
+        await verrou.query('BEGIN');
+        await verrou.query('SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE', [compte.id]);
+        const debut = sortieConsole.length;
+        const enCours = connecter({ oid, adresse: compte.email }).then((r) => r);
+        const limite = Date.now() + 3_500;
+        while (Date.now() < limite) {
+          const [{ n }] = await prisma.$queryRaw`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+          attentesVues = n;
+          if (n >= 1) break;
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        await poserIdentifiants(autre.id, oid);
+        await verrou.query('COMMIT');
+        reponse = await enCours;
+        lignes = sortieConsole.slice(debut);
+      } finally {
+        await verrou.query('ROLLBACK').catch(() => {});
+        await verrou.end();
+      }
+      assert.ok(attentesVues >= 1, `la connexion attendait d’écrire le compte : l’entrelacement a bien eu lieu (${attentesVues})`);
+      assert.deepEqual([reponse.status, reponse.body], [401, REFUS_GENERIQUE]);
+      assert.deepEqual(await identifiants(compte.id).then(({ oid: o, tid }) => [o, tid]), [null, null], 'le compte de l’adresse n’est pas lié');
+      assert.deepEqual(await identifiants(autre.id).then(({ oid: o, tid }) => [o, tid]), [oid, LOCATAIRE]);
+      assert.equal(await totalJournal(), totalAvant, 'rien n’est journalisé');
+      assert.ok(lignes.some((l) => l.methode === 'warn' && l.texte.startsWith('[SSO]')), 'une trace serveur [SSO] est laissée');
+      aucuneDans(lignes, { oid, tid: LOCATAIRE, adresse: compte.email }, 'trace du refus');
     });
   });
 }

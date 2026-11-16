@@ -41,8 +41,9 @@ dans le signet `#token=` ci-dessous (#262).
 `TRUST_PROXY` est le nombre de proxys inverses de confiance devant le backend (#261), un entier
 de 0 à 5 ; absente ou vide, elle vaut 0. Pour la chaîne de production Docker (navigateur, Nginx
 Proxy Manager, nginx du frontend, backend), la valeur est **2**, tant que le frontend n'est
-joignable que par Nginx Proxy Manager : le backend retient alors l'adresse du client, et non
-celle du nginx du frontend. Une valeur trop grande laisse un client forger son adresse (en-tête
+joignable que par Nginx Proxy Manager (le réseau partagé `nginx-proxy` ne doit porter que des
+conteneurs de confiance) : le backend retient alors l'adresse du client, et non celle du nginx du
+frontend. Une valeur trop grande laisse un client forger son adresse (en-tête
 `X-Forwarded-For`), et donc contourner la limite des essais ; une valeur trop petite fait compter
 tous les clients pour une seule adresse, si bien qu'un tiers peut bloquer l'accès de secours pour
 tous. Une valeur hors forme (texte, nombre négatif ou décimal, liste d'adresses, `true`) refuse le
