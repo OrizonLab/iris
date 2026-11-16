@@ -836,8 +836,11 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Avenant, ligne D1a-5b : « champs ignorés en silence (état de la base inchangé) » ; étude préalable, §1.7, bloc S :
-    // « statut et client d'un non-administrateur ». Code : PATCH /api/chantiers/:id n'accepte le statut et le client que
-    // de l'administration (chantiers/routes.ts, `allowed`) ; une saisie Travaux ne change pas de chantier
+    // « statut et client d'un non-administrateur ». Code : PATCH /api/chantiers/:id n'accepte le client que de
+    // l'administration et de l'assistante technique (chantiers/routes.ts, `allowed`) ; le statut n'y est plus écrit par
+    // personne depuis le correctif « saisie des montants refusée plutôt que faussée » (#289, cadrage v3, point 3 :
+    // ignoré en silence hors administration, refusé par 400 à l'administration, qui clôture et rouvre par
+    // PATCH /api/chantiers/:id/statut ; choix par défaut, à confirmer) ; une saisie Travaux ne change pas de chantier
     // (chantiers/saisies.ts) ; seul un super administrateur pose l'accès financier (utilisateurs/comptes.ts). Sur un
     // chantier terminé, le corps de son titulaire n'est plus lu : il est refusé avant (403, sans écriture ; décision de
     // Nelson du 02-11-2026, « A. Non, admin seule »), là où ces deux champs y étaient ignorés avant le correctif de #285.
@@ -857,7 +860,7 @@ if (!TEST_DATABASE_URL) {
         assert.equal(reponse('CT', CHANTIER, 'chantier-termine', nom), '403 « Ce chantier est clôturé : seul un administrateur peut encore le modifier. » inchangé', `CT, chantier terminé : ${nom}`);
       }
       for (const compte of ADMINISTRATION) {
-        assert.match(reponse(compte, CHANTIER, 'chantier-ct', 'statut=TERMINE seul'), /^200 écrit \(Chantier\)$/);
+        assert.equal(reponse(compte, CHANTIER, 'chantier-ct', 'statut=TERMINE seul'), '400 « Le statut d’un chantier ne se change pas par sa fiche : clôturez-le ou rouvrez-le depuis la liste des chantiers. » inchangé', `${compte} : statut refusé par la fiche`);
         assert.match(reponse(compte, CHANTIER, 'chantier-com', 'clientId=client-second seul'), /^200 écrit \(/);
         assert.match(reponse(compte, 'PATCH /api/achats/:id', 'achat-chantier-ct', 'chantierId=chantier-autre et motif'), /^200 écrit \(.*\) ; chantier de l’achat inchangé$/);
         assert.match(reponse(compte, 'PATCH /api/heures/:id', 'heure-chantier-ct', 'chantierId=chantier-autre et motif'), /^200 écrit \(.*\) ; chantier du pointage inchangé$/);

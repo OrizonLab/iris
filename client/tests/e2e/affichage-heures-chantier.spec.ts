@@ -8,7 +8,10 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // 3,75 h, et le chantier ouvert du devis reçoit des heures vendues au centième. La fiche affichait « 18.75 h » (nombre
 // brut), la liste « 18,8 h » (une décimale), et le champ « Total Heures Vendues (h) » de « Modifier », au pas de 0,5,
 // faisait refuser par le navigateur 20 ou 18,5 depuis 18,75. Les écrans affichent désormais deux décimales au plus,
-// à la française, et le champ suit le pas de 0,01 de la colonne (Decimal(10,2)).
+// à la française, et le champ suit le pas de 0,01 de la colonne (Decimal(10,2)). Depuis le correctif « saisie des
+// montants refusée plutôt que faussée » (#394, cadrage v3, point 2, choix par défaut, à confirmer), les champs de
+// « Modifier » sont des champs texte décimaux : un `pattern` (deux décimales au plus, 8 chiffres avant la virgule pour
+// les heures, 10 pour les budgets) remplace `min="0"` et le pas de 0,01, et la valeur pré-remplie s'écrit à la virgule.
 
 type Chantier = { id: string; nom: string; heuresVendues: number };
 
@@ -79,8 +82,10 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
   const ligne = page.locator(`tr[data-chantier="${chantier.id}"]`);
   await expect(ligne.locator('td').nth(1).locator('div').first()).toHaveText('0,75 h / 18,75 h');
 
-  // « Modifier » : le champ « Total Heures Vendues (h) », au pas de 0,01, admet chaque valeur au centième. Au pas de
-  // 0,5, compté depuis la valeur d'origine du champ, le navigateur refusait 20 depuis 18,75, puis 18,75 depuis 18,5.
+  // « Modifier » : le champ « Total Heures Vendues (h) » admet chaque valeur au centième. Au pas de 0,5, compté depuis la
+  // valeur d'origine du champ, le navigateur refusait 20 depuis 18,75, puis 18,75 depuis 18,5. Depuis #394 (cadrage v3,
+  // point 2), c'est un champ texte décimal à `pattern`, pré-rempli à la virgule (« 18,75 ») ; la virgule et le point sont
+  // admis à la saisie.
   await page.goto(`/chantiers/${chantier.id}`, { waitUntil: 'networkidle' });
   const champ = page.locator('input[name="heuresVendues"]');
   const valide = () => champ.evaluate((element) => (element as HTMLInputElement).validity.valid);
@@ -101,21 +106,25 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
     await expect(consommationHeures(page)).toHaveText(['0,75 h', `/ ${affiche}`]);
   };
 
-  // 18,75 enregistré tel quel.
-  await ouvrir('18.75');
+  // 18,75 enregistré tel quel, pré-rempli à la virgule.
+  await ouvrir('18,75');
   await enregistrer('18.75', 18.75, '18,75 h');
-  // Puis 20. Au passage, le pas est bien le centième : 18,33 est admis, 18,755 (trois décimales, au-delà des deux
-  // de la colonne) est refusé par le navigateur.
-  await ouvrir('18.75');
-  await champ.fill('18.33');
-  expect(await valide(), 'le navigateur admet 18,33 h').toBe(true);
-  await champ.fill('18.755');
-  expect(await champ.evaluate((element) => (element as HTMLInputElement).validity.stepMismatch), 'le navigateur refuse 18,755 h').toBe(true);
+  // Puis 20. Au passage, le centième est admis : 18,33 et « 18.33 » le sont ; 18,755 (trois décimales, au-delà des
+  // deux de la colonne) est refusé par le navigateur (`pattern`), à la virgule comme au point.
+  await ouvrir('18,75');
+  for (const saisie of ['18,33', '18.33']) {
+    await champ.fill(saisie);
+    expect(await valide(), `le navigateur admet ${saisie} h`).toBe(true);
+  }
+  for (const saisie of ['18,755', '18.755']) {
+    await champ.fill(saisie);
+    expect(await champ.evaluate((element) => (element as HTMLInputElement).validity.patternMismatch), `le navigateur refuse ${saisie} h`).toBe(true);
+  }
   await enregistrer('20', 20, '20 h');
-  // Puis 18,5, et de nouveau 18,75 (refusé depuis 18,5 au pas de 0,5).
+  // Puis 18,5 (saisi à la virgule), et de nouveau 18,75 (refusé depuis 18,5 au pas de 0,5).
   await ouvrir('20');
-  await enregistrer('18.5', 18.5, '18,5 h');
-  await ouvrir('18.5');
+  await enregistrer('18,5', 18.5, '18,5 h');
+  await ouvrir('18,5');
   await enregistrer('18.75', 18.75, '18,75 h');
   expect(fenetres).toEqual([]);
 });
@@ -124,15 +133,20 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
 // saisie négative, non numérique, à trois décimales ou au-delà de la colonne des heures vendues et des budgets du
 // chantier (400, sans rien écrire), au lieu de l'enregistrer telle quelle, à 0 ou arrondie. À l'écran, `min="0"`
 // s'ajoute aux quatre champs de « Modifier », sans `max` (choix par défaut, à confirmer) ; le refus du serveur
-// s'affiche par la fenêtre d'alerte, « Modifier » restant ouvert avec la saisie (comportement existant).
-test('« Modifier » : « -5 » refusé par le navigateur dans les heures vendues et chacun des trois budgets, sans rien envoyer ; « 0 » admis ; 100 000 000 heures, que le navigateur admet, refusées par le serveur avec son message, sans fermer « Modifier » ni rien enregistrer', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
+// s'affiche par la fenêtre d'alerte, « Modifier » restant ouvert avec la saisie (comportement existant). Depuis #394
+// (cadrage v3, point 2, choix par défaut, à confirmer), un `pattern` aux bornes du serveur (8 chiffres avant la virgule
+// pour les heures, 10 pour les budgets, deux décimales au plus) remplace `min="0"` : le navigateur refuse aussi trois
+// décimales et une valeur au-delà de la colonne, que le serveur refusait seul. Le refus du serveur reste affiché : il se
+// voit en retirant la validation du navigateur au formulaire (comme un navigateur qui ignorerait le `pattern`).
+test('« Modifier » : « -5 », trois décimales et une valeur au-delà de la colonne refusés par le navigateur dans les heures vendues et chacun des trois budgets, sans rien envoyer ; « 0 » et le plafond de la colonne admis ; sans la validation du navigateur, 100 000 000 heures refusées par le serveur avec son message, sans fermer « Modifier » ni rien enregistrer', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
   test.slow();
   const { chantier } = await preparer(request, session.token, creerClient);
+  // Étiquette, nom, plafond de la colonne (admis) et première valeur au-delà (refusée), selon les bornes du serveur.
   const CHAMPS = [
-    ['Budget Global (€ HT)', 'budgetGlobalVendu'],
-    ['Total Heures Vendues (h)', 'heuresVendues'],
-    ['Dont Matériel (€ HT)', 'budgetMaterielVendu'],
-    ['Dont Main d\'Œuvre (€ HT)', 'budgetMainOeuvreVendu'],
+    ['Budget Global (€ HT)', 'budgetGlobalVendu', '9999999999,99', '10000000000'],
+    ['Total Heures Vendues (h)', 'heuresVendues', '99999999,99', '100000000'],
+    ['Dont Matériel (€ HT)', 'budgetMaterielVendu', '9999999999,99', '10000000000'],
+    ['Dont Main d\'Œuvre (€ HT)', 'budgetMainOeuvreVendu', '9999999999,99', '10000000000'],
   ] as const;
   const relire = async () => {
     const fiche = await (await request.get(`${api}/chantiers/${chantier.id}`, { headers: { Authorization: `Bearer ${session.token}` } })).json() as Record<string, unknown>;
@@ -157,49 +171,55 @@ test('« Modifier » : « -5 » refusé par le navigateur dans les heures vendue
   // Le champ sous son étiquette, telle qu'affichée dans « Modifier ».
   const champ = (etiquette: string) => page.locator('.form-group', { has: page.getByText(etiquette, { exact: true }) }).locator('input');
   const validite = (saisie: ReturnType<typeof champ>) => saisie.evaluate((element) => {
-    const { valid, rangeUnderflow } = (element as HTMLInputElement).validity;
-    return { valid, rangeUnderflow };
+    const { valid, patternMismatch } = (element as HTMLInputElement).validity;
+    return { valid, patternMismatch };
   });
 
-  // « -5 » dans chaque champ, les trois autres gardant leur valeur : le navigateur le refuse (`min="0"`), et
-  // « Enregistrer les modifications » n'envoie rien ; la relecture par l'API rend les valeurs d'avant.
-  for (const [etiquette, nom] of CHAMPS) {
+  // « -5 », trois décimales et la première valeur au-delà de la colonne, dans chaque champ, les trois autres gardant leur
+  // valeur : le navigateur les refuse (`pattern`), et « Enregistrer les modifications » n'envoie rien ; la relecture par
+  // l'API rend les valeurs d'avant.
+  for (const [etiquette, nom, , depassement] of CHAMPS) {
     const saisie = champ(etiquette);
     await expect(saisie).toHaveCount(1);
     await expect(saisie).toHaveAttribute('name', nom);
     const origine = await saisie.inputValue();
-    await saisie.fill('-5');
-    expect(await validite(saisie), `${etiquette} : « -5 »`).toEqual({ valid: false, rangeUnderflow: true });
-    await enregistrer.click();
-    await expect(modifier).toBeVisible();
-    await expect(saisie).toHaveValue('-5');
-    expect(envois, `${etiquette} : aucune modification envoyée`).toEqual([]);
-    expect(await relire(), etiquette).toEqual(avant);
+    for (const refusee of ['-5', '0,005', depassement]) {
+      await saisie.fill(refusee);
+      expect(await validite(saisie), `${etiquette} : « ${refusee} »`).toEqual({ valid: false, patternMismatch: true });
+      await enregistrer.click();
+      await expect(modifier).toBeVisible();
+      await expect(saisie).toHaveValue(refusee);
+      expect(envois, `${etiquette}, « ${refusee} » : aucune modification envoyée`).toEqual([]);
+      expect(await relire(), `${etiquette}, « ${refusee} »`).toEqual(avant);
+    }
     await saisie.fill(origine);
   }
 
-  // « 0 » est admis par le navigateur dans chacun des quatre champs.
-  for (const [etiquette] of CHAMPS) {
+  // « 0 » et le plafond de la colonne sont admis par le navigateur dans chacun des quatre champs.
+  for (const [etiquette, , plafond] of CHAMPS) {
     const saisie = champ(etiquette);
     const origine = await saisie.inputValue();
-    await saisie.fill('0');
-    expect(await validite(saisie), `${etiquette} : « 0 »`).toEqual({ valid: true, rangeUnderflow: false });
+    for (const admise of ['0', plafond]) {
+      await saisie.fill(admise);
+      expect(await validite(saisie), `${etiquette} : « ${admise} »`).toEqual({ valid: true, patternMismatch: false });
+    }
     await saisie.fill(origine);
   }
   expect(fenetres).toEqual([]);
 
-  // 100 000 000 heures : sans `max`, le navigateur les admet ; le serveur les refuse (au-delà des 8 chiffres de la
-  // colonne), son message s'affiche, et « Modifier » reste ouvert avec la saisie. Rien n'est enregistré.
+  // 100 000 000 heures, formulaire privé de la validation du navigateur (`noValidate`) : le serveur les refuse (au-delà
+  // des 8 chiffres de la colonne), son message s'affiche, et « Modifier » reste ouvert avec la saisie. Rien n'est
+  // enregistré.
   const heures = champ('Total Heures Vendues (h)');
   await heures.fill('100000000');
-  expect(await validite(heures)).toEqual({ valid: true, rangeUnderflow: false });
+  await heures.evaluate((element) => { (element as HTMLInputElement).form!.noValidate = true; });
   const reponse = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname === `/api/chantiers/${chantier.id}`);
   await enregistrer.click();
   expect((await reponse).status()).toBe(400);
   await expect.poll(() => fenetres).toEqual(['Les heures vendues doivent être un nombre positif ou nul, d’au plus 8 chiffres avant la virgule et 2 après.']);
   await expect(modifier).toBeVisible();
   await expect(heures).toHaveValue('100000000');
-  // Une seule modification envoyée de tout le parcours, celle-ci : les essais à « -5 » n'en ont envoyé aucune.
+  // Une seule modification envoyée de tout le parcours, celle-ci : les essais refusés par le navigateur n'en ont envoyé aucune.
   expect(envois).toEqual([`/api/chantiers/${chantier.id}`]);
   expect(await relire()).toEqual(avant);
 });
