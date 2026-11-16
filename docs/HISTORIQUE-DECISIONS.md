@@ -5367,7 +5367,7 @@ Message de Nelson, mot pour mot :
 
 - aucune n'est entièrement traitée ni obsolète ;
 - **49** sont traitées en partie, #444 comprise ; les **48** autres, restées ouvertes, ont chacune reçu un commentaire d'état ;
-- [#444](https://github.com/Noxia-Groupe/iris/issues/444), rapport du passage hebdomadaire du 02-11-2026, est **fermée** ; ses sept remarques orphelines sont reprises dans [#556](https://github.com/Noxia-Groupe/iris/issues/556).
+- [#444](https://github.com/Noxia-Groupe/iris/issues/444), rapport du passage hebdomadaire du 02-11-2026, est **fermée** ; ses sept remarques orphelines sont reprises dans [#556](https://github.com/Noxia-Groupe/iris/issues/556) ;
 - issues `suivi-audit` ouvertes depuis #550 : [#551](https://github.com/Noxia-Groupe/iris/issues/551) (isolation de la lecture de la marge d'un contrat), [#552](https://github.com/Noxia-Groupe/iris/issues/552) (bases jetables des tests sans `finally`), [#554](https://github.com/Noxia-Groupe/iris/issues/554) (un seul nom pour le lot de #550) ; puis, après le passage hebdomadaire, [#558](https://github.com/Noxia-Groupe/iris/issues/558) (N1 de #557).
 
 **Règle proposée pour la suite**, **choix par défaut, à confirmer** (non posée à Nelson, aucune réponse n'est présumée ; [passation, section 4](ROADMAP-PASSATION.md#4-choix-par-défaut-à-confirmer), bloc « Tenue de la liste des issues »), inscrite aussi dans `CLAUDE.md` par la PR documentaire qui consigne ces décisions :
