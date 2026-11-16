@@ -1661,6 +1661,12 @@ CT | POST /api/devis/:id/duplication | devis-converti | droit devis, corps sans 
 CT | POST /api/devis/:id/duplication | devis-converti | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 CT | POST /api/devis/:id/duplication | devis-signe | droit devis, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 CT | POST /api/devis/:id/duplication | devis-signe | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
+CT | POST /api/devis/:id/revisions | devis-brouillon | droit devis, corps sans corps | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
+CT | POST /api/devis/:id/revisions | devis-brouillon | droit devis:write, corps sans corps | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
+CT | POST /api/devis/:id/revisions | devis-converti | droit devis, corps sans corps | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
+CT | POST /api/devis/:id/revisions | devis-converti | droit devis:write, corps sans corps | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
+CT | POST /api/devis/:id/revisions | devis-signe | droit devis, corps sans corps | 201 écrit (Devis,DevisLigne)
+CT | POST /api/devis/:id/revisions | devis-signe | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne)
 CT | POST /api/fournisseurs | — | défaut, corps nom | 200 écrit (Fournisseur)
 CT | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | droit chantiers:archive, corps motif de restauration | 200 écrit (JournalSaisieChantier,PointageHeure)
 CT | POST /api/heures/:id/restaurer | heure-chantier-autre | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
@@ -2616,6 +2622,12 @@ RESP | POST /api/devis/:id/duplication | devis-converti | droit devis, corps san
 RESP | POST /api/devis/:id/duplication | devis-converti | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 RESP | POST /api/devis/:id/duplication | devis-signe | droit devis, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 RESP | POST /api/devis/:id/duplication | devis-signe | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne,SequenceAffaire)
+RESP | POST /api/devis/:id/revisions | devis-brouillon | droit devis, corps sans corps | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
+RESP | POST /api/devis/:id/revisions | devis-brouillon | droit devis:write, corps sans corps | 409 « Seul un devis signé peut ouvrir une nouvelle révision. » inchangé
+RESP | POST /api/devis/:id/revisions | devis-converti | droit devis, corps sans corps | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
+RESP | POST /api/devis/:id/revisions | devis-converti | droit devis:write, corps sans corps | 409 « Ce devis est déjà converti : il ne peut plus être révisé. » inchangé
+RESP | POST /api/devis/:id/revisions | devis-signe | droit devis, corps sans corps | 201 écrit (Devis,DevisLigne)
+RESP | POST /api/devis/:id/revisions | devis-signe | droit devis:write, corps sans corps | 201 écrit (Devis,DevisLigne)
 RESP | POST /api/fournisseurs | — | défaut, corps nom | 200 écrit (Fournisseur)
 RESP | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | défaut, corps motif de restauration | 404 « Chantier introuvable » inchangé
 RESP | POST /api/heures/:id/restaurer | heure-chantier-autre | défaut, corps motif de restauration | 404 « Chantier introuvable » inchangé

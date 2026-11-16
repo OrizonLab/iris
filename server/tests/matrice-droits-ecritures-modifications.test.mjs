@@ -270,6 +270,10 @@ const CORPS_DROITS = {
     { nom: 'cible=CONTRAT', corps: () => ({ cible: 'CONTRAT', periodiciteMois: 12, dureePrevisionnelleMinutes: 60, dateDebut: d.aujourdhui }) },
   ],
   'POST /api/devis/:id/duplication': () => [{ nom: 'sans corps', corps: () => ({}) }],
+  // Lot devis (#252 N3, #426 pour le devis) : la révision d'un devis inexistant répond 404, et non plus 400 ; le droit
+  // devis:write n'y est donc plus un gain (individuels.txt) mais un changement sans gain (individuels-sans-gain.txt), rejoué
+  // ici sur chaque cible réelle. La révision n'a pas de corps.
+  'POST /api/devis/:id/revisions': () => [{ nom: 'sans corps', corps: () => ({}) }],
   'POST /api/interventions/:id/envois': () => [{ nom: 'destinataire, messagerie', corps: () => ({ destinataire: DESTINATAIRE }) }],
 };
 

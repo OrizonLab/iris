@@ -726,9 +726,13 @@ if (!TEST_DATABASE_URL) {
       // directeur, qui a désormais ces droits par son type (lot « Directeur aligné sur l'administration »), n'en est plus.
       // L'assistante technique y était entrée avec le lot AT-1, sans devis par son type ; elle en sort avec AT-2a, qui le lui
       // donne (réponse 3 du 06-11-2026) : elle est jouée au contexte « défaut », plus haut, comme le directeur depuis son lot.
+      // Lot devis (#252 N3, #426 pour le devis) : la révision d'un devis inexistant répond 404, et non plus 400 ; pour CT et
+      // RESP, le droit devis:write n'y est plus un gain (individuels.txt) mais un changement sans gain, que 5b rejoue sur
+      // chaque cible réelle (201 sur le devis signé) : ses quatre triplets sont joués ici, comme la révision des autres comptes.
       for (const compte of ['CT', 'RESP']) {
         for (const droit of ['droit devis', 'droit devis:write']) {
           devisG3(compte, droit, prealableDroit(compte, droit));
+          ajouterGroupe(3, compte, 'POST /api/devis/:id/revisions', 'devis-signe-prix-achat', `${droit}, corps sans corps`, `/api/devis/${P['devis-signe-prix-achat']}/revisions`, corpsVide, { prealables: prealableDroit(compte, droit), code: 201, montant: { genre: 'copie', source: sourceSignee } });
           conversion(compte, droit, prealableDroit(compte, droit));
         }
       }
@@ -1014,8 +1018,9 @@ if (!TEST_DATABASE_URL) {
       // le lot « Assistante technique » (AT-1) : les 10 triplets de l'assistante technique, sans devis par son type. 21 de
       // nouveau avec AT-2a, qui lui donne le droit devis par son type : ses couples sont joués au contexte « défaut ». 22 avec
       // AT-2b : la restauration des heures par l'assistante technique à qui chantiers:archive est donné individuellement (sur une
-      // affaire en cours de toute la société, non donné par son type ; choix par défaut, à confirmer).
-      assert.equal(triplets.size, 22, 'triplets « droit … » de 5b sur les routes des 8 groupes');
+      // affaire en cours de toute la société, non donné par son type ; choix par défaut, à confirmer). 26 avec le lot devis
+      // (#252 N3, #426 pour le devis) : la révision de CT et de RESP, avec le droit devis ou devis:write, entre dans 5b.
+      assert.equal(triplets.size, 26, 'triplets « droit … » de 5b sur les routes des 8 groupes');
       const parGroupe = [...couples.values()].reduce((a, g) => ({ ...a, [g]: (a[g] ?? 0) + 1 }), {});
       diagnostics.push(`couples (route, compte) des 8 groupes : ${couples.size} (${Object.entries(parGroupe).map(([g, n]) => `G${g} ${n}`).join(', ')}) ; triplets « droit … » : ${triplets.size}`);
       diagnostics.push(`cas : ${cas.length} (groupes ${cas.filter((c) => c.groupe).length}, planning ${cas.filter((c) => c.planning).length}, relecture propre d’un montant ${cas.filter((c) => c.montant).length}, refus du montant vendu compris)`);

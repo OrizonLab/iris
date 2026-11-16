@@ -51,7 +51,7 @@ test('assistante technique : devis composé du catalogue avec le prix d’achat 
   await expect(ficheProposee).toContainText(/129,90 € HT/);
   await page.getByRole('button', { name: `Ajouter ${fiche.nom}` }).click();
   await page.getByRole('textbox', { name: 'Prix d’achat prévu' }).fill('70,10');
-  await page.getByRole('spinbutton', { name: 'Qté' }).fill('2');
+  await page.getByRole('textbox', { name: 'Qté' }).fill('2');
   const creation = page.waitForResponse((r) => r.url().endsWith('/api/devis') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
   const reponseCreation = await creation;
