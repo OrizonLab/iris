@@ -23689,9 +23689,12 @@ if (!TEST_DATABASE_URL) {
         await assert.rejects(transactionVerifieeTest((tx) => tx.facture.update({ where: { id: facture.id }, data: { interventionId: cible } })), /Une facture au temps passé porte sur une intervention au temps passé, et non sur une suite/);
       }
       assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: facture.id } })).interventionId, intervention.id);
-      // L'index unique ne retient que les factures vivantes : une facture annulée libère la place.
+      // L'index unique ne retient que les factures qui comptent : une facture annulée libère la place, comme, depuis la
+      // migration 20261116200000_facture_zero_temps_passe, une facture émise ou réglée à 0,00 € TTC (#529 ; décision de
+      // Nelson du 16-11-2026, « Ne bloque pas (Recommandé) ») ; un brouillon à 0,00 € compte toujours. Prédicat entier,
+      // identique au filtre FACTURE_VIVANTE (factures/repere.ts) ; ses effets sont éprouvés par facture-zero-temps-passe.test.mjs.
       const [{ definition }] = await prisma.$queryRaw`SELECT pg_get_indexdef('"Facture_temps_passe_unique"'::regclass) AS definition`;
-      assert.match(definition, /WHERE \("tempsPasse" AND \(statut <> 'ANNULEE'::text\)\)/);
+      assert.match(definition, / WHERE \("tempsPasse" AND \(statut <> 'ANNULEE'::text\) AND \(NOT \(\(statut = ANY \(ARRAY\['EMISE'::text, 'REGLEE'::text\]\)\) AND \("totalTtc" = \(0\)::numeric\)\)\)\)$/);
     });
   });
   // Tests ajoutés par l'audit interne n° 1 de la PR #351 (lot « facture au temps passé », seconde PR) : montants
