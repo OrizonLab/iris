@@ -83,6 +83,12 @@ function normaliser(octets) {
   assert.equal(ids, 1, 'un identifiant de fichier, et un seul, dans le PDF');
   return texte;
 }
+// Jour JJ-MM-AAAA d'une date-seule enregistrée (date d'émission ou d'échéance d'une pièce, date d'un règlement), stockée à
+// minuit UTC : ses composantes lues telles quelles, sans fuseau, comme le PDF les imprime (formatDateFacture).
+function jourDeDateSeule(valeur) {
+  const [annee, mois, jourDuMois] = (valeur instanceof Date ? valeur.toISOString() : String(valeur)).slice(0, 10).split('-');
+  return `${jourDuMois}-${mois}-${annee}`;
+}
 // Jour civil JJ-MM-AAAA d'un instant dans un fuseau.
 function jour(instant, fuseau) {
   const parties = new Intl.DateTimeFormat('en-GB', { timeZone: fuseau, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(instant));
@@ -623,11 +629,14 @@ if (!TEST_DATABASE_URL) {
         for (const autre of autres.filter((n) => n !== numero)) assert.ok(!plat.includes(autre), `${numero} : le PDF imprime aussi ${autre}\n${plat}`);
       };
 
-      // Facture émise : numéro, montants et absence de mention.
+      // Facture émise : numéro, montants et absence de mention. #407 (N5 de l'audit des montants de #405) : les dates
+      // attendues sont celles que la pièce porte en base, et non le jour recalculé au moment de l'assertion, qui change
+      // si minuit passe à Paris entre la création des pièces (before) et cette lecture.
       assert.deepEqual([f.factureEmise.statut, f.factureEmise.totalHt, f.factureEmise.totalTva, f.factureEmise.totalTtc], ['EMISE', 250.83, 50.17, 301]);
+      const emiseEnBase = await prisma.facture.findUniqueOrThrow({ where: { id: f.factureEmise.id } });
       const emise = await lirePiece(f.factureEmise);
       for (const attendu of [
-        `FACTURE ${f.factureEmise.numero}`, `Émise le ${aujourdhui()} · Échéance : ${aujourdhui()}`, 'Client', f.client.raisonSociale, '5 rue de la Facturation', '75002 Paris',
+        `FACTURE ${f.factureEmise.numero}`, `Émise le ${jourDeDateSeule(emiseEnBase.dateEmission)} · Échéance : ${jourDeDateSeule(emiseEnBase.dateEcheance)}`, 'Client', f.client.raisonSociale, '5 rue de la Facturation', '75002 Paris',
         'TEST Prestation émise 6b1a', '125,00 €', '250,00 €', 'TEST Fourniture émise 6b1a', '2.5', '0,33 €', '0,83 €',
         'Total HT : 250,83 €', 'TVA 20 % sur 250,83 € : 50,17 €', 'TVA totale : 50,17 €', 'Total TTC : 301,00 €',
         'Mentions légales et CGV — version 1', 'TEST mentions 6b1a v1', 'TEST CGV 6b1a v1', 'Pénalités : TEST pénalités 6b1a v1',
@@ -651,7 +660,9 @@ if (!TEST_DATABASE_URL) {
         const avoirPartiel = await ok(appeler('post', `/factures/${f.factureEmise.id}/avoirs`, { lignes: [{ designation: 'TEST Geste commercial 6b1a', quantite: 1, prixUnitaireHt: 40, tauxTva: 20 }] }), 201);
         await avecSociete(SOCIETE_CHANGEE, async () => {
           const creditee = await lirePiece(f.factureEmise);
-          const bloc = ` Règlements et avoirs Avoir ${avoirPartiel.numero} du ${aujourdhui()} : 48,00 € Reste à payer : 253,00 €`;
+          // #407 : la date de l'avoir est celle qu'il porte en base (posée par le serveur à sa création).
+          const avoirEnBase = await prisma.facture.findUniqueOrThrow({ where: { id: avoirPartiel.id } });
+          const bloc = ` Règlements et avoirs Avoir ${avoirPartiel.numero} du ${jourDeDateSeule(avoirEnBase.dateEmission)} : 48,00 € Reste à payer : 253,00 €`;
           assert.ok(creditee.plat.includes(` Total TTC : 301,00 €${bloc} Mentions légales et CGV — version 1 `), `bloc de la facture créditée, après les totaux\n${creditee.texte}`);
           assert.equal(creditee.plat.replace(bloc, ''), emise.plat, 'la facture créditée ne diffère de l’émise que par son bloc « Règlements et avoirs »');
           assert.doesNotMatch(creditee.plat, /ANNUL|réglée|40,00 €|261,00 €|Reste à payer : 0,00 €/u, creditee.texte);
@@ -672,12 +683,14 @@ if (!TEST_DATABASE_URL) {
       // Facture réglée : même document, plus la seule mention « Facture réglée. ».
       const avantReglement = await lirePiece(f.factureReglee);
       assert.doesNotMatch(avantReglement.plat, /réglée|ANNUL/u);
-      await ok(appeler('post', '/reglements', { clientId: f.client.id, dateReglement: aujourdhui(), montant: 120, moyen: 'VIREMENT', affectations: [{ factureId: f.factureReglee.id, montant: 120 }] }), 201);
+      const reglement = await ok(appeler('post', '/reglements', { clientId: f.client.id, dateReglement: aujourdhui(), montant: 120, moyen: 'VIREMENT', affectations: [{ factureId: f.factureReglee.id, montant: 120 }] }), 201);
       assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.factureReglee.id } })).statut, 'REGLEE');
       const reglee = await lirePiece(f.factureReglee);
       assert.ok(reglee.plat.includes(`FACTURE ${f.factureReglee.numero}`) && reglee.plat.includes('Facture réglée.'), reglee.texte);
-      // Lot « Détail des avoirs comme règlements » : la réglée porte aussi son bloc, sans reste (soldée).
-      const blocReglee = ` Règlements et avoirs Paiement du ${aujourdhui()} (virement) : 120,00 €`;
+      // Lot « Détail des avoirs comme règlements » : la réglée porte aussi son bloc, sans reste (soldée). #407 : la date
+      // du paiement est celle du règlement enregistré en base, et non le jour recalculé ici.
+      const reglementEnBase = await prisma.reglement.findUniqueOrThrow({ where: { id: reglement.id } });
+      const blocReglee = ` Règlements et avoirs Paiement du ${jourDeDateSeule(reglementEnBase.dateReglement)} (virement) : 120,00 €`;
       assert.ok(reglee.plat.includes(` Total TTC : 120,00 €${blocReglee} Mentions légales et CGV — version `), reglee.texte);
       assert.doesNotMatch(reglee.plat, /Reste à payer|Trop-perçu|réglée par avoir/u, reglee.texte);
       assert.equal(reglee.plat.replace(' Facture réglée.', '').replace(blocReglee, ''), avantReglement.plat, 'la réglée ne diffère de l’émise que par sa mention et son bloc « Règlements et avoirs »');

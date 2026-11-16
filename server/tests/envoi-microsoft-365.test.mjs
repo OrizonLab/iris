@@ -979,12 +979,75 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
+    // #411, T3 (suivi de l'audit des droits de #410) : microsoftGraph.ts, adresseGraph : « Seules sont admises une adresse
+    // https://graph.microsoft.com/…, au port par défaut, et une adresse locale http://127.0.0.1:<port>… ou
+    // http://localhost:<port>…, sans identifiants, requête ni fragment ». Chaque valeur ci-dessous ne diffère d'une adresse
+    // admise (témoin) que par un seul de ces défauts : port, identifiants (utilisateur seul, mot de passe seul, les deux),
+    // requête, fragment. Elle refuse le démarrage, puis l'envoi (409 de configuration, sans appel), et l'écran ne propose
+    // pas Microsoft 365. Le refus du démarrage est vérifié d'abord : une valeur admise à tort n'atteint jamais Graph.
+    test('MICROSOFT_GRAPH_URL : un port, des identifiants, une requête ou un fragment suffisent à la refuser, au démarrage et à l’envoi (409, sans appel), l’adresse sans ce défaut restant admise', async () => {
+      const { verifierConfigurationDemarrage } = await import('../dist/src/demarrage.js');
+      const port = new URL(urlGraph).port;
+      const local = urlGraph.replace(/\/+$/, '');
+      const OFFICIELLE = 'https://graph.microsoft.com/v1.0';
+      const cas = [
+        ['port autre que celui par défaut sur l’adresse de Microsoft', 'https://graph.microsoft.com:8443/v1.0', OFFICIELLE],
+        ['adresse locale sans port (127.0.0.1)', 'http://127.0.0.1/v1.0', local],
+        ['adresse locale sans port (localhost)', 'http://localhost/v1.0', local.replace('127.0.0.1', 'localhost')],
+        ['utilisateur seul', 'https://utilisateur@graph.microsoft.com/v1.0', OFFICIELLE],
+        ['mot de passe seul', 'https://:secret@graph.microsoft.com/v1.0', OFFICIELLE],
+        ['utilisateur et mot de passe sur l’adresse locale', `http://iris:secret@127.0.0.1:${port}/v1.0`, local],
+        ['requête sur l’adresse de Microsoft', 'https://graph.microsoft.com/v1.0?cle=1', OFFICIELLE],
+        ['requête sur l’adresse locale', `${local}?jeton=1`, local],
+        ['fragment sur l’adresse de Microsoft', 'https://graph.microsoft.com/v1.0#ancre', OFFICIELLE],
+        ['fragment sur l’adresse locale', `${local}#ancre`, local],
+      ];
+      for (const [defaut, refusee, temoin] of cas) {
+        await avecEnvironnement({ MICROSOFT_GRAPH_URL: temoin }, () => assert.doesNotThrow(() => verifierConfigurationDemarrage(), `témoin admis : ${temoin}`));
+        await avecEnvironnement({ MICROSOFT_GRAPH_URL: refusee }, async () => {
+          assert.throws(() => verifierConfigurationDemarrage(), /MICROSOFT_GRAPH_URL refusée/, `${defaut} : démarrage refusé pour ${refusee}`);
+          await refus(() => envoyer('devis', f.ids.devis, 'client@client-6b1b.test', { jeton: nouveauJeton(secours.email) }), 409, M365.NON_CONFIGURE, `${defaut} : MICROSOFT_GRAPH_URL = ${refusee}`, { me: false });
+          assert.equal((await lireEnvois('chantier', f.ids.chantier)).body.proposition.microsoft365, false, `${defaut} : Microsoft 365 non proposé`);
+        });
+      }
+      assert.equal((await prisma.devis.findUniqueOrThrow({ where: { id: f.ids.devis } })).statut, 'BROUILLON');
+    });
+
     // Cadrage : « jeton absent : 400 « Connexion Microsoft 365 requise pour cet envoi. » » ; consigne du code : « jeton
     // absent ou vide » ; « /me n'est appelé ni sans jeton ».
     test('jeton absent ou vide : 400 exact sur les cinq routes, /me non appelé, rien d’écrit', async () => {
       for (const nature of Object.keys(CHEMINS)) {
         await refus(() => envoyer(nature, f.ids[nature], 'client@client-6b1b.test'), 400, M365.JETON_ABSENT, `${nature}, sans en-tête`, { me: false });
         await refus(() => envoyer(nature, f.ids[nature], 'client@client-6b1b.test', { jeton: '' }), 400, M365.JETON_ABSENT, `${nature}, en-tête vide`, { me: false });
+      }
+    });
+
+    // #411, T5 (suivi de l'audit des droits de #410) : envoiMicrosoft365.ts, jetonMicrosoft : « Un jeton d'accès ne contient
+    // que des caractères ASCII visibles : toute autre valeur (en-tête répété, espace, caractère de contrôle) est traitée
+    // comme un jeton absent, et n'est jamais transmise ». Chaque valeur mal formée ouvre une boîte dans le simulateur, à
+    // l'adresse du compte : transmise, elle atteindrait /me (refusé ici par `me: false`) et l'envoi ne rendrait pas ce 400
+    // (201 pour l'espace, la tabulation et l'en-tête répété quand le filtre est retiré). L'en-tête répété porte deux jetons
+    // valides, que Node joint par « , ».
+    test('jeton mal formé (espace, tabulation ou accent à l’intérieur, en-tête répété) : 400 exact sur les cinq routes, /me non appelé, rien d’écrit', async () => {
+      const enBoite = (jeton) => {
+        jetonsEmis.push(jeton);
+        graph.boites.set(jeton, { mail: secours.email, userPrincipalName: secours.email });
+        return jeton;
+      };
+      for (const nature of Object.keys(CHEMINS)) {
+        const a = nouveauJeton(secours.email);
+        const b = nouveauJeton(secours.email);
+        enBoite(`${a}, ${b}`);
+        // Défaut inséré après le préfixe des jetons du fichier, que vérifie le test « sécurité » final.
+        const coupe = PREFIXE_JETON.length + 8;
+        for (const [libelle, jeton] of [
+          ['espace', enBoite(`${a.slice(0, coupe)} ${a.slice(coupe)}`)],
+          ['tabulation', enBoite(`${a.slice(0, coupe)}\t${a.slice(coupe)}`)],
+          ['accent', enBoite(`${a.slice(0, coupe)}é${a.slice(coupe)}`)],
+          ['en-tête répété', [a, b]],
+        ]) {
+          await refus(() => envoyer(nature, f.ids[nature], 'client@client-6b1b.test', { jeton }), 400, M365.JETON_ABSENT, `${nature}, jeton mal formé (${libelle})`, { me: false });
+        }
       }
     });
 
@@ -1236,6 +1299,52 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
+    // #411, T4 (suivi de l'audit des droits de #410) : cas (c), « une trace serveur donne l'identifiant x-iris-envoi, sans
+    // jeton ni texte » ; envoiMicrosoft365.ts, descriptionErreur : « son nom et son code seulement. Le message d'une
+    // contrainte de la base reprend la ligne refusée, texte envoyé compris ». Le test du cas (c) ci-dessus force l'échec
+    // par un déclencheur dont le message ne recopie rien. Ici, la transaction 2 échoue sur une contrainte CHECK
+    // temporaire (NOT VALID, posée dans la base jetable de ce fichier puis retirée) qui refuse un destinataire : le
+    // message de Prisma recopie alors la ligne refusée (témoin), et la trace porte l'identifiant x-iris-envoi, sans le
+    // destinataire, le texte envoyé ni le jeton.
+    test('cas (c), contrainte de la base : la trace serveur porte x-iris-envoi, sans le destinataire, le texte ni le jeton que recopierait le message de la contrainte', async () => {
+      const DESTINATAIRE = 'trace-contrainte-c@client-6b1b.test';
+      const CONTRAINTE = 'test_6b1b_trace_cas_c';
+      await prisma.$executeRawUnsafe(`ALTER TABLE "EnvoiDocument" ADD CONSTRAINT ${CONTRAINTE} CHECK ("destinataire" <> '${DESTINATAIRE}') NOT VALID`);
+      try {
+        // Témoin : le message de l'erreur de Prisma sur cette contrainte recopie la ligne refusée.
+        const OBJET_TEMOIN = 'TEST objet du témoin de la contrainte 6b1b';
+        const temoin = await prisma.envoiDocument.create({ data: {
+          devisId: f.ids.devis, canal: 'MESSAGERIE', destinataire: DESTINATAIRE, objet: OBJET_TEMOIN, auteurId: secours.id, auteurNom: 'TEST témoin 6b1b',
+        } }).then(() => null, (erreur) => erreur);
+        assert.ok(temoin, 'la contrainte refuse la ligne');
+        assert.ok([CONTRAINTE, DESTINATAIRE, OBJET_TEMOIN].every((morceau) => String(temoin.message).includes(morceau)), `témoin : le message de Prisma recopie la ligne refusée\n${temoin.message}`);
+
+        const devis = await creerDevis(f.client.id, `TEST Devis à la trace de contrainte ${suffixe()}`);
+        for (const [nature, id] of [['devis', devis.id], ...Object.entries(f.ids).filter(([nature]) => nature !== 'devis')]) {
+          const jeton = nouveauJeton(secours.email);
+          const debut = sortieConsole.length;
+          await refus(() => envoyer(nature, id, DESTINATAIRE, { jeton }), 500, M365.NON_NOTE, `${nature} : journal refusé par la contrainte`, { me: true, envois: 1 });
+          const [envoi] = graph.requetes('envoi');
+          const message = envoi.json?.message;
+          assert.equal(message?.toRecipients?.[0]?.emailAddress?.address, DESTINATAIRE, `${nature} : le courriel est bien parti`);
+          const identifiant = message?.internetMessageHeaders?.find((entete) => entete.name === 'x-iris-envoi')?.value;
+          assert.ok(identifiant, `${nature} : en-tête x-iris-envoi`);
+          const traces = sortieConsole.slice(debut);
+          const texte = traces.map((trace) => trace.texte).join('\n');
+          assert.equal(traces.filter((trace) => trace.methode === 'error' && trace.texte.includes(identifiant)).length, 1, `${nature} : une trace serveur porte ${identifiant}\n${texte}`);
+          // Lignes du texte envoyé, chacune assez longue pour ne pas se confondre avec un mot de la trace.
+          const lignesDuTexte = String(message.body?.content ?? '').split('\n').map((ligne) => ligne.trim()).filter((ligne) => ligne.length >= 12);
+          assert.ok(lignesDuTexte.length > 0, `${nature} : texte envoyé`);
+          for (const [quoi, morceau] of [['le destinataire', DESTINATAIRE], ['le jeton', jeton], ...lignesDuTexte.map((ligne) => ['le texte envoyé', ligne])]) {
+            assert.ok(!texte.includes(morceau), `${nature} : ${quoi} est écrit dans une trace (« ${morceau} »)\n${texte}`);
+          }
+        }
+        assert.equal((await prisma.devis.findUniqueOrThrow({ where: { id: devis.id } })).statut, 'BROUILLON', 'la transaction 2 annulée ne laisse pas le devis « envoyé »');
+      } finally {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "EnvoiDocument" DROP CONSTRAINT IF EXISTS ${CONTRAINTE}`);
+      }
+    });
+
     // Cadrage, V1 : « Pour un devis, elle prend verrouillerDevis et relit son statut. Seul un devis encore BROUILLON passe
     // ENVOYE […]. Un devis annulé ou signé entre-temps garde son statut. La réponse porte le statutDevis relu » ; « Elle
     // n'applique pas de nouveau les refus : le courriel est parti, le journal doit le dire, même si le document a été
@@ -1401,6 +1510,46 @@ if (!TEST_DATABASE_URL) {
         }
       }
       assert.deepEqual(await parametres(), { planningActif: true, modeEnvoi: 'MICROSOFT_365' });
+    });
+
+    // #411, T1 (suivi de l'audit des droits de #410) : B7, le mode d'envoi se règle par PUT /api/modules, par le super
+    // administrateur seul ; parametres/routes.ts : PUT /api/parametres, ouvert à l'administration, « N'écrit QUE les
+    // réglages de marge, d'acompte, d'alertes, … : l'activation des modules (planningActif) et le mode d'envoi des
+    // documents (modeEnvoi) sont réservés au superadmin et passent par PUT /api/modules — un ADMIN ne doit pas pouvoir les
+    // modifier, même en glissant le champ dans le corps de cette requête ». Joué par les trois comptes de l'administration,
+    // le super administrateur compris (son chemin est PUT /api/modules) : le mode seul ne change rien (hors date technique
+    // des paramètres) ; avec un autre réglage, celui-ci s'écrit et sa seule ligne de journal ne nomme pas le mode.
+    test('mode d’envoi glissé dans PUT /api/parametres par l’administration : 200, mode inchangé, aucune ligne de journal pour lui ; l’autre réglage du corps s’écrit seul', async () => {
+      const ligneParametres = async () => (await prisma.$queryRaw`SELECT row_to_json(p)::jsonb - 'updatedAt' AS ligne FROM "Parametres" p WHERE p."id" = 'singleton'`)[0].ligne;
+      const initial = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } });
+      assert.equal(initial.modeEnvoi, 'MICROSOFT_365');
+      try {
+        let jours = initial.joursSansSaisie === 41 ? 42 : 41;
+        for (const [libelle, auth] of [['super administrateur', admin()], ['administrateur', parCompte(f.comptes.admin)], ['directeur', parCompte(f.comptes.directeur)]]) {
+          // Le mode seul : 200, rien d'écrit hors de la date technique des paramètres, aucune ligne de journal.
+          const avant = await etatBase();
+          const ligneAvant = await ligneParametres();
+          const seul = await appeler('put', '/parametres', { modeEnvoi: 'MESSAGERIE' }, auth);
+          assert.equal(seul.status, 200, `${libelle} : ${seul.status} ${JSON.stringify(seul.body)}`);
+          assert.equal(seul.body.modeEnvoi, 'MICROSOFT_365', `${libelle} : la réponse rend le mode inchangé`);
+          const apres = await etatBase();
+          for (const table of TABLES.filter((nom) => nom !== 'Parametres')) assert.equal(apres[table], avant[table], `${libelle}, mode seul : ${table} modifiée`);
+          assert.deepEqual(await ligneParametres(), ligneAvant, `${libelle}, mode seul : réglages modifiés`);
+
+          // Avec un réglage de l'administration : lui seul s'écrit, avec sa seule ligne de journal (PARAMETRES), sans le mode.
+          const [{ debut }] = await prisma.$queryRaw`SELECT now() AS debut`;
+          const avec = await appeler('put', '/parametres', { modeEnvoi: 'MESSAGERIE', joursSansSaisie: jours }, auth);
+          assert.equal(avec.status, 200, `${libelle} : ${avec.status} ${JSON.stringify(avec.body)}`);
+          assert.deepEqual([avec.body.modeEnvoi, avec.body.joursSansSaisie], ['MICROSOFT_365', jours], libelle);
+          assert.deepEqual(await parametres(), { planningActif: true, modeEnvoi: 'MICROSOFT_365' }, `${libelle} : mode inchangé en base`);
+          assert.equal((await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } })).joursSansSaisie, jours, `${libelle} : réglage écrit`);
+          const journal = await prisma.journalAdministration.findMany({ where: { createdAt: { gte: debut } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+          assert.deepEqual(journal.map((ligne) => [ligne.type, ligne.action, Object.keys(ligne.avant ?? {}), Object.keys(ligne.apres ?? {})]), [['PARAMETRES', 'MODIFICATION', ['joursSansSaisie'], ['joursSansSaisie']]], `${libelle} : une ligne de journal, pour le seul réglage écrit`);
+          jours = jours === 41 ? 42 : 41;
+        }
+      } finally {
+        await prisma.parametres.update({ where: { id: 'singleton' }, data: { joursSansSaisie: initial.joursSansSaisie, modeEnvoi: 'MICROSOFT_365' } });
+      }
     });
 
     // « Parametres.modeEnvoi vaut MICROSOFT_365 ou MESSAGERIE, avec un CHECK en base. Sa valeur par défaut est

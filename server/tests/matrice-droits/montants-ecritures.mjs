@@ -11,7 +11,8 @@
 //  - relirePiece, nouvellesPieces, nouveauxReglements : une facture ou un avoir relu en base (totaux, lignes, ventilation
 //    par taux, écritures comptables), les pièces et les règlements absents de l'instantané ;
 //  - constatPiecesFigees : chaque pièce non brouillon de l'instantané (ligne entière hors statut et date de mise à jour),
-//    ses lignes, sa ventilation et ses écritures, chaque règlement (hors statut et contre-passation) et chaque part,
+//    ses lignes, sa ventilation et ses écritures, les copies figées qu'elle référence (version des mentions légales hors
+//    `actif`, identité de l'émetteur ; #461, T1), chaque règlement (hors statut et contre-passation) et chaque part,
 //    comparés à l'instantané, et les changements de statut nommés (cadrage §4.3) ;
 //  - montantsChanges : tables dont un montant a changé depuis l'instantané, hors des pièces et règlements que le cas
 //    relit à part (un refus doit laisser chaque montant inchangé, cadrage §3) ;
@@ -78,7 +79,19 @@ export async function nouveauxReglements(connexion) {
 // (figer_identite_facture_emise, interdire_modification_origine_facture_emise, facture_ligne_figee,
 // FactureVentilationTva_immutabilite_emise, ecriture_facture_immutable, reglement_immuable,
 // affectation_reglement_immuable, facture_statut_transitions) : une garde retirée ne passerait pas inaperçue.
+// Copies figées par référence (#461, T1, suivi de l'audit des montants de #460) : la ligne Facture ne porte que les
+// identifiants mentionsLegalesVersionId et identiteEmetteurId, alors que le PDF d'une pièce émise imprime le contenu de
+// la version des mentions légales et de l'identité de l'émetteur qu'ils désignent. Ce contenu est comparé à l'instantané
+// pour chaque pièce non brouillon qui le référence : la version hors `actif` (la publication d'une autre version la
+// désactive, sans en changer le texte), l'identité entière. Il double les gardes MentionsLegalesVersion_immutabilite_publiee,
+// identite_emetteur_immuable et identite_emetteur_sans_vidage, et la clé étrangère RESTRICT de Facture. L'ensemble des
+// pièces comparées n'est jamais vide (REQUETE_COPIES_COMPAREES) : sans pièce qui les référence, la comparaison passerait à
+// vide.
 const ENFANTS_DE_PIECE = ['FactureLigne', 'FactureVentilationTva', 'EcritureFacture'];
+const COPIES_PAR_REFERENCE = [
+  { table: 'MentionsLegalesVersion', colonne: 'mentionsLegalesVersionId', horsComparaison: ` - 'actif'` },
+  { table: 'IdentiteEmetteur', colonne: 'identiteEmetteurId', horsComparaison: '' },
+];
 const HORS_CONTREPASSATION = `- 'statut' - 'motifContrepassation' - 'contrepasseLe' - 'contrepasseParId'`;
 const REQUETE_FIGEES = [
   // Pièce non brouillon de l'instantané, supprimée ou changée hors statut et date de mise à jour.
@@ -89,6 +102,11 @@ const REQUETE_FIGEES = [
      (SELECT to_jsonb(e) AS j, e."factureId" FROM ${S}."${table}" e EXCEPT SELECT to_jsonb(e), e."factureId" FROM public."${table}" e)
      UNION ALL (SELECT to_jsonb(e), e."factureId" FROM public."${table}" e EXCEPT SELECT to_jsonb(e), e."factureId" FROM ${S}."${table}" e)
    ) x JOIN ${S}."Facture" f ON f.id = x."factureId" WHERE f.statut <> 'BROUILLON'`),
+  // Copie figée par référence d'une pièce non brouillon de l'instantané (version des mentions légales, identité de
+  // l'émetteur) : supprimée, ou son contenu changé (hors `actif` pour la version).
+  ...COPIES_PAR_REFERENCE.map(({ table, colonne, horsComparaison }) => `SELECT DISTINCT '${table}' AS partie, f.id AS piece FROM ${S}."Facture" f
+     JOIN ${S}."${table}" s ON s.id = f."${colonne}" LEFT JOIN public."${table}" p ON p.id = s.id
+     WHERE f.statut <> 'BROUILLON' AND (p.id IS NULL OR (to_jsonb(s)${horsComparaison}) IS DISTINCT FROM (to_jsonb(p)${horsComparaison}))`),
   // Règlement de l'instantané supprimé ou changé hors statut et contre-passation.
   `SELECT 'Reglement' AS partie, s.id AS piece FROM ${S}."Reglement" s LEFT JOIN public."Reglement" p ON p.id = s.id
      WHERE p.id IS NULL OR (to_jsonb(s) ${HORS_CONTREPASSATION}) IS DISTINCT FROM (to_jsonb(p) ${HORS_CONTREPASSATION})`,
@@ -98,9 +116,15 @@ const REQUETE_FIGEES = [
      UNION ALL (SELECT to_jsonb(a), a."reglementId" FROM public."AffectationReglement" a EXCEPT SELECT to_jsonb(a), a."reglementId" FROM ${S}."AffectationReglement" a)
    ) x JOIN ${S}."Reglement" r ON r.id = x."reglementId"`,
 ].join(' UNION ALL ');
+// Pièces non brouillon de l'instantané dont chaque copie figée par référence est comparée : jamais aucune (#461, T1).
+const REQUETE_COPIES_COMPAREES = `SELECT ${COPIES_PAR_REFERENCE.map(({ table, colonne }) => `(SELECT count(*)::int FROM ${S}."Facture" f JOIN ${S}."${table}" s ON s.id = f."${colonne}" WHERE f.statut <> 'BROUILLON') AS "${table}"`).join(', ')}`;
 const REQUETE_STATUTS = `SELECT 'pièce' AS genre, s.id, s.statut AS avant, p.statut AS apres FROM ${S}."Facture" s JOIN public."Facture" p ON p.id = s.id WHERE s.statut <> p.statut
   UNION ALL SELECT 'règlement', s.id, s.statut, p.statut FROM ${S}."Reglement" s JOIN public."Reglement" p ON p.id = s.id WHERE s.statut <> p.statut`;
 export async function constatPiecesFigees(connexion, noms) {
+  const { rows: [comparees] } = await connexion.query({ name: 'copies-figees-comparees', text: REQUETE_COPIES_COMPAREES });
+  for (const { table } of COPIES_PAR_REFERENCE) {
+    assert.ok(comparees[table] > 0, `constat des pièces figées : aucune pièce non brouillon de l’instantané ne référence de ${table}, la comparaison de ces copies figées passerait à vide`);
+  }
   const { rows } = await connexion.query({ name: 'pieces-emises-figees', text: REQUETE_FIGEES });
   const { rows: statuts } = await connexion.query({ name: 'statuts-des-pieces', text: REQUETE_STATUTS });
   const grouper = (parties, defaut) => {
@@ -113,7 +137,7 @@ export async function constatPiecesFigees(connexion, noms) {
     return [...parPiece].sort(([a], [b]) => ORDRE(a, b)).map(([nom, tables]) => `${nom} (${[...tables].sort(ORDRE).join(', ')})`);
   };
   const morceaux = [];
-  const pieces = grouper(['Facture', ...ENFANTS_DE_PIECE], 'autre pièce');
+  const pieces = grouper(['Facture', ...ENFANTS_DE_PIECE, ...COPIES_PAR_REFERENCE.map(({ table }) => table)], 'autre pièce');
   const reglements = grouper(['Reglement', 'AffectationReglement'], 'autre règlement');
   if (pieces.length) morceaux.push(`pièce émise modifiée : ${pieces.join(', ')}`);
   if (reglements.length) morceaux.push(`règlement modifié : ${reglements.join(', ')}`);

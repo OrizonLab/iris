@@ -927,7 +927,12 @@ if (!TEST_DATABASE_URL) {
       }
       for (const route of ROUTES_DES_FACTURES) {
         for (const compte of REFUSES) assert.deepEqual([...(parCouple.get(`${compte} ${route}`) ?? [])], [refusEntree(route)], `${compte} sur ${route} dans entrees.txt`);
-        for (const compte of ADMINISTRATION) assert.ok(![...(parCouple.get(`${compte} ${route}`) ?? [])].some((r) => /^40[13]/.test(r)), `${compte} admis sur ${route}`);
+        // #461, N7 (suivi de l'audit des droits de #460) : un compte de l'administration a au moins une ligne dans entrees.txt
+        // pour chaque route, et aucune n'est un refus d'entrée ; sans ligne, il ne serait admis par rien.
+        for (const compte of ADMINISTRATION) {
+          const reponses = [...(parCouple.get(`${compte} ${route}`) ?? [])];
+          assert.ok(reponses.length && reponses.every((r) => !/^40[13]/.test(r)), `${compte} admis sur ${route} dans entrees.txt : ${reponses.join(' ; ') || 'aucune ligne'}`);
+        }
         const reponsesAt = [...(parCouple.get(`${ASSISTANTE} ${route}`) ?? [])];
         if (ROUTES_OUVERTES_AT3.includes(route)) assert.ok(reponsesAt.length && reponsesAt.every((r) => !/^40[13]/.test(r)), `${ASSISTANTE} admise sur ${route} : ${reponsesAt.join(' ; ')}`);
         else assert.deepEqual(reponsesAt, [REFUS_ADMINISTRATION_ENTREE], `${ASSISTANTE} refusée sur ${route} dans entrees.txt`);

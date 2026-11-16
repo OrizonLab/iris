@@ -100,6 +100,11 @@ type Microsoft = {
   // « refuser » : Microsoft renvoie une erreur à l'application (consentement refusé), sans code ni jeton ;
   // « laisser » : la fenêtre reste sur une page Microsoft, sans répondre (l'utilisateur la ferme).
   comportement: 'accepter' | 'refuser' | 'laisser';
+  // Toutes les requêtes reçues (chemin, `prompt` de l'adresse, `grant_type` du corps), la durée des jetons
+  // d'accès émis, en secondes, et le refus du jeton de rafraîchissement (`invalid_grant`).
+  requetes: { chemin: string; prompt: string | null; grant: string | null }[];
+  dureeJeton: number;
+  refuserRafraichissement: boolean;
 };
 
 async function simulerConfiguration(cible: BrowserContext | Page) {
@@ -109,13 +114,14 @@ async function simulerConfiguration(cible: BrowserContext | Page) {
 // `email` : la revendication `email` du compte Microsoft, l'adresse que l'écran compare à celle du compte
 // Iris (N1) ; `upn` : son `preferred_username`, que MSAL expose comme `username`, choisi différent.
 async function simulerMicrosoft(contexte: BrowserContext, { email, upn }: { email: string; upn: string }): Promise<Microsoft> {
-  const etat: Microsoft = { demandes: [], jetons: [], comportement: 'accepter' };
+  const etat: Microsoft = { demandes: [], jetons: [], comportement: 'accepter', requetes: [], dureeJeton: 3599, refuserRafraichissement: false };
   let nonce = '';
   await simulerConfiguration(contexte);
   await contexte.route('https://login.microsoftonline.com/**', async (route) => {
     const requete = route.request();
     const adresse = new URL(requete.url());
     if (requete.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    etat.requetes.push({ chemin: adresse.pathname, prompt: adresse.searchParams.get('prompt'), grant: requete.method() === 'POST' ? new URLSearchParams(requete.postData() || '').get('grant_type') : null });
     if (adresse.pathname.endsWith('/oauth2/v2.0/authorize')) {
       etat.demandes.push(adresse);
       if (etat.comportement === 'laisser') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Microsoft</title><p>Connexion à votre compte</p>' });
@@ -128,6 +134,9 @@ async function simulerMicrosoft(contexte: BrowserContext, { email, upn }: { emai
     }
     if (adresse.pathname.endsWith('/oauth2/v2.0/token')) {
       const corps = new URLSearchParams(requete.postData() || '');
+      if (etat.refuserRafraichissement && corps.get('grant_type') === 'refresh_token') {
+        return route.fulfill({ status: 400, headers: CORS, json: { error: 'invalid_grant', error_description: 'AADSTS70000: jeton de rafraîchissement refusé (E2E).', error_codes: [70000] } });
+      }
       const jeton = `jeton-microsoft-e2e-${etat.jetons.length + 1}-${Date.now()}`;
       etat.jetons.push(jeton);
       const maintenant = Math.floor(Date.now() / 1000);
@@ -136,7 +145,7 @@ async function simulerMicrosoft(contexte: BrowserContext, { email, upn }: { emai
         iat: maintenant, nbf: maintenant, exp: maintenant + 3600, ver: '2.0', name: 'Compte Microsoft E2E', email, preferred_username: upn, nonce,
       })}.signature-e2e`;
       return route.fulfill({ headers: CORS, json: {
-        token_type: 'Bearer', scope: corps.get('scope') || '', expires_in: 3599, ext_expires_in: 3599,
+        token_type: 'Bearer', scope: corps.get('scope') || '', expires_in: etat.dureeJeton, ext_expires_in: etat.dureeJeton,
         access_token: jeton, refresh_token: `rafraichissement-${jeton}`, id_token: identite, client_info: base64url({ uid: 'oid-e2e', utid: LOCATAIRE }),
       } });
     }
@@ -756,8 +765,105 @@ test('page de connexion : l’instance MSAL partagée ouvre la fenêtre Microsof
   expect(avant.every(([cle]) => cle.startsWith('msal.'))).toBe(true);
   // … jusqu'à « Retour à la connexion », même après un rechargement qui a perdu l'instance.
   await page.reload({ waitUntil: 'networkidle' });
+  // La clé d'une autre application de l'onglet n'est pas une clé de MSAL : elle reste (audit de #419, T).
+  await page.evaluate(() => sessionStorage.setItem('autre-application.reglage', 'garde'));
   await page.getByRole('button', { name: 'Retour à la connexion' }).click();
   await page.waitForURL('**/login');
   await expect.poll(async () => (await stockage(page)).session.filter(([, valeur]) => valeur.includes(jetonIdentite) || valeur.includes(microsoft.jetons[0])).map(([cle]) => cle)).toEqual([]);
+  expect((await stockage(page)).session).toContainEqual(['autre-application.reglage', 'garde']);
   expect((await stockage(page)).local.filter(([, valeur]) => valeur.includes(microsoft.jetons[0]))).toEqual([]);
+});
+
+test('jeton Microsoft : permissions exactes ; il ne part que dans l’en-tête X-Jeton-Microsoft de l’envoi, sans trace ; renouvelé sans iframe ; une session expirée vide le cache MSAL, sans déconnexion Microsoft ni effacement d’une autre clé', async ({ allerSurPageAdmin, context, creerClient, request, session }) => {
+  // Audit des droits et de la sécurité de #419 (T). Cadrage 6b-2 : permissions `Mail.Send` et `User.Read`
+  // (B1) ; « Le jeton n'est jamais écrit par Iris : […] ni dans une trace » ; « Il part seulement dans
+  // l'en-tête X-Jeton-Microsoft de la requête d'envoi » ; « En silence : […] sans iframe cachée » (N2) ;
+  // « Cache MSAL » : vidé à la déconnexion par ses trois chemins, dont `api.ts` (session expirée, 401),
+  // « jamais par logoutPopup ni par logoutRedirect » (N5).
+  const compte = utilisateur(session);
+  const client = await creerClient('envoi M365 jeton');
+  const destinataire = `jeton.${Date.now()}@client-e2e.test`;
+  const devis = await creerDevis(request, session.token, client.id, 'E2E Jeton M365');
+  const microsoft = await simulerMicrosoft(context, { email: compte.email, upn: compte.email });
+  // Jetons d'accès de deux minutes : en deçà des cinq minutes d'avance de MSAL, le jeton du cache est tenu
+  // pour expiré, et le suivant se demande par le jeton de rafraîchissement.
+  microsoft.dureeJeton = 120;
+  // Tout le trafic du contexte (page et fenêtre Microsoft) et toute sa console.
+  const requetes: { url: string; entetes: Record<string, string>; corps: string }[] = [];
+  context.on('request', (requete) => { requetes.push({ url: requete.url(), entetes: requete.headers(), corps: requete.postData() ?? '' }); });
+  const traces: string[] = [];
+  context.on('console', (message) => { traces.push(message.text()); });
+  const page = await allerSurPageAdmin('/devis');
+  const fenetres: string[] = [];
+  page.on('popup', (fenetre) => { fenetres.push(fenetre.url()); });
+  const envois = await simulerEnvois(page);
+  const ouvrir = page.getByRole('button', { name: `Envoyer le devis ${devis.numero} version 1`, exact: true });
+  const dialogue = page.getByRole('dialog', { name: `Envoyer le devis ${devis.numero} version 1` });
+  const microsoft365 = dialogue.getByTestId('envoyer-microsoft-365');
+  await ouvrir.click();
+  await dialogue.getByRole('textbox', { name: 'Destinataire' }).fill(destinataire);
+
+  // 1. Fenêtre Microsoft : exactement les permissions de l'envoi, avec les trois que MSAL ajoute de
+  //    lui-même (openid, profile, offline_access).
+  envois.reponses.push(enJson(502, SERVEUR.refuse));
+  await microsoft365.click();
+  await expect(dialogue.getByRole('alert')).toHaveText(SERVEUR.refuse);
+  expect(microsoft.demandes).toHaveLength(1);
+  expect((microsoft.demandes[0].searchParams.get('scope') || '').split(' ').sort()).toEqual(['Mail.Send', 'User.Read', 'offline_access', 'openid', 'profile']);
+
+  // 2. Jeton du cache expiré, rafraîchissement refusé : pas d'iframe cachée (aucune demande
+  //    `prompt=none`), la fenêtre s'ouvre de nouveau. Le jeton qu'elle donne dure, cette fois.
+  microsoft.refuserRafraichissement = true;
+  microsoft.dureeJeton = 3599;
+  envois.reponses.push(enJson(502, SERVEUR.refuse));
+  await microsoft365.click();
+  await expect(dialogue.getByRole('alert')).toHaveText(SERVEUR.refuse);
+  expect(microsoft.requetes.some((r) => r.grant === 'refresh_token')).toBe(true);
+  expect(microsoft.requetes.filter((r) => r.prompt === 'none')).toEqual([]);
+  expect(microsoft.demandes).toHaveLength(2);
+
+  // 3. Envoi fait, avec le jeton du cache.
+  envois.reponses.push(envoiFait(1, { destinataire, objet: 'Objet E2E', corps: 'Texte E2E', auteurNom: compte.name, expediteur: compte.email }));
+  await microsoft365.click();
+  await expect(dialogue.getByRole('status')).toHaveText(`Courriel envoyé par Microsoft 365 à ${destinataire}, depuis ${compte.email}.`);
+  expect(microsoft.demandes).toHaveLength(2);
+  expect(envois.postes.map((poste) => poste.jeton)).toEqual([microsoft.jetons[0], microsoft.jetons[1], microsoft.jetons[1]]);
+
+  // Le jeton n'est parti que dans l'en-tête X-Jeton-Microsoft des trois POST …/envois : ni dans leur
+  // adresse, ni dans leur corps, ni dans un autre en-tête, ni dans aucune autre requête (API d'Iris,
+  // Microsoft, ailleurs). Seule exception, le point de jeton de Microsoft : MSAL lui rend le jeton de
+  // rafraîchissement, que la simulation forme à partir du jeton d'accès.
+  const porteJeton = (texte: string) => microsoft.jetons.some((jeton) => texte.includes(jeton));
+  const pointDeJeton = (url: URL) => url.host === 'login.microsoftonline.com' && url.pathname.endsWith('/oauth2/v2.0/token');
+  const porteurs = requetes.filter((r) => !pointDeJeton(new URL(r.url)) && (porteJeton(r.url) || porteJeton(r.corps) || Object.values(r.entetes).some(porteJeton)));
+  expect(porteurs).toHaveLength(3);
+  for (const porteur of porteurs) {
+    const url = new URL(porteur.url);
+    expect(`${url.origin}${url.pathname}`).toBe(`${new URL(page.url()).origin}/api/devis/${devis.id}/envois`);
+    expect(microsoft.jetons).toContain(porteur.entetes['x-jeton-microsoft']);
+    const autres = Object.entries(porteur.entetes).filter(([nom]) => nom !== 'x-jeton-microsoft').map(([, valeur]) => valeur);
+    expect(porteJeton(porteur.url) || porteJeton(porteur.corps) || autres.some(porteJeton)).toBe(false);
+  }
+  expect(traces.filter(porteJeton)).toEqual([]);
+
+  // 4. Session expirée : un 401 de l'API déconnecte (api.ts). Le cache MSAL de l'onglet est vidé, sans
+  //    déconnexion Microsoft (ni fenêtre, ni requête au point de déconnexion), et la clé d'une autre
+  //    application reste.
+  await dialogue.getByTestId('fermer-envoi').click();
+  await page.evaluate(() => sessionStorage.setItem('autre-application.reglage', 'garde'));
+  expect((await stockage(page)).session.some(([, valeur]) => valeur.includes(microsoft.jetons[1]))).toBe(true);
+  const fenetresAvant = fenetres.length;
+  await page.route(/\/api\/devis\/[^/]+\/envois$/, (route) => route.fulfill({ status: 401, json: { error: 'Session expirée.' } }));
+  await ouvrir.click();
+  // En développement, le mode strict de React double l'effet de lecture : deux 401, donc deux
+  // navigations vers /login, dont la première est interrompue. On attend l'adresse finale, puis l'état.
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(async () => {
+    const { session: apres } = await stockage(page);
+    expect(apres.filter(([, valeur]) => porteJeton(valeur)).map(([cle]) => cle)).toEqual([]);
+    expect(apres).toContainEqual(['autre-application.reglage', 'garde']);
+  }).toPass({ timeout: 10_000 });
+  expect(microsoft.requetes.filter((r) => /logout/i.test(r.chemin))).toEqual([]);
+  expect(fenetres).toHaveLength(fenetresAvant);
+  expect(traces.filter(porteJeton)).toEqual([]);
 });
