@@ -240,7 +240,7 @@ messages du journal ; aucun sélecteur de date du navigateur ne subsiste.
   statiques et une route d'envoi de fichiers à sécuriser.
 
 ## Authentification
-Microsoft Entra ID uniquement — adaptée par client futur (tenant client). Pas de page d'inscription publique, de connexion locale ni de mot de passe applicatif. L'application SPA utilise MSAL ; le backend vérifie la signature Microsoft (JWKS/RS256), l'issuer et l'audience avant d'appliquer sa liste blanche locale. Chaque utilisateur doit exister dans le tenant Microsoft et, actif, dans Iris (Administration > Utilisateurs), sous la même adresse.
+Microsoft Entra ID uniquement — adaptée par client futur (tenant client). Pas de page d'inscription publique, de connexion locale ni de mot de passe applicatif. L'application SPA utilise MSAL ; le backend vérifie la signature Microsoft (JWKS/RS256), l'issuer et l'audience avant d'appliquer sa liste blanche locale. Chaque utilisateur doit exister dans le tenant Microsoft et, actif, dans Iris (Administration > Utilisateurs). À sa première connexion réussie, son compte, retrouvé par son adresse, est lié aux identifiants Microsoft immuables (`oid` et `tid`) ; il se connecte ensuite par eux, et un changement d'adresse côté Microsoft est journalisé (#264).
 
 L'application n'a plus aucun mot de passe. Deux portes complètent Entra ID sans le
 remplacer — voir [`docs/ACCES-SANS-MICROSOFT.md`](docs/ACCES-SANS-MICROSOFT.md) :
