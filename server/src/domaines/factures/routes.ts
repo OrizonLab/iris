@@ -9,7 +9,7 @@ import {
 } from '../../commun/dates';
 import {
   decimalToNumber, PLAFOND_MONTANT, FactureInvalideError, tauxUtilises, baseHtDuTaux, tvaDuTaux, arrondiCommercialLigneHt,
-  centimesTtcLigne, centimes,
+  centimesTtcLigne, centimes, sommeExacte, differenceExacte,
 } from '../../commun/montants';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
@@ -514,27 +514,35 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         const tauxSource = new Set(tauxUtilises(facture.lignes));
         for (const taux of tauxUtilises(lignes)) if (!tauxSource.has(taux)) throw new FactureInvalideError('Le taux de TVA d’une ligne d’avoir doit être présent sur la facture d’origine.');
         const avoirsPrecedents = facture.avoirs;
+        // Cumuls et plafonds en décimal exact (#522), comme le reste dû (soldesFactures) et la garde différée en base
+        // (verifier_plafond_avoirs, en numeric) : les montants des avoirs précédents s'additionnent en Prisma.Decimal,
+        // et non en nombres arrondis au centime à chaque étape. Aucun résultat ne change pour une saisie admise (l'écart
+        // du calcul en nombres n'apparaîtrait qu'au-delà de milliers d'avoirs sur une même facture) : l'API calcule
+        // seulement comme la base. Les cumuls par taux passent par ventilationFacture, qui garde le repli sur les lignes
+        // d'un avoir sans ventilation enregistrée.
+        const cumulPrecedent = (tauxTva: number, champ: 'totalHt' | 'totalTva') =>
+          avoirsPrecedents.reduce((somme, avoir) => somme.plus(ventilationFacture(avoir).find(ventilation => ventilation.tauxTva === tauxTva)?.[champ] ?? 0), new Prisma.Decimal(0));
         // La TVA de l'avoir est la différence des arrondis des bases HT cumulées avant/après.
         const ventilationSource = new Map(ventilationFacture(facture).map(ventilation => [ventilation.tauxTva, ventilation]));
         const ventilationTva = tauxUtilises(lignes).sort((a, b) => a - b).map(tauxTva => {
           const totalHt = baseHtDuTaux(lignes, tauxTva);
-          const totalHtPrecedent = centimes(avoirsPrecedents.reduce((somme, avoir) => somme + (ventilationFacture(avoir).find(ventilation => ventilation.tauxTva === tauxTva)?.totalHt || 0), 0));
-          const totalTvaPrecedent = tvaDuTaux([{ tauxTva, totalHt: totalHtPrecedent }], tauxTva);
-          const totalTvaApres = tvaDuTaux([{ tauxTva, totalHt: centimes(totalHtPrecedent + totalHt) }], tauxTva);
-          const totalTva = centimes(totalTvaApres - totalTvaPrecedent);
-          return { tauxTva, totalHt, totalTva, totalTtc: centimes(totalHt + totalTva) };
+          const totalHtPrecedent = cumulPrecedent(tauxTva, 'totalHt');
+          const totalTvaPrecedent = tvaDuTaux([{ tauxTva, totalHt: totalHtPrecedent.toNumber() }], tauxTva);
+          const totalTvaApres = tvaDuTaux([{ tauxTva, totalHt: totalHtPrecedent.plus(totalHt).toNumber() }], tauxTva);
+          const totalTva = differenceExacte(totalTvaApres, totalTvaPrecedent);
+          return { tauxTva, totalHt, totalTva, totalTtc: sommeExacte(totalHt, totalTva) };
         });
-        const totalHt = centimes(ventilationTva.reduce((somme, ventilation) => somme + ventilation.totalHt, 0));
-        const totalTva = centimes(ventilationTva.reduce((somme, ventilation) => somme + ventilation.totalTva, 0));
-        const totalTtc = centimes(totalHt + totalTva);
+        const totalHt = sommeExacte(...ventilationTva.map(ventilation => ventilation.totalHt));
+        const totalTva = sommeExacte(...ventilationTva.map(ventilation => ventilation.totalTva));
+        const totalTtc = sommeExacte(totalHt, totalTva);
         if (totalTtc > PLAFOND_MONTANT) throw new FactureInvalideError('Montant d’avoir hors des limites acceptées.');
-        const sommePrecedente = (champ: 'totalHt' | 'totalTva' | 'totalTtc') => centimes(avoirsPrecedents.reduce((somme, avoir) => somme + Number(avoir[champ]), 0));
-        if (centimes(sommePrecedente('totalHt') + totalHt) > Number(facture.totalHt) || centimes(sommePrecedente('totalTva') + totalTva) > Number(facture.totalTva) || centimes(sommePrecedente('totalTtc') + totalTtc) > Number(facture.totalTtc)) throw new AvoirPlafondError('Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.');
+        const sommePrecedente = (champ: 'totalHt' | 'totalTva' | 'totalTtc') => avoirsPrecedents.reduce((somme, avoir) => somme.plus(avoir[champ]), new Prisma.Decimal(0));
+        if (sommePrecedente('totalHt').plus(totalHt).gt(facture.totalHt) || sommePrecedente('totalTva').plus(totalTva).gt(facture.totalTva) || sommePrecedente('totalTtc').plus(totalTtc).gt(facture.totalTtc)) throw new AvoirPlafondError('Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.');
         for (const ventilation of ventilationTva) {
           const source = ventilationSource.get(ventilation.tauxTva)!;
-          const precedent = avoirsPrecedents.reduce((somme, avoir) => somme + (ventilationFacture(avoir).find(v => v.tauxTva === ventilation.tauxTva)?.totalHt || 0), 0);
-          const tvaPrecedente = avoirsPrecedents.reduce((somme, avoir) => somme + (ventilationFacture(avoir).find(v => v.tauxTva === ventilation.tauxTva)?.totalTva || 0), 0);
-          if (centimes(precedent + ventilation.totalHt) > source.totalHt || centimes(tvaPrecedente + ventilation.totalTva) > source.totalTva || centimes(precedent + ventilation.totalHt + tvaPrecedente + ventilation.totalTva) > source.totalTtc) throw new AvoirPlafondError(`Cet avoir dépasse le plafond restant pour la TVA à ${ventilation.tauxTva} % de la facture d’origine.`);
+          const htCumule = cumulPrecedent(ventilation.tauxTva, 'totalHt').plus(ventilation.totalHt);
+          const tvaCumulee = cumulPrecedent(ventilation.tauxTva, 'totalTva').plus(ventilation.totalTva);
+          if (htCumule.gt(source.totalHt) || tvaCumulee.gt(source.totalTva) || htCumule.plus(tvaCumulee).gt(source.totalTtc)) throw new AvoirPlafondError(`Cet avoir dépasse le plafond restant pour la TVA à ${ventilation.tauxTva} % de la facture d’origine.`);
         }
         const identiteEmetteurId = await figerIdentiteEmetteur(tx);
         const ecritures = await ecrituresPourPiece(tx, { lignes, ventilationTva, totalTtc }, facture.id);
