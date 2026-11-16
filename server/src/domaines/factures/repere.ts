@@ -26,7 +26,8 @@ export const FACTURE_VIVANTE = {
 // Repère « déjà facturée » (lot « Assistante technique », AT-4 ; message de Nelson du 09-11-2026, « Oui il faut
 // un repere deja facturer », et réponses « Toute facture non annulée (Recommandé) » et « Même origine seulement
 // (Recommandé) ») : une origine est facturée quand une facture vivante la porte, de qui qu'elle soit,
-// administration comprise ; depuis la décision du 16-11-2026 (#529), une facture émise à 0,00 € ne la marque plus. Seule l'origine choisie compte : une facture du chantier ne marque pas ses
+// administration comprise ; depuis la décision du 16-11-2026 (#529), une facture émise à 0,00 € ne la
+// marque plus. Seule l'origine choisie compte : une facture du chantier ne marque pas ses
 // interventions, ni celle d'un contrat ses visites. La réponse ne donne que ce booléen : ni montant, ni numéro,
 // ni nombre de factures, l'assistante technique ne voyant pas les pièces de l'administration (./droits.ts).
 export const ORIGINES_REPERE = ['CHANTIER', 'INTERVENTION', 'CONTRAT'] as const;

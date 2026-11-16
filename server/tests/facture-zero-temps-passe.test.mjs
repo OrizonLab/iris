@@ -198,8 +198,8 @@ if (!TEST_DATABASE_URL) {
     const texteDuPdf = async (reponse) => { const lecteur = new PDFParse({ data: reponse.body }); const contenu = await lecteur.getText(); await lecteur.destroy(); return contenu.text; };
 
     // --- État de la base ---
-    // Empreinte de toute la base (chaque table du schéma public, contenu compris) ; la dernière utilisation d'une clé n'est pas
-    // écrite par un refus 401, mais la table des clés est écartée par prudence là où une clé est jouée (modèle : AT-4).
+    // Empreinte de toute la base (chaque table du schéma public, contenu compris), table des clés (« ApiAccessKey ») comprise : une
+    // clé présentée à une route de session est refusée (401) par requireAuth, avant toute lecture ou écriture de sa dernière utilisation.
     const empreinte = () => empreinteBase(prisma, tables);
     const refuse = async (appel, statut, message, quoi) => {
       const avant = await empreinte();
@@ -244,12 +244,12 @@ if (!TEST_DATABASE_URL) {
       prixVenteHt: prix, prixJourHorsContratHt: '0', prixHeureSousContratHt: '0', prixJourSousContratHt: '0', heuresParJour: '7',
     }), 201);
     // Devis au temps passé d'une seule ligne (au plancher figé de 15 min), signé et converti en intervention.
-    const devisConverti = async (mo, objet) => {
+    const devisConverti = async (mo, objet, grille = { plancher: PLANCHER, pas: PAS }) => {
       const devis = await ok(appeler('post', '/devis', { clientId: client.id, objet: `TEST zéro TP ${objet} ${suffixe()}`, auTempsPasse: true, lignes: [
         { tempsPasse: true, designation: `TEST zéro TP main d’œuvre ${objet}`, quantite: 0.25, tarifTempsPasse: 'HORS_CONTRAT', catalogueFamille: 'prestations', catalogueId: mo.id },
       ] }), 201);
       const fige = await prisma.devis.findUniqueOrThrow({ where: { id: devis.id }, select: { tempsMinimumMinutes: true, pasTempsPasseMinutes: true, lignes: { select: { prixUnitaireHt: true } } } });
-      assert.deepEqual([fige.tempsMinimumMinutes, fige.pasTempsPasseMinutes, fige.lignes.map((l) => l.prixUnitaireHt.toString())], [PLANCHER, PAS, [mo.prixVenteHt.toString()]], `${objet} : plancher, pas et prix figés`);
+      assert.deepEqual([fige.tempsMinimumMinutes, fige.pasTempsPasseMinutes, fige.lignes.map((l) => l.prixUnitaireHt.toString())], [grille.plancher, grille.pas, [mo.prixVenteHt.toString()]], `${objet} : plancher, pas et prix figés`);
       await ok(appeler('post', `/devis/${devis.id}/signature`, { signataire: `TEST signataire ${objet}`, confirme: true }), 201);
       const intervention = await ok(appeler('post', `/devis/${devis.id}/convertir`, { cible: 'INTERVENTION' }), 201);
       assert.equal(intervention.auTempsPasse, true);
@@ -266,8 +266,8 @@ if (!TEST_DATABASE_URL) {
       const fin = await ok(appeler('patch', `/interventions/${interventionId}/statut`, { statut: 'TERMINEE', motifSansSignature: 'CLIENT_ABSENT' }));
       assert.equal(fin.statut, 'TERMINEE');
     };
-    const chaine = async (mo, objet, heures) => {
-      const { devis, intervention } = await devisConverti(mo, objet);
+    const chaine = async (mo, objet, heures, grille) => {
+      const { devis, intervention } = await devisConverti(mo, objet, grille);
       await affecter(intervention.id);
       for (const h of heures) await saisirHeures(intervention.id, h);
       await terminer(intervention.id);
@@ -693,7 +693,7 @@ if (!TEST_DATABASE_URL) {
         assert.equal((await appeler(methode, chemin, corps, null)).status, 401, `sans session : ${chemin}`);
         assert.equal((await appeler(methode, chemin, corps, entete(cle.apiKey))).status, 401, `clé d’intégration : ${chemin}`);
       }
-      assert.deepEqual(tablesChangees(avant, await empreinte()).filter((t) => t !== 'ApiKey'), [], 'aucun refus n’écrit');
+      assert.deepEqual(tablesChangees(avant, await empreinte()), [], 'aucun refus n’écrit, table des clés comprise');
       // Témoin : l'administration y entre.
       assert.equal((await creer(intervention.id, par('DIR'), 0)).status, 201);
     });
@@ -799,6 +799,64 @@ if (!TEST_DATABASE_URL) {
       }
       assert.deepEqual(tablesChangees(avant, await empreinte()), [], 'rien n’est écrit');
       assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: fZero.id } })).statut, 'EMISE');
+    });
+
+    // Audit des montants de la PR #568 (C1, test manquant qui touche un montant). Pour la première fois, deux factures au temps passé
+    // non annulées portent la même intervention. Lecture écartée : « Une fois au total » (décision de Nelson du 28-10-2026 : le
+    // minimum figé et l'arrondi au pas appliqués une fois au total des heures) lu comme « le minimum ne se réapplique pas sur une
+    // seconde facture, la facture à 0,00 € l'ayant déjà porté » : au-delà de 15 min, le temps facturé serait alors arrondi au pas dès
+    // la première minute. Avec un plancher égal au pas (15 min, tests précédents), cette lecture donne le même temps facturé : le devis
+    // porte ici un pas de 45 min au-delà d'un plancher de 15 min. Croisés avec les réglages et le catalogue changés après la facture à
+    // 0,00 € : pas de la société (60 min) et TVA de la main d'œuvre (10 %), au lieu du pas figé du devis et de la TVA figée de sa ligne.
+    test('minimum figé réappliqué sur la nouvelle facture, au pas figé du devis (45 min) et à la TVA figée de sa ligne : 0,20 h (facture à 0,00 €) puis 0,60 h ajoutées → 1 h facturée, 0,01 € HT, 0,00 € de TVA, 0,01 € TTC, malgré le pas de la société (60 min) et la TVA du catalogue (10 %) changés après la facture à 0,00 €', async () => {
+      const PAS_DEVIS = 45; const PAS_APRES_COUP = 60; const H_AJOUT_45 = '0.6';
+      // Témoin en décimal exact : 0,20 h = 12 min → plancher 15 min → 0,25 h × 0,01 € = 0,0025 € → 0,00 € ; 0,80 h = 48 min →
+      // 15 min + une tranche de 45 min = 60 min = 1 h → 0,01 € HT, TVA 0,002 € → 0,00 €, TTC 0,01 €.
+      const zeroAttendu = factureTempsPasse([H_ZERO], { pas: PAS_DEVIS });
+      assert.deepEqual([zeroAttendu.minutes, zeroAttendu.ht, zeroAttendu.ttc], [15n, 0n, 0n]);
+      const attendu = factureTempsPasse([H_ZERO, H_AJOUT_45], { pas: PAS_DEVIS });
+      assert.deepEqual([attendu.centiemes, attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [80n, 60n, 1000n, 1n, 0n, 1n, 1n]);
+      // Lectures écartées, distinctes de l'attendu : minimum non réappliqué (48 min → deux tranches de 45 min = 90 min = 1,5 h →
+      // 0,015 € → 0,02 € HT) ; pas de la société du jour (15 min + une tranche de 60 min = 75 min = 1,25 h, quantité distincte, même HT).
+      const sansMinimum = exact.milliemesHeure(exact.minutesFacturees(attendu.centiemes, 0, PAS_DEVIS));
+      assert.deepEqual([sansMinimum, exact.arrondi(sansMinimum * 1n)], [1500n, 2n]);
+      assert.notEqual(exact.arrondi(sansMinimum * 1n), attendu.ht, 'lecture écartée « minimum non réappliqué » distincte de l’attendu');
+      const pasDuJour = exact.milliemesHeure(exact.minutesFacturees(attendu.centiemes, PLANCHER, PAS_APRES_COUP));
+      assert.equal(pasDuJour, 1250n);
+      assert.notEqual(pasDuJour, attendu.milliemes, 'lecture écartée « pas de la société du jour » distincte de l’attendu');
+
+      const reglages = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } });
+      try {
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_DEVIS, tempsMinimumMinutes: PLANCHER }));
+        const mo = await mainOeuvre('0.01', 'à un centime, pas de 45 min');
+        const { devis, intervention } = await chaine(mo, 'minimum réappliqué', [H_ZERO], { plancher: PLANCHER, pas: PAS_DEVIS });
+        const zero = await creee(intervention.id, par('AD'));
+        assert.deepEqual([...nombres([zero.totalHt, zero.totalTva, zero.totalTtc])], [0, 0, 0]);
+        const fZero = await emettre(zero.id, par('AD'));
+        assert.deepEqual([fZero.statut, Number(fZero.totalTtc)], ['EMISE', 0]);
+        const photoZero = await photo(fZero.id);
+        // Après la facture à 0,00 € : pas de la société à 60 min, TVA et prix de la main d'œuvre changés au catalogue.
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_APRES_COUP }));
+        await ok(appeler('put', `/catalogue/prestations/${mo.id}`, { estMainOeuvre: true, reference: mo.reference, nom: mo.nom, tauxTva: '10', prixVenteHt: PRIX_APRES_COUP, prixJourHorsContratHt: '0', prixHeureSousContratHt: '0', prixJourSousContratHt: '0', heuresParJour: '7' }));
+        await saisirHeures(intervention.id, H_AJOUT_45);
+        const lu = await ok(apercu(intervention.id, par('AT')));
+        assert.deepEqual(await ok(apercu(intervention.id, par('AD'))), lu, 'même aperçu pour l’administration');
+        assert.deepEqual([lu.heures.saisies, lu.heures.minutesSaisies, lu.heures.plancherMinutes, lu.heures.pasMinutes, lu.heures.minutesFacturees, lu.heures.facturees], [0.8, 48, PLANCHER, PAS_DEVIS, Number(attendu.minutes), Number(attendu.milliemes) / 1000]);
+        assert.deepEqual([lu.totalHt, lu.totalTva, lu.totalTtc], [euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]);
+        const nouvelle = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
+        const relue = await enBase(nouvelle.id);
+        assert.deepEqual(montantsEnBase(relue), {
+          totaux: [euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)],
+          lignes: [[0, 'PRESTATION', Number(attendu.milliemes) / 1000, 0.01, 20, euros(attendu.ht), euros(attendu.ligneTtc)]],
+          ventilation: [[20, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]],
+        });
+        assert.deepEqual([relue.totalHt.toString(), relue.totalTva.toString(), relue.totalTtc.toString()], ['0.01', '0', '0.01'], 'valeurs décimales exactes en base');
+        assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 0,8 h saisies sur l’intervention et 0 suite facturable, 1 h facturées (minimum 15 min, puis tranches de 45 min) ; devis ${devis.numero} v${devis.version}`]]);
+        assert.deepEqual(await photo(fZero.id), photoZero, 'facture à 0,00 € inchangée par la création');
+      } finally {
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: reglages.pasTempsPasseMinutes, tempsMinimumMinutes: reglages.tempsMinimumMinutes }));
+      }
+      assert.deepEqual(await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } }), { pasTempsPasseMinutes: PAS, tempsMinimumMinutes: PLANCHER });
     });
   });
 }
