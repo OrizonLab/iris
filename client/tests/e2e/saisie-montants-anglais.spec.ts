@@ -220,6 +220,14 @@ test('Administration > Intervenants, Chromium en anglais : taux vidé refusé pa
   await expect(tauxCree).toHaveValue('42,505');
   expect(envois.filter((e) => e.startsWith('POST'))).toEqual([]);
   expect(await tauxDe(nouveau)).toEqual([]);
+  // Bornes du serveur (huit chiffres avant la virgule, colonne Decimal(10,2)) : « 100000000 » refusé par le navigateur, rien
+  // d'envoyé ; « 99999999,99 », le plafond, admis par le navigateur. Écarte un `pattern` plus large ou plus étroit que le serveur.
+  await saisir(tauxCree, '100000000');
+  expect(await validite(tauxCree)).toEqual({ valid: false, patternMismatch: true });
+  await formulaire.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  expect(envois.filter((e) => e.startsWith('POST'))).toEqual([]);
+  await saisir(tauxCree, '99999999,99');
+  expect(await validite(tauxCree)).toEqual({ valid: true, patternMismatch: false });
   await saisir(tauxCree, '37,85');
   const cree = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/intervenants');
   await formulaire.getByRole('button', { name: 'Enregistrer', exact: true }).click();

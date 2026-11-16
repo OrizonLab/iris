@@ -14,8 +14,9 @@
 //    1234.5, '35') restent admises ;
 //  - #289 (cadrage, point 3), choix par défaut, à confirmer : un `statut` envoyé à la fiche par l'administration reçoit
 //    un 400 qui renvoie à la clôture et à la réouverture (PATCH /api/chantiers/:id/statut) ; pour les autres comptes, il
-//    reste ignoré en silence ; le refus du vidage est contrôlé sur la ligne verrouillée, après les refus existants ;
-//    aucune entrée de journal n'est ajoutée.
+//    reste ignoré en silence ; le refus du vidage est contrôlé sur la ligne verrouillée, après les refus existants de la
+//    fiche (404, 403, 409 de l'affaire annulée, saisies invalides) et avant les 409 d'un changement de client décidés sous le
+//    verrou, comme toute saisie invalide (#393) ; aucune entrée de journal n'est ajoutée.
 //
 // Avant le correctif, PUT /api/intervenants/:id lisait le taux par `parseFloat(…) || 0` (« abc », « », null → 0 ;
 // « 12abc » → 12 ; « 42,50 » → 42 ; « -5 » → -5), POST /api/intervenants par `parseFloat` seul (absent, « », null ou
@@ -595,6 +596,15 @@ if (!TEST_DATABASE_URL) {
       const reouverture = await sousVerrou(rouvert.id, () => modifierChantier(rouvert.id, { dateFin: null }), (tx) => tx.chantier.update({ where: { id: rouvert.id }, data: { statut: 'EN_COURS' } }));
       assert.equal(reouverture.res.status, 200, JSON.stringify(reouverture.res.body));
       assert.deepEqual([(await ligne(rouvert.id)).statut, (await ligne(rouvert.id)).dateFin], ['EN_COURS', null]);
+      // Ordre sous le verrou (cadrage, point 3 : « après les refus existants ») : le titulaire vide la date de fin de son chantier
+      // en cours ; l'administration le clôture pendant l'attente. Le refus du chantier clôturé (403, refusEcritureChantier relu
+      // sous le verrou) passe avant celui du vidage, sans écriture. Écarte un contrôle du vidage placé avant les refus relus
+      // sous le verrou (400 du vidage).
+      const duTitulaire = await creerChantier({ dateFin: new Date('2026-10-20T00:00:00.000Z') });
+      const parTitulaire = await sousVerrou(duTitulaire.id, () => modifierChantier(duTitulaire.id, { dateFin: '' }, comptes.CT.auth), (tx) => tx.chantier.update({ where: { id: duTitulaire.id }, data: { statut: 'TERMINE' } }));
+      assert.deepEqual([parTitulaire.res.status, parTitulaire.res.body.error], [403, REFUS.ficheCloture], 'titulaire, clôture pendant l’attente du vidage');
+      assert.deepEqual(tablesChangees(parTitulaire.attendu, await empreinte()), [], 'titulaire : la requête refusée ne doit rien écrire');
+      assert.deepEqual([(await ligne(duTitulaire.id)).statut, jourIso((await ligne(duTitulaire.id)).dateFin)], ['TERMINE', '2026-10-20']);
       // Témoin : en cours, sans clôture pendant l'attente (seul le nom change), le vidage passe.
       const temoin = await creerChantier({ dateFin: new Date('2026-10-20T00:00:00.000Z') });
       const libre = await sousVerrou(temoin.id, () => modifierChantier(temoin.id, { dateFin: '' }), (tx) => tx.chantier.update({ where: { id: temoin.id }, data: { nom: 'TEST nom changé pendant l’attente' } }));
