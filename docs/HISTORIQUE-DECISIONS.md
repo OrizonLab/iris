@@ -5366,10 +5366,11 @@ Message de Nelson, mot pour mot :
 **Réponse de Claude Code** : il a trié les **140 issues ouvertes** le 16-11-2026, sur `main` à `6e0cfd3`, en quatre tranches, par des agents en lecture seule :
 
 - aucune n'est entièrement traitée ni obsolète ;
-- **55** sont traitées en partie ; **48** d'entre elles ont reçu un commentaire d'état ;
+- **49** sont traitées en partie, #444 comprise ; les **48** autres, restées ouvertes, ont chacune reçu un commentaire d'état ;
 - [#444](https://github.com/Noxia-Groupe/iris/issues/444), rapport du passage hebdomadaire du 02-11-2026, est **fermée** ; ses sept remarques orphelines sont reprises dans [#556](https://github.com/Noxia-Groupe/iris/issues/556).
+- issues `suivi-audit` ouvertes depuis #550 : [#551](https://github.com/Noxia-Groupe/iris/issues/551) (isolation de la lecture de la marge d'un contrat), [#552](https://github.com/Noxia-Groupe/iris/issues/552) (bases jetables des tests sans `finally`), [#554](https://github.com/Noxia-Groupe/iris/issues/554) (un seul nom pour le lot de #550) ; puis, après le passage hebdomadaire, [#558](https://github.com/Noxia-Groupe/iris/issues/558) (N1 de #557).
 
-**Règle proposée pour la suite**, **choix par défaut, à confirmer** (non posée à Nelson, aucune réponse n'est présumée ; [passation, section 4](ROADMAP-PASSATION.md#4-choix-par-défaut-à-confirmer), bloc « Tenue de la liste des issues »), qui sera aussi écrite dans `CLAUDE.md` :
+**Règle proposée pour la suite**, **choix par défaut, à confirmer** (non posée à Nelson, aucune réponse n'est présumée ; [passation, section 4](ROADMAP-PASSATION.md#4-choix-par-défaut-à-confirmer), bloc « Tenue de la liste des issues »), inscrite aussi dans `CLAUDE.md` par la PR documentaire qui consigne ces décisions :
 
 - une PR qui traite entièrement une issue la ferme par « Closes #N » dans son corps ;
 - une PR qui la traite en partie y laisse un commentaire d'état (fait, reste) ;
@@ -5406,10 +5407,11 @@ Cinquième question, posée après les quatre autres (11:03:16 UTC), mot pour mo
 - **Choisie** (réponse reçue à 11:18:49 UTC) : « Oui, plusieurs branches (Recommandé) » — « Jusqu'à trois PR en parallèle sur des domaines séparés (par exemple : saisie des montants, tests de suivi, sécurité de la connexion), chacune avec ses audits. Jamais sur main directement. »
 - Écartée : « Une seule branche » — « On garde une PR à la fois sur la branche de la session ; plus lent, mais plus simple à suivre. »
 - **Lecture retenue** : elle applique le parallélisme que `CLAUDE.md` prévoit déjà pour des domaines indépendants (jamais deux lots sur le même domaine, ni sur les montants d'un même document), avec trois PR au plus. Les branches prévues sont `fix/saisie-montants`, `chore/tests-suivi` et `fix/securite-connexion`, puis les lots devis (#252) et factures (#529).
+- **Choix par défaut, à confirmer** (non posé à Nelson) : chaque branche dans une copie de travail séparée ; la branche de la session cloud (`claude/…`) reste celle des PR documentaires, par exception au point 3 de `.agents/AGENTS.md`, comme pour #542 à #555 ([configuration](CONFIGURATION-ENVIRONNEMENT.md#session-cloud-de-claude-code)).
 
 ### Ce qui change dans la passation
 
-- #550 : « implémenté, validé comptablement le 16-11-2026, non validé pour mise en service », sections 1 à 5, point de reprise et en-tête ; la question prioritaire de sa validation comptable est retirée.
+- #550 : « implémenté, validé comptablement le 16-11-2026, non validé pour mise en service », sections 1 à 5, point de reprise et en-tête ; la question prioritaire de sa validation comptable est retirée. Même statut dans `README.md`, `docs/MODELE-DROITS-COMPTES.md` et `docs/PARAMETRAGE-INVENTAIRE.md`.
 - Les questions tranchées (#261 et #264, #529) sortent de la section 3 et renvoient ici ; le taux d'acompte (#252) n'y figurait pas comme question.
 - Point de reprise : prochaine action, mener les PR de correctifs d'issues.
 - Section 4 : règle de tenue des issues, choix par défaut, à confirmer.
