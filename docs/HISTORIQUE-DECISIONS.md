@@ -5338,7 +5338,7 @@ Validation comptable de Nelson requise après la fusion, avant toute mise en ser
 
 ## Décisions du 16-11-2026
 
-*Rédigé le 16-11-2026.* Un message de Nelson dans la session de travail, puis cinq questions de Claude Code et ses réponses, par l'outil de questions : le message est reçu à 10:14:20 UTC ; les quatre premières questions sont posées à 10:47:19 UTC et reçoivent leurs réponses à 11:02:41 UTC ; la cinquième, sur les branches, est posée après les quatre autres, à 11:03:16 UTC, et reçoit sa réponse à 11:18:49 UTC (heures du journal de la session, `main` à `6e0cfd3`). Les lectures retenues sont celles de Claude Code, à corriger par Nelson si besoin. Les choix qui touchent le code sont **à appliquer** par des PR à venir : **aucun n'est implémenté** à la date de cette section (la suite est consignée dans [le lot du 16-11-2026](#lot-du-16-11-2026-562-564-565) : le vidage de la date de fin (5.1) et la sécurité de la connexion (5.4) sont implémentés par #564 et #562 ; la facture à 0,00 € (5.2) et le taux d'acompte (5.3) restent à appliquer).
+*Rédigé le 16-11-2026.* Un message de Nelson dans la session de travail, puis cinq questions de Claude Code et ses réponses, par l'outil de questions : le message est reçu à 10:14:20 UTC ; les quatre premières questions sont posées à 10:47:19 UTC et reçoivent leurs réponses à 11:02:41 UTC ; la cinquième, sur les branches, est posée après les quatre autres, à 11:03:16 UTC, et reçoit sa réponse à 11:18:49 UTC (heures du journal de la session, `main` à `6e0cfd3`). Une sixième question, sur la PR #250, est posée plus tard le même jour, à 17:11:36 UTC, et reçoit sa réponse à 19:20:05 UTC (`main` à `1f53608`) : point 7. Les lectures retenues sont celles de Claude Code, à corriger par Nelson si besoin. Les choix qui touchent le code sont **à appliquer** par des PR à venir : **aucun n'est implémenté** à la date de cette section (la suite est consignée dans [le lot du 16-11-2026](#lot-du-16-11-2026-562-564-565) : le vidage de la date de fin (5.1) et la sécurité de la connexion (5.4) sont implémentés par #564 et #562 ; la facture à 0,00 € (5.2) et le taux d'acompte (5.3) restent à appliquer).
 
 ### Le message de Nelson
 
@@ -5416,7 +5416,7 @@ Décision de Nelson du 16-11-2026 sur [#250](https://github.com/Noxia-Groupe/iri
 - Réponse retenue : « L'intégrer au lot devis (Recommandé) » — « Le lot devis reprend le correctif de #250 (lecture du taux par défaut avant la transaction, test de rafale) avec #252, dans une seule PR auditée ; #250 est alors fermée, remplacée par cette PR. »
 - Options écartées : « Garder #250 en pause » — « Le lot devis ne touche que #252 ; #250 reste en brouillon jusqu'à la fin du pilote et devra être reprise ensuite (conflit à résoudre à ce moment-là). » ; « Fusionner #250 d'abord » — « Reprendre #250 maintenant, la rafraîchir sur main, l'auditer et la fusionner, puis faire le lot devis par-dessus. »
 
-**Lecture retenue** : la PR du lot devis (#252) reprend le contenu de #250 et la ferme ; elle remplace la mention « en pause jusqu'à la fin du pilote » (règle du 19-10-2026).
+**Lecture retenue** : la PR du lot devis, qui traite l'issue #252, reprend le contenu de #250 et la ferme ; elle remplace la mention « en pause jusqu'à la fin du pilote » (règle du 19-10-2026).
 
 ### Ce qui change dans la passation
 
@@ -5451,7 +5451,7 @@ Issues fermées : #261 et #264 (décidées « Maintenant », [décisions, 5.4](#
 
 Issues : #443 et #289 fermées ; #394 traitée pour la fiche chantier et ouverte pour les autres champs décimaux (commentaire d'état du 16-11-2026).
 
-- **#443, taux horaire chargé d'une fiche intervenant** : lecture par `nombreDecimalNonNegatif(v, 8, true)` (`server/src/domaines/utilisateurs/equipes.ts`) : virgule admise, deux décimales au plus, zéro admis. Création : un taux absent, vide ou invalide donne 400, au lieu d'un 500. Modification : un taux absent reste inchangé ; un taux vide, `null` ou invalide donne 400, au lieu d'être ramené à 0. Écran : `Admin.tsx` envoie la saisie brute ; `AdminReferentiels.tsx` passe en champ texte décimal.
+- **#443, taux horaire chargé d'une fiche intervenant** : lecture par `nombreDecimalNonNegatif(v, 8, true)` (`server/src/domaines/utilisateurs/equipes.ts`) : virgule admise, deux décimales au plus, zéro admis. Création : un taux absent, vide ou invalide donne 400, au lieu d'un 500 ou d'une lecture partielle (`parseFloat` gardait 12 de « 12,50 »). Modification : un taux absent reste inchangé ; un taux vide, `null` ou invalide donne 400, au lieu d'être ramené à 0. Écran : `Admin.tsx` envoie la saisie brute ; `AdminReferentiels.tsx` passe en champ texte décimal.
 - **#394, fiche chantier** (`ChantierModaleModification.tsx`) : heures vendues et budgets en champs texte `inputMode="decimal"`, `pattern` aux bornes du serveur, valeur pré-remplie à la virgule.
 - **Reste de #289** : le statut est retiré de la modification générale : l'administration reçoit un 400 « Le statut d’un chantier ne se change pas par sa fiche… », les autres comptes le voient ignoré (la passation disait « à appliquer » : **appliqué**). Vider la date de fin d'un chantier terminé est refusé (400), sous le verrou ; la changer reste admis : décision de Nelson du 16-11-2026, « Refuser le vidage (Recommandé) » ([décisions, 5.1](#décisions-du-16-11-2026)).
 - **Choix par défaut, à confirmer (règle 5)** : statut refusé (400) pour l'administration et ignoré pour les autres ; un `pattern` remplace `min="0"` et le pas de 0,01, valeur pré-remplie à la virgule ; sous le verrou, le refus du vidage passe avant les 409 du changement de client (règle de #393) ; l'E2E fixe la langue de Chromium par `LANG` et `LANGUAGE`.
@@ -5467,7 +5467,8 @@ Tests seuls. Fermées : #407 (test #198 rouge en fin de mois) et #551 (isolation
 - Point de reprise, en-tête et « PR ouvertes » : #250 seule, à intégrer au lot devis ([décision](#7-la-pr-250-pool-de-connexions-de-la-modification-dun-devis)).
 - « Défauts connus » : #289 et la sécurité de la connexion (#261, #264) passent à corrigés ; l'angle mort des pièces figées (#461) est couvert par T1 ; #407 et #551 ne sont plus ouvertes. Textes d'avant : [archivés](#texte-de-la-passation-davant-562-et-564-archivé).
 - Section 3 : #394 en partie traitée, #443 placée (corrigée, à confirmer) ; section 4 : blocs « Sécurité de la connexion (#562) » et « Saisie des montants refusée plutôt que faussée (#564) ».
-- À faire dans `README.md` (hors du périmètre du documentaliste) : ligne 243, connexion Microsoft rattachée au couple `oid` + `tid` ; patch remis à Claude Code.
+- Section 4, bloc « Chantiers » : le retrait du statut de la modification générale passe de « à appliquer » à **appliqué** par #564 ; suivis ouverts et ordre de travail : #250 à intégrer au lot devis, #443 fermée, #394 traitée en partie.
+- `README.md`, ligne 243 (hors du périmètre du documentaliste) : connexion Microsoft rattachée au couple `oid` + `tid`, appliquée par Claude Code dans la même PR documentaire.
 
 ## En-tête de la passation au 30-10-2026
 
