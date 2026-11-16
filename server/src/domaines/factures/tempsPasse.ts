@@ -27,7 +27,8 @@ import { isAdminRole } from '../../droits/roles';
 //  - la facture attend une intervention terminée, des suites terminées ou annulées, sans marque « à
 //    suivre », et au moins une heure saisie ; elle est refusée pour une suite, pour une intervention
 //    rattachée au chantier de son affaire, et quand l'intervention ou une de ses suites a déjà une facture
-//    vivante (brouillon, émise ou réglée) ;
+//    vivante (brouillon, émise ou réglée ; une facture émise à 0,00 € ne compte pas, décision de Nelson du
+//    16-11-2026, #529, ./repere.ts) ;
 //  - elle fige les heures du jour de sa création : une heure saisie ensuite, ou une suite créée ensuite,
 //    ne la change pas.
 

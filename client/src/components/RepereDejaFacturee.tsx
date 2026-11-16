@@ -12,7 +12,8 @@ const texteRepereDejaFacturee: Record<OrigineRepere, string> = {
 
 // Repère « déjà facturée » du formulaire de création (lot « Assistante technique », AT-4 ; message de Nelson du
 // 09-11-2026, « Oui il faut un repere deja facturer ») : un avertissement, sans montant ni numéro, quand une
-// facture non annulée porte déjà l'origine choisie, de qui qu'elle soit. Il ne bloque rien : la création reste
+// facture non annulée porte déjà l'origine choisie, de qui qu'elle soit, hors facture émise à 0,00 € (décision du
+// 16-11-2026, #529). Il ne bloque rien : la création reste
 // possible, et une lecture qui échoue n'affiche rien. Affiché pour l'administration comme pour l'assistante
 // technique (GET /api/factures/deja-facturee).
 export default function RepereDejaFacturee({ origine, id }: { origine: OrigineRepere; id: string }) {
