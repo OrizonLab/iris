@@ -76,6 +76,7 @@ const FORMES_ADMISES = [
   ['40 (nombre)', 40, '40'], // valeur des tests existants (cadrage), entière, en nombre JSON.
   ['« 1234.5 »', '1234.5', '1234.5'], // valeur des tests existants (cadrage).
   ['« 35 »', '35', '35'], // valeur des tests existants (cadrage), entière.
+  ['« 0042,50 » (zéros de tête)', '0042,50', '42.5'], // zéros de tête dans les huit chiffres saisis : admis, à 42,50 (README) ; écarte un refus de tout zéro de tête et `parseFloat` (42).
   ['« 0,01 »', '0,01', '0.01'], // plus petit taux non nul : écarte un arrondi à l'unité (0) et un refus « < 1 € ».
   ['« 0 »', '0', '0'], // zéro admis comme aujourd'hui (cadrage) : écarte `zeroAutorise` à faux. La valeur de départ, non nulle, doit devenir 0.
   ['0 (nombre)', 0, '0'], // idem, en nombre JSON.
