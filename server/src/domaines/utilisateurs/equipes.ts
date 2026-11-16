@@ -7,9 +7,15 @@ import { type AuthRequest, requireAuth } from '../../http/auth';
 import { requireAdmin } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { decimalToNumber } from '../../commun/montants';
+import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { journaliserAdministration, changementsJournal } from '../../commun/journal-administration';
 import { refuseSuperAdminTarget, libelleCompteJournal, lireCompteVerrouille, ISOLATION_RETRAIT, verrouillerRetraitsComptes } from './comptes';
 import { INCLUSION_RATTACHEMENT, avecMainOeuvre, journaliserRattachementSupprime, rattacherMainOeuvre } from './rattachement-main-oeuvre';
+
+// Taux horaire chargé d'une fiche intervenant (colonne Decimal(10,2)) : huit chiffres avant la virgule, deux
+// après, virgule ou point, zéro admis comme aujourd'hui (#443). null pour toute autre saisie.
+const tauxHoraireSaisi = (valeur: unknown) => nombreDecimalNonNegatif(valeur, 8, true);
+const REFUS_TAUX_HORAIRE = 'Le taux horaire chargé doit être un nombre positif ou nul, avec au plus deux décimales (par exemple 42,50).';
 
 export function enregistrerRoutesEquipes(app: Express): void {
   // Liste minimale des commerciaux (id + nom), pour peupler les sélecteurs d'affectation
@@ -65,11 +71,15 @@ export function enregistrerRoutesEquipes(app: Express): void {
 
   app.post('/api/intervenants', requireAuth, requireAdmin, async (req, res) => {
     try {
+      // Taux horaire chargé obligatoire à la création (colonne sans valeur par défaut) ; une saisie hors forme
+      // est refusée, jamais ramenée à 0 ni lue en partie (#443, même règle que les montants du chantier, #387).
+      const tauxHoraireCharge = tauxHoraireSaisi(req.body?.tauxHoraireCharge);
+      if (tauxHoraireCharge === null) return res.status(400).json({ error: REFUS_TAUX_HORAIRE });
       res.json(await prisma.intervenant.create({
         data: {
           nom: req.body.nom,
           role: req.body.role,
-          tauxHoraireCharge: parseFloat(req.body.tauxHoraireCharge)
+          tauxHoraireCharge,
         }
       }));
     } catch (error) {
@@ -84,7 +94,12 @@ export function enregistrerRoutesEquipes(app: Express): void {
       const data: Record<string, unknown> = {};
       if (typeof req.body.nom === 'string' && req.body.nom.trim()) data.nom = req.body.nom.trim();
       if (typeof req.body.role === 'string' && req.body.role.trim()) data.role = req.body.role.trim();
-      if (req.body.tauxHoraireCharge !== undefined) data.tauxHoraireCharge = parseFloat(req.body.tauxHoraireCharge) || 0;
+      // Taux absent : inchangé ; vide, null ou hors forme : refusé, jamais ramené à 0 (#443).
+      if (req.body.tauxHoraireCharge !== undefined) {
+        const tauxHoraireCharge = tauxHoraireSaisi(req.body.tauxHoraireCharge);
+        if (tauxHoraireCharge === null) return res.status(400).json({ error: REFUS_TAUX_HORAIRE });
+        data.tauxHoraireCharge = tauxHoraireCharge;
+      }
       const intervenant = await prisma.intervenant.update({ where: { id: paramId(req) }, data });
       res.json(decimalToNumber(intervenant));
     } catch (error) {

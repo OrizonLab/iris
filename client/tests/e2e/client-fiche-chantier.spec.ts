@@ -282,8 +282,9 @@ test('#204 : « Modifier le chantier » envoie l’adresse et le budget global s
   expect(await enregistrer(page, chantier.id)).toMatchObject({ adresse: '12 rue de la Fiche 204, 14000 Caen', budgetGlobalVendu: '12345.67' });
   expect(await lire()).toMatchObject({ adresse: '12 rue de la Fiche 204, 14000 Caen', budgetGlobalVendu: 12345.67 });
 
-  // 3. Rouverte, la fenêtre reprend les valeurs enregistrées.
+  // 3. Rouverte, la fenêtre reprend les valeurs enregistrées ; le budget, à la virgule depuis #394 (cadrage v3 du correctif
+  // « saisie des montants refusée plutôt que faussée », point 2 : valeur pré-remplie à la virgule, choix par défaut, à confirmer).
   await ouvrirEdition();
   await expect(adresse).toHaveValue('12 rue de la Fiche 204, 14000 Caen');
-  await expect(budget).toHaveValue('12345.67');
+  await expect(budget).toHaveValue('12345,67');
 });
