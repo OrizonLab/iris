@@ -150,12 +150,12 @@ test('l’accès de secours réglé sur l’adresse du compte système est ferm�
 });
 
 // #411, T2 (suivi de l'audit des droits de #410) : server/index.ts, « Une configuration refusée (MICROSOFT_GRAPH_URL hors des
-// adresses admises) arrête le processus avant toute écoute, avec son message » ; demarrage.ts : « La valeur refusée n'est
-// pas recopiée dans le message : elle pourrait porter des identifiants ». Le serveur compilé est lancé pour de vrai, avec
-// une base qui refuse la connexion : code 1 et « [DÉMARRAGE] Configuration refusée », sans « Initialisation impossible »
-// ni « Server running » (initDb, première lecture de la base, ne tourne qu'une fois le port ouvert : ni écoute ni lecture
-// de la base), et rien de la valeur refusée dans la sortie. Témoin : la même commande, la variable vide (adresse de
-// Microsoft par défaut), écoute puis s'arrête sur la base injoignable.
+// adresses admises, TRUST_PROXY hors forme) arrête le processus avant toute écoute, avec son message » ; demarrage.ts : « La
+// valeur refusée n'est pas recopiée dans le message : elle pourrait porter des identifiants ». Le serveur compilé est lancé
+// pour de vrai, avec une base qui refuse la connexion : code 1 et « [DÉMARRAGE] Configuration refusée », sans
+// « Initialisation impossible » ni « Server running » (initDb, première lecture de la base, ne tourne qu'une fois le port
+// ouvert : ni écoute ni lecture de la base), et rien de la valeur refusée dans la sortie. Témoin : la même commande, la
+// variable vide (adresse de Microsoft par défaut), écoute puis s'arrête sur la base injoignable.
 test('une MICROSOFT_GRAPH_URL refusée arrête le serveur au démarrage (code 1), avant d’écouter et de lire la base, sans recopier la valeur', () => {
   const lancer = (adresseGraph) => spawnSync(process.execPath, [fileURLToPath(new URL('../dist/index.js', import.meta.url))], {
     env: {
