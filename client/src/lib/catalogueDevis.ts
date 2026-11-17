@@ -3,6 +3,7 @@
 // le prix d'achat prévu, celui de la fiche ; l'écran pré-remplit le reste, modifiable tant que
 // le devis n'est pas signé.
 import { fmtHeures } from './formats';
+import { valeurSaisie } from './mainOeuvre';
 
 export type NatureLigneDevis = 'MAIN_OEUVRE' | 'FOURNITURE';
 export type FamilleCatalogue = 'prestations' | 'articles' | 'equipements';
@@ -30,13 +31,20 @@ export type FicheCatalogueDevis = {
   prixDemiJourneeSousContratHt?: number | null;
 };
 
+// Champ chiffré d'une ligne saisie. La quantité, le PU HT et la TVA d'une ligne ordinaire, et les heures d'une
+// ligne au temps passé, sont saisis en texte (#394, pour le devis) : la chaîne tapée (« 18,75 », « 1.5 ») est
+// gardée telle quelle et envoyée brute, le serveur lisant la virgule (nombreDecimalNonNegatif). Le prix et la
+// TVA des lignes au temps passé et au forfait, fixés par la main d'œuvre, et la quantité entière d'une ligne
+// au forfait restent des nombres.
+export type ChiffreSaisi = number | string;
+
 export type LigneDevisSaisie = {
   ligneId?: string;
   designation: string;
   nature: NatureLigneDevis;
-  quantite: number;
-  prixUnitaireHt: number;
-  tauxTva: number;
+  quantite: ChiffreSaisi;
+  prixUnitaireHt: ChiffreSaisi;
+  tauxTva: ChiffreSaisi;
   unite?: string | null;
   reference?: string | null;
   catalogueFamille?: FamilleCatalogue | null;
@@ -61,25 +69,45 @@ export const LIBELLES_FAMILLES: Record<FamilleCatalogue, string> = {
   equipements: 'Équipement',
 };
 
+// Nombre d'un champ chiffré saisi, lu à la virgule comme au point (« 1,25 », « 1.25 ») ; NaN s'il n'en est
+// pas un, et 0 pour un champ vide, comme Number().
+export const nombreSaisi = (valeur: ChiffreSaisi): number => (typeof valeur === 'number' ? valeur : Number(String(valeur).trim().replace(',', '.')));
+
+// Motifs (`pattern`) des champs chiffrés d'une ligne ordinaire, aux bornes du serveur (nombreDecimalNonNegatif :
+// quantité au millième, strictement positive, 9 chiffres avant la virgule ; PU HT au centime, zéro admis,
+// 10 chiffres ; TVA au centième, 3 chiffres). Les champs sont en texte, `inputMode="decimal"`, et non
+// `type="number"`, qu'un navigateur réglé dans une autre langue lit autrement (« 18,75 » y devenait 1875,
+// #394) : le navigateur refuse avant l'envoi une saisie hors forme (« 0 » pour la quantité, comme l'ancien
+// `min="0.001"`), et le serveur seul les taux de TVA autres que 0, 5,5, 10 et 20 %. Le navigateur compile un
+// motif en `^(?:motif)$` avec le drapeau `v`, et ignore en silence un motif invalide : seule la classe `[.,]`,
+// sans caractère réservé, y figure.
+export const MOTIF_QUANTITE_DEVIS = String.raw`(?!0+(?:[.,]0+)?$)\d{1,9}(?:[.,]\d{1,3})?`;
+export const MOTIF_PRIX_DEVIS = String.raw`\d{1,10}(?:[.,]\d{1,2})?`;
+export const MOTIF_TVA_DEVIS = String.raw`\d{1,3}(?:[.,]\d{1,2})?`;
+export const TITRE_QUANTITE_DEVIS = 'Quantité supérieure à zéro, trois décimales au plus (par exemple 1,5)';
+export const TITRE_PRIX_DEVIS = 'Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)';
+export const TITRE_TVA_DEVIS = 'Taux de TVA en pourcentage, deux décimales au plus : 0 %, 5,5 %, 10 % ou 20 %';
+
 export function ligneDepuisCatalogue(fiche: FicheCatalogueDevis, voitPrixAchat: boolean): LigneDevisSaisie {
   return {
     designation: fiche.nom,
     nature: fiche.nature,
-    quantite: 1,
-    prixUnitaireHt: fiche.prixVenteHt,
-    tauxTva: fiche.tauxTva,
+    // Champs saisis en texte, pré-remplis à la virgule (« 2,5 », « 5,5 ») : seule l'écriture change.
+    quantite: '1',
+    prixUnitaireHt: valeurSaisie(fiche.prixVenteHt),
+    tauxTva: valeurSaisie(fiche.tauxTva),
     unite: fiche.unite,
     reference: fiche.reference,
     catalogueFamille: fiche.famille,
     catalogueId: fiche.id,
-    ...(voitPrixAchat ? { prixAchatUnitaireHt: fiche.prixAchatHt == null ? '' : String(fiche.prixAchatHt).replace('.', ',') } : {}),
+    ...(voitPrixAchat ? { prixAchatUnitaireHt: valeurSaisie(fiche.prixAchatHt) } : {}),
   };
 }
 
-// Une ligne encore vierge (désignation vide, prix nul) : remplacée plutôt que suivie par la
-// première fiche ajoutée.
+// Une ligne encore vierge (désignation vide, prix nul : « 0 », « 0,00 », « 0.00 », ou vide) : remplacée
+// plutôt que suivie par la première fiche ajoutée.
 export function ligneVierge(ligne: LigneDevisSaisie): boolean {
-  return !ligne.designation.trim() && !ligne.ligneId && !ligne.catalogueId && Number(ligne.prixUnitaireHt) === 0;
+  return !ligne.designation.trim() && !ligne.ligneId && !ligne.catalogueId && nombreSaisi(ligne.prixUnitaireHt) === 0;
 }
 
 // Corps envoyé à l'API. Le prix d'achat prévu n'est transmis que par qui l'écrit, et seulement
@@ -134,7 +162,9 @@ export function ligneAEnvoyer(ligne: LigneDevisSaisie, ecritPrixAchat: boolean) 
 }
 
 // Ligne existante d'un devis remise en édition : son identifiant permet au serveur de garder
-// sa fiche d'origine, sa référence et son prix d'achat prévu.
+// sa fiche d'origine, sa référence et son prix d'achat prévu. Les champs saisis en texte (quantité, PU HT
+// et TVA d'une ligne ordinaire, heures d'une ligne au temps passé) sont pré-remplis à la virgule ; le prix et
+// la TVA des lignes au temps passé et au forfait, non modifiables, restent des nombres.
 export function ligneEnEdition(ligne: {
   id: string; designation: string; nature: NatureLigneDevis; quantite: number; prixUnitaireHt: number; tauxTva: number;
   unite?: string | null; reference?: string | null; catalogueFamille?: FamilleCatalogue | null; catalogueId?: string | null; prixAchatUnitaireHt?: number | null;
@@ -144,7 +174,7 @@ export function ligneEnEdition(ligne: {
   if (ligne.tempsPasse) {
     return {
       ligneId: ligne.id, tempsPasse: true, tarifTempsPasse: ligne.tarifTempsPasse ?? null,
-      designation: ligne.designation, nature: ligne.nature, quantite: ligne.quantite, prixUnitaireHt: ligne.prixUnitaireHt, tauxTva: ligne.tauxTva,
+      designation: ligne.designation, nature: ligne.nature, quantite: valeurSaisie(ligne.quantite), prixUnitaireHt: ligne.prixUnitaireHt, tauxTva: ligne.tauxTva,
       unite: ligne.unite ?? null, reference: ligne.reference ?? null, catalogueFamille: ligne.catalogueFamille ?? null, catalogueId: ligne.catalogueId ?? null,
     };
   }
@@ -160,13 +190,13 @@ export function ligneEnEdition(ligne: {
     ligneId: ligne.id,
     designation: ligne.designation,
     nature: ligne.nature,
-    quantite: ligne.quantite,
-    prixUnitaireHt: ligne.prixUnitaireHt,
-    tauxTva: ligne.tauxTva,
+    quantite: valeurSaisie(ligne.quantite),
+    prixUnitaireHt: valeurSaisie(ligne.prixUnitaireHt),
+    tauxTva: valeurSaisie(ligne.tauxTva),
     unite: ligne.unite ?? null,
     reference: ligne.reference ?? null,
     catalogueFamille: ligne.catalogueFamille ?? null,
     catalogueId: ligne.catalogueId ?? null,
-    ...(voitPrixAchat ? { prixAchatUnitaireHt: ligne.prixAchatUnitaireHt == null ? '' : String(ligne.prixAchatUnitaireHt).replace('.', ',') } : {}),
+    ...(voitPrixAchat ? { prixAchatUnitaireHt: valeurSaisie(ligne.prixAchatUnitaireHt) } : {}),
   };
 }

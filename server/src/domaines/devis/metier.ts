@@ -6,7 +6,6 @@ import { FUSEAU_HORAIRE_PAR_DEFAUT, anneeEntreprise } from '../../commun/dates';
 import { PLAFOND_MONTANT, tauxUtilises, tvaDuTaux, arrondiCommercialLigneHt, centimesTtcLigne, centimes } from '../../commun/montants';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
-import { getParametres } from '../parametres/metier';
 import { getCompanySettings } from '../administration/metier';
 import { type CatalogueFamily, catalogueFamily } from '../catalogue/metier';
 import { type SaisieTempsPasse, drapeauDevisTempsPasse, lireLigneTempsPasse, resoudreLigneTempsPasse, REFUS_NATURE_LIGNE_EXISTANTE, REFUS_PRIX_ACHAT_TEMPS_PASSE, TempsPasseSaisieError } from './tempsPasse';
@@ -48,6 +47,9 @@ export class DevisSaisieError extends Error {}
 export class DevisConflitError extends Error {}
 // Requête bien formée, mais réservée à d'autres comptes (prix d'achat prévu) : 403.
 export class DevisDroitError extends Error {}
+// Devis inconnu (#252, N3 ; #426 pour le devis) : 404 sur toutes les routes du domaine, comme le statut,
+// l'acompte, la duplication, l'envoi et le PDF.
+export class DevisIntrouvableError extends Error { constructor() { super('Devis introuvable.'); } }
 
 // Demande de reprise du catalogue, ou de conservation d'une ligne existante, portée par une
 // ligne saisie. `devisPayload` ne fait que la valider ; `resoudreLignesDevis` la résout en base.
@@ -304,19 +306,42 @@ export async function verrouillerDevis(tx: Prisma.TransactionClient, id: string)
   const lignes = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "Devis" WHERE "id" = ${id} FOR UPDATE`);
   return lignes.length === 1;
 }
-export async function acompteDevisPayload(body: Record<string, unknown>, precedent?: { acompteExige: boolean; tauxAcompte: Prisma.Decimal | null; acompteRecuLe: Date | null }) {
+// Taux d'acompte envoyé (#252). Le refus d'un taux saisi invalide est annoncé par la question de Claude Code du
+// 16-11-2026 (« Il sera refusé (400). ») ; la réponse de Nelson, « Refuser 0 % (Recommandé) », porte sur 0 %.
+// La clé absente et la valeur vide (null, chaîne vide) ne sont pas une saisie ; toute autre valeur est contrôlée,
+// qu'un acompte soit exigé ou non : un nombre de 0 à 100, au plus trois chiffres et deux décimales, virgule
+// admise. Ce contrôle de forme précède la transaction, comme celui des lignes : il passe avant le 404 et les 409.
+export const REFUS_TAUX_ACOMPTE = 'Le taux d’acompte doit être un pourcentage de 0 à 100, avec au plus deux décimales (par exemple 30 ou 37,5).';
+// 0 % envoyé avec un acompte exigé (décision de Nelson du 16-11-2026, « Refuser 0 % (Recommandé) » ; la description
+// de l'option, texte de Claude Code, disait : « « Acompte exigé » avec 0 % est contradictoire : refusé avec un
+// message. Pour ne pas demander d'acompte, on décoche « acompte exigé ». »). Lecture retenue, à confirmer : le refus
+// vise le 0 % envoyé ; un taux par défaut réglé à 0 % n'est pas refusé (question posée à Nelson).
+export const REFUS_ACOMPTE_ZERO = 'Un acompte exigé ne peut pas être de 0 % : indiquez un taux, ou décochez « Exiger un acompte ».';
+export type TauxAcompteSaisi = { etat: 'absent' } | { etat: 'vide' } | { etat: 'valeur'; taux: number };
+export function lireTauxAcompteSaisi(body: Record<string, unknown>): TauxAcompteSaisi {
+  if (!Object.hasOwn(body, 'tauxAcompte')) return { etat: 'absent' };
+  const valeur = body.tauxAcompte;
+  if (valeur === null || (typeof valeur === 'string' && !valeur.trim())) return { etat: 'vide' };
+  const taux = nombreDecimalNonNegatif(valeur, 3, true);
+  if (taux === null || taux > 100) throw new DevisSaisieError(REFUS_TAUX_ACOMPTE);
+  return { etat: 'valeur', taux };
+}
+// Le taux par défaut est lu par l'appelant avant sa transaction (#240, #250) : lu pendant celle-ci par le client
+// global, il réclamait une seconde connexion du pool en gardant la première, et des modifications simultanées
+// l'épuisaient jusqu'à l'expiration (500).
+export function acompteDevisPayload(body: Record<string, unknown>, tauxAcompteDefaut: number, precedent?: { acompteExige: boolean; tauxAcompte: Prisma.Decimal | null; acompteRecuLe: Date | null }) {
+  const saisi = lireTauxAcompteSaisi(body);
   // Après encaissement, les conditions qui ont déclenché celui-ci constituent une preuve :
   // elles sont reprises telles quelles, même si le formulaire réémet des valeurs différentes.
   if (precedent?.acompteRecuLe) return { acompteExige: precedent.acompteExige, tauxAcompte: precedent.tauxAcompte };
   const acompteExige = precedent && !Object.hasOwn(body, 'acompteExige') ? precedent.acompteExige : !!body.acompteExige;
-  const { tauxAcompteDefaut } = await getParametres();
-  const tauxAcompte = acompteExige
-    // Un PATCH portant sur les lignes ou l'objet ne renégocie pas silencieusement le taux.
-    ? (Object.hasOwn(body, 'tauxAcompte')
-      ? (nombreDecimalNonNegatif(body.tauxAcompte, 3) ?? Number(tauxAcompteDefaut))
-      : (precedent?.acompteExige ? precedent.tauxAcompte : null) ?? Number(tauxAcompteDefaut))
-    : null;
-  if (tauxAcompte !== null && Number(tauxAcompte) > 100) throw new DevisSaisieError('Le taux d’acompte ne peut pas dépasser 100 %.');
+  if (!acompteExige) return { acompteExige, tauxAcompte: null };
+  if (saisi.etat === 'valeur' && saisi.taux === 0) throw new DevisSaisieError(REFUS_ACOMPTE_ZERO);
+  // Une valeur vide prend le taux par défaut, comme avant ce lot ; une clé absente, dans un PATCH portant sur les
+  // lignes ou l'objet, ne renégocie pas silencieusement le taux : celui du devis précédent est gardé.
+  const tauxAcompte = saisi.etat === 'valeur' ? saisi.taux
+    : saisi.etat === 'vide' ? Number(tauxAcompteDefaut)
+      : (precedent?.acompteExige ? precedent.tauxAcompte : null) ?? Number(tauxAcompteDefaut);
   return { acompteExige, tauxAcompte };
 }
 export async function nouveauNumeroDevis() {

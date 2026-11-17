@@ -477,7 +477,7 @@ AC | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 AC | POST /api/devis/:id/envois | devis-converti | défaut | 400
 AC | POST /api/devis/:id/envois | devis-signe | défaut | 400
 AC | POST /api/devis/:id/envois | inexistant | défaut | 400
-AC | POST /api/devis/:id/revisions | inexistant | défaut | 400
+AC | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 AC | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 AC | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AC | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -1176,7 +1176,7 @@ AD | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 AD | POST /api/devis/:id/envois | devis-converti | défaut | 400
 AD | POST /api/devis/:id/envois | devis-signe | défaut | 400
 AD | POST /api/devis/:id/envois | inexistant | défaut | 400
-AD | POST /api/devis/:id/revisions | inexistant | défaut | 400
+AD | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 AD | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 AD | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AD | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -1875,7 +1875,7 @@ AD-COM | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 AD-COM | POST /api/devis/:id/envois | devis-converti | défaut | 400
 AD-COM | POST /api/devis/:id/envois | devis-signe | défaut | 400
 AD-COM | POST /api/devis/:id/envois | inexistant | défaut | 400
-AD-COM | POST /api/devis/:id/revisions | inexistant | défaut | 400
+AD-COM | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 AD-COM | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 AD-COM | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AD-COM | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -2768,7 +2768,7 @@ AT | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 AT | POST /api/devis/:id/envois | devis-converti | défaut | 400
 AT | POST /api/devis/:id/envois | devis-signe | défaut | 400
 AT | POST /api/devis/:id/envois | inexistant | défaut | 400
-AT | POST /api/devis/:id/revisions | inexistant | défaut | 400
+AT | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 AT | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 AT | POST /api/devis/:id/signature | devis-converti | défaut | 400
 AT | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -3467,7 +3467,7 @@ COM | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 COM | POST /api/devis/:id/envois | devis-converti | défaut | 400
 COM | POST /api/devis/:id/envois | devis-signe | défaut | 400
 COM | POST /api/devis/:id/envois | inexistant | défaut | 400
-COM | POST /api/devis/:id/revisions | inexistant | défaut | 400
+COM | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 COM | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 COM | POST /api/devis/:id/signature | devis-converti | défaut | 400
 COM | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -4166,7 +4166,7 @@ CPT | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 CPT | POST /api/devis/:id/envois | devis-converti | défaut | 400
 CPT | POST /api/devis/:id/envois | devis-signe | défaut | 400
 CPT | POST /api/devis/:id/envois | inexistant | défaut | 400
-CPT | POST /api/devis/:id/revisions | inexistant | défaut | 400
+CPT | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 CPT | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 CPT | POST /api/devis/:id/signature | devis-converti | défaut | 400
 CPT | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -4865,7 +4865,7 @@ CPT-FINANCE | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/envois | devis-converti | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/envois | devis-signe | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/envois | inexistant | défaut | 400
-CPT-FINANCE | POST /api/devis/:id/revisions | inexistant | défaut | 400
+CPT-FINANCE | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 CPT-FINANCE | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/signature | devis-converti | défaut | 400
 CPT-FINANCE | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -6962,7 +6962,7 @@ DC | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 DC | POST /api/devis/:id/envois | devis-converti | défaut | 400
 DC | POST /api/devis/:id/envois | devis-signe | défaut | 400
 DC | POST /api/devis/:id/envois | inexistant | défaut | 400
-DC | POST /api/devis/:id/revisions | inexistant | défaut | 400
+DC | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 DC | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 DC | POST /api/devis/:id/signature | devis-converti | défaut | 400
 DC | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -7855,7 +7855,7 @@ DIR | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 DIR | POST /api/devis/:id/envois | devis-converti | défaut | 400
 DIR | POST /api/devis/:id/envois | devis-signe | défaut | 400
 DIR | POST /api/devis/:id/envois | inexistant | défaut | 400
-DIR | POST /api/devis/:id/revisions | inexistant | défaut | 400
+DIR | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 DIR | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 DIR | POST /api/devis/:id/signature | devis-converti | défaut | 400
 DIR | POST /api/devis/:id/signature | devis-signe | défaut | 400
@@ -10150,7 +10150,7 @@ SA | POST /api/devis/:id/envois | devis-brouillon | défaut | 400
 SA | POST /api/devis/:id/envois | devis-converti | défaut | 400
 SA | POST /api/devis/:id/envois | devis-signe | défaut | 400
 SA | POST /api/devis/:id/envois | inexistant | défaut | 400
-SA | POST /api/devis/:id/revisions | inexistant | défaut | 400
+SA | POST /api/devis/:id/revisions | inexistant | défaut | 404 « Devis introuvable. »
 SA | POST /api/devis/:id/signature | devis-brouillon | défaut | 400
 SA | POST /api/devis/:id/signature | devis-converti | défaut | 400
 SA | POST /api/devis/:id/signature | devis-signe | défaut | 400

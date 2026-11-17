@@ -231,6 +231,7 @@ CT | devis:write | POST /api/devis/:id/convertir | devis-converti | défaut | en
 CT | devis:write | POST /api/devis/:id/convertir | devis-signe | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 CT | devis:write | POST /api/devis/:id/convertir | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 CT | devis:write | POST /api/devis/:id/duplication | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
+CT | devis:write | POST /api/devis/:id/revisions | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 CT | devis:write | PUT /api/devis/:id/statut | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 CT | droit devis | GET /api/devis/:id/document.pdf | inexistant | défaut | entrée | 403 « Permission requise : devis:read » → 404 « Devis introuvable. »
 CT | droit devis | GET /api/devis/:id/envois | inexistant | défaut | entrée | 403 « Permission requise : devis:read » → 404 « Devis introuvable. »
@@ -245,6 +246,7 @@ CT | droit devis | POST /api/devis/:id/convertir | devis-converti | défaut | en
 CT | droit devis | POST /api/devis/:id/convertir | devis-signe | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 CT | droit devis | POST /api/devis/:id/convertir | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 CT | droit devis | POST /api/devis/:id/duplication | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
+CT | droit devis | POST /api/devis/:id/revisions | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 CT | droit devis | PUT /api/devis/:id/statut | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 CT | equipements:read | GET /api/me | — | défaut | valeurs . | permissions : + equipements:read
 CT | equipements:write | GET /api/me | — | défaut | valeurs . | permissions : + equipements:write
@@ -362,6 +364,7 @@ RESP | devis:write | POST /api/devis/:id/convertir | devis-converti | défaut | 
 RESP | devis:write | POST /api/devis/:id/convertir | devis-signe | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 RESP | devis:write | POST /api/devis/:id/convertir | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 RESP | devis:write | POST /api/devis/:id/duplication | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
+RESP | devis:write | POST /api/devis/:id/revisions | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 RESP | devis:write | PUT /api/devis/:id/statut | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 RESP | droit devis | GET /api/clients/:id | inexistant | défaut | entrée | 403 « Permission requise : clients:read » → 404 « Client introuvable. »
 RESP | droit devis | GET /api/clients/:id/chantiers | inexistant | défaut | entrée | 403 « Permission requise : clients:read » → 404 « Client introuvable. »
@@ -387,6 +390,7 @@ RESP | droit devis | POST /api/devis/:id/convertir | devis-converti | défaut | 
 RESP | droit devis | POST /api/devis/:id/convertir | devis-signe | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 RESP | droit devis | POST /api/devis/:id/convertir | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 400 validation-avant-droit
 RESP | droit devis | POST /api/devis/:id/duplication | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
+RESP | droit devis | POST /api/devis/:id/revisions | inexistant | défaut | entrée | 403 « Permission requise : devis:write » → 404 « Devis introuvable. »
 RESP | droit devis | POST /api/interventions/:id/envois | curative-sans-chantier-branche | défaut | entrée | 403 « Permission requise : clients:read » → 400 validation-avant-droit
 RESP | droit devis | POST /api/interventions/:id/envois | inexistant | défaut | entrée | 403 « Permission requise : clients:read » → 400 validation-avant-droit
 RESP | droit devis | POST /api/interventions/:id/envois | intervention-affectee-tech | défaut | entrée | 403 « Permission requise : clients:read » → 400 validation-avant-droit

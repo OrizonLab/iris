@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../http/auth';
 import { INSTANTANE_CRENEAU, journaliserIntervention, retirerCreneauIntervention } from '../interventions/metier';
 import { verrouillerIntervention } from '../interventions/comptesRendus';
 import { journaliserContrat, verrouillerContratMaintenance } from '../contrats/metier';
-import { DevisConflitError, DevisSaisieError, devisInclude, verrouillerDevis } from './metier';
+import { DevisConflitError, DevisIntrouvableError, DevisSaisieError, devisInclude, verrouillerDevis } from './metier';
 
 // --- Annulation d'un devis, en cascade sur ce qu'il a créé (lot 4 suite) ---
 // Décisions de Nelson des 22 et 23-10-2026 : « Oui un devis converti en chantier s’annule avec
@@ -66,9 +66,9 @@ export const lireSuites = (tx: Prisma.TransactionClient, interventionId: string 
 
 export async function annulerDevisEnCascade(tx: Prisma.TransactionClient, devisId: string, motif: string, req: AuthRequest) {
   const auteur = req.user!;
-  if (!await verrouillerDevis(tx, devisId)) throw new DevisSaisieError('Devis introuvable.');
+  if (!await verrouillerDevis(tx, devisId)) throw new DevisIntrouvableError();
   const devis = await tx.devis.findUnique({ where: { id: devisId }, include: { conversions: { orderBy: { rang: 'asc' } } } });
-  if (!devis) throw new DevisSaisieError('Devis introuvable.');
+  if (!devis) throw new DevisIntrouvableError();
   if (devis.statut === 'ANNULE') throw new DevisSaisieError('Ce devis est déjà annulé.');
   const cible = (type: string) => devis.conversions.find(c => c.cibleType === type)?.cibleId ?? null;
   const chantierId = cible('CHANTIER'), contratId = cible('CONTRAT'), interventionId = cible('INTERVENTION');

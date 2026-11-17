@@ -46,7 +46,7 @@ test('#113 : recherche, édition et signature d’un client hors des 200 premier
   await select.selectOption(clientId);
   await page.getByRole('textbox', { name: 'Objet' }).fill(`Devis 113 ${prefix}`);
   await page.getByRole('textbox', { name: 'Désignation' }).fill('Prestation test');
-  await page.getByRole('spinbutton', { name: 'PU HT' }).fill('10');
+  await page.getByRole('textbox', { name: 'PU HT' }).fill('10');
   const creation = page.waitForResponse(r => r.url().endsWith('/api/devis') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
   const cree = await creation;

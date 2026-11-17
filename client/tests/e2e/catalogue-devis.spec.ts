@@ -52,11 +52,11 @@ test('un commercial compose son devis depuis le catalogue : ligne copiée, sans 
   await expect(page.getByRole('textbox', { name: /Désignation/ })).toHaveCount(1);
   await expect(page.getByRole('textbox', { name: /Désignation/ })).toHaveValue(fiche.nom);
   await expect(page.getByText(`Copiée du catalogue · Réf. ${fiche.reference}`)).toBeVisible();
-  await expect(page.getByRole('spinbutton', { name: 'PU HT' })).toHaveValue('2.5');
+  await expect(page.getByRole('textbox', { name: 'PU HT' })).toHaveValue('2,5');
   await expect(page.getByRole('textbox', { name: 'Unité' })).toHaveValue('m');
   await expect(page.getByRole('combobox', { name: 'Nature' })).toHaveValue('FOURNITURE');
   await expect(page.getByRole('textbox', { name: 'Prix d’achat prévu' })).toHaveCount(0);
-  await page.getByRole('spinbutton', { name: 'Qté' }).fill('25');
+  await page.getByRole('textbox', { name: 'Qté' }).fill('25');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
   // #499 : forme des documents, le texte du PDF (virgule, espace ordinaire U+0020 avant « € »), et non plus le point décimal.
   await expect(page.getByRole('listitem').filter({ hasText: objet })).toContainText(/HT 62,50\u0020€/);
@@ -82,10 +82,10 @@ test('l’administrateur voit le prix d’achat prévu, et la copie reste figée
   const prixAchat = page.getByRole('textbox', { name: 'Prix d’achat prévu' });
   await expect(prixAchat).toHaveValue('120');
   await prixAchat.fill('115,50');
-  await page.getByRole('spinbutton', { name: 'PU HT' }).fill('180');
+  await page.getByRole('textbox', { name: 'PU HT' }).fill('180');
   await page.getByRole('button', { name: 'Ajouter une ligne' }).click();
   await page.getByRole('textbox', { name: /Désignation/ }).last().fill('Déplacement');
-  await page.getByRole('spinbutton', { name: 'PU HT' }).last().fill('50');
+  await page.getByRole('textbox', { name: 'PU HT' }).last().fill('50');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
   const ligneDevis = page.getByRole('listitem').filter({ hasText: objet });
   // #499 : forme des documents (virgule, espace ordinaire U+0020 avant « € »).
@@ -100,10 +100,10 @@ test('l’administrateur voit le prix d’achat prévu, et la copie reste figée
   await expect(page.getByRole('heading', { name: 'Modifier le brouillon' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /Désignation/ }).first()).toHaveValue(fiche.nom);
   await expect(page.getByText(`Copiée du catalogue · Réf. ${fiche.reference}`)).toBeVisible();
-  await expect(page.getByRole('spinbutton', { name: 'PU HT' }).first()).toHaveValue('180');
+  await expect(page.getByRole('textbox', { name: 'PU HT' }).first()).toHaveValue('180');
   await expect(page.getByRole('textbox', { name: 'Prix d’achat prévu' }).first()).toHaveValue('115,5');
   // La fiche désactivée n'empêche pas d'enregistrer le brouillon : la ligne garde sa copie.
-  await page.getByRole('spinbutton', { name: 'Qté' }).first().fill('2');
+  await page.getByRole('textbox', { name: 'Qté' }).first().fill('2');
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(ligneDevis).toContainText(/HT 410,00\u0020€/);
   const devis = await devisParObjet(request, session.token, objet);
@@ -136,7 +136,7 @@ test('#499 : la recherche du catalogue et l’historique du devis écrivent les 
   // devise, un séparateur des milliers absent ou ordinaire, et l'euro près (« 1 235 € »).
   await expect(proposee.getByText(/^· Article/)).toHaveText(new RegExp(`^· Article · Réf\\. ${echapper(fiche.reference)} · 1\u202F234,50\u0020€ HT / u$`));
   await proposee.getByRole('button', { name: `Ajouter ${fiche.nom}` }).click();
-  await page.getByRole('spinbutton', { name: 'Qté' }).fill('5');
+  await page.getByRole('textbox', { name: 'Qté' }).fill('5');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
 
   // 5 × 1 234,50 € = 6 172,50 € HT ; TVA à 20 % : 1 234,50 € ; TTC : 7 407,00 €. Trois montants au-delà de 1 000 €, dont

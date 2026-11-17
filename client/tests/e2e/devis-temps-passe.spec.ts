@@ -14,6 +14,12 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // sa ligne vaut ce minimum, puis des multiples du pas. La mention les annonce.
 
 const REFUS_PAS = 'Réglez d’abord le pas du temps passé dans l’administration (Administration > Marges & Commissions) : un devis au temps passé est refusé tant qu’il n’est pas fixé.';
+// Lot devis (cadrage v3 du 16-11-2026, section 4, #394 pour le devis) : le champ des heures passe d'un champ numérique
+// (`min`, `step`) à un champ texte, `inputMode="decimal"`, qu'un navigateur réglé en anglais ne fausse plus. Règle d'écran
+// gardée (C9 du contrôle, option (a)) : nouveau devis ou réglages figés, le motif du quart d'heure, à partir d'un quart
+// d'heure, que le cadrage écrit ainsi ; le minimum et le pas figés d'un devis modifié sont refusés avant l'envoi par
+// l'écran (erreurTempsPasse) ; les flèches du clavier avancent d'un pas, à la virgule.
+const MOTIF_QUART_D_HEURE = String.raw`(?!0+(?:[.,]0+)?$)\d{1,9}(?:[.,](?:0{1,3}|250?|50{0,2}|750?))?`;
 
 async function envoyer(request: APIRequestContext, token: string, methode: 'post' | 'put' | 'delete', chemin: string, data?: object) {
   const response = await request[methode](`${api}${chemin}`, { headers: { Authorization: `Bearer ${token}` }, data });
@@ -164,7 +170,7 @@ test('un devis au temps passé se compose à l’écran : main d’œuvre et tar
     const ligne = page.getByRole('group', { name: 'Ligne au temps passé' });
     // Nouveau devis : les réglages de la société ne sont lus que par l'administration ; l'écran le dit, et
     // le serveur applique le minimum et le pas du jour.
-    const heures = ligne.getByRole('spinbutton', { name: 'Heures', exact: true });
+    const heures = ligne.getByRole('textbox', { name: 'Heures', exact: true });
     await expect(heures).toHaveValue('1');
     await expect(ligne).toContainText('Le temps minimum facturé, puis des tranches du pas, tous deux réglés par la société et figés sur le devis');
     await expect(ligne.getByTestId('prix-heure-temps-passe')).toHaveText('45,50 € HT');
@@ -177,9 +183,9 @@ test('un devis au temps passé se compose à l’écran : main d’œuvre et tar
     await expect(ligne).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Main d’œuvre au temps passé' })).toHaveCount(0);
     // Le devis garde une ligne, vierge, aux valeurs d'une nouvelle ligne : une heure, 0 € HT, TVA à 20 %.
-    await expect(page.getByRole('spinbutton', { name: 'Qté' })).toHaveValue('1');
-    await expect(page.getByRole('spinbutton', { name: 'PU HT' })).toHaveValue('0');
-    await expect(page.getByRole('spinbutton', { name: 'TVA %' })).toHaveValue('20');
+    await expect(page.getByRole('textbox', { name: 'Qté' })).toHaveValue('1');
+    await expect(page.getByRole('textbox', { name: 'PU HT' })).toHaveValue('0');
+    await expect(page.getByRole('textbox', { name: 'TVA %' })).toHaveValue('20');
     await page.getByRole('checkbox', { name: 'Devis au temps passé' }).check();
     await expect(ligne).toHaveCount(0);
     await page.getByRole('combobox', { name: 'Main d’œuvre au temps passé' }).selectOption(mainOeuvre.id);
@@ -188,19 +194,24 @@ test('un devis au temps passé se compose à l’écran : main d’œuvre et tar
     // Le matériel s'ajoute en lignes à part.
     await page.getByRole('searchbox', { name: 'Rechercher dans le catalogue' }).fill(`E2E-TP-CAB-${suffixe}`);
     await page.getByRole('button', { name: `Ajouter ${cable.nom}` }).click();
-    await page.getByRole('spinbutton', { name: 'Qté' }).fill('12');
-    // Le navigateur refuse lui-même, sans rien envoyer, une quantité nulle ou hors des quarts d'heure (le
-    // champ d'un nouveau devis va par quarts d'heure, à partir d'un quart d'heure).
+    await page.getByRole('textbox', { name: 'Qté' }).fill('12');
+    // Le navigateur refuse lui-même, sans rien envoyer, une quantité nulle ou hors des quarts d'heure : le champ d'un nouveau
+    // devis, en texte depuis le lot devis, porte le motif du quart d'heure, à partir d'un quart d'heure (avant le lot,
+    // `rangeUnderflow` et `stepMismatch` d'un champ numérique ; désormais `patternMismatch`). Un motif invalide serait ignoré
+    // en silence par le navigateur : ces deux refus prouvent aussi qu'il le compile.
     const envois: string[] = [];
     const surRequete = (requete: { method: () => string; url: () => string }) => { if (['POST', 'PATCH'].includes(requete.method()) && /\/api\/devis(\/[0-9a-f-]+)?$/.test(requete.url())) envois.push(requete.url()); };
     page.on('request', surRequete);
-    const validite = (champ: typeof heures) => champ.evaluate((element) => { const { rangeUnderflow, stepMismatch } = (element as HTMLInputElement).validity; return { rangeUnderflow, stepMismatch }; });
+    const validite = (champ: typeof heures) => champ.evaluate((element) => { const { valid, patternMismatch } = (element as HTMLInputElement).validity; return { valid, patternMismatch }; });
+    await expect(heures).toHaveAttribute('type', 'text');
+    await expect(heures).toHaveAttribute('inputmode', 'decimal');
+    await expect(heures).toHaveAttribute('pattern', MOTIF_QUART_D_HEURE);
     await heures.fill('0');
     await page.getByRole('button', { name: 'Créer le brouillon' }).click();
-    expect(await validite(heures)).toEqual({ rangeUnderflow: true, stepMismatch: false });
+    expect(await validite(heures)).toEqual({ valid: false, patternMismatch: true });
     await heures.fill('1.1');
     await page.getByRole('button', { name: 'Créer le brouillon' }).click();
-    expect(await validite(heures)).toEqual({ rangeUnderflow: false, stepMismatch: true });
+    expect(await validite(heures)).toEqual({ valid: false, patternMismatch: true });
     expect(envois, 'aucune création envoyée').toHaveLength(0);
     // Hors du minimum puis du pas réglés (une heure, puis 30 minutes) : refusée par le serveur, qui n'écrit rien.
     await heures.fill('1.25');
@@ -230,19 +241,25 @@ test('un devis au temps passé se compose à l’écran : main d’œuvre et tar
     await item.getByRole('button', { name: 'Modifier' }).click();
     await expect(page.getByRole('checkbox', { name: 'Devis au temps passé' })).toBeChecked();
     await expect(ligne.getByTestId('prix-heure-temps-passe')).toHaveText('40,00 € HT');
-    // Les réglages du devis modifié sont connus de l'écran : le champ part du minimum figé et avance au pas
-    // figé, et le navigateur refuse lui-même une quantité qui ne les suit pas.
-    const heuresFigees = ligne.getByRole('spinbutton', { name: 'Heures (1 h minimum)' });
+    // Les réglages du devis modifié sont connus de l'écran : le champ, pré-rempli à la virgule, porte le motif du quart
+    // d'heure (et non plus `min` et `step`), et l'écran refuse lui-même, avant l'envoi, une quantité qui ne suit pas le
+    // minimum et le pas figés (erreurTempsPasse) : « 2.25 » (hors du pas de 30 minutes) et « 0.5 » (sous le minimum d'une
+    // heure), quarts d'heure admis par le motif. Aucune modification n'est envoyée.
+    const heuresFigees = ligne.getByRole('textbox', { name: 'Heures (1 h minimum)' });
     await expect(heuresFigees).toHaveValue('2');
     await expect(ligne).toContainText('Le temps minimum facturé du devis (1 h), puis des tranches de 30 minutes.');
-    await expect(heuresFigees).toHaveAttribute('min', '1');
-    await expect(heuresFigees).toHaveAttribute('step', '0.5');
-    await heuresFigees.fill('2.25');
-    await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
-    expect(await validite(heuresFigees)).toEqual({ rangeUnderflow: false, stepMismatch: true });
-    await heuresFigees.fill('0.5');
-    await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
-    expect(await validite(heuresFigees)).toEqual({ rangeUnderflow: true, stepMismatch: false });
+    await expect(heuresFigees).toHaveAttribute('pattern', MOTIF_QUART_D_HEURE);
+    await expect(heuresFigees).not.toHaveAttribute('min');
+    await expect(heuresFigees).not.toHaveAttribute('step');
+    const refusFige = 'La ligne au temps passé vaut le temps minimum facturé du devis (1 h), puis des tranches de 30 minutes : en heures, 1 ; 1,5 ; 2…';
+    for (const saisie of ['2.25', '0.5', '2,25']) {
+      await page.reload({ waitUntil: 'networkidle' });
+      await item.getByRole('button', { name: 'Modifier' }).click();
+      await heuresFigees.fill(saisie);
+      await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+      expect(await validite(heuresFigees), `« ${saisie} » admise par le motif`).toEqual({ valid: true, patternMismatch: false });
+      await expect(page.getByRole('alert').filter({ hasText: 'tranches' })).toHaveText(refusFige);
+    }
     expect(envois, 'aucune modification envoyée : les deux créations seules').toHaveLength(2);
     page.off('request', surRequete);
     // 2 h 30 : au pas du devis (une heure, puis 30 minutes), non à celui du jour (deux heures, puis une heure).
@@ -290,12 +307,17 @@ test('rendu à 375 px : formulaire du devis au temps passé, mention, réglages 
     // La TVA de la main d'œuvre, affichée au format français.
     await expect(ligne).toContainText('5,5 %');
     // Nouveau devis : les flèches avancent d'un quart d'heure, le serveur appliquant le minimum et le pas du
-    // jour (une heure, puis 30 minutes : 1,5 heure est admise).
-    const heures = ligne.getByRole('spinbutton', { name: 'Heures', exact: true });
+    // jour (une heure, puis 30 minutes : 1,5 heure est admise). Champ en texte depuis le lot devis : les flèches sont
+    // rétablies par l'écran (heuresAuPas), et la valeur s'écrit à la virgule (cadrage v3, section 4, « Flèches »).
+    const heures = ligne.getByRole('textbox', { name: 'Heures', exact: true });
     await heures.press('ArrowUp');
-    await expect(heures).toHaveValue('1.25');
+    await expect(heures).toHaveValue('1,25');
     await heures.press('ArrowUp');
-    await expect(heures).toHaveValue('1.5');
+    await expect(heures).toHaveValue('1,5');
+    await heures.press('ArrowDown');
+    await expect(heures).toHaveValue('1,25');
+    await heures.press('ArrowUp');
+    await expect(heures).toHaveValue('1,5');
     for (const element of [page.getByRole('combobox', { name: 'Tarif de l’heure' }), heures, ligne.getByTestId('prix-heure-temps-passe')]) {
       await element.scrollIntoViewIfNeeded();
       const boite = await element.boundingBox();
@@ -360,7 +382,7 @@ test('nouveau devis : le champ des heures admet un temps minimum réglé sous un
     await page.getByRole('textbox', { name: 'Objet' }).fill(objet);
     await page.getByRole('checkbox', { name: 'Devis au temps passé' }).check();
     await page.getByRole('combobox', { name: 'Main d’œuvre au temps passé' }).selectOption(mainOeuvre.id);
-    const heures = page.getByRole('group', { name: 'Ligne au temps passé' }).getByRole('spinbutton', { name: 'Heures', exact: true });
+    const heures = page.getByRole('group', { name: 'Ligne au temps passé' }).getByRole('textbox', { name: 'Heures', exact: true });
     await heures.fill('0.5');
     expect(await heures.evaluate((element) => (element as HTMLInputElement).validity.valid), 'le navigateur admet 0,5 h').toBe(true);
     await page.getByRole('button', { name: 'Créer le brouillon' }).click();
@@ -392,9 +414,10 @@ test('devis ordinaire modifié pour passer au temps passé, puis nouveau devis a
     const item = page.getByRole('listitem').filter({ hasText: objet });
     const ligne = page.getByRole('group', { name: 'Ligne au temps passé' });
     const auQuartDHeure = async () => {
-      const heures = ligne.getByRole('spinbutton', { name: 'Heures', exact: true });
-      await expect(heures).toHaveAttribute('min', '0.25');
-      await expect(heures).toHaveAttribute('step', '0.25');
+      // Lot devis : le motif du quart d'heure, à partir d'un quart d'heure, remplace `min` et `step` (0,25).
+      const heures = ligne.getByRole('textbox', { name: 'Heures', exact: true });
+      await expect(heures).toHaveAttribute('pattern', MOTIF_QUART_D_HEURE);
+      await expect(heures).toHaveAttribute('inputmode', 'decimal');
       return heures;
     };
     // Le devis ordinaire, modifié et passé au temps passé, prendra les réglages du jour (30 minutes, puis 15).
@@ -409,8 +432,15 @@ test('devis ordinaire modifié pour passer au temps passé, puis nouveau devis a
     await expect(item.getByTestId('mention-temps-passe')).toHaveText(`${regle('45,50 €', 'hors contrat', '30 min', 15)} Le total de ce devis est un minimum.`);
     // Modifié de nouveau, il connaît ses réglages figés ; une fois enregistré, le nouveau devis ne les garde pas.
     await item.getByRole('button', { name: 'Modifier' }).click();
-    const figees = ligne.getByRole('spinbutton', { name: 'Heures (30 min minimum)' });
-    await expect(figees).toHaveAttribute('min', '0.5');
+    // Lot devis : le minimum figé (30 minutes) n'est plus l'attribut `min` ; le champ porte le motif du quart d'heure, et ses
+    // flèches ne descendent pas sous ce minimum (0,5 h), puis avancent au pas figé (15 minutes).
+    const figees = ligne.getByRole('textbox', { name: 'Heures (30 min minimum)' });
+    await expect(figees).toHaveAttribute('pattern', MOTIF_QUART_D_HEURE);
+    await expect(figees).toHaveValue('0,5');
+    await figees.press('ArrowDown');
+    await expect(figees).toHaveValue('0,5');
+    await figees.press('ArrowUp');
+    await expect(figees).toHaveValue('0,75');
     await figees.fill('0.75');
     await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
     await expect(item.getByTestId('mention-temps-passe')).toContainText('Ce devis prévoit 45 min');
