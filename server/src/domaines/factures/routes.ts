@@ -516,10 +516,11 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         const avoirsPrecedents = facture.avoirs;
         // Cumuls et plafonds en décimal exact (#522), comme le reste dû (soldesFactures) et la garde différée en base
         // (verifier_plafond_avoirs, en numeric) : les montants des avoirs précédents s'additionnent en Prisma.Decimal,
-        // et non en nombres arrondis au centime à chaque étape. Aucun résultat ne change pour une saisie admise (l'écart
-        // du calcul en nombres n'apparaîtrait qu'au-delà de milliers d'avoirs sur une même facture) : l'API calcule
-        // seulement comme la base. Les cumuls par taux passent par ventilationFacture, qui garde le repli sur les lignes
-        // d'un avoir sans ventilation enregistrée.
+        // et non en nombres arrondis au centime à chaque étape. Le résultat ne change qu'à partir de 5 243 avoirs sur une
+        // même facture, pour plus de 8,6 milliards d'euros crédités : le calcul en nombres pouvait alors s'écarter d'un
+        // centime de la garde en base (avoir au plafond exact refusé à tort en 409, ou dépassement admis puis refusé par
+        // la base en 500 ; dernier test de tests/avoir-partiel-decimal.test.mjs). Les cumuls par taux passent par
+        // ventilationFacture, qui garde le repli sur les lignes d'un avoir sans ventilation enregistrée.
         const cumulPrecedent = (tauxTva: number, champ: 'totalHt' | 'totalTva') =>
           avoirsPrecedents.reduce((somme, avoir) => somme.plus(ventilationFacture(avoir).find(ventilation => ventilation.tauxTva === tauxTva)?.[champ] ?? 0), new Prisma.Decimal(0));
         // La TVA de l'avoir est la différence des arrondis des bases HT cumulées avant/après.

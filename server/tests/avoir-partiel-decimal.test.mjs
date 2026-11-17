@@ -10,11 +10,11 @@
 //    09-11-2026 : « elle peut egalement faire un avoir, ») : les plafonds valent quel que soit l'auteur, administration ou
 //    assistante technique sur les factures de son poste.
 //
-// Ce que le lot est (N1 du contrôle) : un renforcement sans changement observable. Le contrôleur a montré qu'il faudrait au moins
-// 5 243 avoirs sur une même facture, pour plus de 8,6 milliards d'euros crédités, pour que l'ancien calcul en nombres s'écarte d'un
-// centime. Les tests ci-dessous sont donc des tests de non-régression aux limites, qui passent aussi sur `main` ; le mutant
-// « retour au calcul en nombres » n'est pas constructible par l'API (corps JSON limité à 100 Ko, bornes des montants), et il est
-// déclaré tel quel, sans test.
+// Ce que le lot est (N1 du contrôle) : un renforcement, qui ne change aucun résultat en deçà d'un cas extrême. Le contrôleur a montré
+// qu'il faut au moins 5 243 avoirs sur une même facture, pour plus de 8,6 milliards d'euros crédités, pour que l'ancien calcul en
+// nombres s'écarte d'un centime. Ces bornes sont admises : le dernier test construit ce cas (avoirs précédents écrits en SQL, fixture
+// théorique) et sépare le calcul en décimal exact du retour au calcul en nombres, en entier ou par partie (sommes globales, cumuls par
+// taux, base de la TVA différentielle). Les autres tests sont des tests de non-régression aux limites, qui passent aussi sur `main`.
 //
 // Contrat éprouvé (POST /api/factures/:id/avoirs ; messages et ordre des refus inchangés) :
 //  - la TVA de chaque taux de l'avoir est la différence des arrondis des bases HT cumulées, avant et après lui, avoirs précédents de
@@ -502,6 +502,9 @@ if (!TEST_DATABASE_URL) {
         if (k === 35) {
           await refuser([L(10, 1n)], REFUS.plafondTaux(10), '0,01 € à 10 % après le 35e');
           await refuser([L(20, 7n), L(10, 7n)], REFUS.plafondTaux(10), 'deux lignes après le 35e');
+          // Deux taux épuisés dans le même avoir (10 % et 5,5 %, lignes dans cet ordre), le total ayant de la place : le refus nomme le
+          // taux de 5,5 %, les taux étant contrôlés dans l'ordre croissant (lectures écartées : ordre des lignes, ordre décroissant).
+          await refuser([L(10, 1n), L(5.5, 1n)], REFUS.plafondTaux(5.5), 'deux taux épuisés après le 35e');
         }
       }
       // Facture créditée en entier : un centime de plus, à chacun de ses taux, est refusé (plafond global lu d'abord).
@@ -616,6 +619,107 @@ if (!TEST_DATABASE_URL) {
       assert.equal((await centime(entete(cle.apiKey))).status, 401, 'par une clé d’intégration');
       assert.deepEqual(tablesChangees(avant, await empreinte()), [], 'rien ne doit être écrit');
       assert.equal(await sequence(), sequenceAvant);
+    });
+
+    // Retour au calcul en nombres (cadrage, « Mutants à tuer », dernier point : « un retour au `Number`, si un cas aux limites le
+    // distingue. S'il n'est pas constructible, le dire. ») : il est constructible. Le contrôleur a mesuré qu'il faut au moins 5 243
+    // avoirs sur une même facture, pour plus de 8,6 milliards d'euros crédités ; ces bornes sont admises (PLAFOND_MONTANT, colonnes
+    // numeric(12, 2)). Seul le nombre d'avoirs rend leur création par l'API, un par un, trop longue pour la suite : les avoirs
+    // précédents sont écrits en SQL, fixture théorique (règle 4 : aucune donnée réelle) d'un état que l'API atteint.
+    //
+    // Facture J, créée par l'API, à 10 %, au plafond des montants : 1 × 9 090 909 090,84 € (TVA 909 090 909,084 → 909 090 909,08 €,
+    // TTC 9 999 999 999,92 €). Elle porte, écrits en une seule instruction et dans cet ordre, un avoir de 9 000 000 000,00 € HT
+    // (TVA 900 000 000,00 €) puis 6 500 avoirs de 0,04 € HT, tous à 10 %. La TVA de chacun est sa TVA différentielle, comme l'API
+    // l'aurait calculée dans cet ordre : 0,00 € ou 0,01 € (0, 1, 0, 1, 0, puis de même, la base cumulée gagnant 0,4 centime de TVA par
+    // avoir). Sommes exactes : 9 000 000 260,00 € HT, 900 000 026,00 € de TVA. En nombres, lus dans cet ordre, les HT valent
+    // 9 000 000 260,005… : ramenés au centime, 9 000 000 260,01 € (lecture écartée, celle de `main` avant #522 : au-delà de 2^33 €,
+    // deux nombres voisins sont à 2^-19 € l'un de l'autre, et chaque ajout de 0,04 € arrondit de 0,48 × 2^-19 € vers le haut).
+    // Prisma ne trie pas les avoirs d'une facture : il les lit dans l'ordre physique de la table, où l'instruction unique les range ;
+    // l'écart demeure tant que 1 000 petits avoirs au plus seraient lus avant le grand (réplique de la route), marge qui couvre les
+    // places libérées par un éventuel nettoyage de la table pendant le fichier.
+    //  - 90 908 830,85 € à 10 %, un centime de plus que le reliquat : 409 du total, sans écriture ni numéro ;
+    //  - J1, 90 908 830,84 € à 10 %, le reliquat exact : TVA 909 090 909,08 € − 900 000 026,00 € = 9 090 883,08 €, TTC 99 999 713,92 € ;
+    //    admis, chacun des six plafonds atteint exactement, facture « réglée ». Lectures écartées, chacune refusée en 409 : sommes
+    //    globales en nombres (HT 9 090 909 090,85 € > 9 090 909 090,84 € : 409 du total) ; cumul du taux en nombres (409 du taux) ; base
+    //    de la TVA différentielle en nombres (9 000 000 260,01 € : la base après J1 finit par 5 centimes modulo 10, TVA 9 090 883,09 €,
+    //    TVA globale dépassée : 409 du total) ;
+    //  - après J1 : 0,01 € refusé (409 du total).
+    // Les déclencheurs de la base sont suspendus pendant l'écriture de la fixture (session_replication_role, comme les matrices des
+    // écritures réelles : tests/README.md) : la garde différée des avoirs relit tous les avoirs de la facture à chaque ligne écrite. La
+    // fixture est ensuite vérifiée par cette garde même (verifier_plafond_avoirs), appelée une fois, et par l'équilibre de ses
+    // écritures ; la garde relit encore tous les avoirs au COMMIT de J1. La transaction de J1 lit les 6 501 avoirs et passe la garde
+    // deux fois, sous le délai de 5 secondes des transactions de Prisma (environ 1 seconde mesurée).
+    test('retour au calcul en nombres : un avoir de 9 000 000 000,00 € puis 6 500 avoirs de 0,04 € écrits en SQL (théoriques) sur une facture de 9 999 999 999,92 € TTC à 10 % ; le reliquat exact admis (TVA différentielle 9 090 883,08 €, six plafonds atteints exactement, facture « réglée »), un centime de plus refusé en 409, sans écriture ni numéro', async () => {
+      const M = 6500;
+      // Témoin, hors de l'application (centimes entiers).
+      const grand = 900000000000n; const petit = 4n; const baseJ = 909090909084n;
+      assert.equal(exact.tva(baseJ, 10), 90909090908n);
+      assert.equal(exact.tva(grand, 10), 90000000000n);
+      // TVA différentielle de chaque petit avoir, dans l'ordre d'écriture : celle que la fixture écrit (formule SQL ci-dessous).
+      let tvaPetits = 0n;
+      for (let k = 1n; k <= BigInt(M); k += 1n) {
+        const tva = exact.tva(grand + petit * k, 10) - exact.tva(grand + petit * (k - 1n), 10);
+        assert.equal(tva, (4n * k + 5n) / 10n - (4n * k + 1n) / 10n, `TVA du petit avoir n° ${k}`);
+        tvaPetits += tva;
+      }
+      const cumulHt = grand + petit * BigInt(M); const cumulTva = exact.tva(grand, 10) + tvaPetits;
+      assert.equal(cumulTva, exact.tva(cumulHt, 10), 'TVA cumulée : l’arrondi de la base cumulée');
+      assert.deepEqual(versEuros([cumulHt, cumulTva, cumulHt + cumulTva]), [9000000260, 900000026, 9900000286]);
+      const resteHt = baseJ - cumulHt;
+      const tvaJ1 = exact.tva(baseJ, 10) - cumulTva;
+      assert.deepEqual(versEuros([resteHt, tvaJ1, resteHt + tvaJ1]), [90908830.84, 9090883.08, 99999713.92]);
+      // Lectures écartées : somme des HT en nombres, ramenée au centime comme le faisait `main` ; TVA différentielle sur cette base.
+      let flottant = exact.euros(grand);
+      for (let k = 0; k < M; k += 1) flottant += exact.euros(petit);
+      assert.equal(Math.round((flottant + Number.EPSILON) * 100) / 100, 9000000260.01, 'lecture écartée : somme des HT en nombres');
+      assert.equal(exact.tva(cumulHt + 1n + resteHt, 10) - exact.tva(cumulHt + 1n, 10), tvaJ1 + 1n, 'lecture écartée : TVA sur la base en nombres');
+
+      const facture = await factureEmise(par('AD'), 'retour au calcul en nombres', [ligne('installation au plafond des montants', 1, 9090909090.84, 10)]);
+      assert.deepEqual([...totaux(facture), ...ventilation(facture)], [9090909090.84, 909090909.08, 9999999999.92, [10, 9090909090.84, 909090909.08, 9999999999.92]]);
+      const identite = await prisma.identiteEmetteur.findFirstOrThrow({ select: { id: true } });
+      const date = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        // Une seule instruction, le grand avoir d'abord (g = 0) ; TVA différentielle du petit avoir n° g, en centimes.
+        await tx.$executeRawUnsafe(`INSERT INTO "Facture" ("id", "clientId", "clientRaisonSociale", "type", "statut", "factureOrigineId", "estAvoirAnnulation", "dateEmission", "dateEcheance", "totalHt", "totalTva", "totalTtc", "origine", "motifHorsAffaire", "identiteEmetteurId", "ecrituresScellees", "updatedAt")
+          SELECT gen_random_uuid()::text, $1, $2, 'AVOIR', 'EMISE', $3, false, $4, $4, m.ht, m.tva, m.ht + m.tva, 'HORS_AFFAIRE', 'TEST décimal avoirs écrits en base', $5, true, now()
+          FROM generate_series(0, $6::int) AS g
+          CROSS JOIN LATERAL (SELECT CASE WHEN g = 0 THEN 9000000000.00 ELSE 0.04 END::numeric(12, 2) AS ht,
+                                     CASE WHEN g = 0 THEN 900000000.00 ELSE (floor((4 * g + 5) / 10.0) - floor((4 * g + 1) / 10.0)) / 100 END::numeric(12, 2) AS tva) AS m
+          ORDER BY g`,
+        client.id, client.raisonSociale, facture.id, date, identite.id, M);
+        await tx.$executeRawUnsafe(`INSERT INTO "FactureLigne" ("id", "factureId", "ordre", "designation", "nature", "quantite", "prixUnitaireHt", "tauxTva", "totalHt", "totalTtc")
+          SELECT gen_random_uuid()::text, f."id", 0, 'TEST décimal reprise à 10 %', 'PRESTATION', 1, f."totalHt", 10, f."totalHt", round(f."totalHt" * 1.1, 2) FROM "Facture" f WHERE f."factureOrigineId" = $1`, facture.id);
+        await tx.$executeRawUnsafe(`INSERT INTO "FactureVentilationTva" ("id", "factureId", "tauxTva", "totalHt", "totalTva", "totalTtc")
+          SELECT gen_random_uuid()::text, f."id", 10, f."totalHt", f."totalTva", f."totalTtc" FROM "Facture" f WHERE f."factureOrigineId" = $1`, facture.id);
+        await tx.$executeRawUnsafe(`INSERT INTO "EcritureFacture" ("id", "factureId", "ordre", "cle", "tauxTva", "journalCode", "compteNum", "compteLib", "debit", "credit")
+          SELECT gen_random_uuid()::text, f."id", e.ordre, e.cle, e.taux, 'VE', e.compte, e.libelle, e.debit, e.credit FROM "Facture" f
+          CROSS JOIN LATERAL (VALUES (0, 'CLIENT', NULL::numeric, '411000', 'TEST Clients', 0::numeric, f."totalTtc"),
+                                     (1, 'VENTE_PRESTATION', NULL::numeric, '706000', 'TEST Ventes', f."totalHt", 0::numeric),
+                                     (2, 'TVA:10', 10::numeric, '445712', 'TEST TVA', f."totalTva", 0::numeric)) AS e(ordre, cle, taux, compte, libelle, debit, credit)
+          WHERE f."factureOrigineId" = $1 AND e.debit + e.credit > 0`, facture.id);
+      }, { timeout: 120_000 });
+      // Statistiques à jour : sans elles, les plans gardés en cache par les connexions de l'application (garde des avoirs, lectures de
+      // Prisma), établis sur des tables presque vides, parcourraient les 6 501 avoirs à chaque avoir lu, au-delà du délai de 5 secondes.
+      await prisma.$executeRawUnsafe('ANALYZE "Facture", "FactureLigne", "FactureVentilationTva", "EcritureFacture"');
+      // La fixture passe la garde de la base, appelée une fois sur toute la facture, et ses écritures sont équilibrées.
+      await prisma.$queryRaw`SELECT verifier_plafond_avoirs(${facture.id})::text AS ok`;
+      const [fixture] = await prisma.$queryRaw`SELECT count(*)::int AS n, count(*) FILTER (WHERE "totalTva" = 0)::int AS sans_tva, SUM("totalHt")::text AS ht, SUM("totalTva")::text AS tva, SUM("totalTtc")::text AS ttc FROM "Facture" WHERE "factureOrigineId" = ${facture.id}`;
+      assert.deepEqual(fixture, { n: M + 1, sans_tva: 3900, ht: '9000000260.00', tva: '900000026.00', ttc: '9900000286.00' });
+      const [desequilibres] = await prisma.$queryRaw`SELECT count(*)::int AS n FROM (SELECT e."factureId" FROM "EcritureFacture" e JOIN "Facture" f ON f."id" = e."factureId" WHERE f."factureOrigineId" = ${facture.id} GROUP BY e."factureId", f."totalTtc" HAVING SUM(e."debit") <> SUM(e."credit") OR SUM(e."credit") <> f."totalTtc") x`;
+      assert.equal(desequilibres.n, 0);
+
+      await refuse(() => avoir(facture.id, [L(10, resteHt + 1n)], par('AD')), 409, REFUS.plafondTotal, '90 908 830,85 € à 10 % après 6 501 avoirs');
+      const sequenceAvant = await sequence();
+      const j1 = await avoirCree(facture.id, [L(10, resteHt)], par('AD'));
+      assert.deepEqual([j1.numero, ...totaux(j1), ...ventilation(j1)], [numeroAvoir(sequenceAvant + 1), 90908830.84, 9090883.08, 99999713.92, [10, 90908830.84, 9090883.08, 99999713.92]], 'J1');
+      const relu = await enBase(j1.id);
+      assert.deepEqual([...totaux(relu), ...ventilation(relu)], [90908830.84, 9090883.08, 99999713.92, [10, 90908830.84, 9090883.08, 99999713.92]], 'J1 relu en base');
+      assert.deepEqual(relu.ecrituresComptables.filter((e) => e.cle === 'TVA:10').map((e) => Number(e.debit)), [9090883.08], 'TVA de J1 aux écritures');
+      const [sommes] = await prisma.$queryRaw`SELECT count(*)::int AS n, SUM("totalHt")::text AS ht, SUM("totalTva")::text AS tva, SUM("totalTtc")::text AS ttc FROM "Facture" WHERE "factureOrigineId" = ${facture.id}`;
+      assert.deepEqual(sommes, { n: M + 2, ht: '9090909090.84', tva: '909090909.08', ttc: '9999999999.92' }, 'plafonds atteints exactement');
+      assert.equal((await enBase(facture.id)).statut, 'REGLEE', 'facture créditée en entier : « réglée »');
+      await refuse(() => avoir(facture.id, [L(10, 1n)], par('AD')), 409, REFUS.plafondTotal, '0,01 € après J1');
     });
   });
 }
