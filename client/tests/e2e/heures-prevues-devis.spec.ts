@@ -32,11 +32,11 @@ test('écran du devis : le total des heures prévues, durée indicative × quant
   const objet = `Devis heures prévues E2E ${suffixe}`;
   await page.getByRole('textbox', { name: 'Objet' }).fill(objet);
   await ajouterDuCatalogue(page, suffixe, prestation.nom);
-  await page.getByRole('spinbutton', { name: 'Qté' }).fill('2');
+  await page.getByRole('textbox', { name: 'Qté' }).fill('2');
   await page.getByRole('button', { name: 'Ajouter une ligne' }).click();
   await page.getByRole('textbox', { name: /Désignation/ }).nth(1).fill('Câblage saisi à la main');
-  await page.getByRole('spinbutton', { name: 'Qté' }).nth(1).fill('1.5');
-  await page.getByRole('spinbutton', { name: 'PU HT' }).nth(1).fill('50');
+  await page.getByRole('textbox', { name: 'Qté' }).nth(1).fill('1.5');
+  await page.getByRole('textbox', { name: 'PU HT' }).nth(1).fill('50');
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
 
   // 2 × 1 h 30 de mise en service, plus 1,5 h saisie à la main.

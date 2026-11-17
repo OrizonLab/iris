@@ -4,8 +4,9 @@
 // passé », le temps minimum facturé sont des réglages de la société, figés sur le devis : la ligne vaut ce
 // minimum, puis des multiples du pas (un devis antérieur garde une heure au moins, au millième). Le serveur fixe le prix et refuse tout autre prix : l'écran envoie le
 // prix qu'il affiche, si bien que ce qui est enregistré est ce que l'utilisateur a vu.
-import type { FicheCatalogueDevis, LigneDevisSaisie } from './catalogueDevis';
+import { nombreSaisi, type ChiffreSaisi, type FicheCatalogueDevis, type LigneDevisSaisie } from './catalogueDevis';
 import { fmtMontantDocument, fmtNombreHeures } from './formats';
+import { valeurSaisie } from './mainOeuvre';
 
 export type TarifTempsPasse = 'HORS_CONTRAT' | 'SOUS_CONTRAT';
 export const TARIFS_TEMPS_PASSE: readonly TarifTempsPasse[] = ['HORS_CONTRAT', 'SOUS_CONTRAT'];
@@ -59,9 +60,42 @@ export function dureeTempsPasse(minutes: number): string {
   return reste === 0 ? `${heures} h` : `${heures} h ${reste} min`;
 }
 
+// Heures d'une ligne au temps passé, saisies en texte, `inputMode="decimal"` (#394, pour le devis), et non
+// `type="number"`, qu'un navigateur réglé dans une autre langue lit autrement (« 18,75 » y devenait 1875).
+// Nouveau devis ou devis aux réglages figés : des quarts d'heure, à partir d'un quart d'heure (les seules
+// quantités possibles, le minimum et le pas étant des multiples de 15 minutes), 9 chiffres avant la virgule
+// comme le serveur ; refusQuantiteTempsPasse refuse ensuite, avant l'envoi, ce qui ne suit pas le minimum
+// et le pas figés du devis. Devis antérieur au lot « facture au temps passé » : une heure au moins, au
+// millième, comme avant. Motifs compilés par le navigateur en `^(?:motif)$` avec le drapeau `v` (un motif
+// invalide serait ignoré en silence) : seule la classe `[.,]`, sans caractère réservé, y figure.
+export const MOTIF_HEURES_QUART_HEURE = String.raw`(?!0+(?:[.,]0+)?$)\d{1,9}(?:[.,](?:0{1,3}|250?|50{0,2}|750?))?`;
+export const MOTIF_HEURES_ANCIEN_DEVIS = String.raw`(?=\d{1,9}(?:[.,]|$))0*[1-9]\d*(?:[.,]\d{1,3})?`;
+export const TITRE_HEURES_QUART_HEURE = 'Un nombre d’heures au quart d’heure, par exemple 1,25';
+export const TITRE_HEURES_ANCIEN_DEVIS = 'Un nombre d’heures d’au moins 1, trois décimales au plus, par exemple 1,5';
+
+// Heures suivantes aux flèches du clavier, que le champ en texte n'a plus : comme `stepUp` et `stepDown` d'un
+// champ numérique, un pas de plus (sens 1) ou de moins (sens -1), la valeur étant d'abord recalée sur le
+// minimum plus un multiple du pas (de 1,25, avec un minimum de 1 et un pas de 0,5, la flèche vers le haut
+// mène à 1,5, vers le bas à 1), jamais sous le minimum. Un champ vide, ou qui n'est pas un nombre, passe au
+// minimum ; sous le minimum, la flèche vers le haut y mène, celle vers le bas ne change rien (null). Calcul
+// en millièmes d'heure, l'échelle du serveur (1,001 puis 1,002, et non 1,0019999999999998), écrit à la virgule.
+export function heuresAuPas(saisie: ChiffreSaisi, champ: { min: number; step: number }, sens: 1 | -1): string | null {
+  const minimum = Math.round(champ.min * 1000);
+  const pas = Math.round(champ.step * 1000);
+  const valeur = nombreSaisi(saisie);
+  if (String(saisie).trim() === '' || !Number.isFinite(valeur)) return valeurSaisie(minimum / 1000);
+  const milliemes = Math.round(valeur * 1000);
+  if (milliemes < minimum) return sens > 0 ? valeurSaisie(minimum / 1000) : null;
+  const ecart = milliemes - minimum;
+  const rang = ecart % pas === 0 ? ecart / pas + sens : sens > 0 ? Math.ceil(ecart / pas) : Math.floor(ecart / pas);
+  return valeurSaisie(Math.max(minimum, minimum + rang * pas) / 1000);
+}
+
 // Refus de la quantité de la ligne au temps passé, ou null : la règle du serveur quand les réglages du devis
-// sont connus ; sinon une quantité positive, le serveur contrôlant le reste.
-export function refusQuantiteTempsPasse(quantite: number, reglages: ReglagesTempsPasse | null): string | null {
+// sont connus ; sinon une quantité positive, le serveur contrôlant le reste. La saisie est lue à la virgule
+// comme au point (« 1,25 »).
+export function refusQuantiteTempsPasse(saisie: ChiffreSaisi, reglages: ReglagesTempsPasse | null): string | null {
+  const quantite = nombreSaisi(saisie);
   if (!Number.isFinite(quantite) || quantite <= 0) return REFUS_QUANTITE_POSITIVE;
   if (!reglages) return null;
   const { tempsMinimumMinutes: minimum, pasTempsPasseMinutes: pas } = reglages;
@@ -77,7 +111,7 @@ export function erreurTempsPasse(auTempsPasse: boolean, lignes: LigneDevisSaisie
   const lignesTempsPasse = lignes.filter((ligne) => ligne.tempsPasse);
   if (!auTempsPasse) return null;
   if (lignesTempsPasse.length !== 1) return REFUS_SANS_LIGNE;
-  return refusQuantiteTempsPasse(Number(lignesTempsPasse[0].quantite), reglages);
+  return refusQuantiteTempsPasse(lignesTempsPasse[0].quantite, reglages);
 }
 
 // Heures minimum de la mention, comme le PDF : la quantité de la ligne au temps passé, une heure au moins,

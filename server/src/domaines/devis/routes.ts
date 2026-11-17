@@ -25,7 +25,7 @@ import { voitRentabilite } from '../chantiers/droits';
 import { SaisieInterventionInvalide, creerInterventionNumerotee, estEncadrementCoutIntervention, exposerIntervention, lireDetailsIntervention } from '../interventions/metier';
 import { SaisieContratInvalide, creerContratMaintenance, lireSaisieContrat } from '../contrats/metier';
 import {
-  DevisSaisieError, DevisConflitError, DevisDroitError, devisPayload, NATURE_DEVIS_PAR_FAMILLE, devisPourLecteur, resoudreLignesDevis,
+  DevisSaisieError, DevisConflitError, DevisDroitError, DevisIntrouvableError, lireTauxAcompteSaisi, devisPayload, NATURE_DEVIS_PAR_FAMILLE, devisPourLecteur, resoudreLignesDevis,
   devisInclude, contenuDevisSigne, copieLigneDevis, verrouillerDevis, acompteDevisPayload, nouveauNumeroDevis, totauxDevis,
   heuresPrevuesLignes, PLAFOND_HEURES_PREVUES,
 } from './metier';
@@ -43,6 +43,7 @@ import { lireDevisPdf, rendreFichierDevisPdf } from './productionPdf';
 import { envoiDevis } from './envois';
 
 function devisErreur(res: express.Response, error: unknown) {
+  if (error instanceof DevisIntrouvableError) return res.status(404).json({ error: error.message });
   if (error instanceof DevisSaisieError || error instanceof TempsPasseSaisieError || error instanceof ForfaitSaisieError) return res.status(400).json({ error: error.message });
   if (error instanceof DevisConflitError || error instanceof TempsPasseConflitError) return res.status(409).json({ error: error.message });
   if (error instanceof DevisDroitError) return res.status(403).json({ error: error.message });
@@ -68,7 +69,9 @@ function exigerLigneAuPas(payload: ReturnType<typeof devisPayload>, reglages: Re
 // L'écriture passe par une transaction vérifiée : la cohérence du marqueur et de la ligne au temps
 // passé est contrôlée par la base à la validation (migration 20261025120000_devis_temps_passe).
 const creerDevis: express.RequestHandler = async (req, res) => { try {
-  const payload = devisPayload((req.body ?? {}) as Record<string, unknown>);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const payload = devisPayload(body);
+  lireTauxAcompteSaisi(body);
   if (!await prisma.client.findUnique({ where: { id: payload.clientId } })) throw new DevisSaisieError('Client introuvable.');
   const auTempsPasse = payload.auTempsPasse ?? false;
   exigerCoherenceTempsPasse(auTempsPasse, payload.references);
@@ -77,7 +80,7 @@ const creerDevis: express.RequestHandler = async (req, res) => { try {
   exigerLigneAuPas(payload, reglagesTempsPasse);
   const lignes = await resoudreLignesDevis(prisma, payload, [], ecritPrixAchatDevis(req));
   const totaux = totauxDevis(lignes);
-  const { acompteExige, tauxAcompte } = await acompteDevisPayload((req.body ?? {}) as Record<string, unknown>);
+  const { acompteExige, tauxAcompte } = acompteDevisPayload(body, (await getParametres()).tauxAcompteDefaut);
   const numero = await nouveauNumeroDevis();
   const devis = await transactionVerifiee(tx => tx.devis.create({ data: { dossierId: crypto.randomUUID(), numero, version: 1, clientId: payload.clientId, objet: payload.objet, ...totaux, acompteExige, tauxAcompte, auTempsPasse, ...reglagesTempsPasse, lignes: { create: lignes } }, include: devisInclude }));
   res.status(201).json(devisPourLecteur(req, decimalToNumber(devis)));
@@ -86,8 +89,14 @@ const listerDevis: express.RequestHandler = async (req, res) => { try { res.json
 const modifierDevis: express.RequestHandler = async (req, res) => { try {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const payload = devisPayload(body);
+  lireTauxAcompteSaisi(body);
+  // Taux par défaut lu avant la transaction, comme pour la duplication : le client global y réclamerait une seconde
+  // connexion du pool (#240, #250). Fenêtre de lecture : un changement de ce taux entre cette lecture et la
+  // transaction n'est pas vu par la modification en cours ; un taux déjà exigé est gardé, et les réglages du temps
+  // passé, eux, sont lus sous le verrou.
+  const { tauxAcompteDefaut } = await getParametres();
   const devis = await transactionVerifiee(async tx => {
-    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisSaisieError('Devis introuvable.');
+    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisIntrouvableError();
     const precedent = await tx.devis.findUniqueOrThrow({ where: { id: paramId(req) }, include: { signature: true, conversions: true, lignes: true } });
     if (precedent.signature) throw new DevisConflitError('Ce devis est signé : créez une nouvelle révision brouillon pour le modifier.');
     if (precedent.conversions.length) throw new DevisConflitError('Ce devis est déjà converti : il ne peut plus être modifié.');
@@ -103,7 +112,7 @@ const modifierDevis: express.RequestHandler = async (req, res) => { try {
     exigerForfaitHorsTempsPasse(auTempsPasse, payload.references);
     const reglagesTempsPasse = await reglagesTempsPasseDuDevis(tx, auTempsPasse, precedent);
     exigerLigneAuPas(payload, reglagesTempsPasse);
-    const acompte = await acompteDevisPayload(body, precedent);
+    const acompte = acompteDevisPayload(body, tauxAcompteDefaut, precedent);
     const lignes = await resoudreLignesDevis(tx, payload, precedent.lignes, ecritPrixAchatDevis(req));
     return tx.devis.update({
       where: { id: precedent.id },
@@ -115,7 +124,7 @@ const modifierDevis: express.RequestHandler = async (req, res) => { try {
 } catch (error) { devisErreur(res, error); } };
 const creerRevision: express.RequestHandler = async (req, res) => { try {
   const devis = await transactionVerifiee(async tx => {
-    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisSaisieError('Devis introuvable.');
+    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisIntrouvableError();
     const precedent = await tx.devis.findUniqueOrThrow({ where: { id: paramId(req) }, include: devisInclude });
     if (!precedent.signature) throw new DevisConflitError('Seul un devis signé peut ouvrir une nouvelle révision.');
     if (precedent.conversions.length) throw new DevisConflitError('Ce devis est déjà converti : il ne peut plus être révisé.');
@@ -140,7 +149,7 @@ const signerDevis: express.RequestHandler = async (req, res) => { try {
   const signataire = typeof req.body?.signataire === 'string' ? req.body.signataire.trim() : '';
   if (signataire.length < 2 || signataire.length > 200 || req.body?.confirme !== true) throw new DevisSaisieError('Le signataire et sa confirmation explicite sont obligatoires.');
   const signature = await transactionVerifiee(async tx => {
-    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisSaisieError('Devis introuvable.');
+    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisIntrouvableError();
     const devis = await tx.devis.findUniqueOrThrow({ where: { id: paramId(req) }, include: { lignes: { orderBy: { ordre: 'asc' } }, signature: true, conversions: true } });
     if (devis.signature) throw new DevisConflitError('Ce devis est déjà signé.');
     if (devis.conversions.length) throw new DevisConflitError('Ce devis est déjà converti : il ne peut plus être signé.');
@@ -340,9 +349,9 @@ const convertirDevis: express.RequestHandler = async (req, res) => { try {
     // passent l'une après l'autre. La seconde conversion lit celle de la première (« déjà
     // converti »), au lieu de tomber, selon le moment, sur le contrôle du dossier ou de la
     // référence avec un message inexact.
-    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisSaisieError('Devis introuvable.');
+    if (!await verrouillerDevis(tx, paramId(req))) throw new DevisIntrouvableError();
     const devis = await tx.devis.findUnique({ where: { id: paramId(req) }, include: { client: true, conversions: { orderBy: { rang: 'asc' } }, signature: true, lignes: true } });
-    if (!devis) throw new DevisSaisieError('Devis introuvable.');
+    if (!devis) throw new DevisIntrouvableError();
     if (devis.statut === 'ANNULE') throw new DevisSaisieError(`Ce devis est annulé : il ne peut plus ${libelles.ouvrir}.`);
     const versionPlusRecente = await tx.devis.findFirst({ where: { dossierId: devis.dossierId, version: { gt: devis.version }, statut: { not: 'ANNULE' } }, select: { id: true } });
     if (versionPlusRecente) throw new DevisConflitError('Seule la dernière version non annulée du dossier peut être convertie.');

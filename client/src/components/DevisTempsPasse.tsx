@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { apiFetch } from '../api';
 import { ligneVierge, type FicheCatalogueDevis, type LigneDevisSaisie } from '../lib/catalogueDevis';
-import { LIBELLES_TARIF, TARIFS_TEMPS_PASSE, dureeTempsPasse, formatPrix, ligneTempsPasse, prixDuTarif, type ReglagesTempsPasse, type TarifTempsPasse } from '../lib/tempsPasse';
+import {
+  LIBELLES_TARIF, MOTIF_HEURES_ANCIEN_DEVIS, MOTIF_HEURES_QUART_HEURE, TARIFS_TEMPS_PASSE, TITRE_HEURES_ANCIEN_DEVIS, TITRE_HEURES_QUART_HEURE,
+  dureeTempsPasse, formatPrix, heuresAuPas, ligneTempsPasse, prixDuTarif, type ReglagesTempsPasse, type TarifTempsPasse,
+} from '../lib/tempsPasse';
 
-const LIGNE_VIDE: LigneDevisSaisie = { designation: '', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 0, tauxTva: 20 };
+// Ligne ordinaire vierge : quantité, PU HT et TVA saisis en texte (cf. ChiffreSaisi).
+const LIGNE_VIDE: LigneDevisSaisie = { designation: '', nature: 'MAIN_OEUVRE', quantite: '1', prixUnitaireHt: '0', tauxTva: '20' };
 
 // Case « Devis au temps passé » et choix de la ligne de main d'œuvre au temps passé (décisions de Nelson
 // des 24 et 25-10-2026) : une main d'œuvre active du catalogue et son tarif à l'heure, hors contrat ou
@@ -85,7 +89,9 @@ export function ChoixTempsPasse({ auTempsPasse, lignes, onChange }: {
 // par la main d'œuvre, affichés sans être saisis. La quantité vaut le temps minimum facturé, puis des
 // tranches du pas : ceux figés sur le devis modifié, sinon ceux réglés par la société, que le serveur
 // applique (`reglages` null) ; un devis antérieur au lot « facture au temps passé » garde une heure au
-// moins, au millième.
+// moins, au millième. Le champ est en texte (#394) : son motif refuse avant l'envoi ce qui n'est pas un quart
+// d'heure (un nombre d'heures d'au moins 1 pour un devis antérieur), et ses flèches avancent ou reculent d'un
+// pas, sans descendre sous le minimum (heuresAuPas), comme celles d'un champ numérique.
 export function LigneTempsPasse({ ligne, reglages, onDesignation, onQuantite }: {
   ligne: LigneDevisSaisie;
   reglages: ReglagesTempsPasse | null;
@@ -96,7 +102,15 @@ export function LigneTempsPasse({ ligne, reglages, onDesignation, onQuantite }: 
   const minimum = reglages?.tempsMinimumMinutes ?? null;
   const pas = reglages?.pasTempsPasseMinutes ?? null;
   const libelle = ancien ? 'Heures (1 minimum)' : minimum !== null ? `Heures (${dureeTempsPasse(minimum)} minimum)` : 'Heures';
-  const champ = ancien ? { min: 1, step: 0.001 } : minimum !== null && pas !== null ? { min: minimum / 60, step: pas / 60 } : { min: 0.25, step: 0.25 };
+  const champ = ancien ? { min: 1, step: 0.001, motif: MOTIF_HEURES_ANCIEN_DEVIS, titre: TITRE_HEURES_ANCIEN_DEVIS }
+    : minimum !== null && pas !== null ? { min: minimum / 60, step: pas / 60, motif: MOTIF_HEURES_QUART_HEURE, titre: TITRE_HEURES_QUART_HEURE }
+      : { min: 0.25, step: 0.25, motif: MOTIF_HEURES_QUART_HEURE, titre: TITRE_HEURES_QUART_HEURE };
+  const fleche = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key !== 'ArrowUp' && e.key !== 'ArrowDown') || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    const suivante = heuresAuPas(e.currentTarget.value, champ, e.key === 'ArrowUp' ? 1 : -1);
+    if (suivante !== null && suivante !== e.currentTarget.value) onQuantite(suivante);
+  };
   const aide = ancien
     ? 'Une heure au moins ; la quantité se modifie vers le haut. Le prix est celui de la main d’œuvre, figé sur le devis.'
     : minimum !== null && pas !== null
@@ -107,8 +121,9 @@ export function LigneTempsPasse({ ligne, reglages, onDesignation, onQuantite }: 
       <span className="block text-xs text-gray-500 mt-0.5">Main d’œuvre au temps passé{ligne.reference ? ` · Réf. ${ligne.reference}` : ''} · {ligne.tarifTempsPasse ? LIBELLES_TARIF[ligne.tarifTempsPasse] : ''}</span>
     </label>
     <div className="grid gap-2 items-end grid-cols-2 md:grid-cols-[150px_1fr_1fr_1fr]">
-      <label className="text-sm">{libelle}<input required aria-describedby="aide-quantite-temps-passe" min={champ.min} step={champ.step} type="number" inputMode="decimal" className="mt-1 w-full border rounded px-2 py-2" value={ligne.quantite} onChange={(e) => onQuantite(e.target.value)}/></label>
-      <p className="text-sm"><span className="block text-gray-600">Prix de l’heure</span><strong data-testid="prix-heure-temps-passe">{formatPrix(ligne.prixUnitaireHt)} HT</strong></p>
+      <label className="text-sm">{libelle}<input required aria-describedby="aide-quantite-temps-passe" type="text" inputMode="decimal" pattern={champ.motif} title={champ.titre} className="mt-1 w-full border rounded px-2 py-2" value={ligne.quantite} onChange={(e) => onQuantite(e.target.value)} onKeyDown={fleche}/></label>
+      {/* Prix et TVA fixés par la main d'œuvre : des nombres, jamais saisis (cf. ChiffreSaisi). */}
+      <p className="text-sm"><span className="block text-gray-600">Prix de l’heure</span><strong data-testid="prix-heure-temps-passe">{formatPrix(Number(ligne.prixUnitaireHt))} HT</strong></p>
       <p className="text-sm"><span className="block text-gray-600">TVA</span>{String(ligne.tauxTva).replace('.', ',')} %</p>
       <p className="text-sm"><span className="block text-gray-600">Unité</span>{ligne.unite ?? 'heure'}</p>
     </div>

@@ -373,7 +373,9 @@ if (!TEST_DATABASE_URL) {
     };
     const releverHorsDroits = (c, res) => {
       // Hors droits (cadrage §3 et §6), pour #426 : une erreur serveur, ou un devis inexistant refusé en 400 « Devis
-      // introuvable. » au lieu d'un 404.
+      // introuvable. » au lieu d'un 404. Depuis le lot devis (#252 N3, #426 pour le devis ; cadrage v3 du 16-11-2026,
+      // section 2), la modification et la conversion d'un devis inexistant répondent 404 : ce second cas ne doit plus
+      // être relevé, et le serait s'il revenait.
       if (res.status >= 500 || (res.status === 400 && res.body?.error === 'Devis introuvable.')) horsDroits.push(`${c.compte} | ${c.route} | ${c.cible} | ${c.contexte} | ${formaterReponse(res, { messageDu400: true })}`);
     };
     const jouer = async (c) => {
@@ -677,7 +679,8 @@ if (!TEST_DATABASE_URL) {
       // et 50 depuis) ; au prix d'achat prévu (refusée) ; devis du jeu de données, corps ligne libre.
       ajouterDeuxCles('devis:write', 'PATCH /api/v1/devis/:id', 'devis-prix-achat', 'défaut, corps ligne existante sans prix d’achat', v1(`/devis/${devis('devis-prix-achat')}`), corpsDevis(ligneExistante()), { code: 200, montant: { genre: 'devis', devis: devis('devis-prix-achat'), attendu: devisAttendu(ligneCreee(MONTANTS.ficheAchatInitial, MONTANTS.ficheDureeInitiale)) } });
       ajouterDeuxCles('devis:write', 'PATCH /api/v1/devis/:id', 'devis-prix-achat', 'défaut, corps ligne existante au prix d’achat prévu', v1(`/devis/${devis('devis-prix-achat')}`), corpsDevis(ligneExistante({ prixAchatUnitaireHt: MONTANTS.prixAchatLigne })), { code: 403 });
-      for (const [cible, code] of [['devis-brouillon', 200], ['devis-signe', 409], ['devis-converti', 409], [INEXISTANT, 400]]) {
+      // Devis inexistant : 404 « Devis introuvable. » depuis le lot devis (#252 N3, #426 pour le devis), et non plus 400.
+      for (const [cible, code] of [['devis-brouillon', 200], ['devis-signe', 409], ['devis-converti', 409], [INEXISTANT, 404]]) {
         ajouterDeuxCles('devis:write', 'PATCH /api/v1/devis/:id', cible, 'défaut, corps ligne libre', v1(`/devis/${devis(cible)}`), corpsDevis(lignesLibres), { code, montant: code === 200 ? { genre: 'devis', devis: devis(cible), attendu: devisAttendu(ligneCreee(null, null)) } : null });
       }
       // Statut : envoi d'un brouillon (montants inchangés) ; refus selon l'état.
@@ -686,7 +689,8 @@ if (!TEST_DATABASE_URL) {
       }
       // Conversion (G2) : en chantier, montants relus (devis-signe-prix-achat et devis-signe du jeu) ; en intervention ou en
       // contrat, refusée à une clé (devis/routes.ts:321-322, limite de D1a-2) ; en chantier avec un champ d'ouverture
-      // (devis/routes.ts:318-319, refus selon le corps) ; devis brouillon, converti, inexistant (400, hors droits, #426).
+      // (devis/routes.ts:318-319, refus selon le corps) ; devis brouillon, converti ; inexistant : 404 depuis le lot devis
+      // (#252 N3, #426 pour le devis), et non plus 400 (hors droits, relevé pour #426 avant ce lot).
       const conversion = [
         ['devis-signe-prix-achat', 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 201, { genre: 'conversion', attendu: MONTANTS.conversion }],
         ['devis-signe-prix-achat', 'corps cible=INTERVENTION', () => ({ cible: 'INTERVENTION' }), 403, null],
@@ -696,7 +700,7 @@ if (!TEST_DATABASE_URL) {
         ['devis-signe', 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 201, { genre: 'conversion', attendu: MONTANTS.conversionSigne }],
         ['devis-brouillon', 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 400, null],
         ['devis-converti', 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 409, null],
-        [INEXISTANT, 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 400, null],
+        [INEXISTANT, 'corps cible=CHANTIER', () => ({ cible: 'CHANTIER' }), 404, null],
       ];
       for (const [cible, contexte, corps, code, montant] of conversion) {
         ajouterDeuxCles('devis:write', 'POST /api/v1/devis/:id/convertir', cible, `défaut, ${contexte}`, v1(`/devis/${devis(cible)}/convertir`), corps, { code, montant });

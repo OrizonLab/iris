@@ -81,6 +81,7 @@ export function ChoixForfaitMainOeuvre({ onAjouter }: { onAjouter: (ligne: Ligne
 // Ligne au jour ou à la demi-journée dans le formulaire : désignation et quantité modifiables, prix, TVA et
 // unité fixés par la main d'œuvre, affichés sans être saisis, comme la ligne au temps passé. La quantité est un
 // nombre entier de jours ou de demi-journées, au moins 1 : une demi-journée s'ajoute en ligne à la demi-journée.
+// Le prix et la TVA, fixés par la main d'œuvre, sont des nombres (cf. ChiffreSaisi).
 export function LigneForfaitMainOeuvre({ ligne, onDesignation, onQuantite, onRetirer }: {
   ligne: LigneDevisSaisie;
   onDesignation: (valeur: string) => void;
@@ -95,7 +96,7 @@ export function LigneForfaitMainOeuvre({ ligne, onDesignation, onQuantite, onRet
     </label>
     <div className="grid gap-2 items-end grid-cols-2 md:grid-cols-[150px_1fr_1fr_1fr_auto]">
       <label className="text-sm">{LIBELLES_QUANTITE_FORFAIT[forfait]}<input required min="1" step="1" type="number" inputMode="numeric" className="mt-1 w-full border rounded px-2 py-2" value={ligne.quantite} onChange={(e) => onQuantite(e.target.value)}/></label>
-      <p className="text-sm"><span className="block text-gray-600">{forfait === 'JOUR' ? 'Prix du forfait jour' : 'Prix de la demi-journée'}</span><strong data-testid="prix-forfait">{formatPrix(ligne.prixUnitaireHt)} HT</strong></p>
+      <p className="text-sm"><span className="block text-gray-600">{forfait === 'JOUR' ? 'Prix du forfait jour' : 'Prix de la demi-journée'}</span><strong data-testid="prix-forfait">{formatPrix(Number(ligne.prixUnitaireHt))} HT</strong></p>
       <p className="text-sm"><span className="block text-gray-600">TVA</span>{String(ligne.tauxTva).replace('.', ',')} %</p>
       <p className="text-sm"><span className="block text-gray-600">Unité</span>{ligne.unite}</p>
       {onRetirer && <button type="button" className="btn border" onClick={onRetirer}>Retirer</button>}
