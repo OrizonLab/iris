@@ -190,14 +190,14 @@ PUT /api/clients/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c
 PUT /api/v1/clients/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > modifierClient#d2dceb282762
 DELETE /api/clients/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > desactiverClient#599a87672d01
 DELETE /api/v1/clients/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > desactiverClient#599a87672d01
-POST /api/clients/:clientId/contacts requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > creerContact#e8b07c8672f1
-POST /api/v1/clients/:clientId/contacts <anonymous>{scope="clients:write"}#4aeb6d464b38 > creerContact#e8b07c8672f1
-PUT /api/clients/:clientId/contacts/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > modifierContact#a2ab7322c77e
-PUT /api/v1/clients/:clientId/contacts/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > modifierContact#a2ab7322c77e
-POST /api/clients/:clientId/sites requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > creerSite#eaf0a1a927e7
-POST /api/v1/clients/:clientId/sites <anonymous>{scope="clients:write"}#4aeb6d464b38 > creerSite#eaf0a1a927e7
-PUT /api/clients/:clientId/sites/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > modifierSite#670e9c863bcc
-PUT /api/v1/clients/:clientId/sites/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > modifierSite#670e9c863bcc
+POST /api/clients/:clientId/contacts requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > creerContact#070a421966bd
+POST /api/v1/clients/:clientId/contacts <anonymous>{scope="clients:write"}#4aeb6d464b38 > creerContact#070a421966bd
+PUT /api/clients/:clientId/contacts/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > modifierContact#f09d0d8e78a6
+PUT /api/v1/clients/:clientId/contacts/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > modifierContact#f09d0d8e78a6
+POST /api/clients/:clientId/sites requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > creerSite#001d9cf44729
+POST /api/v1/clients/:clientId/sites <anonymous>{scope="clients:write"}#4aeb6d464b38 > creerSite#001d9cf44729
+PUT /api/clients/:clientId/sites/:id requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > modifierSite#bb86b0fac2d0
+PUT /api/v1/clients/:clientId/sites/:id <anonymous>{scope="clients:write"}#4aeb6d464b38 > modifierSite#bb86b0fac2d0
 GET /api/clients/:clientId/equipements requireAuth#07b983da0ce5 > requireGestionClients#9b368f067c52 > listerEquipementsClient#b0102c9f5eb5
 GET /api/v1/clients/:clientId/equipements <anonymous>{scope="equipements:read"}#4aeb6d464b38 > listerEquipementsClient#b0102c9f5eb5
 POST /api/clients/:clientId/equipements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > creerEquipementClient#d4c7652c1f59
