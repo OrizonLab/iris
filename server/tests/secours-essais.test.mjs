@@ -99,6 +99,28 @@ describe('#563 : compteur des essais de l’accès de secours, purgé au fil des
     assert.deepEqual(suivi(A), { count: 1, depuis: T0 + FENETRE + 1 });
   });
 
+  // Audit des droits de #591, R1 : `Date.now()` suit l'horloge du système, qui peut reculer (correction NTP, horloge de la
+  // machine corrigée). Une fenêtre ouverte après le recul entre alors en table derrière une fenêtre ouverte avant lui, à
+  // l'heure plus tardive : la purge s'arrête sur celle-ci. Le blocage reste celui de la règle, entrée par entrée : la
+  // fenêtre de B court quinze minutes depuis son premier essai, et les essais de C ne se cumulent pas d'une fenêtre à
+  // l'autre. Lecture écartée : un blocage qui ne tient qu'à la purge, sous lequel B resterait bloquée jusqu'à ce que la
+  // fenêtre de A passe (une heure de plus), et C serait refusée au sixième essai de deux fenêtres.
+  test('horloge qui recule : la fenêtre d’une adresse ouverte après le recul court quinze minutes, même derrière une fenêtre ouverte avant lui', () => {
+    tropDEssaisSecours(A);
+    const recul = T0 - 60 * MIN; // l'horloge recule d'une heure
+    aller(recul);
+    assert.deepEqual(essais(B, 6), [false, false, false, false, false, true]);
+    essais(C, 3);
+    aller(recul + FENETRE);
+    assert.equal(tropDEssaisSecours(B), true, 'à quinze minutes pile du premier essai de B, B reste bloquée');
+    aller(recul + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(B), false, 'une milliseconde après, B repart de zéro, même avec A ouverte en tête');
+    assert.deepEqual(suivi(B), { count: 1, depuis: recul + FENETRE + 1 });
+    assert.deepEqual(essais(C, 3), [false, false, false], 'C : nouvelle fenêtre, ses trois premiers essais ne comptent plus');
+    assert.deepEqual(suivi(C), { count: 3, depuis: recul + FENETRE + 1 });
+    assert.deepEqual(suivi(A), { count: 1, depuis: T0 }, 'A, ouverte avant le recul, reste en table avec son compte');
+  });
+
   // --- Purge au fil des essais ---
 
   // Critère : « Une adresse dont le premier essai date de plus de 15 minutes n'est plus dans la table dès l'essai

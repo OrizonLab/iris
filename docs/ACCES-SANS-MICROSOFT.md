@@ -88,7 +88,9 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
 - Le compteur des essais garde au plus 10 000 adresses. Au-delà, la fenêtre la plus ancienne
   sort et l'adresse nouvelle est comptée : une rafale d'adresses ne peut ni saturer la mémoire
   du serveur, ni bloquer l'accès pour tous (#563 ; valeur et règle de sortie : choix par défaut,
-  à confirmer).
+  à confirmer). Table pleine, il retient quelques mégaoctets ; si `TRUST_PROXY` est réglée plus
+  haut que le nombre réel de proxys, l'adresse est celle qu'écrit le client, jusqu'à la taille
+  d'un en-tête (16 Ko), soit environ 160 Mo pour une table pleine.
 - La session dure **1 heure**, contre 7 jours pour une connexion Microsoft.
 - Chaque tentative, réussie ou non, est écrite dans les journaux du conteneur avec l'IP, celle
   du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne du proxy, #261) :

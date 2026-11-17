@@ -464,6 +464,25 @@ if (!TEST_DATABASE_URL) {
       assert.equal(suivante.status, 200, `table vidée : la session suivante s’ouvre (${JSON.stringify(suivante.body)})`);
       assert.equal(essaisSecours.size, 0);
     });
+
+    // Audit des droits de #591, T1 : le succès ne retire que l'entrée de son adresse ; les essais d'une autre adresse
+    // restent comptés. Lecture écartée : un succès qui vide toute la table, sous lequel chaque accès réussi rendrait cinq
+    // essais à une adresse bloquée. L'autre adresse est comptée par la fonction elle-même (les tests n'ont qu'une adresse).
+    test('un accès réussi ne remet à zéro que son adresse : une autre adresse bloquée le reste', async () => {
+      const { essaisSecours, tropDEssaisSecours } = await import('../dist/src/domaines/authentification/secours.js');
+      const AUTRE = '198.51.100.77';
+      essaisSecours.clear();
+      try {
+        assert.equal(Array.from({ length: 6 }, () => tropDEssaisSecours(AUTRE)).at(-1), true, 'l’autre adresse est bloquée');
+        const succes = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+        assert.equal(succes.status, 200, JSON.stringify(succes.body));
+        assert.deepEqual([...essaisSecours.keys()], [AUTRE], 'seule l’entrée de l’adresse du succès est retirée');
+        assert.equal(essaisSecours.get(AUTRE).count, 6);
+        assert.equal(tropDEssaisSecours(AUTRE), true, 'l’autre adresse reste bloquée');
+      } finally {
+        essaisSecours.clear();
+      }
+    });
   });
 
   describe('Protection des routes', () => {
