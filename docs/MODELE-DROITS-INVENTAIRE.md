@@ -128,6 +128,8 @@ Dans les tableaux, « blockCommercial » se lit « tous sauf COM et DIR » et «
 | GET `/api/me` | 3201 | requireAuth | droits effectifs | tous |
 | PUT `/api/me/theme` | 3217 | requireAuth | uniquement le compte du jeton | tous |
 
+*Note de suite, 17-11-2026 : depuis #591 (`3c94606`, 17-11-2026), `resolveAuthorizedSsoUser`, citée dans la ligne de `POST /api/auth/sso` ci-dessus, est retirée : la route autorise la connexion Microsoft par `autoriserConnexionMicrosoft`, sur l'identifiant immuable `oid` + `tid` (#264). Le tableau décrit le code à `84e27a1`, et reste inchangé comme photographie. Le compteur des essais de l'accès de secours (« 5 essais par 15 min et par IP », ligne de `POST /api/auth/secours`) est purgé et borné à 10 000 adresses par #591.*
+
 #### Chantiers
 
 | Route | Ligne | Gardes | Règles dans le corps | Types autorisés |
@@ -526,6 +528,8 @@ Relevé systématique des motifs `role ===`, `role !==`, `isAdminRole(`, `isSupe
 
 **Constats** : `Facture.mentionsLegalesVersionId`, qui fixe les mentions imprimées, n'est figé par aucun trigger (#180). Aucun trigger ne fige `FactureLigne` (`grep FactureLigne` dans les migrations : seulement la clé primaire, `20260908160000_add_factures:33`). Aucun trigger `DELETE` ne porte sur `Facture` ; la suppression d'une facture émise n'est empêchée que par la clé étrangère `RESTRICT` d'`EcritureFacture` (`20261007140000…:28`). L'API n'expose aucune route de modification ou de suppression d'une facture. Pour un devis, le figement repose sur la signature (MDC:61) ; la roadmap §3 pose la question d'un figement dès l'envoi.
 
+*Note de suite, 17-11-2026 : `FactureLigne` a un déclencheur depuis `20261018120000_factures_emises_figees` (`facture_ligne_figee`, avec un refus du vidage), postérieur à `84e27a1` ; le constat « Aucun trigger ne fige `FactureLigne` » décrit le code à `84e27a1`.*
+
 ## A8. Exceptions et cas particuliers par type de compte
 
 - **TECH, client désactivé sur ses interventions** : `GET /api/interventions` renvoie `client`, `site` et `contact` sans filtre sur `actif` (2647). La fiche et l'historique du client lui répondent 404 (5625, 5848), et le filtre `actif=false` de la liste est ignoré pour lui (5608). Cela correspond à MDC:46 et à la roadmap §4:278.
@@ -736,6 +740,6 @@ Périmètre global (392). Scopes : clients (L/E, désactivés compris), catalogu
 11. **Côté client**, des règles par rôle (`ROLES_ANNUAIRE`, `ROLES_INTERVENTIONS`, `ROLES_TRAVAUX`, `canEditChantier`) doublent des règles serveur par permission ou par périmètre : l'interface est plus restrictive que l'API (annuaire, Performances, journaux).
 12. Le **TECHNICIEN** est le type le mieux verrouillé : retrait forcé de droits (250), refus 403 explicites, masquage dédié, client désactivé conservé sur ses SAV (2647). Restent à appliquer son planning limité et la perte de `clients:read` au changement de type.
 13. Documents figés : devis signés, factures (hors lignes), règlements, écritures, mentions et journal d'administration sont protégés par triggers ; **`FactureLigne`, `JournalFacture`, `JournalSaisieChantier` et les comptes rendus SAV n'en ont pas**.
-   *Note de suite, 17-11-2026 : depuis #583, `JournalSaisieChantier` est protégé par un déclencheur « ajout seul » (`20261117140000_journal_saisie_ajout_seul`) ; le constat ci-dessus décrit le code à `84e27a1`. Les quatre autres en ont un aussi : `FactureLigne` et `JournalFacture` depuis `20261018120000_factures_emises_figees` (`facture_ligne_figee`, `journal_facture_ajout_seul`), les comptes rendus SAV (`InterventionRapport`, `InterventionSignature`) depuis `20261019220000_comptes_rendus_intervention_figes` (`intervention_rapport_ajout_seul`, `intervention_signature_figee`).*
+   *Note de suite, 17-11-2026 : depuis #583, `JournalSaisieChantier` est protégé par un déclencheur « ajout seul » (`20261117140000_journal_saisie_ajout_seul`) ; le constat ci-dessus décrit le code à `84e27a1`. Les autres en ont un aussi : `FactureLigne` et `JournalFacture` depuis `20261018120000_factures_emises_figees` (`facture_ligne_figee`, `journal_facture_ajout_seul`), les comptes rendus SAV (`InterventionRapport`, `InterventionSignature`) depuis `20261019220000_comptes_rendus_intervention_figes` (`intervention_rapport_ajout_seul`, `intervention_signature_figee`).*
 14. La séparation ADMIN/SUPERADMIN est complète (liste, cibles, journal filtré), mais le filtre du journal ignore l'auteur SA (`auteurSuperAdmin` stocké, non filtré, roadmap §4:284).
 15. Les clés d'intégration voient tout le périmètre, les taux et le coût de main-d'œuvre (`chantiers:read`) et les clients désactivés : la doc décrit ce comportement, mais il va à l'encontre des choix de la roadmap §4, encore « à appliquer ».
