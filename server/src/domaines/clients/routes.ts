@@ -1,4 +1,5 @@
 import express from 'express';
+import { Prisma } from '@prisma/client';
 import type { Express } from 'express';
 import { prisma, transactionVerifiee } from '../../db';
 import { ROLE_TECHNICIEN } from '../../droits/roles';
@@ -120,13 +121,29 @@ const desactiverClient: express.RequestHandler = async (req, res) => {
   }
 };
 
+// Drapeaux uniques par client (contact principal ; siège social, site de facturation et site
+// principal) : poser le drapeau retire l'ancien. Le retrait et l'écriture du contact ou du site
+// sont validés ensemble (#306) : un refus (404, base) ne fait perdre aucun drapeau, et une lecture
+// concurrente, comme l'émission d'une facture ou la signature d'un devis qui copie l'adresse de
+// facturation, ne voit jamais l'état intermédiaire. Le verrou du client, pris en tête de
+// transaction, fait passer l'une après l'autre deux écritures simultanées sur un même client.
+// READ COMMITTED explicite, comme ISOLATION_RETRAIT : après l'attente du verrou, chaque requête
+// voit l'écriture qui vient d'aboutir (en REPEATABLE READ, l'instantané pris avant l'attente
+// l'ignorerait, et la seconde écriture échouerait).
+const ISOLATION_CLIENT = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted };
+const verrouillerClient = (tx: Prisma.TransactionClient, clientId: string) => tx.$queryRaw`SELECT "id" FROM "Client" WHERE "id" = ${clientId} FOR UPDATE`;
+
 const creerContact: express.RequestHandler = async (req, res) => {
   const clientId = String(req.params.clientId);
   try {
     const data = contactPayload((req.body ?? {}) as Record<string, unknown>, true);
-    // Un seul contact principal par client : poser le drapeau retire l'ancien.
-    if (data.principal) await prisma.clientContact.updateMany({ where: { clientId }, data: { principal: false } });
-    res.status(201).json(await prisma.clientContact.create({ data: { ...data, clientId } as never }));
+    const contact = await transactionVerifiee(async tx => {
+      await verrouillerClient(tx, clientId);
+      // Un seul contact principal par client : poser le drapeau retire l'ancien.
+      if (data.principal) await tx.clientContact.updateMany({ where: { clientId }, data: { principal: false } });
+      return tx.clientContact.create({ data: { ...data, clientId } as never });
+    }, ISOLATION_CLIENT);
+    res.status(201).json(contact);
   } catch (error) {
     clientApiError(res, error);
   }
@@ -137,12 +154,20 @@ const modifierContact: express.RequestHandler = async (req, res) => {
   const id = paramId(req);
   try {
     const data = contactPayload((req.body ?? {}) as Record<string, unknown>);
-    if (data.principal) await prisma.clientContact.updateMany({ where: { clientId, id: { not: id } }, data: { principal: false } });
-    // updateMany (et non update) : le clientId de l'URL fait partie du filtre, on ne peut
-    // donc pas modifier le contact d'un autre client en devinant son identifiant.
-    const maj = await prisma.clientContact.updateMany({ where: { id, clientId }, data: data as never });
-    if (!maj.count) return res.status(404).json({ error: 'Contact introuvable.' });
-    res.json(await prisma.clientContact.findUnique({ where: { id } }));
+    const contact = await transactionVerifiee(async tx => {
+      await verrouillerClient(tx, clientId);
+      // Existence vérifiée avant de retirer le drapeau aux autres contacts. Le clientId de l'URL
+      // fait partie des filtres : on ne peut pas modifier le contact d'un autre client en
+      // devinant son identifiant.
+      if (!await tx.clientContact.findFirst({ where: { id, clientId }, select: { id: true } })) return null;
+      if (data.principal) await tx.clientContact.updateMany({ where: { clientId, id: { not: id } }, data: { principal: false } });
+      // Un corps sans champ modifiable n'écrit rien (count à 0) : 404, comme avant (#426).
+      const maj = await tx.clientContact.updateMany({ where: { id, clientId }, data: data as never });
+      if (!maj.count) return null;
+      return tx.clientContact.findUnique({ where: { id } });
+    }, ISOLATION_CLIENT);
+    if (!contact) return res.status(404).json({ error: 'Contact introuvable.' });
+    res.json(contact);
   } catch (error) {
     clientApiError(res, error);
   }
@@ -150,20 +175,25 @@ const modifierContact: express.RequestHandler = async (req, res) => {
 
 // Siège social et adresse de facturation sont uniques par client (index partiels
 // PostgreSQL). Comme pour le contact principal, poser le drapeau retire l'ancien plutôt
-// que de renvoyer un conflit que l'utilisateur devrait résoudre à la main.
-async function libererDrapeauxSite(clientId: string, data: Record<string, unknown>, sauf?: string) {
+// que de renvoyer un conflit que l'utilisateur devrait résoudre à la main. Toujours appelée
+// dans la transaction de l'écriture du site, sous le verrou du client.
+async function libererDrapeauxSite(tx: Prisma.TransactionClient, clientId: string, data: Record<string, unknown>, sauf?: string) {
   const exclure = sauf ? { id: { not: sauf } } : {};
-  if (data.estSiegeSocial) await prisma.clientSite.updateMany({ where: { clientId, ...exclure }, data: { estSiegeSocial: false } });
-  if (data.estSiteFacturation) await prisma.clientSite.updateMany({ where: { clientId, ...exclure }, data: { estSiteFacturation: false } });
-  if (data.principal) await prisma.clientSite.updateMany({ where: { clientId, ...exclure }, data: { principal: false } });
+  if (data.estSiegeSocial) await tx.clientSite.updateMany({ where: { clientId, ...exclure }, data: { estSiegeSocial: false } });
+  if (data.estSiteFacturation) await tx.clientSite.updateMany({ where: { clientId, ...exclure }, data: { estSiteFacturation: false } });
+  if (data.principal) await tx.clientSite.updateMany({ where: { clientId, ...exclure }, data: { principal: false } });
 }
 
 const creerSite: express.RequestHandler = async (req, res) => {
   const clientId = String(req.params.clientId);
   try {
     const data = sitePayload((req.body ?? {}) as Record<string, unknown>, true);
-    await libererDrapeauxSite(clientId, data);
-    res.status(201).json(await prisma.clientSite.create({ data: { ...data, clientId } as never }));
+    const site = await transactionVerifiee(async tx => {
+      await verrouillerClient(tx, clientId);
+      await libererDrapeauxSite(tx, clientId, data);
+      return tx.clientSite.create({ data: { ...data, clientId } as never });
+    }, ISOLATION_CLIENT);
+    res.status(201).json(site);
   } catch (error) {
     clientApiError(res, error);
   }
@@ -174,10 +204,18 @@ const modifierSite: express.RequestHandler = async (req, res) => {
   const id = paramId(req);
   try {
     const data = sitePayload((req.body ?? {}) as Record<string, unknown>);
-    await libererDrapeauxSite(clientId, data, id);
-    const maj = await prisma.clientSite.updateMany({ where: { id, clientId }, data: data as never });
-    if (!maj.count) return res.status(404).json({ error: 'Site introuvable.' });
-    res.json(await prisma.clientSite.findUnique({ where: { id } }));
+    const site = await transactionVerifiee(async tx => {
+      await verrouillerClient(tx, clientId);
+      // Existence vérifiée avant de retirer les drapeaux aux autres sites (même filtre par client).
+      if (!await tx.clientSite.findFirst({ where: { id, clientId }, select: { id: true } })) return null;
+      await libererDrapeauxSite(tx, clientId, data, id);
+      // Un corps sans champ modifiable n'écrit rien (count à 0) : 404, comme avant (#426).
+      const maj = await tx.clientSite.updateMany({ where: { id, clientId }, data: data as never });
+      if (!maj.count) return null;
+      return tx.clientSite.findUnique({ where: { id } });
+    }, ISOLATION_CLIENT);
+    if (!site) return res.status(404).json({ error: 'Site introuvable.' });
+    res.json(site);
   } catch (error) {
     clientApiError(res, error);
   }
