@@ -10,11 +10,15 @@
 //    09-11-2026 : « elle peut egalement faire un avoir, ») : les plafonds valent quel que soit l'auteur, administration ou
 //    assistante technique sur les factures de son poste.
 //
-// Ce que le lot est (N1 du contrôle) : un renforcement, qui ne change aucun résultat en deçà d'un cas extrême. Le contrôleur a montré
-// qu'il faut au moins 5 243 avoirs sur une même facture, pour plus de 8,6 milliards d'euros crédités, pour que l'ancien calcul en
-// nombres s'écarte d'un centime. Ces bornes sont admises : le dernier test construit ce cas (avoirs précédents écrits en SQL, fixture
-// théorique) et sépare le calcul en décimal exact du retour au calcul en nombres, en entier ou par partie (sommes globales, cumuls par
-// taux, base de la TVA différentielle). Les autres tests sont des tests de non-régression aux limites, qui passent aussi sur `main`.
+// Ce que le lot est (N1 du contrôle) : un renforcement, qui ne change aucun résultat en deçà d'un cas extrême. Pour que l'ancien calcul
+// en nombres s'écarte d'un centime, il faut plusieurs milliers d'avoirs sur une même facture : au moins 4 900 en théorie, aux quatre
+// taux français et pour plus de 8,5 milliards d'euros crédités, près de deux fois plus en deçà. Borne du contrôle de cohérence avant
+// la fusion (#573) : elle corrige les 5 243 avoirs de son contrôle du cadrage, qui oubliait le plafond TTC d'un taux, où s'ajoutent
+// deux sommes en nombres (cas construit à 5 213 avoirs déjà émis : 8 600 000 000,00 € puis 5 212 avoirs de 0,79 € à 10 %, l'avoir au
+// reliquat exact refusé à tort en 409 du taux). Ces bornes sont admises : le dernier test construit un tel cas (avoirs précédents
+// écrits en SQL, fixture théorique) et sépare le calcul en décimal exact du retour au calcul en nombres, en entier ou par partie
+// (sommes globales, cumuls par taux, base de la TVA différentielle). Les autres tests sont des tests de non-régression aux limites,
+// qui passent aussi sur `main`.
 //
 // Contrat éprouvé (POST /api/factures/:id/avoirs ; messages et ordre des refus inchangés) :
 //  - la TVA de chaque taux de l'avoir est la différence des arrondis des bases HT cumulées, avant et après lui, avoirs précédents de
@@ -622,9 +626,9 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Retour au calcul en nombres (cadrage, « Mutants à tuer », dernier point : « un retour au `Number`, si un cas aux limites le
-    // distingue. S'il n'est pas constructible, le dire. ») : il est constructible. Le contrôleur a mesuré qu'il faut au moins 5 243
-    // avoirs sur une même facture, pour plus de 8,6 milliards d'euros crédités ; ces bornes sont admises (PLAFOND_MONTANT, colonnes
-    // numeric(12, 2)). Seul le nombre d'avoirs rend leur création par l'API, un par un, trop longue pour la suite : les avoirs
+    // distingue. S'il n'est pas constructible, le dire. ») : il est constructible. Il faut plusieurs milliers d'avoirs sur une même
+    // facture (au moins 4 900 en théorie, pour plus de 8,5 milliards d'euros crédités : en-tête du fichier) ; ces bornes sont admises
+    // (PLAFOND_MONTANT, colonnes numeric(12, 2)). Seul le nombre d'avoirs rend leur création par l'API, un par un, trop longue pour la suite : les avoirs
     // précédents sont écrits en SQL, fixture théorique (règle 4 : aucune donnée réelle) d'un état que l'API atteint.
     //
     // Facture J, créée par l'API, à 10 %, au plafond des montants : 1 × 9 090 909 090,84 € (TVA 909 090 909,084 → 909 090 909,08 €,
