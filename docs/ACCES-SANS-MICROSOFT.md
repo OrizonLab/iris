@@ -83,7 +83,12 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
 - Cinq tentatives par quart d'heure et par adresse IP, puis blocage. Derrière les proxys de
   production, l'adresse retenue est celle du client si `TRUST_PROXY` est réglée (2 pour la
   chaîne Docker décrite plus haut) ; sans ce réglage, c'est celle du conteneur nginx, si bien
-  que le blocage est commun à tous (#261).
+  que le blocage est commun à tous (#261). La fenêtre de quinze minutes court depuis le premier
+  essai ; les fenêtres passées sont retirées du compteur au fil des essais (#563).
+- Le compteur des essais garde au plus 10 000 adresses. Au-delà, la fenêtre la plus ancienne
+  sort et l'adresse nouvelle est comptée : une rafale d'adresses ne peut ni saturer la mémoire
+  du serveur, ni bloquer l'accès pour tous (#563 ; valeur et règle de sortie : choix par défaut,
+  à confirmer).
 - La session dure **1 heure**, contre 7 jours pour une connexion Microsoft.
 - Chaque tentative, réussie ou non, est écrite dans les journaux du conteneur avec l'IP, celle
   du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne du proxy, #261) :

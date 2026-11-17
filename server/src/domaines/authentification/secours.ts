@@ -41,12 +41,27 @@ export function secretIdentique(fourni: string, attendu: string): boolean {
 // l'API tournera en plusieurs instances.)
 const BREAK_GLASS_FENETRE_MS = 15 * 60 * 1000;
 const BREAK_GLASS_MAX_ESSAIS = 5;
+// Borne dure de la table (#563) : protection technique (C-26 du paramétrage cible, gardée dans le code), et non règle
+// de l'entreprise. Une adresse de plus que la borne fait sortir la fenêtre la plus ancienne, jamais refuser l'adresse
+// nouvelle : un refus laisserait un tiers bloquer l'accès de secours pour tous (#261).
+export const BREAK_GLASS_MAX_ADRESSES = 10_000;
 export const essaisSecours = new Map<string, { count: number; depuis: number }>();
+
+// Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes.
+const fenetrePassee = (depuis: number, maintenant: number) => maintenant - depuis > BREAK_GLASS_FENETRE_MS;
 
 export function tropDEssaisSecours(ip: string): boolean {
   const maintenant = Date.now();
+  // Purge au fil des essais (#563). La table garde l'ordre d'ouverture des fenêtres : une entrée n'y entre qu'en fin,
+  // à l'ouverture de sa fenêtre, si bien que les fenêtres passées sont en tête. On s'arrête à la première encore
+  // ouverte : chaque entrée n'est parcourue qu'une fois, sans parcours complet à chaque essai.
+  for (const [cle, suivi] of essaisSecours) {
+    if (!fenetrePassee(suivi.depuis, maintenant)) break;
+    essaisSecours.delete(cle);
+  }
   const suivi = essaisSecours.get(ip);
-  if (!suivi || maintenant - suivi.depuis > BREAK_GLASS_FENETRE_MS) {
+  if (!suivi) {
+    if (essaisSecours.size >= BREAK_GLASS_MAX_ADRESSES) essaisSecours.delete(essaisSecours.keys().next().value as string);
     essaisSecours.set(ip, { count: 1, depuis: maintenant });
     return false;
   }

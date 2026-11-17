@@ -425,6 +425,45 @@ if (!TEST_DATABASE_URL) {
       assert.equal(res.body.user.role, 'SUPERADMIN');
       assert.equal(res.body.expiresIn, 3600);
     });
+
+    // Lot #563 (cadrage v2, « Comportement inchangé » et test T2) : un accès réussi retire l'entrée de son adresse
+    // du compteur des essais, qui repart de zéro. Les tests n'ont pas de proxy de confiance : toutes les requêtes
+    // viennent de la même adresse. La table (module de l'accès de secours chargé par l'application) est vidée au
+    // départ, pour un état connu quel que soit l'ordre des tests, et à la fin dans un `finally` : sinon toute
+    // connexion de secours suivante du fichier serait bloquée quinze minutes. Le sixième essai porte le bon jeton :
+    // le blocage passe avant le contrôle du secret. Lecture écartée : un succès qui ne remet pas le compteur à zéro
+    // bloquerait dès le premier refus qui le suit (sixième essai de la fenêtre), et non au sixième essai après lui.
+    test('un accès réussi remet le compteur des essais à zéro : 4 refus, 1 succès, puis 5 refus et le sixième essai bloqué (429), même avec le bon jeton', async () => {
+      const { essaisSecours } = await import('../dist/src/domaines/authentification/secours.js');
+      const essai = (token) => request(app).post('/api/auth/secours').send({ token });
+      const comptes = () => [...essaisSecours.values()].map((suivi) => suivi.count);
+      const REFUS = { error: 'Jeton de secours invalide.' };
+      essaisSecours.clear();
+      try {
+        for (let i = 1; i <= 4; i += 1) {
+          const res = await essai('mauvais-jeton');
+          assert.deepEqual([res.status, res.body], [401, REFUS], `refus ${i} avant le succès`);
+          assert.deepEqual(comptes(), [i], `refus ${i} avant le succès : une seule adresse, comptée ${i} fois`);
+        }
+        const succes = await essai(process.env.BREAK_GLASS_TOKEN);
+        assert.equal(succes.status, 200, JSON.stringify(succes.body));
+        assert.ok(succes.body.token, 'un jeton de session est émis');
+        assert.equal(essaisSecours.size, 0, 'le succès retire l’entrée de son adresse');
+        for (let i = 1; i <= 5; i += 1) {
+          const res = await essai('mauvais-jeton');
+          assert.deepEqual([res.status, res.body], [401, REFUS], `refus ${i} après le succès`);
+          assert.deepEqual(comptes(), [i], `refus ${i} après le succès : compteur reparti de zéro`);
+        }
+        const bloque = await essai(process.env.BREAK_GLASS_TOKEN);
+        assert.deepEqual([bloque.status, bloque.body], [429, { error: 'Trop de tentatives. Réessayez dans quinze minutes.' }]);
+        assert.deepEqual(comptes(), [6]);
+      } finally {
+        essaisSecours.clear();
+      }
+      const suivante = await essai(process.env.BREAK_GLASS_TOKEN);
+      assert.equal(suivante.status, 200, `table vidée : la session suivante s’ouvre (${JSON.stringify(suivante.body)})`);
+      assert.equal(essaisSecours.size, 0);
+    });
   });
 
   describe('Protection des routes', () => {
@@ -15410,12 +15449,6 @@ if (!TEST_DATABASE_URL) {
         await prisma.$executeRaw`UPDATE "User" SET "actif" = false WHERE "id" = ${SYSTEME.id}`;
         await prisma.$executeRawUnsafe('ALTER TABLE "User" ENABLE TRIGGER "compte_systeme_fige"');
       }
-      // Connexion Microsoft (cinquième audit de #302) : l'adresse réservée, même présentée par un jeton
-      // Microsoft vérifié, ne désigne aucun compte autorisé, le compte étant inactif. Témoin : un compte
-      // actif est trouvé par la même lecture.
-      const { resolveAuthorizedSsoUser } = await import('../dist/src/domaines/authentification/sso.js');
-      assert.equal(await resolveAuthorizedSsoUser(' Systeme@IRIS.invalid '), null);
-      assert.equal((await resolveAuthorizedSsoUser(comptes.conducteur.email.toUpperCase()))?.id, comptes.conducteur.id);
       // Absent de la liste des comptes, pour le super administrateur comme pour un simple
       // administrateur ; introuvable pour toute route d'un compte, après la session.
       for (const auth of [admin(), entete('admin')]) {

@@ -26,20 +26,6 @@ export function normalizeEmail(email: unknown): string {
 const CHAMPS_COMPTE_CONNEXION = { id: true, name: true, email: true, role: true, theme: true, accesFinance: true, permissions: true } as const;
 type CompteConnexion = Prisma.UserGetPayload<{ select: typeof CHAMPS_COMPTE_CONNEXION }>;
 
-// Autorisation par la seule adresse : un email Microsoft n'est autorisé que s'il figure dans la liste des
-// comptes (table User). Présent => autorisé, avec le rôle associé ; absent => `null`. Un compte désactivé
-// (départ de l'entreprise) n'est plus « autorisé » : il est traité exactement comme un email absent de la
-// liste blanche. Ses données, elles, restent en base. Depuis #264, la route de connexion ne l'appelle plus
-// (autoriserConnexionMicrosoft, plus bas) ; elle reste appelable avec la même signature.
-export async function resolveAuthorizedSsoUser(email: string) {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return null;
-  return prisma.user.findFirst({
-    where: { email: normalized, actif: true },
-    select: CHAMPS_COMPTE_CONNEXION,
-  });
-}
-
 // Récupère la clé publique de signature Microsoft correspondant au `kid` du jeton.
 // Les clés (JWKS) sont mises en cache 1 h ; en cas de `kid` inconnu on rafraîchit une fois
 // (rotation de clés). Utilise le support natif des JWK de Node (crypto.createPublicKey).

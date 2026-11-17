@@ -311,6 +311,27 @@ if (!TEST_DATABASE_URL) {
       assert.equal(await totalJournal(), totalAvant + 1, 'ni nouvelle liaison ni changement d’adresse journalisés');
     });
 
+    // Lot #563 (cadrage v2, section 4 et test T1) : remplace par la route le témoin d'api.test.mjs, retiré avec
+    // l'ancienne fonction d'autorisation par la seule adresse. À la première connexion, le compte non lié est trouvé par
+    // son adresse sans tenir compte de la casse : une adresse Microsoft écrite en capitales désigne le compte Iris
+    // enregistré en minuscules, qui est lié au couple et journalisé une fois, sans changement d'adresse. Lecture
+    // écartée : un compte lu par l'adresse brute du jeton (sans mise en minuscules), qui ne le trouverait pas et
+    // refuserait la connexion (403, « accès refusé »).
+    test('première connexion sous l’adresse du compte écrite en capitales : compte trouvé sans tenir compte de la casse, lié au couple et journalisé une fois', async () => {
+      const compte = await creerCompte('CONDUCTEUR_TRAVAUX', 'casse');
+      const oid = nouvelOid();
+      assert.deepEqual(await identifiants(compte.id).then(({ oid: o, tid }) => [o, tid]), [null, null]);
+      const totalAvant = await totalJournal();
+      const res = await connecter({ oid, adresse: compte.email.toUpperCase() });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual([res.body.user.id, res.body.user.email], [compte.id, compte.email]);
+      assert.ok(res.body.token, 'un jeton applicatif est émis');
+      const lie = await identifiants(compte.id);
+      assert.deepEqual([lie.oid, lie.tid, lie.email], [oid, LOCATAIRE, compte.email], 'compte lié au couple, adresse Iris inchangée');
+      assert.deepEqual((await journalDe(compte.id)).map((e) => [e.action, e.auteurId]), [[ACTION_LIAISON, compte.id]]);
+      assert.equal(await totalJournal(), totalAvant + 1, 'une seule entrée écrite');
+    });
+
     // Cadrage : « dans la même transaction que l'écriture des identifiants ». L'entrée du journal est rendue impossible
     // pour ce seul compte (déclencheur posé par le test sur sa base) : la liaison est annulée avec elle, et la connexion
     // échoue (réponse d'erreur inchangée de la route), sans jeton applicatif. Écarte une liaison validée avant
