@@ -172,10 +172,12 @@ ACCEPTÉ ou converti ──[annulation administrateur + motif]──→ ANNULÉ 
                                                              ↳ créneaux des interventions annulées retirés du planning
 ```
 
-**Acompte.** Une case sur le devis initial conditionne l'ouverture du chantier à la
-réception d'un acompte. Le taux par défaut se règle dans **Administration > Marges**, et
-chaque devis **fige le sien à l'émission** : changer la politique de la société ne réécrit
-aucun devis déjà émis. Tant que le module paiements n'existe pas, un administrateur
+**Acompte.** Une case sur le devis, cochée d'office sur un nouveau devis, conditionne
+l'ouverture du chantier (et d'elle seule : une intervention ou un contrat se créent sans
+attendre) à la réception d'un acompte. Le taux par défaut, de 40 % sur une nouvelle
+installation, se règle dans **Administration > Marges & Commissions** ; à 0 %, aucun
+acompte n'est exigé. Chaque devis **fige le sien à l'émission** : changer la politique de
+la société ne réécrit aucun devis déjà émis. Tant que le module paiements n'existe pas, un administrateur
 constate la réception à la main (date, montant, référence) ; le rapprochement bancaire
 alimentera ces mêmes champs plus tard sans changer la règle.
 
