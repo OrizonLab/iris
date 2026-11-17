@@ -37,7 +37,8 @@ test('un devis signé crée son intervention ou son contrat depuis l’écran De
   const objetContrat = `Maintenance convertie ${suffixe}`;
   await devisSigne(client.id, objetIntervention);
   await devisSigne(client.id, objetContrat);
-  // Signé, mais son acompte n'est pas constaté : ni chantier, ni intervention, ni contrat proposés.
+  // Signé, mais son acompte n'est pas constaté : depuis la décision de Nelson du 17-11-2026, « L'acompte ne bloque que le
+  // chantier » (cadrage v3.1 du lot acompte, N1), l'intervention et le contrat sont proposés ; le chantier attend l'acompte.
   const objetAcompte = `Acompte attendu ${suffixe}`;
   await devisSigne(client.id, objetAcompte, { acompteExige: true });
   const clientInactif = await creerClient('conversion-devis-inactif');
@@ -50,9 +51,10 @@ test('un devis signé crée son intervention ou son contrat depuis l’écran De
   pageAdmin.on('dialog', (dialogue) => { fenetres.push(`${dialogue.type()} : ${dialogue.message()}`); void dialogue.dismiss(); });
   const page = await allerSurPageAdmin('/devis');
   const ligne = (objet: string) => page.locator('li', { hasText: objet });
-  await expect(ligne(objetAcompte)).toContainText('exigé avant conversion du devis');
-  for (const action of ['Ouvrir le chantier', 'Créer l’intervention', 'Créer le contrat']) {
-    await expect(ligne(objetAcompte).getByRole('button', { name: action, exact: true })).toHaveCount(0);
+  await expect(ligne(objetAcompte)).toContainText('exigé avant l’ouverture du chantier');
+  await expect(ligne(objetAcompte).getByRole('button', { name: 'Ouvrir le chantier', exact: true })).toHaveCount(0);
+  for (const action of ['Créer l’intervention', 'Créer le contrat']) {
+    await expect(ligne(objetAcompte).getByRole('button', { name: action, exact: true })).toBeVisible();
   }
 
   // Passer d'un devis à l'autre sans fermer le formulaire repart d'un formulaire neuf : le titre

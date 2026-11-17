@@ -15,6 +15,23 @@ export function ciblesEncorePossibles(conversions: ConversionEnregistree[]): Cib
   return CIBLES.filter(cible => !conversions.some(c => c.cibleType === cible));
 }
 
+// Devis tel que l'écran le lit, réduit à ce qui décide des conversions proposées.
+export type DevisAConvertir = {
+  statut: string; signature: object | null; acompteExige: boolean; acompteRecuLe: string | null;
+  conversions: ConversionEnregistree[];
+};
+
+// Cibles proposées pour un devis signé, dernière version non annulée de son dossier, parmi celles encore
+// possibles. L'acompte ne bloque que le chantier (décision de Nelson du 17-11-2026, « L'acompte ne
+// bloque que le chantier ») : l'intervention et le contrat se créent depuis un devis accepté ou en attente
+// de son acompte ; le chantier, depuis un devis accepté dont l'acompte n'est pas exigé ou a été constaté.
+export function ciblesProposees(devis: DevisAConvertir, derniereVersion: boolean): CibleDevis[] {
+  if (!devis.signature || !derniereVersion) return [];
+  return ciblesEncorePossibles(devis.conversions).filter(cible => cible === 'CHANTIER'
+    ? devis.statut === 'ACCEPTE' && (!devis.acompteExige || !!devis.acompteRecuLe)
+    : devis.statut === 'ACCEPTE' || devis.statut === 'EN_ATTENTE_ACOMPTE');
+}
+
 // Question posée avant l'annulation : elle dit ce qui sera annulé avec le devis.
 export function questionAnnulation(conversions: ConversionEnregistree[]): string {
   const effets = [

@@ -378,8 +378,9 @@ model Parametres {
   // Comme les barèmes de rémunération, il vit en base et s'édite depuis l'administration :
   // changer la politique d'acompte d'une société ne doit jamais demander un redéploiement.
   // Le devis fige SA valeur à l'émission (cf. Devis.tauxAcompte) — modifier ce paramètre
-  // n'a donc aucun effet rétroactif sur les devis déjà émis.
-  tauxAcompteDefaut      Decimal @default(30) @db.Decimal(5, 2)
+  // n'a donc aucun effet rétroactif sur les devis déjà émis. 40 % par défaut, et 0 % : aucun
+  // acompte n'est exigé (décision de Nelson du 17-11-2026 ; migration 20261117120000).
+  tauxAcompteDefaut      Decimal @default(40) @db.Decimal(5, 2)
   // Alertes de suivi des chantiers, réglées par chaque société dans Administration > Marges.
   // Seuil en pourcentage du montant vendu, comparé à la marge ESTIMÉE en fin de chantier ;
   // vide (null), il est retiré mais une marge estimée négative reste signalée. Délai en jours

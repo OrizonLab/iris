@@ -138,6 +138,9 @@ AC | POST /api/achats/:id/restaurer | achat-chantier-ct | droit chantiers:archiv
 AC | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 AC | POST /api/achats/:id/restaurer | achat-chantier-termine | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 AC | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+AC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
+AC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
 AC | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AC | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 AC | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -397,6 +400,9 @@ AD | POST /api/devis/:id/annulation | devis-acompte-attendu | défaut, corps mot
 AD | POST /api/devis/:id/annulation | devis-brouillon | défaut, corps motif | 200 écrit (Devis)
 AD | POST /api/devis/:id/annulation | devis-converti | défaut, corps motif | 409 « Annulation impossible : ce chantier porte déjà 1 pointage(s) d’heures et 1 achat(s). Une affaire commencée ne s’annule pas. » inchangé
 AD | POST /api/devis/:id/annulation | devis-signe | défaut, corps motif | 200 écrit (Devis)
+AD | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+AD | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier)
+AD | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention)
 AD | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AD | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 AD | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -700,6 +706,9 @@ AD-COM | POST /api/devis/:id/annulation | devis-acompte-attendu | défaut, corps
 AD-COM | POST /api/devis/:id/annulation | devis-brouillon | défaut, corps motif | 200 écrit (Devis)
 AD-COM | POST /api/devis/:id/annulation | devis-converti | défaut, corps motif | 409 « Annulation impossible : ce chantier porte déjà 1 pointage(s) d’heures et 1 achat(s). Une affaire commencée ne s’annule pas. » inchangé
 AD-COM | POST /api/devis/:id/annulation | devis-signe | défaut, corps motif | 200 écrit (Devis)
+AD-COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+AD-COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier)
+AD-COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention)
 AD-COM | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AD-COM | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 AD-COM | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -953,6 +962,9 @@ AT | POST /api/clients/:clientId/sites | client-desactive | défaut, corps site 
 AT | POST /api/contrats-maintenance/:id/avancer-echeance | contrat-actif | défaut, corps sans corps | 409 « L’échéance ne peut avancer qu’après la fin de son intervention. » inchangé
 AT | POST /api/contrats-maintenance/:id/envois | contrat-actif | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AT | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 201 écrit (Intervention,JournalSaisieChantier,SequenceIntervention)
+AT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+AT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier)
+AT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention)
 AT | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 AT | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 AT | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -1107,6 +1119,9 @@ COM | POST /api/achats/:id/restaurer | achat-chantier-ct | droit chantiers:archi
 COM | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 COM | POST /api/achats/:id/restaurer | achat-chantier-termine | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 COM | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
+COM | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
 COM | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 COM | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 COM | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -1282,6 +1297,9 @@ CPT | POST /api/achats/:id/restaurer | achat-chantier-ct | droit chantiers:archi
 CPT | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 CPT | POST /api/achats/:id/restaurer | achat-chantier-termine | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 CPT | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+CPT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
+CPT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
 CPT | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 CPT | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 CPT | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -1447,6 +1465,9 @@ CPT-FINANCE | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-af
 CPT-FINANCE | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 404 « Intervention introuvable. » inchangé
 CPT-FINANCE | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 404 « Intervention introuvable. » inchangé
 CPT-FINANCE | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+CPT-FINANCE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
+CPT-FINANCE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
 CPT-FINANCE | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 CPT-FINANCE | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 CPT-FINANCE | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -1637,6 +1658,9 @@ CT | POST /api/devis | clientId=client-actif | droit devis, corps client, objet 
 CT | POST /api/devis | clientId=client-actif | droit devis:write, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 CT | POST /api/devis | clientId=client-desactive | droit devis, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 CT | POST /api/devis | clientId=client-desactive | droit devis:write, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
+CT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+CT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+CT | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 CT | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=CHANTIER | 400 « Seul un devis accepté peut être converti. » inchangé
 CT | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
 CT | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=INTERVENTION | 400 « Seul un devis accepté peut être converti. » inchangé
@@ -1867,6 +1891,9 @@ CT-N1 | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suit
 CT-N1 | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 404 « Intervention introuvable. » inchangé
 CT-N1 | POST /api/categories | — | défaut, corps nom | 200 écrit (Categorie)
 CT-N1 | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+CT-N1 | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+CT-N1 | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+CT-N1 | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 CT-N1 | POST /api/fournisseurs | — | défaut, corps nom | 200 écrit (Fournisseur)
 CT-N1 | POST /api/interventions | chantierId=chantier-ac | défaut, corps client, titre et chantier | 201 écrit (Intervention,JournalSaisieChantier,SequenceIntervention)
 CT-N1 | POST /api/interventions | chantierId=chantier-ad | défaut, corps client, titre et chantier | 201 écrit (Intervention,JournalSaisieChantier,SequenceIntervention)
@@ -2084,6 +2111,9 @@ DC | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-resp | droit cha
 DC | POST /api/achats/:id/restaurer | achat-chantier-dc | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 DC | POST /api/achats/:id/restaurer | achat-chantier-termine | droit chantiers:archive, corps motif de restauration | 404 « Chantier introuvable » inchangé
 DC | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+DC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
+DC | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
 DC | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 DC | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 DC | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -2343,6 +2373,9 @@ DIR | POST /api/devis/:id/annulation | devis-acompte-attendu | défaut, corps mo
 DIR | POST /api/devis/:id/annulation | devis-brouillon | défaut, corps motif | 200 écrit (Devis)
 DIR | POST /api/devis/:id/annulation | devis-converti | défaut, corps motif | 409 « Annulation impossible : ce chantier porte déjà 1 pointage(s) d’heures et 1 achat(s). Une affaire commencée ne s’annule pas. » inchangé
 DIR | POST /api/devis/:id/annulation | devis-signe | défaut, corps motif | 200 écrit (Devis)
+DIR | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+DIR | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier)
+DIR | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention)
 DIR | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 DIR | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 DIR | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -2598,6 +2631,9 @@ RESP | POST /api/devis | clientId=client-actif | droit devis, corps client, obje
 RESP | POST /api/devis | clientId=client-actif | droit devis:write, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 RESP | POST /api/devis | clientId=client-desactive | droit devis, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
 RESP | POST /api/devis | clientId=client-desactive | droit devis:write, corps client, objet et ligne | 201 écrit (Devis,DevisLigne,SequenceAffaire)
+RESP | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+RESP | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+RESP | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 RESP | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=CHANTIER | 400 « Seul un devis accepté peut être converti. » inchangé
 RESP | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=CONTRAT | 403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé
 RESP | POST /api/devis/:id/convertir | devis-brouillon | droit devis, corps cible=INTERVENTION | 403 « Création réservée à l’encadrement SAV. » inchangé
@@ -2845,6 +2881,9 @@ RESP-SANS-BRANCHE | POST /api/achats/:id/restaurer | achat-chantier-ct-branche-r
 RESP-SANS-BRANCHE | POST /api/achats/:id/restaurer | achat-chantier-termine | défaut, corps motif de restauration | 404 « Chantier introuvable » inchangé
 RESP-SANS-BRANCHE | POST /api/categories | — | défaut, corps nom | 200 écrit (Categorie)
 RESP-SANS-BRANCHE | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+RESP-SANS-BRANCHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+RESP-SANS-BRANCHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+RESP-SANS-BRANCHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 RESP-SANS-BRANCHE | POST /api/fournisseurs | — | défaut, corps nom | 200 écrit (Fournisseur)
 RESP-SANS-BRANCHE | POST /api/heures/:id/restaurer | heure-archivee-chantier-ct | défaut, corps motif de restauration | 404 « Chantier introuvable » inchangé
 RESP-SANS-BRANCHE | POST /api/heures/:id/restaurer | heure-chantier-autre | défaut, corps motif de restauration | 404 « Chantier introuvable » inchangé
@@ -3097,6 +3136,9 @@ SA | POST /api/devis/:id/annulation | devis-acompte-attendu | défaut, corps mot
 SA | POST /api/devis/:id/annulation | devis-brouillon | défaut, corps motif | 200 écrit (Devis)
 SA | POST /api/devis/:id/annulation | devis-converti | défaut, corps motif | 409 « Annulation impossible : ce chantier porte déjà 1 pointage(s) d’heures et 1 achat(s). Une affaire commencée ne s’annule pas. » inchangé
 SA | POST /api/devis/:id/annulation | devis-signe | défaut, corps motif | 200 écrit (Devis)
+SA | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé
+SA | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 201 écrit (ContratMaintenance,DevisConversion,JournalSaisieChantier)
+SA | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 201 écrit (DevisConversion,Intervention,JournalSaisieChantier,SequenceIntervention)
 SA | POST /api/devis/:id/envois | devis-acompte-attendu | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
 SA | POST /api/devis/:id/envois | devis-brouillon | défaut, corps destinataire, messagerie | 201 écrit (Devis,EnvoiDocument)
 SA | POST /api/devis/:id/envois | devis-converti | défaut, corps destinataire, messagerie | 201 écrit (EnvoiDocument)
@@ -3321,6 +3363,9 @@ TECH | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-affaire-c
 TECH | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 403 « Accès non autorisé. » inchangé
 TECH | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 403 « Accès non autorisé. » inchangé
 TECH | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+TECH | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+TECH | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 TECH | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-archivees-suite-affaire-annulee | défaut, corps motif | 403 « Accès non autorisé. » inchangé
 TECH | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-suite-affaire-close | défaut, corps motif | 403 « Accès non autorisé. » inchangé
 TECH | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut, corps motif | 403 « Accès non autorisé. » inchangé
@@ -3444,6 +3489,9 @@ TECH-SANS-FICHE | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suit
 TECH-SANS-FICHE | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 404 « Intervention introuvable. » inchangé
 TECH-SANS-FICHE | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 404 « Intervention introuvable. » inchangé
 TECH-SANS-FICHE | POST /api/contrats-maintenance/:id/generer-intervention | contrat-sans-visite | défaut | 403 « Accès réservé à l’administration et à l’assistante technique. » inchangé
+TECH-SANS-FICHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CHANTIER | 403 « Permission requise : devis:write » inchangé
+TECH-SANS-FICHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=CONTRAT | 403 « Permission requise : devis:write » inchangé
+TECH-SANS-FICHE | POST /api/devis/:id/convertir | devis-acompte-attendu | défaut, corps cible=INTERVENTION | 403 « Permission requise : devis:write » inchangé
 TECH-SANS-FICHE | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-archivees-suite-affaire-annulee | défaut, corps motif | 404 « Intervention introuvable. » inchangé
 TECH-SANS-FICHE | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-suite-affaire-close | défaut, corps motif | 404 « Intervention introuvable. » inchangé
 TECH-SANS-FICHE | POST /api/interventions/:id/couts/:type/:coutId/:action | heures-tech-intervention-affectee | défaut, corps motif | 404 « Intervention introuvable. » inchangé

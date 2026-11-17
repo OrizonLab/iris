@@ -314,8 +314,8 @@ export async function verrouillerDevis(tx: Prisma.TransactionClient, id: string)
 export const REFUS_TAUX_ACOMPTE = 'Le taux d’acompte doit être un pourcentage de 0 à 100, avec au plus deux décimales (par exemple 30 ou 37,5).';
 // 0 % envoyé avec un acompte exigé (décision de Nelson du 16-11-2026, « Refuser 0 % (Recommandé) » ; la description
 // de l'option, texte de Claude Code, disait : « « Acompte exigé » avec 0 % est contradictoire : refusé avec un
-// message. Pour ne pas demander d'acompte, on décoche « acompte exigé ». »). Lecture retenue, à confirmer : le refus
-// vise le 0 % envoyé ; un taux par défaut réglé à 0 % n'est pas refusé (question posée à Nelson).
+// message. Pour ne pas demander d'acompte, on décoche « acompte exigé ». »). Le refus vise le 0 % envoyé ; un taux par
+// défaut réglé à 0 % signifie qu'aucun acompte n'est exigé (réponse de Nelson du 17-11-2026, ci-dessous).
 export const REFUS_ACOMPTE_ZERO = 'Un acompte exigé ne peut pas être de 0 % : indiquez un taux, ou décochez « Exiger un acompte ».';
 export type TauxAcompteSaisi = { etat: 'absent' } | { etat: 'vide' } | { etat: 'valeur'; taux: number };
 export function lireTauxAcompteSaisi(body: Record<string, unknown>): TauxAcompteSaisi {
@@ -339,10 +339,15 @@ export function acompteDevisPayload(body: Record<string, unknown>, tauxAcompteDe
   if (saisi.etat === 'valeur' && saisi.taux === 0) throw new DevisSaisieError(REFUS_ACOMPTE_ZERO);
   // Une valeur vide prend le taux par défaut, comme avant ce lot ; une clé absente, dans un PATCH portant sur les
   // lignes ou l'objet, ne renégocie pas silencieusement le taux : celui du devis précédent est gardé.
-  const tauxAcompte = saisi.etat === 'valeur' ? saisi.taux
-    : saisi.etat === 'vide' ? Number(tauxAcompteDefaut)
-      : (precedent?.acompteExige ? precedent.tauxAcompte : null) ?? Number(tauxAcompteDefaut);
-  return { acompteExige, tauxAcompte };
+  const tauxRetenu = saisi.etat === 'valeur' ? saisi.taux
+    : saisi.etat === 'absent' && precedent?.acompteExige ? precedent.tauxAcompte
+      : null;
+  if (tauxRetenu !== null) return { acompteExige, tauxAcompte: tauxRetenu };
+  // Taux par défaut de la société réglé à 0 % : aucun acompte n'est exigé, même si la case est cochée (réponse de
+  // Nelson du 17-11-2026 : « si l'accompte est reglé a 0% du coup rien n'est exiger en accompte et donc ne figure
+  // pas sur la facture ni le devis »). Le devis est enregistré sans acompte ; l'écran le signale.
+  if (Number(tauxAcompteDefaut) === 0) return { acompteExige: false, tauxAcompte: null };
+  return { acompteExige, tauxAcompte: Number(tauxAcompteDefaut) };
 }
 export async function nouveauNumeroDevis() {
   const societe = await getCompanySettings();

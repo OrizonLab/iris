@@ -4815,10 +4815,14 @@ if (!TEST_DATABASE_URL) {
       assert.ok(await prisma.chantier.findUnique({ where: { id: chantier.body.id } }), 'le chantier est toujours là');
     });
 
+    // Lot acompte (cadrage v3.1 du 17-11-2026, section « Tests » : les tests « remettent désormais la valeur lue au départ,
+    // sans supposer celle du schéma ») : le taux par défaut attendu est celui lu en base, 40 sur une base neuve depuis la
+    // décision de Nelson du 17-11-2026 (30 avant elle), et non une valeur écrite ici.
     test('l’acompte exigé retient l’ouverture du chantier jusqu’à sa constatation', async () => {
+      const { tauxAcompteDefaut } = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } });
       const devis = await devisAccepte('TEST Affaire avec acompte', { acompteExige: true });
       assert.equal(devis.acompteExige, true);
-      assert.equal(devis.tauxAcompte, 30, 'le taux par défaut du paramétrage est figé sur le devis');
+      assert.equal(devis.tauxAcompte, Number(tauxAcompteDefaut), 'le taux par défaut du paramétrage est figé sur le devis');
 
       const trop_tot = await convertir(devis.id);
       assert.equal(trop_tot.status, 400, 'pas de chantier tant que l’acompte n’est pas là');
@@ -4846,26 +4850,37 @@ if (!TEST_DATABASE_URL) {
       assert.equal(rejoue.status, 400, 'un acompte ne se constate pas deux fois');
     });
 
+    // Lot acompte (cadrage v3.1 du 17-11-2026, section « Tests », « Remises à 30 % dans api.test.mjs:4868 (…) : elles
+    // remettent désormais la valeur lue au départ, sans supposer celle du schéma ») : le taux de départ est lu en base (40
+    // sur une base neuve, décision de Nelson du 17-11-2026) et remis dans un `finally`, même si une assertion échoue. Le
+    // nouveau taux (50, ou 45 si le départ valait déjà 50) diffère toujours du départ : un devis neuf qui garderait le taux
+    // de départ, ou un devis émis réécrit au nouveau taux, se voient.
     test('changer le taux par défaut ne réécrit aucun devis déjà émis', async () => {
-      const avant = await devisAccepte('TEST Affaire taux figé', { acompteExige: true });
-      assert.equal(avant.tauxAcompte, 30);
-      const maj = await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`)
-        .send({ margeCommercialeActive: true, tauxAcompteDefaut: 50 });
-      assert.equal(maj.status, 200);
-      assert.equal(maj.body.tauxAcompteDefaut, 50);
+      const depart = Number((await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } })).tauxAcompteDefaut);
+      const nouveau = depart === 50 ? 45 : 50;
+      try {
+        const avant = await devisAccepte('TEST Affaire taux figé', { acompteExige: true });
+        assert.equal(avant.tauxAcompte, depart);
+        const maj = await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`)
+          .send({ margeCommercialeActive: true, tauxAcompteDefaut: nouveau });
+        assert.equal(maj.status, 200);
+        assert.equal(maj.body.tauxAcompteDefaut, nouveau);
 
-      const apres = await request(app).post('/api/devis').set('Authorization', `Bearer ${session}`).send({
-        clientId, objet: 'TEST Affaire taux neuf', acompteExige: true,
-        lignes: [{ designation: 'Pose', quantite: 1, prixUnitaireHt: 10, tauxTva: 20 }],
-      });
-      assert.equal(apres.body.tauxAcompte, 50, 'un devis neuf suit la politique du jour');
-      const inchange = await prisma.devis.findUnique({ where: { id: avant.id } });
-      assert.equal(Number(inchange.tauxAcompte), 30, 'le devis déjà émis garde son taux');
+        const apres = await request(app).post('/api/devis').set('Authorization', `Bearer ${session}`).send({
+          clientId, objet: 'TEST Affaire taux neuf', acompteExige: true,
+          lignes: [{ designation: 'Pose', quantite: 1, prixUnitaireHt: 10, tauxTva: 20 }],
+        });
+        assert.equal(apres.body.tauxAcompte, nouveau, 'un devis neuf suit la politique du jour');
+        const inchange = await prisma.devis.findUnique({ where: { id: avant.id } });
+        assert.equal(Number(inchange.tauxAcompte), depart, 'le devis déjà émis garde son taux');
 
-      const hors_bornes = await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`)
-        .send({ margeCommercialeActive: true, tauxAcompteDefaut: 140 });
-      assert.equal(hors_bornes.status, 400);
-      await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`).send({ margeCommercialeActive: true, tauxAcompteDefaut: 30 });
+        const hors_bornes = await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`)
+          .send({ margeCommercialeActive: true, tauxAcompteDefaut: 140 });
+        assert.equal(hors_bornes.status, 400);
+      } finally {
+        const remise = await request(app).put('/api/parametres').set('Authorization', `Bearer ${session}`).send({ margeCommercialeActive: true, tauxAcompteDefaut: depart });
+        assert.equal(remise.status, 200, JSON.stringify(remise.body));
+      }
     });
 
     test('une affaire commencée ne s’annule pas', async () => {
@@ -5166,16 +5181,26 @@ if (!TEST_DATABASE_URL) {
         }
       });
 
-      test('un changement de statut lancé en même temps que la conversion ne modifie pas un devis converti', async () => {
+      // #578 (R1 du contrôle avant fusion de #576) : un devis dont l'acompte est constaté ne repasse plus « en attente
+      // d'acompte ». Ce test lançait ce retour en même temps que l'ouverture du chantier pour éprouver le verrou du devis :
+      // sans lui, les deux réussissaient. Depuis #578, le retour est refusé quel que soit l'ordre (la constatation, qui le
+      // refuse, précède la course), et plus aucun changement de statut ne peut réussir face à l'ouverture du chantier : un
+      // devis accepté n'a qu'« en attente d'acompte » pour destination, refusé sans acompte exigé, acompte constaté ou devis
+      // converti, et un devis exigé non constaté n'ouvre pas de chantier. La course ne départage donc plus le verrou, que les
+      // courses de la révision, de l'annulation et de l'acompte éprouvent encore. Le test garde ce qui reste vrai : quel que
+      // soit l'ordre, l'ouverture passe (201), le retour en attente est refusé (400), par l'acompte constaté s'il passe avant
+      // elle, par le statut figé s'il passe après, et le devis converti reste « accepté ». Trois tours.
+      test('un retour en attente d’acompte lancé en même temps que l’ouverture du chantier est refusé, avant comme après elle, et le devis converti reste accepté (#578)', async () => {
         for (let tour = 0; tour < 3; tour += 1) {
           const devis = await devisAccepte(`TEST Ouverture et statut simultanés ${tour}`, { acompteExige: true });
           const acompte = await request(app).post(`/api/devis/${devis.id}/acompte`).set(admin()).send({ recuLe: '01-10-2026', montant: 60, reference: `TEST-VIR-STATUT-${tour}` });
           assert.equal(acompte.status, 200, JSON.stringify(acompte.body));
-          const reponses = await Promise.all([convertir(devis.id), request(app).put(`/api/devis/${devis.id}/statut`).set(admin()).send({ statut: 'EN_ATTENTE_ACOMPTE' })]);
-          assert.equal(reponses.filter((r) => r.status < 300).length, 1, JSON.stringify(reponses.map((r) => [r.status, r.body.error])));
-          assert.ok(reponses.every((r) => r.status < 500), JSON.stringify(reponses.map((r) => [r.status, r.body.error])));
+          const [conversion, statut] = await Promise.all([convertir(devis.id), request(app).put(`/api/devis/${devis.id}/statut`).set(admin()).send({ statut: 'EN_ATTENTE_ACOMPTE' })]);
+          assert.equal(conversion.status, 201, JSON.stringify(conversion.body));
+          assert.equal(statut.status, 400, JSON.stringify(statut.body));
+          assert.ok(['L’acompte de ce devis a déjà été constaté.', 'Le chantier de ce devis est déjà ouvert : seule une annulation peut revenir dessus.'].includes(statut.body.error), statut.body.error);
           const relu = await prisma.devis.findUnique({ where: { id: devis.id }, include: { conversions: true } });
-          assert.ok(!(relu.conversions.length && relu.statut !== 'ACCEPTE'), `devis converti au statut ${relu.statut}`);
+          assert.deepEqual([relu.statut, relu.conversions.map((c) => c.cibleType)], ['ACCEPTE', ['CHANTIER']], 'le devis converti reste accepté');
         }
       });
 
@@ -5630,7 +5655,10 @@ if (!TEST_DATABASE_URL) {
         assert.equal(directeDirecteur.status, 201, JSON.stringify(directeDirecteur.body));
       });
 
-      test('une saisie invalide, un acompte attendu ou un client désactivé ne crée rien', async () => {
+      // Lot acompte (cadrage v3.1 du 17-11-2026, N1 : « server/tests/api.test.mjs:5657-5662 : intervention et contrat d'un
+      // devis à l'acompte attendu passent de 400 à 201 ») : décision de Nelson du 17-11-2026, « L'acompte ne bloque que le
+      // chantier ». Le devis à l'acompte attendu crée désormais son intervention et son contrat ; seul le chantier attend.
+      test('une saisie invalide ou un client désactivé ne crée rien ; un acompte attendu ne retient plus que le chantier', async () => {
         const devis = await devisAccepte('TEST Conversion refusée');
         const refus = [
           ['INTERVENTION', { priorite: 'ENORME' }, 400, 'Priorité d’intervention invalide.'],
@@ -5654,12 +5682,22 @@ if (!TEST_DATABASE_URL) {
         assert.equal(await prisma.devisConversion.count({ where: { devisId: devis.id } }), 0);
         assert.deepEqual(await dossiersCrees('TEST Conversion refusée'), { interventions: 0, contrats: 0, chantiers: 0 });
 
+        // Avant la décision : 400 « L’acompte exigé par ce devis n’a pas été constaté : l’intervention ne peut pas être
+        // créée. » et « … : le contrat ne peut pas être créé. » ; le chantier garde ce refus, sans rien créer.
         const avecAcompte = await devisAccepte('TEST Conversion acompte attendu', { acompteExige: true });
-        const interventionTropTot = await convertirEn(avecAcompte.id, 'INTERVENTION');
-        assert.equal(interventionTropTot.status, 400, JSON.stringify(interventionTropTot.body));
-        assert.equal(interventionTropTot.body.error, 'L’acompte exigé par ce devis n’a pas été constaté : l’intervention ne peut pas être créée.');
-        const contratTropTot = await convertirEn(avecAcompte.id, 'CONTRAT', CONTRAT);
-        assert.equal(contratTropTot.body.error, 'L’acompte exigé par ce devis n’a pas été constaté : le contrat ne peut pas être créé.');
+        const chantierTropTot = await convertirEn(avecAcompte.id, 'CHANTIER');
+        assert.equal(chantierTropTot.status, 400, JSON.stringify(chantierTropTot.body));
+        assert.equal(chantierTropTot.body.error, 'L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert.');
+        assert.equal(await prisma.devisConversion.count({ where: { devisId: avecAcompte.id } }), 0, 'le chantier refusé ne crée rien');
+        const interventionSansAttendre = await convertirEn(avecAcompte.id, 'INTERVENTION');
+        assert.equal(interventionSansAttendre.status, 201, JSON.stringify(interventionSansAttendre.body));
+        const contratSansAttendre = await convertirEn(avecAcompte.id, 'CONTRAT', CONTRAT);
+        assert.equal(contratSansAttendre.status, 201, JSON.stringify(contratSansAttendre.body));
+        assert.deepEqual((await prisma.devisConversion.findMany({ where: { devisId: avecAcompte.id }, orderBy: { rang: 'asc' } })).map((c) => [c.cibleType, c.cibleId]),
+          [['INTERVENTION', interventionSansAttendre.body.id], ['CONTRAT', contratSansAttendre.body.id]]);
+        assert.deepEqual(await dossiersCrees('TEST Conversion acompte attendu'), { interventions: 1, contrats: 1, chantiers: 0 });
+        const apresConversion = await prisma.devis.findUniqueOrThrow({ where: { id: avecAcompte.id } });
+        assert.deepEqual([apresConversion.statut, apresConversion.acompteExige, apresConversion.acompteRecuLe], ['ACCEPTE', true, null], 'le devis garde son statut et son acompte attendu');
 
         const clientInactif = await prisma.client.create({ data: { raisonSociale: 'TEST Client conversion désactivé' } });
         await completerIdentiteClient(clientInactif.id);
@@ -5673,7 +5711,7 @@ if (!TEST_DATABASE_URL) {
           assert.equal(reponse.status, 409, `${cible} : ${JSON.stringify(reponse.body)}`);
           assert.equal(reponse.body.error, `Le client de ce devis est désactivé : ${dossier}. Réactivez d’abord sa fiche.`);
         }
-        assert.equal(await prisma.devisConversion.count({ where: { devisId: { in: [avecAcompte.id, cree.body.id] } } }), 0);
+        assert.equal(await prisma.devisConversion.count({ where: { devisId: cree.body.id } }), 0);
       });
 
       // Un super administrateur peut accorder le droit devis à un conducteur : la conversion suit

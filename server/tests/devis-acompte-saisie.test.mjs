@@ -4,14 +4,31 @@
 // rafale au-delà du pool de connexions) et #426 pour le devis.
 //
 // Décisions et lectures appliquées :
-//  - décision de Nelson du 16-11-2026 sur #252. Question, mot pour mot : « Devis (issue #252) : un taux d'acompte saisi
-//    invalide (« abc », -5, 1000…) est aujourd'hui remplacé en silence par le taux par défaut (30 %). Il sera refusé
-//    (400). Et un taux de 0 % avec « acompte exigé » coché : refusé ou admis ? » ; réponse : « Refuser 0 % (Recommandé) » ;
-//  - décision de Nelson du 16-11-2026 sur #250 : « L'intégrer au lot devis (Recommandé) » (lecture du taux par défaut
-//    avant la transaction, test de rafale) ;
+//  - décision de Nelson du 16-11-2026 sur #252. Question, texte de Claude Code, mot pour mot : « Devis (issue #252) : un
+//    taux d'acompte saisi invalide (« abc », -5, 1000…) est aujourd'hui remplacé en silence par le taux par défaut (30 %).
+//    Il sera refusé (400). Et un taux de 0 % avec « acompte exigé » coché : refusé ou admis ? » ; option choisie par Nelson
+//    (libellé, texte de Claude Code) : « Refuser 0 % (Recommandé) » ;
+//  - décision de Nelson du 16-11-2026 sur #250, option choisie (libellé, texte de Claude Code) : « L'intégrer au lot devis
+//    (Recommandé) » (lecture du taux par défaut avant la transaction, test de rafale) ;
 //  - lectures retenues du cadrage (à confirmer) : un taux envoyé non vide est contrôlé même sans acompte exigé ; le refus
-//    de 0 % vise le 0 % envoyé, et non le taux par défaut (Q1 posée à Nelson, comportement actuel gardé) ; toutes les
-//    routes du domaine répondent 404 pour un devis inconnu (choix par défaut, règle 5).
+//    de 0 % vise le 0 % envoyé, et non le taux par défaut (Q1, répondue par Nelson le 17-11-2026, ci-dessous) ; toutes
+//    les routes du domaine répondent 404 pour un devis inconnu (choix par défaut, règle 5).
+//
+// Lot « acompte des devis » (cadrage v3.1 du 17-11-2026, contrôlé « prêt à coder », sections 1, 2 et 4, critères métier
+// observables et section « Tests » ; règle 2 : montants et conversion des devis, parcours du pilote). Décisions de Nelson du
+// 17-11-2026 :
+//  - réponse à Q1, message de Nelson, mot pour mot : « 1. si l'accompte est reglé a 0% du coup rien n'est exiger en
+//    accompte et donc ne figure pas sur la facture ni le devis, par defaut, le reglage doit etre a 40% d'accompte, qui sera
+//    modifiable dans les parametre de société justement » ;
+//  - case de l'écran, option choisie par Nelson dans l'outil de questions (libellé, texte de Claude Code) : « Cochée
+//    d'office (Recommandé) » (prouvé par les tests de l'écran) ;
+//  - conversion, option choisie par Nelson (libellé, texte de Claude Code) : « L'acompte ne bloque que le chantier » ;
+//    description de l'option, texte de Claude Code : « Case cochée d'office, mais l'acompte exigé ne bloque que
+//    l'ouverture d'un chantier ; une intervention SAV ou un contrat se créent sans attendre l'acompte (changement de la
+//    règle de conversion). ».
+// Lectures retenues du cadrage v3.1, à confirmer, prouvées telles quelles : une valeur vide (`null`, chaîne vide) prend le
+// taux par défaut, la clé absente garde celui d'un devis déjà exigé ; à la création, une clé `acompteExige` absente reste
+// « non exigé » (contrat de l'API inchangé) ; `EN_ATTENTE_ACOMPTE` ne retient plus que le chantier.
 //
 // Règles du cadrage prouvées ici, chacune par HTTP réel et relecture de la base :
 //  - forme du taux (section 1) : nombre décimal de 0 à 100, au plus 3 chiffres avant la virgule et 2 après, virgule
@@ -21,7 +38,8 @@
 //  - valeur vide (`null`, chaîne vide après retrait des blancs) : taux par défaut ; clé absente : taux précédent si
 //    l'acompte était exigé (modification), taux par défaut sinon ;
 //  - 0 % envoyé avec un acompte exigé : 400 dans la transaction, après le 404, les 409, « Client introuvable. » et les
-//    refus du temps passé ; 0 sans acompte exigé : admis, taux non enregistré ; taux par défaut réglé à 0 : état actuel ;
+//    refus du temps passé ; 0 sans acompte exigé : admis, taux non enregistré ; taux par défaut réglé à 0 : aucun acompte
+//    exigé (lot acompte, plus bas), le 0 envoyé restant refusé ;
 //  - acompte encaissé : conditions reprises telles quelles (0 et 50 ignorés), forme invalide refusée ;
 //  - devis inconnu (section 2) : 404 « Devis introuvable. » sur la modification, la révision, la signature, la
 //    conversion et l'annulation en session, et par clé sur la modification, la révision et la conversion ; la forme du
@@ -32,7 +50,15 @@
 //  - plafond de 100 % et taux par défaut à 37,5 % (tests de 78896b7, absents de `main`, repris) ;
 //  - copie figée : révision, duplication, taux par défaut changé après coup ;
 //  - lignes saisies à la virgule (section 4, « Ces valeurs sont envoyées brutes, puisque le serveur lit la virgule ») :
-//    quantité « 1,5 », PU « 18,75 », TVA « 5,5 » enregistrées exactement.
+//    quantité « 1,5 », PU « 18,75 », TVA « 5,5 » enregistrées exactement ;
+//  - lot acompte, section 1 : nouvelle installation à 40 % (base neuve de ce fichier), devis exigé à 40 % et son PDF ;
+//  - lot acompte, section 2 : réglage à 0 %, en session (chaque compte qui écrit les devis) et par clé, montants relus en
+//    base : création sans acompte ni taux, cas (a) à (e) des critères, duplication, inchangés (0 % envoyé refusé, taux
+//    explicite enregistré), PDF sans acompte ;
+//  - lot acompte, section 4 : conversion par cible, depuis `ACCEPTE` et depuis `EN_ATTENTE_ACOMPTE`, par chaque compte qui
+//    convertit et par clé, avec les transitions de statut, la constatation et la liste « à convertir ».
+// Chaque test qui règle le taux par défaut remet, dans un `finally`, la valeur lue au départ dans la base neuve (et non
+// une valeur supposée du schéma).
 //
 // Fichier propre au lot, avec sa base jetable (#552 : suppression dans un `finally`, retentée, connexion administrative
 // toujours fermée) : `node --test` exécute les fichiers en parallèle, api.test.mjs purge les données « TEST » de
@@ -47,9 +73,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test, { after, before, describe } from 'node:test';
 import pg from 'pg';
+import { PDFParse } from 'pdf-parse';
 import { empreinteBase, tablesChangees, tablesDeLaBase } from './matrice-droits/outils.mjs';
 
-const TITRE = 'Lot devis : taux d’acompte refusé plutôt que remplacé, 0 % exigé refusé, devis inconnu en 404, taux par défaut lu avant la transaction (#252, #250/#240, #426)';
+const TITRE = 'Lots devis et acompte : taux d’acompte refusé plutôt que remplacé, 0 % exigé refusé, devis inconnu en 404, taux par défaut lu avant la transaction (#252, #250/#240, #426) ; taux par défaut à 40 %, réglage à 0 % sans acompte, l’acompte ne retient que le chantier (décisions du 17-11-2026)';
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 // Refus du lot, mot pour mot (cadrage v3 et interfaces données par Claude Code), et refus existants qu'il range.
@@ -72,12 +99,40 @@ const REFUS = {
   session: 'Session expirée ou invalide',
   // Message du plafond avant le lot : il disparaît, la borne de 100 étant dans le contrôle de forme (cadrage, section 1).
   ancienPlafond: 'Le taux d’acompte ne peut pas dépasser 100 %.',
+  // Conversion (lot acompte, section 4) : messages actuels du code, gardés pour le chantier (« Chantier : les étapes 3, 4
+  // et 7 restent inchangées »), et refus inchangés de l'intervention et du contrat.
+  chantierAcompteNonConstate: 'L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert.',
+  chantierAttendAcompte: 'Ce devis attend son acompte : le chantier ne peut pas encore être ouvert.',
+  // Anciens refus de l'intervention et du contrat, que la décision 5 retire (lecture écartée par chaque test de conversion).
+  interventionAcompteNonConstate: 'L’acompte exigé par ce devis n’a pas été constaté : l’intervention ne peut pas être créée.',
+  contratAcompteNonConstate: 'L’acompte exigé par ce devis n’a pas été constaté : le contrat ne peut pas être créé.',
+  interventionAttendAcompte: 'Ce devis attend son acompte : l’intervention ne peut pas encore être créée.',
+  contratAttendAcompte: 'Ce devis attend son acompte : le contrat ne peut pas encore être créé.',
+  statutFige: 'Ce devis est déjà converti : son statut ne change plus.',
+  chantierOuvert: 'Le chantier de ce devis est déjà ouvert : seule une annulation peut revenir dessus.',
+  // Route de statut : refus de #578 (correctif du contrôle avant fusion de #576) et refus existants qui le précèdent ou
+  // l'encadrent.
+  acompteDejaConstate: 'L’acompte de ce devis a déjà été constaté.',
+  acompteNonConstate: 'L’acompte de ce devis n’a pas encore été constaté.',
+  nExigePas: 'Ce devis n’exige pas d’acompte.',
+  transitionBrouillonAttente: 'Transition BROUILLON → EN_ATTENTE_ACOMPTE interdite.',
+  nonAccepte: 'Seul un devis accepté peut être converti.',
+  nonSigne: 'Seul un devis signé en interne peut être converti.',
+  versionPlusRecente: 'Seule la dernière version non annulée du dossier peut être convertie.',
+  annuleIntervention: 'Ce devis est annulé : il ne peut plus créer d’intervention.',
+  annuleContrat: 'Ce devis est annulé : il ne peut plus créer de contrat.',
+  encadrementSav: 'Création réservée à l’encadrement SAV.',
+  gestionContrats: 'La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique.',
+  sessionSeule: 'Une intervention ou un contrat ne se crée depuis un devis que dans une session de l’application.',
+  // Contrat (rang 1) puis intervention (rang 2) : les conversions sont nommées dans leur ordre.
+  deuxConversions: 'Ce devis a déjà créé son contrat et son intervention : une affaire se convertit au plus deux fois.',
 };
 
 // Formes admises (cadrage, section 1 et critères « « 37,5 » et 100 sont admis et relus en base, en décimal exact »).
 // [libellé, valeur envoyée, attendu en base (toString du Decimal(5,2)), attendu dans la réponse]. `{ brut }` : écrit tel
-// quel dans le texte JSON (le nombre JSON 1e2). Chaque commentaire dit la lecture écartée ; le taux par défaut vaut 30 (ou
-// 37,5 dans les tests qui le règlent), distinct de chaque attendu : un retour au taux par défaut se voit toujours.
+// quel dans le texte JSON (le nombre JSON 1e2). Chaque commentaire dit la lecture écartée ; le taux par défaut vaut 40 dans
+// la base neuve (décision du 17-11-2026 ; 30 avant elle, 37,5 dans les tests qui le règlent), distinct de chaque attendu :
+// un retour au taux par défaut se voit toujours.
 const FORMES_ADMISES = [
   ['« 37,5 » (virgule)', '37,5', '37.5', 37.5], // critère du cadrage ; écarte `parseFloat` (37), une virgule lue en séparateur de milliers (375, hors bornes), un arrondi à l'unité (38) et le taux par défaut (30).
   ['« 37.5 » (point)', '37.5', '37.5', 37.5], // le point reste admis.
@@ -163,6 +218,9 @@ if (!TEST_DATABASE_URL) {
     const cles = {};
     let client = null;
     let mainOeuvre = null;
+    // Taux d'acompte par défaut lu dans la base neuve avant tout test (lot acompte : 40, valeur du schéma depuis la
+    // migration 20261117120000) ; chaque test qui règle le taux le remet à cette valeur.
+    let tauxDeDepart = null;
 
     // --- Comptes ---
     const creerCompte = async (role, cle, extra = {}) => {
@@ -224,10 +282,24 @@ if (!TEST_DATABASE_URL) {
       assert.equal(res.status, 200, JSON.stringify(res.body));
       assert.equal((await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } })).tauxAcompteDefaut.toString(), String(taux).replace(',', '.'));
     };
-    // Le taux par défaut revient à 30 (valeur du schéma) même si une assertion échoue (N4 de l'audit de #250).
+    // Le taux par défaut revient à la valeur lue au départ, même si une assertion échoue (N4 de l'audit de #250 ; lot
+    // acompte, section « Tests » : « remettent désormais la valeur lue au départ, sans supposer celle du schéma »).
     const avecTauxParDefaut = async (taux, corps) => {
-      await reglerTauxParDefaut(taux);
-      try { await corps(); } finally { await reglerTauxParDefaut(30); }
+      try {
+        await reglerTauxParDefaut(taux);
+        await corps();
+      } finally {
+        await reglerTauxParDefaut(tauxDeDepart);
+      }
+    };
+    // PDF d'un devis (GET /api/devis/:id/document.pdf, session), en texte.
+    const textePdf = async (id, auth = SA()) => {
+      const res = await request(app).get(`/api/devis/${id}/document.pdf`).set(auth).buffer(true)
+        .parse((reponse, fin) => { const morceaux = []; reponse.on('data', (m) => morceaux.push(m)); reponse.on('end', () => fin(null, Buffer.concat(morceaux))); });
+      assert.equal(res.status, 200, String(res.body));
+      assert.equal(res.headers['content-type'], 'application/pdf');
+      const lecteur = new PDFParse({ data: res.body });
+      try { return (await lecteur.getText()).text; } finally { await lecteur.destroy(); }
     };
     const aujourdhui = async () => {
       const societe = await prisma.companySettings.findUnique({ where: { id: 'singleton' } });
@@ -292,7 +364,8 @@ if (!TEST_DATABASE_URL) {
         prixVenteHt: '45.50', prixJourHorsContratHt: '320', prixHeureSousContratHt: '40', prixJourSousContratHt: '280.25', heuresParJour: '7.5',
       }), 201);
       const parametres = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' } });
-      assert.equal(parametres.tauxAcompteDefaut.toString(), '30', 'taux par défaut de la base neuve : la valeur du schéma');
+      // Valeur lue, éprouvée par le test « nouvelle installation » (40 %) ; les tests qui règlent le taux y reviennent.
+      tauxDeDepart = parametres.tauxAcompteDefaut.toString();
       assert.equal(parametres.pasTempsPasseMinutes, null, 'pas du temps passé vide dans une base neuve');
       tables = await tablesDeLaBase(prisma);
       assert.ok(tables.includes('Devis') && tables.includes('DevisLigne') && tables.includes('SequenceAffaire') && tables.length > 40, `tables relevées : ${tables.join(', ')}`);
@@ -562,7 +635,8 @@ if (!TEST_DATABASE_URL) {
     // formé est admis et, comme le 0, n'est pas enregistré (« le taux n'est pas enregistré, comme aujourd'hui » ;
     // acompteDevisPayload : `if (!acompteExige) return { acompteExige, tauxAcompte: null }`). Lecture écartée (audit des montants
     // de #571, mutant S20) : un taux valide non nul gardé sur un devis sans acompte, servi par l'API et entré dans le contenu
-    // signé. La case cochée ensuite, sans taux, prend le taux par défaut (30), et non le taux envoyé plus tôt.
+    // signé. La case cochée ensuite, sans taux, prend le taux par défaut (la valeur lue au départ, 40 depuis le lot acompte ;
+    // 30 avant lui), et non le taux envoyé plus tôt (50, 37,5 ou 100, chacun distinct de 40).
     test('sans acompte exigé : un taux valide non nul (50, « 37,5 », 100) est admis sans être enregistré, à la création et à la modification, en session et par clé ; la case cochée ensuite sans taux prend le taux par défaut', async () => {
       for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
         for (const valeur of [50, '37,5', 100]) {
@@ -577,7 +651,7 @@ if (!TEST_DATABASE_URL) {
           await ok(modifier(nonExige.id, corpsDevis({ objet: nonExige.objet, tauxAcompte: valeur }), auth, porte));
           assert.deepEqual(await conditions(nonExige.id), { acompteExige: false, tauxAcompte: null }, `${qui}, devis non exigé, case absente, ${valeur}`);
           await ok(modifier(cree.id, corpsDevis({ objet: cree.objet, acompteExige: true }), auth, porte));
-          assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: '30' }, `${qui}, case cochée ensuite sans taux, ${valeur}`);
+          assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: tauxDeDepart }, `${qui}, case cochée ensuite sans taux, ${valeur}`);
         }
       }
     });
@@ -604,20 +678,28 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
-    // Cadrage, « Taux par défaut à 0 % : non traité, question pour Nelson (Q1) » : « le devis est enregistré exigé à 0 %, et
-    // la duplication recopie le taux par défaut ». État actuel, gardé en attente de Q1, et non une règle : ce test prouve que
-    // le refus vise le 0 % envoyé, et non le taux qui résulte du calcul (un refus du taux calculé refuserait la clé absente).
-    test('taux par défaut réglé à 0 % (Q1, comportement actuel gardé) : un taux absent ou vide donne un devis exigé à 0 %, la duplication recopie 0 ; seul le 0 envoyé est refusé', async () => {
+    // Q1, répondue par Nelson le 17-11-2026 (« si l'accompte est reglé a 0% du coup rien n'est exiger en accompte et donc ne
+    // figure pas sur la facture ni le devis ») ; cadrage v3.1 du lot acompte, section 2 : « quand le taux retenu est le taux
+    // par défaut et qu'il vaut 0, le devis est enregistré sans acompte exigé (`acompteExige: false`, `tauxAcompte: null`),
+    // même si le corps en demande un » ; la duplication d'un devis exigé « s'il vaut 0, le duplicata naît sans acompte » ;
+    // « un 0 % envoyé avec un acompte exigé reste refusé (400) ». Test réécrit : avant la réponse, il gardait l'état d'alors
+    // (devis exigé à 0 %, duplication recopiant 0). Lectures écartées : devis exigé à 0 % (état d'avant, taux '0') ; refus
+    // 400 du réglage à 0 % (refus du taux calculé, qui refuserait aussi la clé absente) ; 0 % envoyé admis ; duplicata exigé
+    // au taux de sa source (35).
+    test('Q1 répondue : taux par défaut réglé à 0 %, un acompte exigé sans taux (clé absente, null, chaîne vide) donne un devis sans acompte ni taux, la duplication d’un devis exigé aussi ; seul le 0 envoyé est refusé', async () => {
+      const source = await creerOk({ acompteExige: true, tauxAcompte: 35 });
       await avecTauxParDefaut(0, async () => {
         for (const [quoi, extra] of [['clé absente', {}], ['null', { tauxAcompte: null }], ['chaîne vide', { tauxAcompte: '' }]]) {
           const cree = await ok(creer(corpsDevis({ acompteExige: true, ...extra })), 201);
-          assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: '0' }, quoi);
+          assert.deepEqual([cree.acompteExige, cree.tauxAcompte], [false, null], `${quoi} : réponse`);
+          assert.deepEqual(await conditions(cree.id), { acompteExige: false, tauxAcompte: null }, quoi);
         }
-        const source = await creerOk({ acompteExige: true, tauxAcompte: 35 });
         const duplicata = await ok(appeler('post', `/api/devis/${source.id}/duplication`, {}), 201);
-        assert.deepEqual(await conditions(duplicata.id), { acompteExige: true, tauxAcompte: '0' }, 'duplication : taux par défaut du jour');
+        assert.deepEqual([duplicata.acompteExige, duplicata.tauxAcompte], [false, null], 'duplication : réponse');
+        assert.deepEqual(await conditions(duplicata.id), { acompteExige: false, tauxAcompte: null }, 'duplication : taux par défaut du jour à 0 %');
         await refuse(() => creer(corpsDevis({ acompteExige: true, tauxAcompte: 0 })), 400, REFUS.zero, '0 envoyé');
       });
+      assert.deepEqual(await conditions(source.id), { acompteExige: true, tauxAcompte: '35' }, 'la source garde ses conditions');
     });
 
     // ==================================================================================================================
@@ -817,6 +899,529 @@ if (!TEST_DATABASE_URL) {
           assert.deepEqual([d.totalHt.toString(), d.totalTva.toString(), d.totalTtc.toString()], ['28.13', '1.55', '29.68'], `${qui}, ${cas} : totaux`);
         }
       }
+    });
+
+    // ==================================================================================================================
+    // Lot acompte, section 1 : taux par défaut à 40 % (décision 1 de Nelson du 17-11-2026 : « par defaut, le reglage doit
+    // etre a 40% d'accompte, qui sera modifiable dans les parametre de société justement »).
+    // ==================================================================================================================
+
+    // Critère « Nouvelle installation : le taux par défaut vaut 40 %. Un nouveau devis, case cochée d'office, est enregistré
+    // exigé à 40 %. Son PDF porte « Acompte demandé : 40 % » ». La base de ce fichier est neuve, migrée jusqu'à la dernière
+    // migration ; la ligne des réglages y est créée à la demande avec les valeurs par défaut de la base (cadrage, section 1).
+    // La case cochée de l'écran envoie `acompteExige: true` sans clé de taux (tests de l'écran) : c'est le corps joué ici.
+    // Lectures écartées : défaut resté à 30 (« Acompte demandé : 30 % », taux '30') ; aucun acompte (taux null).
+    test('nouvelle installation : le taux d’acompte par défaut vaut 40 % ; un devis créé avec l’acompte exigé, sans taux, est exigé à 40 % en session et par clé, et son PDF porte « Acompte demandé : 40 % »', async () => {
+      assert.equal(tauxDeDepart, '40', 'taux par défaut de la base neuve, lu avant tout test');
+      const lus = await ok(request(app).get('/api/parametres').set(SA()));
+      assert.equal(lus.tauxAcompteDefaut, 40, 'réglage servi à l’administration');
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        const cree = await ok(creer(corpsDevis({ acompteExige: true }), auth, porte), 201);
+        assert.deepEqual([cree.acompteExige, cree.tauxAcompte], [true, 40], `${qui} : réponse`);
+        assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: '40' }, `${qui} : en base`);
+        const texte = await textePdf(cree.id);
+        assert.ok(texte.includes('Acompte demandé : 40 %'), `${qui} : PDF\n${texte}`);
+      }
+    });
+
+    // Cadrage v3.1, section 3, « Clé d'intégration : à la création, une clé `acompteExige` absente reste « non exigé »
+    // (`!!body.acompteExige`), sans changement » (lecture retenue, à confirmer : la case cochée d'office est un choix de
+    // l'écran, non le défaut de l'API). Taux par défaut réglé à 40 %, non nul : écarte un défaut de l'API passé à « exigé »
+    // (le devis naîtrait exigé à 40 %).
+    test('création sans la clé acompteExige, taux par défaut à 40 % : le devis reste sans acompte ni taux (contrat de l’API inchangé), en session et par clé', async () => {
+      await avecTauxParDefaut(40, async () => {
+        for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+          for (const [quoi, extra] of [['sans taux', {}], ['taux vide', { tauxAcompte: '' }], ['taux null', { tauxAcompte: null }]]) {
+            const cree = await ok(creer(corpsDevis(extra), auth, porte), 201);
+            assert.deepEqual([cree.acompteExige, cree.tauxAcompte], [false, null], `${qui}, ${quoi} : réponse`);
+            assert.deepEqual(await conditions(cree.id), { acompteExige: false, tauxAcompte: null }, `${qui}, ${quoi} : en base`);
+          }
+        }
+      });
+    });
+
+    // ==================================================================================================================
+    // Lot acompte, section 2 : réglage à 0 %, aucun acompte exigé (réponse de Nelson à Q1, 17-11-2026).
+    // ==================================================================================================================
+
+    // Critère « Réglage à 0 %, en session et par clé, montants relus en base : création avec acompte exigé sans taux :
+    // enregistré sans acompte ni taux ; (…) PDF et historique sans acompte » ; section 2 : « à la création, valeur vide ou
+    // clé absente ». Chaque compte qui porte devis:write (droit individuel compris) et la clé. Lectures écartées : devis
+    // exigé à 0 % (état d'avant la réponse à Q1 : taux '0', PDF « Acompte demandé : 0 % ») ; refus 400 (réglage à 0 % lu
+    // comme un 0 % envoyé) ; taux de la base neuve (40) ou de l'ancien schéma (30) appliqué. Témoin du PDF : un devis exigé
+    // à 25 %, taux explicite enregistré malgré le réglage, imprime bien son acompte.
+    test('réglage à 0 %, création : l’acompte exigé sans taux (clé absente, null, chaîne vide, blancs) donne un devis sans acompte ni taux, en session par chaque compte qui écrit les devis et par clé ; son PDF n’imprime aucun acompte', async () => {
+      await avecTauxParDefaut(0, async () => {
+        const joueurs = [...ECRIVENT().map(([c, a]) => [c, a, PORTES.session]), ['clé devis:write', cles.devis, PORTES.cle]];
+        const crees = [];
+        for (const [compte, auth, porte] of joueurs) {
+          for (const [quoi, extra] of [['clé absente', {}], ...FORMES_VIDES.map(([q, v]) => [q, { tauxAcompte: v }])]) {
+            const res = await creer(corpsDevis({ acompteExige: true, ...extra }), auth, porte);
+            assert.equal(res.status, 201, `${compte}, ${quoi} : ${JSON.stringify(res.body)}`);
+            assert.deepEqual([res.body.acompteExige, res.body.tauxAcompte], [false, null], `${compte}, ${quoi} : réponse`);
+            assert.deepEqual(await conditions(res.body.id), { acompteExige: false, tauxAcompte: null }, `${compte}, ${quoi} : en base`);
+            crees.push(res.body.id);
+          }
+        }
+        for (const id of [crees[0], crees[crees.length - 1]]) {
+          const texte = await textePdf(id);
+          assert.ok(!texte.includes('Acompte demandé'), `PDF d’un devis enregistré sans acompte :\n${texte}`);
+          assert.match(texte, /Total TTC : 240,00 €/, 'le PDF lu est bien celui du devis (2 × 100,00 € HT, TVA 20 %)');
+        }
+        const temoin = await creerOk({ acompteExige: true, tauxAcompte: 25 });
+        assert.deepEqual(await conditions(temoin.id), { acompteExige: true, tauxAcompte: '25' }, 'témoin : taux explicite enregistré');
+        assert.ok((await textePdf(temoin.id)).includes('Acompte demandé : 25 %'), 'témoin : le PDF d’un devis exigé imprime son acompte');
+      });
+    });
+
+    // Critères (a) et (b) du réglage à 0 % : « (a) modification d'un devis exigé à 40 %, clé du taux absente : 40 % gardé ;
+    // (b) même devis, `tauxAcompte` à `null` ou `""` : enregistré sans acompte » ; lecture retenue, à confirmer : « La
+    // valeur vide prend le taux par défaut ; la clé absente le garde ». Devis exigés à 40 % (taux de la base neuve) et à 35 %
+    // (négocié, distinct du défaut d'hier et d'aujourd'hui), créés avant le passage à 0 % ; case cochée envoyée ou absente.
+    // Lectures écartées : (a) taux renégocié au réglage (devis sans acompte, ou exigé à 0 %), ou constante 40 au lieu du taux
+    // du devis (35) ; (b) vide traité comme absent (40 % gardé), ou devis exigé à 0 %.
+    test('réglage à 0 % : (a) un devis exigé à 40 % ou à 35 % modifié sans la clé du taux garde son taux ; (b) avec un taux vide (null, chaîne vide, blancs), il est enregistré sans acompte ; en session et par clé', async () => {
+      const casA = []; const casB = [];
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        for (const corps of [{ acompteExige: true }, {}]) {
+          for (const [extra, attendu] of [[{}, '40'], [{ tauxAcompte: 35 }, '35']]) {
+            const devis = await creerOk({ acompteExige: true, ...extra });
+            assert.deepEqual(await conditions(devis.id), { acompteExige: true, tauxAcompte: attendu }, 'devis préparé avant le réglage à 0 %');
+            casA.push({ devis, porte, auth, cas: `${qui}, ${JSON.stringify(corps)}, devis à ${attendu} %`, corps, attendu });
+          }
+          for (const [quoi, valeur] of FORMES_VIDES) {
+            casB.push({ devis: await creerOk({ acompteExige: true }), porte, auth, cas: `${qui}, ${JSON.stringify(corps)}, ${quoi}`, corps, valeur });
+          }
+        }
+      }
+      await avecTauxParDefaut(0, async () => {
+        for (const { devis, porte, auth, cas, corps, attendu } of casA) {
+          const res = await ok(modifier(devis.id, corpsDevis({ objet: `TEST Objet changé ${suffixe()}`, ...corps }), auth, porte));
+          assert.deepEqual([res.acompteExige, res.tauxAcompte], [true, Number(attendu)], `(a) ${cas} : réponse`);
+          assert.deepEqual(await conditions(devis.id), { acompteExige: true, tauxAcompte: attendu }, `(a) ${cas} : taux gardé`);
+        }
+        for (const { devis, porte, auth, cas, corps, valeur } of casB) {
+          const res = await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, ...corps, tauxAcompte: valeur }), auth, porte));
+          assert.deepEqual([res.acompteExige, res.tauxAcompte], [false, null], `(b) ${cas} : réponse`);
+          assert.deepEqual(await conditions(devis.id), { acompteExige: false, tauxAcompte: null }, `(b) ${cas} : sans acompte`);
+        }
+      });
+    });
+
+    // Critère (c) : « révision d'un devis signé exigé à 40 % : 40 % gardé, y compris quand on enregistre depuis l'écran la
+    // révision ouverte en modification » ; section 2, « la révision recopie les conditions ». L'écran envoie à la
+    // modification son formulaire sans clé de taux (Devis.tsx, `{ ...form, lignes }` : client, objet, case, temps passé,
+    // lignes en texte) : ce corps est rejoué tel quel, en session ; par clé, la révision et sa modification sans taux. Les PDF
+    // du devis signé et de sa révision portent toujours « Acompte demandé : 40 % » (copie figée). Lectures écartées : révision
+    // qui relit le réglage (sans acompte, ou à 0 %) ; modification qui renégocie au réglage ; document relu au réglage du jour.
+    test('réglage à 0 % : (c) la révision d’un devis signé exigé à 40 % garde 40 %, y compris enregistrée ensuite avec le corps de l’écran (case cochée, sans clé de taux), en session et par clé', async () => {
+      const sources = [];
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        const source = await creerOk({ acompteExige: true });
+        await signer(source.id);
+        sources.push({ source, porte, auth, qui });
+      }
+      await avecTauxParDefaut(0, async () => {
+        for (const { source, porte, auth, qui } of sources) {
+          const revision = await ok(appeler('post', `${porte}/${source.id}/revisions`, {}, auth), 201);
+          assert.deepEqual([revision.acompteExige, revision.tauxAcompte], [true, 40], `${qui}, révision : réponse`);
+          assert.deepEqual(await conditions(revision.id), { acompteExige: true, tauxAcompte: '40' }, `${qui}, révision : conditions recopiées`);
+          const corpsEcran = {
+            clientId: client.id, objet: `${revision.objet} modifiée`, acompteExige: true, auTempsPasse: false,
+            lignes: [{ designation: 'TEST Pose du lot devis', nature: 'MAIN_OEUVRE', quantite: '3', prixUnitaireHt: '100', tauxTva: '20' }],
+          };
+          const modifiee = await ok(modifier(revision.id, corpsEcran, auth, porte));
+          assert.deepEqual([modifiee.acompteExige, modifiee.tauxAcompte], [true, 40], `${qui}, révision enregistrée comme l’écran : réponse`);
+          assert.deepEqual(await conditions(revision.id), { acompteExige: true, tauxAcompte: '40' }, `${qui}, révision enregistrée comme l’écran : 40 % gardé`);
+          assert.deepEqual(await conditions(source.id), { acompteExige: true, tauxAcompte: '40' }, `${qui} : le devis signé est inchangé`);
+          // Copie figée : le réglage passé à 0 % ne retire pas l'acompte du document du devis signé, ni de sa révision.
+          for (const [id, quoi] of [[source.id, 'devis signé'], [revision.id, 'révision']]) {
+            assert.ok((await textePdf(id)).includes('Acompte demandé : 40 %'), `${qui}, ${quoi} : PDF à 40 % malgré le réglage à 0 %`);
+          }
+        }
+      });
+    });
+
+    // Critère (d) : « acompte constaté, puis modification : conditions inchangées » ; section 2, « un acompte encaissé fige
+    // les conditions ». Réglage à 0 % : case cochée sans taux, taux null, taux vide sans la case, corps sans case ni taux,
+    // case décochée, 0 envoyé. Écarte un réglage à 0 % appliqué avant la reprise des conditions encaissées (le devis
+    // perdrait l'acompte qu'il a reçu) et un 0 envoyé refusé avant cette reprise.
+    test('réglage à 0 % : (d) un devis exigé à 40 % dont l’acompte est constaté garde ses conditions et son acompte à chaque modification, en session et par clé', async () => {
+      const devis = await creerOk({ acompteExige: true });
+      await ok(appeler('post', `/api/devis/${devis.id}/acompte`, { recuLe: await aujourdhui(), montant: '96,00', reference: `TEST-ACOMPTE-${suffixe()}` }));
+      const encaisse = async () => {
+        const d = await prisma.devis.findUniqueOrThrow({ where: { id: devis.id } });
+        return [d.acompteExige, d.tauxAcompte?.toString(), d.acompteRecuLe?.toISOString(), d.acompteMontant?.toString(), d.acompteReference, d.acompteConstateParId, d.statut];
+      };
+      const avant = await encaisse();
+      assert.deepEqual([avant[0], avant[1], avant[3]], [true, '40', '96']);
+      await avecTauxParDefaut(0, async () => {
+        for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+          for (const corps of [{ acompteExige: true }, { acompteExige: true, tauxAcompte: null }, { tauxAcompte: '' }, {}, { acompteExige: false }, { acompteExige: true, tauxAcompte: 0 }]) {
+            const res = await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, ...corps }), auth, porte));
+            assert.deepEqual([res.acompteExige, res.tauxAcompte], [true, 40], `${qui}, ${JSON.stringify(corps)} : réponse`);
+            assert.deepEqual(await encaisse(), avant, `${qui}, ${JSON.stringify(corps)} : conditions et acompte constaté inchangés`);
+          }
+        }
+      });
+    });
+
+    // Critère (e) : « devis non exigé dont on coche la case en modification : enregistré sans acompte » ; section 2, « à la
+    // modification, (…) case cochée sur un devis qui n'exigeait pas d'acompte ». Clé du taux absente, null, chaîne vide.
+    // Témoin : un taux explicite (25) y est enregistré (« un taux explicite (…) est enregistré quel que soit le réglage »).
+    // Lectures écartées : devis passé exigé à 0 % ; refus 400 ; taux de la base neuve (40) appliqué.
+    test('réglage à 0 % : (e) un devis sans acompte dont on coche la case en modification reste sans acompte (clé du taux absente, null, chaîne vide) ; un taux explicite de 25 % y est enregistré ; en session et par clé', async () => {
+      await avecTauxParDefaut(0, async () => {
+        for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+          for (const [quoi, extra] of [['clé absente', {}], ['null', { tauxAcompte: null }], ['chaîne vide', { tauxAcompte: '' }]]) {
+            const devis = await creerOk({ acompteExige: false });
+            const res = await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, acompteExige: true, ...extra }), auth, porte));
+            assert.deepEqual([res.acompteExige, res.tauxAcompte], [false, null], `${qui}, ${quoi} : réponse`);
+            assert.deepEqual(await conditions(devis.id), { acompteExige: false, tauxAcompte: null }, `${qui}, ${quoi} : sans acompte`);
+          }
+          const temoin = await creerOk({ acompteExige: false });
+          await ok(modifier(temoin.id, corpsDevis({ objet: temoin.objet, acompteExige: true, tauxAcompte: '25' }), auth, porte));
+          assert.deepEqual(await conditions(temoin.id), { acompteExige: true, tauxAcompte: '25' }, `${qui}, témoin : taux explicite enregistré`);
+        }
+      });
+    });
+
+    // Critère « duplication d'un devis exigé : duplicata sans acompte » ; section 2 : « le duplicata d'un devis exigé prend
+    // le taux par défaut du jour. S'il vaut 0, le duplicata naît sans acompte ». Sources exigées à 40 % et à 25 % (taux
+    // distinct du réglage), et une source sans acompte ; par l'administration et par l'assistante technique (devis:write).
+    // Le réglage revenu à la valeur de départ (40), la même source exigée donne un duplicata exigé à 40 %. Lectures
+    // écartées : duplicata exigé à 0 % (état d'avant) ; taux de la source recopié (25) ; duplicata exigé sans taux.
+    test('réglage à 0 % : la duplication d’un devis exigé (à 40 % ou à 25 %) donne un duplicata sans acompte ni taux ; revenue à 40 %, la même source donne un duplicata exigé à 40 %', async () => {
+      const exigeA40 = await creerOk({ acompteExige: true });
+      const exigeA25 = await creerOk({ acompteExige: true, tauxAcompte: 25 });
+      const sansAcompte = await creerOk({ acompteExige: false });
+      const dupliquer = (id, auth) => ok(appeler('post', `/api/devis/${id}/duplication`, {}, auth), 201);
+      await avecTauxParDefaut(0, async () => {
+        for (const compte of ['SA', 'AT']) {
+          for (const [source, quoi] of [[exigeA40, 'source exigée à 40 %'], [exigeA25, 'source exigée à 25 %'], [sansAcompte, 'source sans acompte']]) {
+            const duplicata = await dupliquer(source.id, comptes[compte].auth);
+            assert.deepEqual([duplicata.acompteExige, duplicata.tauxAcompte], [false, null], `${compte}, ${quoi} : réponse`);
+            assert.deepEqual(await conditions(duplicata.id), { acompteExige: false, tauxAcompte: null }, `${compte}, ${quoi} : duplicata sans acompte`);
+          }
+        }
+      });
+      const duplicata = await dupliquer(exigeA25.id, SA());
+      assert.deepEqual(await conditions(duplicata.id), { acompteExige: true, tauxAcompte: tauxDeDepart }, 'réglage revenu à 40 % : duplicata exigé au taux du jour');
+      assert.deepEqual(await conditions(exigeA25.id), { acompteExige: true, tauxAcompte: '25' }, 'la source garde ses conditions');
+    });
+
+    // Critère « Inchangés : un 0 % envoyé avec un acompte exigé est refusé (400) ; un taux explicite est enregistré quel que
+    // soit le réglage » (section 2 : « la réponse 1 porte sur le réglage, et Q1 distinguait les deux cas »). Réglage à 0 % :
+    // le 0 envoyé est refusé à la création, à la modification d'un devis exigé (case cochée ou absente) et d'un devis non
+    // exigé dont on coche la case, sans aucune écriture ni numéro ; « 25 », « 12,25 » et 100 sont enregistrés exactement à la
+    // création et à la modification. Lectures écartées : 0 envoyé admis quand le réglage vaut 0 (devis sans acompte en
+    // silence) ; taux explicite remplacé par le réglage (devis sans acompte) ; arrondi de « 12,25 » (12,3 ou 12,2).
+    test('réglage à 0 %, inchangés : le 0 % envoyé avec un acompte exigé reste refusé (400) sans écriture ; un taux explicite (25, « 12,25 », 100) est enregistré exactement ; en session et par clé', async () => {
+      const exigeA35 = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      const nonExige = await creerOk({ acompteExige: false });
+      await avecTauxParDefaut(0, async () => {
+        for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+          for (const [quoi, valeur] of FORMES_ZERO.slice(0, 3)) {
+            await refuse(() => creer(corpsDevis({ acompteExige: true, tauxAcompte: valeur }), auth, porte), 400, REFUS.zero, `${qui}, création, ${quoi}`);
+            await refuse(() => modifier(exigeA35.id, corpsDevis({ acompteExige: true, tauxAcompte: valeur }), auth, porte), 400, REFUS.zero, `${qui}, devis exigé, case cochée, ${quoi}`);
+            await refuse(() => modifier(exigeA35.id, corpsDevis({ tauxAcompte: valeur }), auth, porte), 400, REFUS.zero, `${qui}, devis exigé, case absente, ${quoi}`);
+            await refuse(() => modifier(nonExige.id, corpsDevis({ acompteExige: true, tauxAcompte: valeur }), auth, porte), 400, REFUS.zero, `${qui}, devis non exigé, case cochée, ${quoi}`);
+          }
+          for (const [valeur, enBase, enReponse] of [['25', '25', 25], ['12,25', '12.25', 12.25], [100, '100', 100]]) {
+            const cree = await ok(creer(corpsDevis({ acompteExige: true, tauxAcompte: valeur }), auth, porte), 201);
+            assert.deepEqual([cree.acompteExige, cree.tauxAcompte], [true, enReponse], `${qui}, création à ${valeur} : réponse`);
+            assert.deepEqual(await conditions(cree.id), { acompteExige: true, tauxAcompte: enBase }, `${qui}, création à ${valeur}`);
+            const devis = await creerOk({ acompteExige: false });
+            await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, acompteExige: true, tauxAcompte: valeur }), auth, porte));
+            assert.deepEqual(await conditions(devis.id), { acompteExige: true, tauxAcompte: enBase }, `${qui}, modification à ${valeur}`);
+          }
+        }
+        assert.deepEqual(await conditions(exigeA35.id), { acompteExige: true, tauxAcompte: '35' });
+        assert.deepEqual(await conditions(nonExige.id), { acompteExige: false, tauxAcompte: null });
+      });
+    });
+
+    // ==================================================================================================================
+    // Lot acompte, section 4 : l'acompte ne bloque que le chantier (décision 5 de Nelson du 17-11-2026, « L'acompte ne
+    // bloque que le chantier »). Elle remplace, pour l'intervention et le contrat, la règle du lot 4 (« chaque conversion
+    // garde ses règles (acompte constaté… »).
+    // ==================================================================================================================
+
+    const corpsConversion = async (cible) => (cible === 'CONTRAT'
+      ? { cible, periodiciteMois: 12, dureePrevisionnelleMinutes: 60, dateDebut: await aujourdhui() }
+      : { cible });
+    const convertir = async (id, cible, auth = SA(), porte = PORTES.session) => appeler('post', `${porte}/${id}/convertir`, await corpsConversion(cible), auth);
+    // Devis accepté et signé (la signature le passe « accepté »), acompte exigé au taux de la base neuve (40 %), non constaté.
+    const devisSigneAvecAcompte = async (extra = {}) => {
+      const devis = await creerOk({ acompteExige: true, ...extra });
+      await signer(devis.id);
+      return devis;
+    };
+    const etatDevis = async (id) => {
+      const d = await prisma.devis.findUniqueOrThrow({ where: { id }, include: { conversions: { orderBy: { rang: 'asc' } } } });
+      return { statut: d.statut, acompteExige: d.acompteExige, tauxAcompte: d.tauxAcompte === null ? null : d.tauxAcompte.toString(), acompteConstate: d.acompteRecuLe !== null, conversions: d.conversions.map((c) => [c.cibleType, c.rang]) };
+    };
+    const aConvertir = async (auth = SA()) => (await ok(request(app).get('/api/devis/a-convertir').set(auth))).map((d) => d.id);
+    const changerStatut = (id, statut, auth = SA()) => appeler('put', `/api/devis/${id}/statut`, { statut }, auth);
+    const constater = async (id, auth = SA()) => appeler('post', `/api/devis/${id}/acompte`, { recuLe: await aujourdhui(), montant: '96,00', reference: `TEST-ACOMPTE-CONVERSION-${suffixe()}` }, auth);
+    // Conversion admise : 201, la conversion enregistrée au rang attendu, la cible créée pour le client du devis.
+    const converti = async (devis, cible, auth, rang, quoi) => {
+      const res = await convertir(devis.id, cible, auth);
+      assert.equal(res.status, 201, `${quoi} : ${JSON.stringify(res.body)}`);
+      const conversion = await prisma.devisConversion.findFirstOrThrow({ where: { devisId: devis.id, cibleType: cible } });
+      assert.deepEqual([conversion.cibleId, conversion.rang], [res.body.id, rang], `${quoi} : conversion enregistrée`);
+      const modele = { INTERVENTION: prisma.intervention, CONTRAT: prisma.contratMaintenance, CHANTIER: prisma.chantier }[cible];
+      assert.equal((await modele.findUniqueOrThrow({ where: { id: res.body.id } })).clientId, client.id, `${quoi} : créé pour le client du devis`);
+      return res.body;
+    };
+
+    // Critères « Conversion, devis accepté et signé, acompte exigé non constaté : en intervention : admise ; en contrat :
+    // admise ; en chantier : refusée (message actuel) » et « depuis `ACCEPTE`, une fois le devis converti, « Attendre
+    // l'acompte » n'est plus proposé et la route le refuse ». Par chaque compte qui crée l'intervention et le contrat
+    // (administration et assistante technique, cf. gereLesContrats et estEncadrementCoutIntervention), chacun sur son devis :
+    // chantier refusé avant toute conversion, intervention, chantier encore refusé (une seule conversion : l'étape du verrou
+    // d'acompte est atteinte), contrat ; le devis reste « accepté », exigé à 40 %, sans acompte constaté. Lectures écartées :
+    // verrou d'acompte appliqué à l'intervention ou au contrat (400 « L’acompte exigé par ce devis n’a pas été constaté :
+    // l’intervention ne peut pas être créée. ») ; verrou retiré pour le chantier (201) ; statut changé par la conversion.
+    test('conversion d’un devis accepté et signé, acompte exigé non constaté : l’intervention et le contrat sont créés (201) par l’administration et l’assistante technique, le chantier est refusé (400, message actuel) sans écriture ; le devis reste accepté et la route de statut refuse ensuite « Attendre l’acompte »', async () => {
+      for (const compte of ['SA', 'AD', 'AD-COM', 'DIR', 'AT']) {
+        const auth = comptes[compte].auth;
+        const devis = await devisSigneAvecAcompte();
+        assert.deepEqual(await etatDevis(devis.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [] }, `${compte} : devis préparé`);
+        await refuse(() => convertir(devis.id, 'CHANTIER', auth), 400, REFUS.chantierAcompteNonConstate, `${compte}, chantier avant toute conversion`);
+        await converti(devis, 'INTERVENTION', auth, 1, `${compte}, intervention`);
+        await refuse(() => convertir(devis.id, 'CHANTIER', auth), 400, REFUS.chantierAcompteNonConstate, `${compte}, chantier après l’intervention`);
+        await converti(devis, 'CONTRAT', auth, 2, `${compte}, contrat`);
+        assert.deepEqual(await etatDevis(devis.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [['INTERVENTION', 1], ['CONTRAT', 2]] }, `${compte} : devis après ses deux conversions`);
+        await refuse(() => changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE', auth), 400, REFUS.statutFige, `${compte}, « Attendre l’acompte » après la conversion`);
+      }
+      // Conducteur de travaux à qui le droit devis:write est donné : il crée l'intervention (encadrement SAV), jamais le
+      // contrat ; le chantier lui est refusé par le verrou d'acompte.
+      const parConducteur = await devisSigneAvecAcompte();
+      const conducteur = comptes['CT+devis:write'].auth;
+      await refuse(() => convertir(parConducteur.id, 'CHANTIER', conducteur), 400, REFUS.chantierAcompteNonConstate, 'CT+devis:write, chantier');
+      await refuse(() => convertir(parConducteur.id, 'CONTRAT', conducteur), 403, REFUS.gestionContrats, 'CT+devis:write, contrat');
+      await converti(parConducteur, 'INTERVENTION', conducteur, 1, 'CT+devis:write, intervention');
+    });
+
+    // Droits inchangés (cadrage, section 4 ; N2 du contrôle) : la décision 5 ne change que le verrou d'acompte. Sur un devis
+    // à l'acompte attendu, accepté puis en attente d'acompte : les porteurs de devis:write hors encadrement SAV et hors
+    // gestion des contrats (commercial, directeur commercial, assistante commerciale, comptable) restent refusés (403) pour
+    // l'intervention et le contrat, et le chantier leur est refusé par l'acompte ; la clé d'intégration ne crée ni
+    // intervention ni contrat (403) ; les comptes sans devis:write sont refusés (403). Aucune écriture.
+    test('conversion d’un devis à l’acompte attendu, droits inchangés : commercial, directeur commercial, assistante commerciale et comptable refusés (403) pour l’intervention et le contrat, clé d’intégration refusée (403), comptes sans devis:write refusés, sans écriture', async () => {
+      const devis = await devisSigneAvecAcompte();
+      for (const statut of ['ACCEPTE', 'EN_ATTENTE_ACOMPTE']) {
+        if (statut === 'EN_ATTENTE_ACOMPTE') await ok(changerStatut(devis.id, statut));
+        const attenteChantier = statut === 'ACCEPTE' ? REFUS.chantierAcompteNonConstate : REFUS.chantierAttendAcompte;
+        for (const compte of ['COM', 'DC', 'AC', 'CPT']) {
+          const auth = comptes[compte].auth;
+          await refuse(() => convertir(devis.id, 'INTERVENTION', auth), 403, REFUS.encadrementSav, `${compte}, ${statut}, intervention`);
+          await refuse(() => convertir(devis.id, 'CONTRAT', auth), 403, REFUS.gestionContrats, `${compte}, ${statut}, contrat`);
+          await refuse(() => convertir(devis.id, 'CHANTIER', auth), 400, attenteChantier, `${compte}, ${statut}, chantier`);
+        }
+        for (const cible of ['INTERVENTION', 'CONTRAT']) await refuse(() => convertir(devis.id, cible, cles.devis, PORTES.cle), 403, REFUS.sessionSeule, `clé, ${statut}, ${cible}`);
+        await refuse(() => convertir(devis.id, 'CHANTIER', cles.devis, PORTES.cle), 400, attenteChantier, `clé, ${statut}, chantier`);
+        for (const [compte, auth] of SANS_DROIT()) {
+          for (const cible of ['INTERVENTION', 'CONTRAT', 'CHANTIER']) await refuse(() => convertir(devis.id, cible, auth), 403, REFUS.permission, `${compte}, ${statut}, ${cible}`);
+        }
+      }
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [] });
+    });
+
+    // Critères « depuis `EN_ATTENTE_ACOMPTE` : l'intervention répond 201 et le devis reste en attente d'acompte ; la route
+    // de statut refuse ensuite tout changement (« Ce devis est déjà converti : son statut ne change plus. ») ; le chantier est
+    // refusé (« Ce devis attend son acompte : le chantier ne peut pas encore être ouvert. ») ; le devis est absent de la
+    // liste « à convertir » ; après la constatation, il repasse `ACCEPTE`, entre dans la liste, et le chantier s'ouvre en
+    // seconde conversion ». Joué par l'assistante technique (statut, intervention, liste), la constatation restant à
+    // l'administration (403 pour elle, inchangé). Lectures écartées : `EN_ATTENTE_ACOMPTE` qui retient encore l'intervention
+    // (400 « Ce devis attend son acompte : l’intervention ne peut pas encore être créée. ») ; statut admis resté `ACCEPTE`
+    // seul (400 « Seul un devis accepté peut être converti. ») ; conversion qui repasse le devis « accepté » ; constatation
+    // qui ne repasse plus « accepté » un devis converti (le chantier resterait refusé).
+    test('conversion depuis « en attente d’acompte » : l’intervention est créée (201) et le devis reste en attente, son statut ne change plus, le chantier est refusé et le devis absent de la liste « à convertir » ; constaté, il repasse accepté, entre dans la liste et ouvre son chantier en seconde conversion', async () => {
+      const at = comptes.AT.auth;
+      const devis = await devisSigneAvecAcompte();
+      const attente = await ok(changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE', at));
+      assert.equal(attente.statut, 'EN_ATTENTE_ACOMPTE');
+      await refuse(() => convertir(devis.id, 'CHANTIER', at), 400, REFUS.chantierAttendAcompte, 'chantier avant l’intervention');
+      assert.ok(!(await aConvertir(at)).includes(devis.id), 'en attente d’acompte : absent de la liste « à convertir »');
+      await converti(devis, 'INTERVENTION', at, 1, 'AT, intervention depuis l’attente d’acompte');
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [['INTERVENTION', 1]] }, 'le devis reste en attente d’acompte');
+      for (const statut of ['ACCEPTE', 'EN_ATTENTE_ACOMPTE', 'REFUSE', 'BROUILLON']) {
+        await refuse(() => changerStatut(devis.id, statut, at), 400, REFUS.statutFige, `statut ${statut} après la conversion (AT)`);
+      }
+      await refuse(() => changerStatut(devis.id, 'ACCEPTE'), 400, REFUS.statutFige, 'statut ACCEPTE après la conversion (SA)');
+      await refuse(() => convertir(devis.id, 'CHANTIER', at), 400, REFUS.chantierAttendAcompte, 'chantier après l’intervention, acompte non constaté');
+      assert.ok(!(await aConvertir(at)).includes(devis.id), 'converti en intervention, acompte attendu : toujours absent de la liste');
+      await refuse(() => constater(devis.id, at), 403, REFUS.administration, 'constatation par l’assistante technique');
+      const constate = await ok(constater(devis.id));
+      assert.equal(constate.statut, 'ACCEPTE', 'la constatation repasse le devis converti « accepté »');
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: true, conversions: [['INTERVENTION', 1]] });
+      assert.ok((await aConvertir(at)).includes(devis.id), 'acompte constaté : le devis entre dans la liste « à convertir »');
+      const chantier = await converti(devis, 'CHANTIER', at, 2, 'AT, chantier en seconde conversion');
+      assert.deepEqual((await etatDevis(devis.id)).conversions, [['INTERVENTION', 1], ['CHANTIER', 2]]);
+      const interventionId = (await prisma.devisConversion.findFirstOrThrow({ where: { devisId: devis.id, cibleType: 'INTERVENTION' } })).cibleId;
+      assert.equal((await prisma.intervention.findUniqueOrThrow({ where: { id: interventionId } })).chantierId, chantier.id, 'l’intervention du devis est rattachée au chantier ouvert ensuite');
+      assert.ok(!(await aConvertir(at)).includes(devis.id), 'chantier ouvert : le devis sort de la liste');
+    });
+
+    // Même règle pour le contrat (décision 5 ; description de l'option, texte de Claude Code : « une intervention SAV ou un
+    // contrat se créent sans attendre l'acompte »), par le directeur puis l'administrateur, deux conversions depuis
+    // l'attente d'acompte ; puis l'ordre des refus du chantier, inchangé (cadrage, section 4, C1 du contrôle) : « attend son
+    // acompte » (étape 3) passe avant « déjà converti » (étape 6) ; une fois l'acompte constaté, la troisième conversion est
+    // refusée (409). Et la même suite depuis `ACCEPTE` : intervention créée, devis absent de la liste tant que l'acompte
+    // n'est pas constaté, présent après, chantier ouvert.
+    test('conversion depuis « en attente d’acompte » en contrat puis en intervention (201, devis toujours en attente) ; le chantier y est refusé « attend son acompte » avant « déjà converti », puis, constaté, par la limite de deux conversions (409) ; depuis « accepté », la liste « à convertir » attend la constatation', async () => {
+      const devis = await devisSigneAvecAcompte();
+      await ok(changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE', comptes.DIR.auth));
+      await converti(devis, 'CONTRAT', comptes.DIR.auth, 1, 'DIR, contrat depuis l’attente d’acompte');
+      await converti(devis, 'INTERVENTION', comptes.AD.auth, 2, 'AD, intervention depuis l’attente d’acompte');
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [['CONTRAT', 1], ['INTERVENTION', 2]] });
+      await refuse(() => convertir(devis.id, 'CHANTIER'), 400, REFUS.chantierAttendAcompte, 'chantier, deux conversions, en attente d’acompte');
+      assert.equal((await ok(constater(devis.id))).statut, 'ACCEPTE');
+      await refuse(() => convertir(devis.id, 'CHANTIER'), 409, REFUS.deuxConversions, 'chantier, acompte constaté, troisième conversion');
+
+      const accepte = await devisSigneAvecAcompte();
+      await converti(accepte, 'INTERVENTION', comptes.AT.auth, 1, 'AT, intervention depuis « accepté »');
+      assert.ok(!(await aConvertir()).includes(accepte.id), 'acompte non constaté : absent de la liste « à convertir »');
+      const constate = await ok(constater(accepte.id));
+      assert.equal(constate.statut, 'ACCEPTE', 'la constatation laisse « accepté » un devis accepté');
+      assert.ok((await aConvertir()).includes(accepte.id), 'acompte constaté : présent dans la liste');
+      await converti(accepte, 'CHANTIER', SA(), 2, 'SA, chantier en seconde conversion');
+    });
+
+    // #578 (R1 du contrôle avant fusion de #576, relevé aussi par l'audit des montants ; correctif dans la route de statut) :
+    // « Attendre l’acompte » reste admis sans acompte constaté (200), et le retour à « accepté » reste refusé tant qu'il ne
+    // l'est pas ; une fois l'acompte constaté (le devis repasse « accepté »), le retour en attente est refusé (400 « L’acompte
+    // de ce devis a déjà été constaté. »), sans aucune écriture : en session (SA, AT) et par clé sur chacun son devis, puis
+    // par chaque compte qui écrit les devis. Avant le correctif, il y repassait ; converti ensuite en intervention ou en
+    // contrat depuis l'attente (décision 5), il gardait un statut figé, sa constatation déjà faite, et son chantier ne
+    // s'ouvrait plus jamais. La suite du parcours de R1 est rejouée : resté accepté, le devis crée son intervention, reste
+    // dans la liste « à convertir » et ouvre son chantier en seconde conversion. Lectures écartées : le retour en attente
+    // admis après la constatation (l'impasse redevient atteignable) ; le refus appliqué à tout devis exigé, constaté ou non,
+    // qui retirerait « Attendre l’acompte ».
+    test('#578 : « Attendre l’acompte » reste admis sans acompte constaté (200) ; constaté, le devis repasse accepté et n’y retourne plus (400, sans écriture), en session par chaque compte qui écrit les devis et par clé ; resté accepté, il crée son intervention et ouvre son chantier', async () => {
+      let devis = null;
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session SA'], [PORTES.session, comptes.AT.auth, 'session AT'], [PORTES.cle, cles.devis, 'clé']]) {
+        devis = await devisSigneAvecAcompte();
+        const statut = (valeur) => appeler('put', `${porte}/${devis.id}/statut`, { statut: valeur }, auth);
+        assert.equal((await ok(statut('EN_ATTENTE_ACOMPTE'))).statut, 'EN_ATTENTE_ACOMPTE', `${qui} : « Attendre l’acompte » sans acompte constaté`);
+        assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [] }, `${qui} : en base`);
+        await refuse(() => statut('ACCEPTE'), 400, REFUS.acompteNonConstate, `${qui} : retour à « accepté » sans acompte constaté`);
+        assert.equal((await ok(constater(devis.id))).statut, 'ACCEPTE', `${qui} : la constatation repasse le devis accepté`);
+        await refuse(() => statut('EN_ATTENTE_ACOMPTE'), 400, REFUS.acompteDejaConstate, `${qui} : retour en attente après la constatation`);
+      }
+      for (const [compte, auth] of ECRIVENT()) {
+        await refuse(() => changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE', auth), 400, REFUS.acompteDejaConstate, `${compte}, retour en attente après la constatation`);
+      }
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: true, conversions: [] }, 'statut inchangé');
+      await converti(devis, 'INTERVENTION', comptes.AT.auth, 1, 'AT, intervention du devis à l’acompte constaté');
+      assert.equal((await etatDevis(devis.id)).statut, 'ACCEPTE', 'converti en intervention, le devis reste accepté');
+      assert.ok((await aConvertir()).includes(devis.id), 'il reste dans la liste « à convertir »');
+      await converti(devis, 'CHANTIER', SA(), 2, 'SA, chantier en seconde conversion');
+    });
+
+    // #578, ordre des refus de la route de statut (correctif : le contrôle vient après le statut figé, la transition et
+    // « Ce devis n’exige pas d’acompte. ») : devis constaté puis converti en chantier ou en intervention, refus du statut
+    // figé ; brouillon à l'acompte constaté (la constatation est admise sur un brouillon), refus de la transition ; devis
+    // « accepté » sans acompte exigé mais à l'acompte constaté, « Ce devis n’exige pas d’acompte. » : état inatteignable par
+    // les routes (la constatation exige un acompte, et un devis signé fige son acompte), posé en base sur un devis non signé
+    // (fixture théorique). En session et par clé, sans écriture. Lecture écartée : le nouveau refus placé avant les autres.
+    test('#578 : le refus « acompte déjà constaté » vient après le statut figé, la transition et « Ce devis n’exige pas d’acompte. », en session et par clé, sans écriture', async () => {
+      const chantierOuvert = await devisSigneAvecAcompte();
+      await ok(constater(chantierOuvert.id));
+      await converti(chantierOuvert, 'CHANTIER', SA(), 1, 'chantier du devis constaté');
+      const interventionCreee = await devisSigneAvecAcompte();
+      await ok(constater(interventionCreee.id));
+      await converti(interventionCreee, 'INTERVENTION', SA(), 1, 'intervention du devis constaté');
+      const brouillon = await creerOk({ acompteExige: true });
+      await ok(constater(brouillon.id));
+      const theorique = await creerOk({ acompteExige: false });
+      await prisma.devis.update({ where: { id: theorique.id }, data: { statut: 'ACCEPTE', acompteRecuLe: new Date(), acompteMontant: '96', acompteReference: `TEST-THEORIQUE-${suffixe()}` } });
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        const attendre = (id) => appeler('put', `${porte}/${id}/statut`, { statut: 'EN_ATTENTE_ACOMPTE' }, auth);
+        await refuse(() => attendre(chantierOuvert.id), 400, REFUS.chantierOuvert, `${qui}, chantier ouvert`);
+        await refuse(() => attendre(interventionCreee.id), 400, REFUS.statutFige, `${qui}, intervention créée`);
+        await refuse(() => attendre(brouillon.id), 400, REFUS.transitionBrouillonAttente, `${qui}, brouillon constaté`);
+        await refuse(() => attendre(theorique.id), 400, REFUS.nExigePas, `${qui}, accepté sans acompte exigé, constaté (fixture théorique)`);
+      }
+    });
+
+    // Proposé par l'audit des droits de #576 (T1, mutant M11 survivant), adapté après #578 : un devis « en attente
+    // d'acompte » dont l'acompte est constaté n'est plus atteignable par les routes (la constatation depuis l'attente repasse
+    // le devis « accepté », et le retour en attente d'un devis constaté est refusé). Le test le vérifie d'abord par les
+    // routes, puis garde, sur cet état posé en base (fixture théorique, défense en profondeur), ce qui reste vérifiable : la
+    // liste « à convertir » et la conversion en chantier disent la même chose (absent de la liste ; chantier refusé « attend
+    // son acompte », sans écriture). Il ne juge plus normale la suite de cet état (intervention créée, devis figé en attente,
+    // chantier jamais ouvert) : c'est l'état bloquant que #578 ferme. Lecture écartée : la liste élargie au statut
+    // EN_ATTENTE_ACOMPTE, qui proposerait un chantier aussitôt refusé.
+    test('audit des droits de #576, après #578 : « en attente d’acompte, acompte constaté » n’est plus atteignable par les routes ; posé en base, le devis reste absent de la liste « à convertir » et le chantier lui est refusé sans écriture', async () => {
+      const devis = await devisSigneAvecAcompte();
+      await ok(changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE'));
+      assert.equal((await ok(constater(devis.id))).statut, 'ACCEPTE', 'constaté depuis l’attente : le devis repasse accepté');
+      await refuse(() => changerStatut(devis.id, 'EN_ATTENTE_ACOMPTE', comptes.AT.auth), 400, REFUS.acompteDejaConstate, 'retour en attente du devis constaté');
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: true, conversions: [] }, 'l’état « en attente, constaté » n’est pas atteint');
+      await prisma.devis.update({ where: { id: devis.id }, data: { statut: 'EN_ATTENTE_ACOMPTE' } });
+      assert.ok(!(await aConvertir()).includes(devis.id), 'fixture théorique : absent de la liste « à convertir »');
+      await refuse(() => convertir(devis.id, 'CHANTIER'), 400, REFUS.chantierAttendAcompte, 'fixture théorique : chantier refusé');
+    });
+
+    // Refus inchangés de l'intervention et du contrat (cadrage, section 4 : seul le statut `EN_ATTENTE_ACOMPTE` s'ajoute à
+    // `ACCEPTE` ; « l'ordre des refus ne change pas ») : brouillon, envoyé et refusé (« Seul un devis accepté peut être
+    // converti. »), annulé (« Ce devis est annulé : … »), en attente d'acompte sans signature (statut posé en base, « le
+    // statut peut être manipulé ») et ancienne version en attente d'acompte (409, avant tout). Aucune écriture. Lecture
+    // écartée : le statut admis élargi à tout statut pour l'intervention et le contrat, ou la signature et la dernière
+    // version non contrôlées depuis l'attente d'acompte.
+    test('conversion en intervention ou en contrat, refus inchangés : brouillon, envoyé et refusé (« Seul un devis accepté peut être converti. »), annulé, en attente d’acompte sans signature, ancienne version en attente d’acompte (409), sans écriture', async () => {
+      const brouillon = await creerOk({ acompteExige: true });
+      const envoye = await creerOk({ acompteExige: true });
+      await ok(changerStatut(envoye.id, 'ENVOYE'));
+      const refuseDevis = await creerOk({ acompteExige: true });
+      await refuser(refuseDevis.id);
+      const annule = await devisSigneAvecAcompte();
+      await ok(appeler('post', `/api/devis/${annule.id}/annulation`, { motif: 'TEST Annulation du devis à l’acompte attendu' }));
+      const sansSignature = await creerOk({ acompteExige: true });
+      await prisma.devis.update({ where: { id: sansSignature.id }, data: { statut: 'EN_ATTENTE_ACOMPTE' } });
+      const ancienne = await devisSigneAvecAcompte();
+      await ok(changerStatut(ancienne.id, 'EN_ATTENTE_ACOMPTE'));
+      await ok(appeler('post', `/api/devis/${ancienne.id}/revisions`, {}), 201);
+      for (const [devis, cas, intervention, contrat, statut] of [
+        [brouillon, 'brouillon', REFUS.nonAccepte, REFUS.nonAccepte, 400],
+        [envoye, 'envoyé', REFUS.nonAccepte, REFUS.nonAccepte, 400],
+        [refuseDevis, 'refusé', REFUS.nonAccepte, REFUS.nonAccepte, 400],
+        [annule, 'annulé', REFUS.annuleIntervention, REFUS.annuleContrat, 400],
+        [sansSignature, 'en attente d’acompte sans signature', REFUS.nonSigne, REFUS.nonSigne, 400],
+        [ancienne, 'ancienne version en attente d’acompte', REFUS.versionPlusRecente, REFUS.versionPlusRecente, 409],
+      ]) {
+        for (const auth of [SA(), comptes.AT.auth]) {
+          await refuse(() => convertir(devis.id, 'INTERVENTION', auth), statut, intervention, `${cas}, intervention`);
+          await refuse(() => convertir(devis.id, 'CONTRAT', auth), statut, contrat, `${cas}, contrat`);
+        }
+      }
+    });
+
+    // Copie figée (section 2, « Inchangés » ; schema.prisma : « Le devis fige SA valeur à l'émission ») croisée avec la
+    // conversion (section 4) : un devis exigé à 40 % avant le passage du réglage à 0 % garde son acompte exigé, et son
+    // chantier attend toujours la constatation, qu'il soit accepté ou en attente d'acompte ; l'intervention se crée sans
+    // attendre, comme sans le réglage. Lecture écartée (audit des montants de #576, mutant C12) : le réglage du jour à 0 %
+    // lu à la conversion, qui ouvrirait le chantier d'un devis exigé sans acompte constaté (« rien n'est exigé » appliqué aux
+    // devis déjà émis) ; de même, la liste « à convertir » qui le proposerait.
+    test('réglage passé à 0 % après l’émission : le devis exigé à 40 % garde son acompte ; son chantier reste refusé, accepté ou en attente d’acompte, et absent de la liste « à convertir » jusqu’à la constatation ; l’intervention se crée sans attendre', async () => {
+      const accepte = await devisSigneAvecAcompte();
+      const attente = await devisSigneAvecAcompte();
+      await ok(changerStatut(attente.id, 'EN_ATTENTE_ACOMPTE'));
+      await avecTauxParDefaut(0, async () => {
+        await refuse(() => convertir(accepte.id, 'CHANTIER'), 400, REFUS.chantierAcompteNonConstate, 'accepté, chantier, réglage à 0 %');
+        await refuse(() => convertir(attente.id, 'CHANTIER'), 400, REFUS.chantierAttendAcompte, 'en attente d’acompte, chantier, réglage à 0 %');
+        const liste = await aConvertir();
+        assert.ok(!liste.includes(accepte.id) && !liste.includes(attente.id), 'réglage à 0 % : ni l’un ni l’autre dans la liste « à convertir »');
+        await converti(accepte, 'INTERVENTION', SA(), 1, 'accepté, intervention, réglage à 0 %');
+        assert.deepEqual(await etatDevis(accepte.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [['INTERVENTION', 1]] }, 'le devis garde son acompte exigé à 40 %');
+        await refuse(() => convertir(accepte.id, 'CHANTIER'), 400, REFUS.chantierAcompteNonConstate, 'accepté, chantier après l’intervention, réglage à 0 %');
+        assert.equal((await ok(constater(attente.id))).statut, 'ACCEPTE', 'constaté : le devis repasse accepté');
+        assert.ok((await aConvertir()).includes(attente.id), 'constaté : dans la liste « à convertir »');
+        await converti(attente, 'CHANTIER', SA(), 1, 'constaté, chantier, réglage à 0 %');
+      });
     });
   });
 }
