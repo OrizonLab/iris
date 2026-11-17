@@ -209,8 +209,9 @@ const envoyerDevis: express.RequestHandler = async (req, res) => { try {
 // Cycle de vie d'un devis. `ANNULE` ne figure dans aucune liste de destinations : on n'y
 // entre que par la route d'annulation, qui exige un motif et vérifie le chantier lié — et
 // on n'en sort jamais. `EN_ATTENTE_ACOMPTE` est le choix explicite fait après acceptation :
-// ouvrir le chantier tout de suite, ou attendre l'acompte. Un devis peut y revenir tant
-// que l'acompte n'est pas constaté, ni une fois converti. Depuis la décision de Nelson du
+// ouvrir le chantier tout de suite, ou attendre l'acompte. Un devis accepté qui exige un acompte
+// peut y passer tant qu'il n'est pas converti, même acompte constaté (le chantier attend alors son
+// retour à « accepté ») ; il ne repasse « accepté » qu'acompte constaté. Depuis la décision de Nelson du
 // 17-11-2026 (« L'acompte ne bloque que le chantier »), ce statut ne retient que le chantier :
 // une intervention ou un contrat se créent sans attendre l'acompte.
 const TRANSITIONS_DEVIS: Record<string, string[]> = {
@@ -223,7 +224,9 @@ const TRANSITIONS_DEVIS: Record<string, string[]> = {
 };
 
 // Un devis converti est figé : il ne peut plus qu'être annulé, par sa propre route, avec ce qu'il a
-// créé (lot 4 suite) ; son statut ne change plus.
+// créé (lot 4 suite) ; la route de statut ne le change plus. Seule la constatation de l'acompte repasse
+// « accepté » un devis converti en intervention ou en contrat depuis l'attente d'acompte, pour l'ouverture
+// de son chantier (décision de Nelson du 17-11-2026, « L'acompte ne bloque que le chantier »).
 function refusStatutFige(devis: { statut: string; conversions: { cibleType: string }[] }): string | null {
   if (devis.statut === 'ANNULE') return 'Ce devis est annulé : son statut ne peut plus changer.';
   if (devis.conversions.some(c => c.cibleType === 'CHANTIER')) return 'Le chantier de ce devis est déjà ouvert : seule une annulation peut revenir dessus.';

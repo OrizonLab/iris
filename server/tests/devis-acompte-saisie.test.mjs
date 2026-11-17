@@ -1279,6 +1279,24 @@ if (!TEST_DATABASE_URL) {
       await converti(accepte, 'CHANTIER', SA(), 2, 'SA, chantier en seconde conversion');
     });
 
+    // Proposé par l'audit des droits de #576 (T1, mutant M11 survivant) : la liste « à convertir » et la conversion en
+    // chantier disent la même chose d'un devis « en attente d'acompte » dont l'acompte est déjà constaté (état que la route
+    // de statut produit : « Attendre l’acompte » reste admis après la constatation ; posé ici en base). Il reste absent de la
+    // liste, le chantier lui est refusé (« attend son acompte ») sans écriture, et l'assistante technique y crée
+    // l'intervention (201), le devis restant en attente. Lecture écartée : la liste élargie au statut EN_ATTENTE_ACOMPTE, qui
+    // proposerait un chantier aussitôt refusé.
+    test('audit des droits de #576 : en attente d’acompte, acompte constaté, le devis reste absent de la liste « à convertir » et le chantier lui est refusé sans écriture ; l’intervention y est créée', async () => {
+      const devis = await devisSigneAvecAcompte();
+      assert.equal((await ok(constater(devis.id))).statut, 'ACCEPTE');
+      await prisma.devis.update({ where: { id: devis.id }, data: { statut: 'EN_ATTENTE_ACOMPTE' } });
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: true, conversions: [] });
+      assert.ok(!(await aConvertir()).includes(devis.id), 'en attente d’acompte, même constaté : absent de la liste « à convertir »');
+      await refuse(() => convertir(devis.id, 'CHANTIER'), 400, REFUS.chantierAttendAcompte, 'chantier, en attente d’acompte, acompte constaté');
+      await converti(devis, 'INTERVENTION', comptes.AT.auth, 1, 'AT, intervention en attente d’acompte, acompte constaté');
+      assert.deepEqual(await etatDevis(devis.id), { statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: true, conversions: [['INTERVENTION', 1]] });
+      assert.ok(!(await aConvertir()).includes(devis.id), 'converti en intervention, toujours en attente : absent de la liste');
+    });
+
     // Refus inchangés de l'intervention et du contrat (cadrage, section 4 : seul le statut `EN_ATTENTE_ACOMPTE` s'ajoute à
     // `ACCEPTE` ; « l'ordre des refus ne change pas ») : brouillon, envoyé et refusé (« Seul un devis accepté peut être
     // converti. »), annulé (« Ce devis est annulé : … »), en attente d'acompte sans signature (statut posé en base, « le
@@ -1311,6 +1329,30 @@ if (!TEST_DATABASE_URL) {
           await refuse(() => convertir(devis.id, 'CONTRAT', auth), statut, contrat, `${cas}, contrat`);
         }
       }
+    });
+
+    // Copie figée (section 2, « Inchangés » ; schema.prisma : « Le devis fige SA valeur à l'émission ») croisée avec la
+    // conversion (section 4) : un devis exigé à 40 % avant le passage du réglage à 0 % garde son acompte exigé, et son
+    // chantier attend toujours la constatation, qu'il soit accepté ou en attente d'acompte ; l'intervention se crée sans
+    // attendre, comme sans le réglage. Lecture écartée (audit des montants de #576, mutant C12) : le réglage du jour à 0 %
+    // lu à la conversion, qui ouvrirait le chantier d'un devis exigé sans acompte constaté (« rien n'est exigé » appliqué aux
+    // devis déjà émis) ; de même, la liste « à convertir » qui le proposerait.
+    test('réglage passé à 0 % après l’émission : le devis exigé à 40 % garde son acompte ; son chantier reste refusé, accepté ou en attente d’acompte, et absent de la liste « à convertir » jusqu’à la constatation ; l’intervention se crée sans attendre', async () => {
+      const accepte = await devisSigneAvecAcompte();
+      const attente = await devisSigneAvecAcompte();
+      await ok(changerStatut(attente.id, 'EN_ATTENTE_ACOMPTE'));
+      await avecTauxParDefaut(0, async () => {
+        await refuse(() => convertir(accepte.id, 'CHANTIER'), 400, REFUS.chantierAcompteNonConstate, 'accepté, chantier, réglage à 0 %');
+        await refuse(() => convertir(attente.id, 'CHANTIER'), 400, REFUS.chantierAttendAcompte, 'en attente d’acompte, chantier, réglage à 0 %');
+        const liste = await aConvertir();
+        assert.ok(!liste.includes(accepte.id) && !liste.includes(attente.id), 'réglage à 0 % : ni l’un ni l’autre dans la liste « à convertir »');
+        await converti(accepte, 'INTERVENTION', SA(), 1, 'accepté, intervention, réglage à 0 %');
+        assert.deepEqual(await etatDevis(accepte.id), { statut: 'ACCEPTE', acompteExige: true, tauxAcompte: '40', acompteConstate: false, conversions: [['INTERVENTION', 1]] }, 'le devis garde son acompte exigé à 40 %');
+        await refuse(() => convertir(accepte.id, 'CHANTIER'), 400, REFUS.chantierAcompteNonConstate, 'accepté, chantier après l’intervention, réglage à 0 %');
+        assert.equal((await ok(constater(attente.id))).statut, 'ACCEPTE', 'constaté : le devis repasse accepté');
+        assert.ok((await aConvertir()).includes(attente.id), 'constaté : dans la liste « à convertir »');
+        await converti(attente, 'CHANTIER', SA(), 1, 'constaté, chantier, réglage à 0 %');
+      });
     });
   });
 }
