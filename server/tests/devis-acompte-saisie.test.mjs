@@ -60,6 +60,22 @@
 // Chaque test qui règle le taux par défaut remet, dans un `finally`, la valeur lue au départ dans la base neuve (et non
 // une valeur supposée du schéma).
 //
+// #570 (`suivi-audit`, note N5 du contrôle du cadrage du lot devis) : cadrage v2 du lot « case « acompte exigé » lue en
+// booléen strict (#570) et taux à la virgule dans le refus du plafond d'un avoir (#572) », contrôlé ; règle 2 : la case
+// décide si un devis porte un montant d'acompte. Lue par `!!body.acompteExige` avant le lot, la chaîne « false » exigeait
+// un acompte au taux par défaut, et `null` décochait la case d'un devis exigé. Prouvé ici (dernière section) :
+//  - clé présente : `true` ou `false` seuls admis, règles actuelles inchangées ; toute autre valeur (chaîne, nombre, `null`,
+//    objet, tableau) répond 400 « « acompteExige » doit valoir true ou false. » (message proposé, règle 5, choix par défaut,
+//    à confirmer), sans rien écrire ni consommer de numéro, en session par chaque compte qui écrit les devis et par clé ;
+//  - `null` refusé (lecture retenue du cadrage, à confirmer), et non lu comme « absent » comme `auTempsPasse` ;
+//  - clé absente : comportement actuel (création : non exigé ; modification : état du devis) ;
+//  - ordre : après le 403 des droits, les refus de `devisPayload` (corps incomplet, ligne, `auTempsPasse`) et le taux
+//    malformé ; avant « Client introuvable. », le 409 du pas non réglé, la numérotation, le 404 du devis inconnu, les 409
+//    (signé, converti, statut) et le refus du 0 % ;
+//  - acompte constaté (brouillon constaté, révision d'un devis signé constaté) : « false » refusé, `true` et `false` gardent
+//    les conditions ;
+//  - les routes qui ne lisent pas la case (révision, duplication, statut, constatation, conversion) l'ignorent.
+//
 // Fichier propre au lot, avec sa base jetable (#552 : suppression dans un `finally`, retentée, connexion administrative
 // toujours fermée) : `node --test` exécute les fichiers en parallèle, api.test.mjs purge les données « TEST » de
 // TEST_DATABASE_URL, et ce fichier change le taux d'acompte par défaut. TEST_DATABASE_URL ne sert ici que de connexion
@@ -126,7 +142,33 @@ const REFUS = {
   sessionSeule: 'Une intervention ou un contrat ne se crée depuis un devis que dans une session de l’application.',
   // Contrat (rang 1) puis intervention (rang 2) : les conversions sont nommées dans leur ordre.
   deuxConversions: 'Ce devis a déjà créé son contrat et son intervention : une affaire se convertit au plus deux fois.',
+  // #570 : refus de la case, mot pour mot (cadrage v2, périmètre 1, « Message proposé »), et refus existants qui
+  // l'encadrent dans l'ordre des contrôles.
+  acompteExige: '« acompteExige » doit valoir true ou false.',
+  auTempsPasse: '« auTempsPasse » doit valoir true ou false.',
+  ligne: 'Ligne de devis invalide.',
+  converti: 'Ce devis est déjà converti : il ne peut plus être modifié.',
 };
+
+// #570 : valeurs non booléennes de la case, refusées (400) quand la clé est présente (cadrage v2, périmètre 1 : « toute
+// autre valeur répond 400, sans rien écrire : chaîne, nombre, `null`, objet ou tableau »). Chaque commentaire dit ce que
+// `!!body.acompteExige` en faisait avant le lot (sonde du cadrage sur `289dc67`) et la lecture que le refus écarte.
+const CASES_REFUSEES = [
+  ['« false » (chaîne)', 'false'], // avant : exigé au taux par défaut, le défaut même de #570 ; écarte `!!` rétabli.
+  ['« true » (chaîne)', 'true'], // avant : exigé ; écarte une chaîne « true » admise comme vrai.
+  ['0 (nombre)', 0], // avant : non exigé ; écarte une lecture des nombres 0 et 1 comme booléens.
+  ['1 (nombre)', 1], // avant : exigé.
+  ['null', null], // avant : non exigé, et case décochée en modification ; écarte `null` lu comme faux, et `null` lu comme
+  // absent (comme `auTempsPasse` du même corps), qui garderait en silence un acompte exigé.
+  ['{} (objet)', {}], // avant : exigé.
+  ['[] (tableau)', []], // avant : exigé.
+  ['« 0 » (chaîne)', '0'], // constat du cadrage : exigé avant.
+  ['« non » (chaîne)', 'non'], // constat du cadrage : exigé avant.
+  ['« » (chaîne vide)', ''], // avant : non exigé ; écarte une chaîne vide lue comme absente, à la manière du taux vide.
+  ['[true] (tableau)', [true]], // écarte une lecture du premier élément.
+];
+// Valeurs jouées par chacun des autres comptes : la chaîne « false » (défaut de #570) et `null` (changement observable).
+const CASES_REFUSEES_COURTES = CASES_REFUSEES.filter(([quoi]) => ['« false » (chaîne)', 'null'].includes(quoi));
 
 // Formes admises (cadrage, section 1 et critères « « 37,5 » et 100 sont admis et relus en base, en décimal exact »).
 // [libellé, valeur envoyée, attendu en base (toString du Decimal(5,2)), attendu dans la réponse]. `{ brut }` : écrit tel
@@ -1422,6 +1464,278 @@ if (!TEST_DATABASE_URL) {
         assert.ok((await aConvertir()).includes(attente.id), 'constaté : dans la liste « à convertir »');
         await converti(attente, 'CHANTIER', SA(), 1, 'constaté, chantier, réglage à 0 %');
       });
+    });
+
+    // ==================================================================================================================
+    // #570 : case « acompte exigé » lue en booléen strict (cadrage v2 du lot, périmètre 1 et critères observables).
+    // ==================================================================================================================
+
+    const ligneTempsPasse = () => ({ tempsPasse: true, designation: 'TEST Main d’œuvre au temps passé', quantite: 1, tarifTempsPasse: 'HORS_CONTRAT', catalogueFamille: 'prestations', catalogueId: mainOeuvre.id });
+    // Rang d'un numéro d'affaire (« A26-0042 » : 42), pour prouver qu'aucun numéro n'est consommé entre deux créations.
+    const rangNumero = (numero) => {
+      assert.match(numero, /^A\d{2}-\d{4,}$/, `numéro d’affaire ${numero}`);
+      return Number(numero.split('-')[1]);
+    };
+    // Conditions d'acompte et constatation d'un devis, relues en base.
+    const acompteEnBase = async (id) => {
+      const d = await prisma.devis.findUniqueOrThrow({ where: { id } });
+      return [d.acompteExige, d.tauxAcompte?.toString() ?? null, d.acompteRecuLe?.toISOString() ?? null, d.acompteMontant?.toString() ?? null, d.acompteReference, d.acompteConstateParId, d.statut, d.objet];
+    };
+    // Joueurs d'un refus : toutes les valeurs pour le super administrateur et la clé, les deux valeurs courtes pour chacun
+    // des autres comptes qui écrivent les devis (droit individuel compris).
+    const joueursCase = () => [
+      ['SA', SA(), PORTES.session, CASES_REFUSEES],
+      ['clé devis:write', cles.devis, PORTES.cle, CASES_REFUSEES],
+      ...ECRIVENT().filter(([c]) => c !== 'SA').map(([c, a]) => [c, a, PORTES.session, CASES_REFUSEES_COURTES]),
+    ];
+
+    // Critère « `POST /devis` (…), en session et par clé, avec `acompteExige` valant "false", "true", 0, 1, null, {} ou [] :
+    // 400 au message exact, sans écriture (empreinte de la base, numérotation des devis inchangée) ». Chaque valeur avec et
+    // sans taux (un taux valide ne fait pas passer la case). La numérotation est prouvée deux fois : empreinte de toute la
+    // base (SequenceAffaire comprise) à chaque refus, et le devis créé après tous les refus porte le numéro qui suit celui
+    // du devis créé avant eux. Lectures écartées : voir CASES_REFUSEES.
+    test('#570, création : une case « acompteExige » non booléenne (« false », « true », 0, 1, null, {}, [] …) est refusée (400, message exact), avec ou sans taux, sans écriture ni numéro consommé, en session par chaque compte qui écrit les devis et par clé', async () => {
+      const avant = await creerOk({ acompteExige: false });
+      const sequenceAvant = await prisma.sequenceAffaire.findMany();
+      for (const [compte, auth, porte, valeurs] of joueursCase()) {
+        for (const [quoi, valeur] of valeurs) {
+          for (const [avecTaux, extra] of [['sans taux', {}], ['taux 35', { tauxAcompte: 35 }], ['taux vide', { tauxAcompte: '' }]]) {
+            await refuse(() => creer(corpsDevis({ ...extra, acompteExige: valeur }), auth, porte), 400, REFUS.acompteExige, `${compte}, création, ${quoi}, ${avecTaux}`);
+          }
+        }
+      }
+      assert.deepEqual(await prisma.sequenceAffaire.findMany(), sequenceAvant, 'aucun numéro d’affaire consommé');
+      const apres = await creerOk({ acompteExige: false });
+      assert.equal(rangNumero(apres.numero), rangNumero(avant.numero) + 1, `numérotation continue : ${avant.numero} puis ${apres.numero}`);
+    });
+
+    // Critère « `PATCH /devis/:id`, en session et par clé, avec `acompteExige` valant (…) : 400 au message exact, sans
+    // écriture » ; « Changement observable : en modification, `null` décochait la case ; il est désormais refusé ». Devis
+    // exigé à 35 % et devis non exigé, requête mêlée (objet et lignes changés, avec ou sans taux) : rien n'est écrit, pas
+    // même l'objet. Lectures écartées : `null` lu comme faux (case décochée, taux retiré : l'état d'avant le lot) ; `null` lu
+    // comme absent (200, 35 % gardé) ; « false » lu par `!!` (200, case gardée cochée).
+    test('#570, modification : une case non booléenne est refusée (400, message exact) sur un devis exigé à 35 % et sur un devis non exigé, requête mêlée, sans écriture, en session par chaque compte et par clé ; null ne décoche plus la case', async () => {
+      const exigeA35 = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      const nonExige = await creerOk({ acompteExige: false });
+      const etatsAvant = [await acompteEnBase(exigeA35.id), await acompteEnBase(nonExige.id)];
+      assert.deepEqual(etatsAvant.map((e) => e.slice(0, 2)), [[true, '35'], [false, null]]);
+      for (const [compte, auth, porte, valeurs] of joueursCase()) {
+        for (const [quoi, valeur] of valeurs) {
+          for (const [devis, extra, cas] of [
+            [exigeA35, {}, 'devis exigé à 35 %'],
+            [exigeA35, { tauxAcompte: 50 }, 'devis exigé à 35 %, taux 50'],
+            [nonExige, {}, 'devis non exigé'],
+            [nonExige, { tauxAcompte: '25' }, 'devis non exigé, taux 25'],
+          ]) {
+            const envoye = { ...corpsDevis({ objet: `TEST Objet changé ${suffixe()}`, lignes: [ligneLibre({ quantite: 3 })] }), ...extra, acompteExige: valeur };
+            await refuse(() => modifier(devis.id, envoye, auth, porte), 400, REFUS.acompteExige, `${compte}, ${cas}, ${quoi}`);
+          }
+        }
+      }
+      assert.deepEqual([await acompteEnBase(exigeA35.id), await acompteEnBase(nonExige.id)], etatsAvant, 'conditions, statut et objet inchangés');
+    });
+
+    // Cadrage, périmètre 1, « Ordre des contrôles », création : le lecteur est appelé juste après `lireTauxAcompteSaisi`
+    // (`routes.ts:81`) ; « il passe donc après le 403 des droits et après les refus de `devisPayload` (corps incomplet, lignes,
+    // `auTempsPasse`), et après celui du taux (un taux et une case tous deux malformés : message du taux) ; il passe avant
+    // « Client introuvable. », le 409 du pas non réglé et la numérotation (création), (…) et avant le refus du 0 % ("false" avec
+    // `tauxAcompte: 0` : message de la case, et non celui du 0 %) ». Chaque refus qui suit la case a son témoin (case booléenne :
+    // le refus suivant est bien atteint). Lectures écartées : contrôle placé seulement dans `acompteDevisPayload` (après le
+    // client, le temps passé et la résolution des lignes : « Client introuvable. » ou 409) ; contrôle avant `devisPayload` ou
+    // avant le taux ; refus du 0 % avant la case.
+    test('#570, création, ordre des refus : la case est contrôlée après les droits (403, 401), le corps incomplet, la ligne invalide, « auTempsPasse » et le taux malformé ; avant « Client introuvable. », le 409 du pas non réglé, le refus du 0 % et la numérotation ; en session et par clé, sans écriture', async () => {
+      const sequenceAvant = await prisma.sequenceAffaire.findMany();
+      for (const [compte, auth] of SANS_DROIT()) {
+        await refuse(() => creer(corpsDevis({ acompteExige: 'false' }), auth), 403, REFUS.permission, `${compte}, « false »`);
+        await refuse(() => creer(corpsDevis({ acompteExige: null, tauxAcompte: 'abc' }), auth), 403, REFUS.permission, `${compte}, null et « abc »`);
+      }
+      await refuse(() => creer(corpsDevis({ acompteExige: 'false' }), cles.autre, PORTES.cle), 403, REFUS.scope, 'clé devis:read, « false »');
+      await refuse(() => creer(corpsDevis({ acompteExige: 'false' }), SA(), PORTES.cle), 401, REFUS.cleRequise, 'session sur /api/v1, « false »');
+      await refuse(() => creer(corpsDevis({ acompteExige: 'false' }), cles.devis, PORTES.session), 401, REFUS.session, 'clé sur /api/devis, « false »');
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        // Avant la case.
+        await refuse(() => creer({ clientId: client.id, objet: 'TEST Sans ligne', lignes: [], acompteExige: 'false' }, auth, porte), 400, REFUS.corps, `${qui} : corps sans ligne et « false »`);
+        await refuse(() => creer(corpsDevis({ lignes: [ligneLibre({ quantite: 'abc' })], acompteExige: 'false' }), auth, porte), 400, REFUS.ligne, `${qui} : ligne invalide et « false »`);
+        await refuse(() => creer(corpsDevis({ auTempsPasse: 'oui', acompteExige: 'false' }), auth, porte), 400, REFUS.auTempsPasse, `${qui} : « auTempsPasse » et « acompteExige » non booléens`);
+        for (const [taux, valeur] of [['abc', 'false'], ['1000', null], [true, 1]]) {
+          await refuse(() => creer(corpsDevis({ tauxAcompte: taux, acompteExige: valeur }), auth, porte), 400, REFUS.taux, `${qui} : taux ${JSON.stringify(taux)} et case ${JSON.stringify(valeur)} malformés : message du taux`);
+        }
+        // Après la case : client inconnu, pas non réglé, 0 %.
+        for (const valeur of ['false', null]) {
+          await refuse(() => creer({ ...corpsDevis({ acompteExige: valeur }), clientId: randomUUID() }, auth, porte), 400, REFUS.acompteExige, `${qui} : client inconnu et case ${JSON.stringify(valeur)}`);
+          await refuse(() => creer(corpsDevis({ auTempsPasse: true, lignes: [ligneTempsPasse()], acompteExige: valeur }), auth, porte), 400, REFUS.acompteExige, `${qui} : pas non réglé et case ${JSON.stringify(valeur)}`);
+          await refuse(() => creer(corpsDevis({ acompteExige: valeur, tauxAcompte: 0 }), auth, porte), 400, REFUS.acompteExige, `${qui} : 0 % et case ${JSON.stringify(valeur)} : message de la case`);
+        }
+        // Témoins : la case booléenne laisse chaque refus suivant se produire.
+        await refuse(() => creer({ ...corpsDevis({ acompteExige: false }), clientId: randomUUID() }, auth, porte), 400, REFUS.client, `${qui} : témoin, client inconnu`);
+        await refuse(() => creer(corpsDevis({ auTempsPasse: true, lignes: [ligneTempsPasse()], acompteExige: false }), auth, porte), 409, REFUS.pasNonRegle, `${qui} : témoin, pas non réglé`);
+        await refuse(() => creer(corpsDevis({ acompteExige: true, tauxAcompte: 0 }), auth, porte), 400, REFUS.zero, `${qui} : témoin, 0 % exigé`);
+      }
+      assert.deepEqual(await prisma.sequenceAffaire.findMany(), sequenceAvant, 'aucun numéro d’affaire consommé');
+    });
+
+    // Même ordre à la modification (cadrage, périmètre 1 : « avant le 404 du devis inconnu et les 409 du devis signé,
+    // converti ou d'un statut non modifiable (modification) », contrôle de forme avant la transaction, comme le taux).
+    // Le 409 du devis converti n'est atteint par les routes que sur un devis non signé, ce qu'aucune conversion ne laisse
+    // (la conversion exige la signature, contrôlée avant) : il est éprouvé sur un brouillon auquel une conversion est
+    // ajoutée en base (fixture théorique ; cible CHANTIER, sans clé étrangère). Chaque refus suivant a son témoin.
+    // Lectures écartées : contrôle placé sous le verrou, dans `acompteDevisPayload` (404, 409, « Client introuvable. » ou
+    // 409 du pas d'abord) ; refus du 0 % avant la case (devis exigé, « false » et 0 : message du 0 %).
+    test('#570, modification, ordre des refus : la case est contrôlée après les droits, le corps incomplet et le taux malformé ; avant le 404 du devis inconnu, les 409 du devis signé, converti (fixture théorique) ou refusé, « Client introuvable. », le 409 du pas non réglé et le refus du 0 % ; en session et par clé, sans écriture', async () => {
+      const brouillon = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      const signe = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      await signer(signe.id);
+      const refuseDevis = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      await refuser(refuseDevis.id);
+      const converti = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      const { dossierId } = await prisma.devis.findUniqueOrThrow({ where: { id: converti.id }, select: { dossierId: true } });
+      await prisma.devisConversion.create({ data: { devisId: converti.id, dossierId, cibleType: 'CHANTIER', cibleId: randomUUID(), rang: 1 } });
+      const etatsAvant = await Promise.all([brouillon, signe, refuseDevis, converti].map((d) => acompteEnBase(d.id)));
+      for (const [compte, auth] of SANS_DROIT()) {
+        for (const id of [brouillon.id, randomUUID()]) {
+          await refuse(() => modifier(id, corpsDevis({ acompteExige: 'false' }), auth), 403, REFUS.permission, `${compte}, modification, « false »`);
+        }
+      }
+      await refuse(() => modifier(brouillon.id, corpsDevis({ acompteExige: 'false' }), cles.autre, PORTES.cle), 403, REFUS.scope, 'clé devis:read, « false »');
+      await refuse(() => modifier(brouillon.id, corpsDevis({ acompteExige: 'false' }), SA(), PORTES.cle), 401, REFUS.cleRequise, 'session sur /api/v1, « false »');
+      await refuse(() => modifier(brouillon.id, corpsDevis({ acompteExige: 'false' }), cles.devis, PORTES.session), 401, REFUS.session, 'clé sur /api/devis, « false »');
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        // Avant la case.
+        await refuse(() => modifier(brouillon.id, { clientId: client.id, objet: 'TEST Sans ligne', lignes: [], acompteExige: 'false' }, auth, porte), 400, REFUS.corps, `${qui} : corps sans ligne et « false »`);
+        await refuse(() => modifier(randomUUID(), { clientId: client.id, objet: 'TEST Sans ligne', lignes: [], acompteExige: null }, auth, porte), 400, REFUS.corps, `${qui} : devis inconnu, corps sans ligne et null`);
+        await refuse(() => modifier(brouillon.id, corpsDevis({ tauxAcompte: 'abc', acompteExige: 'false' }), auth, porte), 400, REFUS.taux, `${qui} : taux et case malformés : message du taux`);
+        // Après la case : 404, 409, chacun avec son témoin.
+        for (const [id, statut, message, cas] of [
+          [randomUUID(), 404, REFUS.introuvable, 'devis inconnu'],
+          [signe.id, 409, REFUS.signe, 'devis signé'],
+          [converti.id, 409, REFUS.converti, 'devis converti (fixture théorique)'],
+          [refuseDevis.id, 409, REFUS.nonModifiable, 'devis refusé'],
+        ]) {
+          for (const valeur of ['false', null, 1]) {
+            await refuse(() => modifier(id, corpsDevis({ acompteExige: valeur }), auth, porte), 400, REFUS.acompteExige, `${qui}, ${cas}, case ${JSON.stringify(valeur)}`);
+          }
+          await refuse(() => modifier(id, corpsDevis({ acompteExige: false }), auth, porte), statut, message, `${qui}, ${cas}, témoin à la case booléenne`);
+        }
+        // Après la case : client inconnu, passage au temps passé sans pas réglé, 0 % sur un devis exigé.
+        for (const valeur of ['false', null]) {
+          await refuse(() => modifier(brouillon.id, { ...corpsDevis({ acompteExige: valeur }), clientId: randomUUID() }, auth, porte), 400, REFUS.acompteExige, `${qui} : client inconnu et case ${JSON.stringify(valeur)}`);
+          await refuse(() => modifier(brouillon.id, corpsDevis({ auTempsPasse: true, lignes: [ligneTempsPasse()], acompteExige: valeur }), auth, porte), 400, REFUS.acompteExige, `${qui} : pas non réglé et case ${JSON.stringify(valeur)}`);
+          await refuse(() => modifier(brouillon.id, corpsDevis({ acompteExige: valeur, tauxAcompte: 0 }), auth, porte), 400, REFUS.acompteExige, `${qui} : devis exigé, 0 % et case ${JSON.stringify(valeur)} : message de la case`);
+        }
+        await refuse(() => modifier(brouillon.id, { ...corpsDevis({ acompteExige: true }), clientId: randomUUID() }, auth, porte), 400, REFUS.client, `${qui} : témoin, client inconnu`);
+        await refuse(() => modifier(brouillon.id, corpsDevis({ auTempsPasse: true, lignes: [ligneTempsPasse()], acompteExige: true }), auth, porte), 409, REFUS.pasNonRegle, `${qui} : témoin, pas non réglé`);
+        await refuse(() => modifier(brouillon.id, corpsDevis({ acompteExige: true, tauxAcompte: 0 }), auth, porte), 400, REFUS.zero, `${qui} : témoin, 0 % exigé par la case`);
+        await refuse(() => modifier(brouillon.id, corpsDevis({ tauxAcompte: 0 }), auth, porte), 400, REFUS.zero, `${qui} : témoin, 0 % exigé par le devis, clé absente`);
+      }
+      assert.deepEqual(await Promise.all([brouillon, signe, refuseDevis, converti].map((d) => acompteEnBase(d.id))), etatsAvant, 'devis inchangés');
+    });
+
+    // Critère « Acompte constaté (révision d'un devis signé dont l'acompte est constaté, puis `PATCH`) : "false" refusé
+    // (400), `true` et `false` gardent les conditions (200) » ; cadrage, périmètre 1 : dans `acompteDevisPayload`, le lecteur
+    // passe « juste après la lecture du taux, avant la reprise des conditions d'un acompte constaté ». Brouillon exigé à
+    // 30 %, acompte constaté (72,00 € : 30 % de 240,00 € TTC) ; et révision d'un devis signé exigé à 30 % dont l'acompte est
+    // constaté, qui recopie la constatation. Lectures écartées : contrôle placé après la reprise des conditions encaissées
+    // (« false » admis en 200, conditions gardées) ; case décochée qui retirerait un acompte encaissé.
+    test('#570, acompte constaté : sur un brouillon constaté et sur la révision d’un devis signé dont l’acompte est constaté, « false », null et 0 sont refusés (400) sans écriture ; true et false gardent les conditions et l’acompte (200), en session et par clé', async () => {
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        const brouillon = await creerOk({ acompteExige: true, tauxAcompte: 30 });
+        await ok(appeler('post', `/api/devis/${brouillon.id}/acompte`, { recuLe: await aujourdhui(), montant: '72,00', reference: `TEST-ACOMPTE-570-${suffixe()}` }));
+        const source = await creerOk({ acompteExige: true, tauxAcompte: 30 });
+        await signer(source.id);
+        await ok(appeler('post', `/api/devis/${source.id}/acompte`, { recuLe: await aujourdhui(), montant: '72,00', reference: `TEST-ACOMPTE-570-${suffixe()}` }));
+        const revision = await ok(appeler('post', `${porte}/${source.id}/revisions`, {}, auth), 201);
+        const sourceEnBase = await acompteEnBase(source.id);
+        const revisionAvant = await acompteEnBase(revision.id);
+        assert.deepEqual([revisionAvant.slice(0, 6), revisionAvant[6]], [sourceEnBase.slice(0, 6), 'BROUILLON'], `${qui} : la révision recopie les conditions et la constatation`);
+        for (const [devis, cas] of [[brouillon, 'brouillon constaté'], [revision, 'révision d’un devis signé constaté']]) {
+          const avant = await acompteEnBase(devis.id);
+          assert.deepEqual([avant[0], avant[1], avant[3]], [true, '30', '72'], `${qui}, ${cas} : préparé`);
+          assert.ok(avant[2], `${qui}, ${cas} : acompte constaté`);
+          for (const [quoi, valeur] of [['« false »', 'false'], ['null', null], ['0', 0]]) {
+            await refuse(() => modifier(devis.id, corpsDevis({ objet: `TEST Objet changé ${suffixe()}`, acompteExige: valeur }), auth, porte), 400, REFUS.acompteExige, `${qui}, ${cas}, ${quoi}`);
+          }
+          for (const valeur of [true, false]) {
+            const res = await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, acompteExige: valeur }), auth, porte));
+            assert.deepEqual([res.acompteExige, res.tauxAcompte], [true, 30], `${qui}, ${cas}, ${valeur} : réponse`);
+            assert.deepEqual(await acompteEnBase(devis.id), avant, `${qui}, ${cas}, ${valeur} : conditions et acompte constaté inchangés`);
+          }
+        }
+        assert.deepEqual(await acompteEnBase(source.id), sourceEnBase, `${qui} : le devis signé est inchangé`);
+      }
+    });
+
+    // Critère « `true` et `false` : comportement inchangé (taux par défaut, taux saisi, refus du 0 %, réglage à 0 % sans
+    // acompte, clé absente) » ; cadrage, « Clé absente : comportement actuel (création : non exigé ; modification : valeur du
+    // devis gardée) ». Taux par défaut de la base neuve (40 %), distinct du taux saisi (35 %) et du taux de l'autre réglage
+    // (0 %) : chaque attendu écarte un autre. Lectures écartées : `false` refusé ou lu comme vrai ; clé absente refusée, ou lue
+    // comme fausse en modification (35 % perdu), ou comme vraie à la création (exigé à 40 %).
+    test('#570, booléens inchangés : true exige un acompte (40 % par défaut, 35 % saisi), false n’en exige pas (taux non enregistré), la clé absente garde le comportement actuel (création non exigée, modification à l’état du devis), true avec 0 % refusé, réglage à 0 % sans acompte ; en session par chaque compte qui écrit les devis et par clé', async () => {
+      assert.equal(tauxDeDepart, '40', 'taux par défaut de la base neuve');
+      const etat = async (id) => (await acompteEnBase(id)).slice(0, 2);
+      for (const [compte, auth, porte] of [...ECRIVENT().map(([c, a]) => [c, a, PORTES.session]), ['clé devis:write', cles.devis, PORTES.cle]]) {
+        for (const [quoi, extra, attendu] of [
+          ['true sans taux', { acompteExige: true }, [true, '40']],
+          ['true à 35 %', { acompteExige: true, tauxAcompte: 35 }, [true, '35']],
+          ['false sans taux', { acompteExige: false }, [false, null]],
+          ['false à 35 %', { acompteExige: false, tauxAcompte: 35 }, [false, null]],
+          ['clé absente', {}, [false, null]],
+        ]) {
+          const cree = await ok(creer(corpsDevis(extra), auth, porte), 201);
+          assert.deepEqual([cree.acompteExige, cree.tauxAcompte], [attendu[0], attendu[1] === null ? null : Number(attendu[1])], `${compte}, création, ${quoi} : réponse`);
+          assert.deepEqual(await etat(cree.id), attendu, `${compte}, création, ${quoi} : en base`);
+        }
+        for (const [quoi, initial, extra, attendu] of [
+          ['exigé à 35 %, false', { acompteExige: true, tauxAcompte: 35 }, { acompteExige: false }, [false, null]],
+          ['exigé à 35 %, true', { acompteExige: true, tauxAcompte: 35 }, { acompteExige: true }, [true, '35']],
+          ['exigé à 35 %, clé absente', { acompteExige: true, tauxAcompte: 35 }, {}, [true, '35']],
+          ['non exigé, true', { acompteExige: false }, { acompteExige: true }, [true, '40']],
+          ['non exigé, clé absente', { acompteExige: false }, {}, [false, null]],
+          ['non exigé, false', { acompteExige: false }, { acompteExige: false }, [false, null]],
+        ]) {
+          const devis = await creerOk(initial);
+          await ok(modifier(devis.id, corpsDevis({ objet: devis.objet, ...extra }), auth, porte));
+          assert.deepEqual(await etat(devis.id), attendu, `${compte}, modification, ${quoi}`);
+        }
+        await refuse(() => creer(corpsDevis({ acompteExige: true, tauxAcompte: 0 }), auth, porte), 400, REFUS.zero, `${compte}, true à 0 %`);
+      }
+      await avecTauxParDefaut(0, async () => {
+        for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+          const cree = await ok(creer(corpsDevis({ acompteExige: true }), auth, porte), 201);
+          assert.deepEqual(await etat(cree.id), [false, null], `${qui}, réglage à 0 %, true sans taux : sans acompte`);
+          const saisi = await ok(creer(corpsDevis({ acompteExige: true, tauxAcompte: 35 }), auth, porte), 201);
+          assert.deepEqual(await etat(saisi.id), [true, '35'], `${qui}, réglage à 0 %, true à 35 %`);
+        }
+      });
+    });
+
+    // Cadrage, constat : « Ne la lisent pas : la révision (reprend le devis signé), la duplication (relit le taux du jour),
+    // la conversion, le changement de statut et la constatation de l'acompte ». Une case non booléenne envoyée à ces routes
+    // est ignorée (copie figée : la révision recopie 35 %, la duplication relit le taux par défaut du jour, 40 %). Lecture
+    // écartée : le contrôle appliqué hors des deux routes du cadrage (un refus 400 de la révision ou de la conversion, ou une
+    // révision qui relirait la case).
+    test('#570, copie figée : la révision, la duplication, le statut, la constatation et la conversion ignorent une case non booléenne envoyée ; la révision recopie 35 %, la duplication relit le taux par défaut (40 %)', async () => {
+      const source = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+      await signer(source.id);
+      for (const [porte, auth, qui] of [[PORTES.session, SA(), 'session'], [PORTES.cle, cles.devis, 'clé']]) {
+        const avecCase = (corps) => ({ ...corps, acompteExige: 'false' });
+        const sourceSignee = qui === 'session' ? source : await creerOk({ acompteExige: true, tauxAcompte: 35 });
+        if (qui === 'clé') await signer(sourceSignee.id);
+        const revision = await ok(appeler('post', `${porte}/${sourceSignee.id}/revisions`, avecCase({}), auth), 201);
+        assert.deepEqual((await acompteEnBase(revision.id)).slice(0, 2), [true, '35'], `${qui}, révision`);
+        if (qui === 'session') {
+          const duplicata = await ok(appeler('post', `/api/devis/${source.id}/duplication`, avecCase({})), 201);
+          assert.deepEqual((await acompteEnBase(duplicata.id)).slice(0, 2), [true, '40'], 'duplication : taux par défaut du jour');
+          const brouillon = await creerOk({ acompteExige: true, tauxAcompte: 35 });
+          assert.equal((await ok(appeler('put', `/api/devis/${brouillon.id}/statut`, avecCase({ statut: 'ENVOYE' })))).statut, 'ENVOYE', 'statut');
+          await ok(appeler('post', `/api/devis/${brouillon.id}/acompte`, avecCase({ recuLe: await aujourdhui(), montant: '84,00', reference: `TEST-ACOMPTE-570-${suffixe()}` })));
+          assert.deepEqual((await acompteEnBase(brouillon.id)).slice(0, 4).map((v, i) => (i === 2 ? v !== null : v)), [true, '35', true, '84'], 'constatation');
+        }
+        const aConvertirDevis = await creerOk({ acompteExige: false });
+        await signer(aConvertirDevis.id);
+        const conversion = await appeler('post', `${porte}/${aConvertirDevis.id}/convertir`, avecCase({ cible: 'CHANTIER' }), auth);
+        assert.equal(conversion.status, 201, `${qui}, conversion : ${JSON.stringify(conversion.body)}`);
+        assert.deepEqual((await acompteEnBase(aConvertirDevis.id)).slice(0, 2), [false, null], `${qui}, conversion : conditions inchangées`);
+      }
     });
   });
 }

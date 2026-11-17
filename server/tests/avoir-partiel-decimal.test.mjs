@@ -25,7 +25,8 @@
 //    tout auteur compris, y compris un avoir sans ventilation enregistrée (repli sur ses lignes, N6) ;
 //  - plafonds globaux (HT, TVA, TTC) lus d'abord : 409 « Cet avoir dépasse le montant total restant à créditer sur la facture
 //    d’origine. » ; puis plafonds par taux, dans l'ordre croissant des taux : 409 « Cet avoir dépasse le plafond restant pour la TVA
-//    à <taux> % de la facture d’origine. » ; un plafond atteint exactement est admis ;
+//    à <taux> % de la facture d’origine. », le taux écrit au format français depuis #572 (« 5,5 », « 2,1 », « 10 », « 20 », « 0 ») ;
+//    un plafond atteint exactement est admis ;
 //  - chaque refus : rien d'écrit (empreinte de toute la base, journal et séquence compris), aucun numéro d'avoir consommé.
 //
 // Mutants (cadrage, « Mutants à tuer » et N2) : voir le rapport du rédacteur des tests. Le retrait du plafond TTC global, et celui de
@@ -60,10 +61,17 @@ const AUTRES_TYPES = [
   ['DC', 'DIRECTEUR_COMMERCIAL'], ['AC', 'ASSISTANTE_COMMERCIALE'], ['CPT', 'COMPTABLE'],
 ];
 
-// Messages exacts de l'API (apostrophes typographiques). Le taux est écrit comme l'API l'écrit (5.5, et non 5,5).
+// Messages exacts de l'API (apostrophes typographiques). Depuis #572 (cadrage v2, périmètre 2 : « Le message écrit le taux par
+// `toLocaleString('fr-FR', { maximumFractionDigits: 2 })` »), le taux du refus par taux est au format français : chaque appel de
+// `plafondTaux` reçoit le taux attendu écrit à la main (« 5,5 », « 10 », « 20 »), et non recalculé par le formateur de
+// l'application (cadrage, section « Tests »). Lectures écartées : taux au point (« 5.5 », l'état d'avant #572, ou la locale omise
+// sous la locale `en-US` de la CI) ; arrondi à l'unité (« 6 ») ; deux décimales forcées (« 5,50 », « 20,00 »).
 const REFUS = {
   plafondTotal: 'Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.',
-  plafondTaux: (taux) => `Cet avoir dépasse le plafond restant pour la TVA à ${taux} % de la facture d’origine.`,
+  plafondTaux: (taux) => {
+    assert.equal(typeof taux, 'string', `taux du message écrit à la main, en texte : ${taux}`);
+    return `Cet avoir dépasse le plafond restant pour la TVA à ${taux} % de la facture d’origine.`;
+  },
   introuvable: 'Facture introuvable.',
   gestion: 'Accès réservé à l’administration et à l’assistante technique.',
 };
@@ -142,13 +150,15 @@ const temoinSerie = () => {
 };
 const versEuros = (liste) => liste.map((valeur) => (typeof valeur === 'bigint' ? exact.euros(valeur) : valeur));
 
-// Plafond de TVA global seul franchi (facture cohérente, créée par l'API) : facture G, 1 × 3,47 € à 20 % (TVA 0,694 → 0,69) et
-// 1 × 2,49 € à 10 % (TVA 0,249 → 0,25) ; HT 5,96 €, TVA 0,94 €, TTC 6,90 €.
+// Plafond de TVA global, seul des plafonds globaux franchi (facture cohérente, créée par l'API) : facture G, 1 × 3,47 € à 20 %
+// (TVA 0,694 → 0,69) et 1 × 2,49 € à 10 % (TVA 0,249 → 0,25) ; HT 5,96 €, TVA 0,94 €, TTC 6,90 €.
 //  - G1 : 2,45 € à 10 % : TVA 0,245 → 0,25 ; la TVA du taux est atteinte (0,25 €) alors que sa base a encore 0,04 € de place ;
 //  - refus : 0,05 € de plus à 10 % : base 2,50 € > 2,49 €, 409 du taux 10 % (lecture écartée : TVA du taux atteinte prise pour un taux
 //    épuisé, qui refuserait aussi G4) ;
-//  - refus : 3,48 € à 20 % : TVA 0,696 → 0,70. Total : HT 5,93 € ≤ 5,96 €, TVA 0,95 € > 0,94 €, TTC 6,88 € ≤ 6,90 € : seul le plafond de
-//    TVA global est franchi, 409 du total (lecture écartée, plafond de TVA global absent : 409 du taux 20 %, 3,48 € > 3,47 €) ;
+//  - refus : 3,48 € à 20 % : TVA 0,696 → 0,70. Total : HT 5,93 € ≤ 5,96 €, TVA 0,95 € > 0,94 €, TTC 6,88 € ≤ 6,90 € : le plafond de
+//    TVA global est le seul des plafonds globaux franchi ; celui du taux 20 % l'est aussi (3,48 € > 3,47 €), et seul l'ordre des
+//    contrôles, plafonds globaux d'abord, fixe le message : 409 du total (lecture écartée, plafond de TVA global absent : 409 du
+//    taux 20 %) ;
 //  - G3 : 3,47 € à 20 %, TVA 0,69 € : TVA globale 0,94 €, plafond exact admis (lecture écartée : comparaison large, qui refuserait) ;
 //  - G4 : 0,04 € à 10 % : base 2,49 €, TVA 0,25 − 0,25 = 0,00 €, TTC 0,04 € ; HT 5,96 € et TTC 6,90 € exacts : facture créditée en
 //    entier, « réglée ».
@@ -169,9 +179,9 @@ const LIGNES_H = [ligne('maintenance à 10 %', 1, 10, 10), ligne('maintenance à
 // Avoir de 100,00 € à 20 % : TVA 20,00 €, TTC 120,00 € ; avoir de 100,01 € : TVA 20,002 → 20,00 €, TTC 120,01 €.
 const THEORIQUES = [
   { plafond: 'TTC global', totaux: [100, 20, 119.99], ventilation: [100, 20, 120], avoir: 10000n, refus: REFUS.plafondTotal },
-  { plafond: 'HT du taux', totaux: [100.01, 20, 120.01], ventilation: [100, 20, 120.01], avoir: 10001n, refus: REFUS.plafondTaux(20) },
-  { plafond: 'TVA du taux', totaux: [100, 20, 120], ventilation: [100, 19.99, 120], avoir: 10000n, refus: REFUS.plafondTaux(20) },
-  { plafond: 'TTC du taux', totaux: [100, 20, 120], ventilation: [100, 20, 119.99], avoir: 10000n, refus: REFUS.plafondTaux(20) },
+  { plafond: 'HT du taux', totaux: [100.01, 20, 120.01], ventilation: [100, 20, 120.01], avoir: 10001n, refus: REFUS.plafondTaux('20') },
+  { plafond: 'TVA du taux', totaux: [100, 20, 120], ventilation: [100, 19.99, 120], avoir: 10000n, refus: REFUS.plafondTaux('20') },
+  { plafond: 'TTC du taux', totaux: [100, 20, 120], ventilation: [100, 20, 119.99], avoir: 10000n, refus: REFUS.plafondTaux('20') },
 ];
 
 if (!TEST_DATABASE_URL) {
@@ -297,6 +307,39 @@ if (!TEST_DATABASE_URL) {
       return tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
     };
 
+    // Facture historique à 2,1 % (#572, critère « facture historique à 2,1 %, comme `api.test.mjs` ») : le taux de 2,1 % n'est
+    // plus admis à la saisie depuis le lot des taux français, mais une facture émise avant lui le porte et reçoit ses avoirs
+    // partiels à son taux. Écrite en base (aucune donnée réelle, règle 4), cohérente : 1 × 10,00 € à 2,1 % (TVA 0,21 €) et
+    // 1 × 10,00 € à 20 % (TVA 2,00 €) ; HT 20,00 €, TVA 2,21 €, TTC 22,21 € ; écritures équilibrées sur le TTC ; émise, scellée,
+    // créée au nom du type de compte donné (l'assistante technique ne voit que les factures de son poste). Taux et TVA de la ligne
+    // historique en paramètres (audit des montants de #592 : facture à 1,75 %, plus bas) ; par défaut, 2,1 % et 0,21 €.
+    const factureHistoriqueSql = async (tx, cle, { taux = 2.1, tvaCentimes = 21 } = {}) => {
+      const euros = (centimes) => centimes / 100;
+      const ecrit = String(taux).replace('.', ',');
+      const identite = await prisma.identiteEmetteur.findFirstOrThrow({ select: { id: true } });
+      const date = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+      const piece = await tx.facture.create({ data: {
+        id: randomUUID(), clientId: client.id, clientRaisonSociale: client.raisonSociale, type: 'FACTURE', statut: 'EMISE', estAvoirAnnulation: false,
+        dateEmission: date, dateEcheance: date, totalHt: 20, totalTva: euros(200 + tvaCentimes), totalTtc: euros(2200 + tvaCentimes), origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST décimal facture historique à ${ecrit} %`,
+        identiteEmetteurId: identite.id, creeParType: ROLE[cle], createdById: idDe(cle),
+      } });
+      await tx.factureLigne.createMany({ data: [
+        { factureId: piece.id, ordre: 0, designation: `TEST décimal historique à ${ecrit} %`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: taux, totalHt: 10, totalTtc: euros(1000 + tvaCentimes) },
+        { factureId: piece.id, ordre: 1, designation: 'TEST décimal historique à 20 %', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 20, totalHt: 10, totalTtc: 12 },
+      ] });
+      await tx.factureVentilationTva.createMany({ data: [
+        { factureId: piece.id, tauxTva: taux, totalHt: 10, totalTva: euros(tvaCentimes), totalTtc: euros(1000 + tvaCentimes) },
+        { factureId: piece.id, tauxTva: 20, totalHt: 10, totalTva: 2, totalTtc: 12 },
+      ] });
+      await tx.ecritureFacture.createMany({ data: [
+        { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', debit: euros(2200 + tvaCentimes), credit: 0 },
+        { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', debit: 0, credit: 20 },
+        { factureId: piece.id, ordre: 2, cle: `TVA:${taux}`, tauxTva: taux, journalCode: 'VE', compteNum: '445799', compteLib: `TEST TVA ${ecrit}`, debit: 0, credit: euros(tvaCentimes) },
+        { factureId: piece.id, ordre: 3, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', debit: 0, credit: 2 },
+      ] });
+      return tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
+    };
+
     before(async () => {
       assert.ok(['127.0.0.1', 'localhost'].includes(source.hostname), 'seul un PostgreSQL local est autorisé');
       assert.notEqual(source.pathname.slice(1), nomBase);
@@ -368,7 +411,7 @@ if (!TEST_DATABASE_URL) {
 
     // Règle du rédacteur des tests (montants) : chaque attendu recalculé en décimal exact, hors de l'application, et chaque lecture
     // écartée calculée et distincte de l'attendu.
-    test('témoin des montants : série à 20 %, 10 % et 5,5 % (TVA différentielle de chaque avoir, sommes égales aux plafonds exacts), plafond de TVA global seul franchi, repli sur les lignes, factures théoriques ; chaque lecture écartée (TVA par avoir, troncature, arrondi au pair, flottant) distincte de l’attendu', () => {
+    test('témoin des montants : série à 20 %, 10 % et 5,5 % (TVA différentielle de chaque avoir, sommes égales aux plafonds exacts), plafond de TVA global seul des plafonds globaux franchi, repli sur les lignes, factures théoriques ; chaque lecture écartée (TVA par avoir, troncature, arrondi au pair, flottant) distincte de l’attendu', () => {
       // Facture F : TVA par taux (5,5 %, 10 %, 20 %) et totaux. Lectures écartées : troncature (1,08), au pair (1,09), toFixed (1,10).
       const tvaF = SERIE.map((s) => exact.tva(s.base, s.taux));
       assert.deepEqual(tvaF, [17n, 25n, 69n]);
@@ -428,8 +471,9 @@ if (!TEST_DATABASE_URL) {
       //  - avant le 30e : 7 € à 20 %, 7 à 10 %, 11 à 5,5 % : 5,5 % 290 + 11 = 301 > 300, total 696 + 25 = 721 ≤ 888 (seul le taux) ;
       //  - avant le 35e : 7 à 20 %, 8 à 10 % : 10 % 238 + 8 = 246 > 245 (seul le taux) ;
       //  - avant le 49e (cumul 881 HT, 109 de TVA, 990 TTC) : 8 à 5,5 % : TVA du taux 300 → 308, 17 − 17 = 0 ; total HT 889 > 888,
-      //    TVA 109 ≤ 111, TTC 998 ≤ 999 : seul le plafond HT global est franchi (lecture écartée, plafond HT global absent : 409 du taux
-      //    5,5 %, base 308 > 300) ; 8 à 20 % : TVA 69 − 67 = 2, TTC 1000 > 999 (HT et TTC franchis).
+      //    TVA 109 ≤ 111, TTC 998 ≤ 999 : le plafond HT global est le seul des plafonds globaux franchi ; celui du taux 5,5 % l'est
+      //    aussi (base 308 > 300), et seul l'ordre des contrôles fixe le message (lecture écartée, plafond HT global absent : 409 du
+      //    taux 5,5 %) ; 8 à 20 % : TVA 69 − 67 = 2, TTC 1000 > 999 (HT et TTC globaux franchis).
       const cumulAvant = (k) => temoin.filter((a) => a.k < k).reduce((t, a) => t.map((x, j) => x + a.totaux[j]), [0n, 0n, 0n]);
       assert.deepEqual(cumulAvant(30)[0] + 25n, 721n);
       assert.deepEqual(cumulAvant(49), [881n, 109n, 990n]);
@@ -437,8 +481,8 @@ if (!TEST_DATABASE_URL) {
       assert.ok(881n + 8n > htF && 109n + 0n <= tvaTotaleF && 881n + 8n + 109n <= htF + tvaTotaleF);
       assert.equal(exact.tva(344n, 20) - exact.tva(336n, 20), 2n);
       // Facture G : TVA 69 + 25 = 94 ; G1 : TVA de 2,45 € à 10 % = 25 (TVA du taux atteinte) ; refus de 3,48 € à 20 % : TVA 70, total
-      // HT 593 ≤ 596, TVA 95 > 94, TTC 688 ≤ 690 (seul le plafond de TVA global) ; G3 : 3,47 €, TVA 69, total TVA 94 ; G4 : 0,04 € à 10 %,
-      // TVA de 2,49 € (25) moins 25 = 0.
+      // HT 593 ≤ 596, TVA 95 > 94, TTC 688 ≤ 690 (le plafond de TVA global, seul des plafonds globaux ; le taux 20 % est franchi aussi,
+      // 348 > 347) ; G3 : 3,47 €, TVA 69, total TVA 94 ; G4 : 0,04 € à 10 %, TVA de 2,49 € (25) moins 25 = 0.
       assert.deepEqual([exact.tva(347n, 20), exact.tva(249n, 10), exact.tva(245n, 10), exact.tva(348n, 20)], [69n, 25n, 25n, 70n]);
       assert.ok(245n + 348n <= 596n && 25n + 70n > 94n && 245n + 348n + 25n + 70n <= 690n);
       assert.equal(exact.tva(250n, 10) - exact.tva(245n, 10), 0n, 'refus de 0,05 € à 10 % : la base seule franchit le plafond du taux');
@@ -477,12 +521,13 @@ if (!TEST_DATABASE_URL) {
       const crees = [];
       for (let k = 1; k <= N_AVOIRS; k += 1) {
         // Dépassement d'un centime du taux 5,5 %, les taux 20 % et 10 % ayant de la place (lecture écartée : plafond global seul).
-        if (k === 30) await refuser([L(20, 7n), L(10, 7n), L(5.5, 11n)], REFUS.plafondTaux(5.5), '30e avoir, 0,11 € à 5,5 %');
+        if (k === 30) await refuser([L(20, 7n), L(10, 7n), L(5.5, 11n)], REFUS.plafondTaux('5,5'), '30e avoir, 0,11 € à 5,5 %');
         // Dépassement d'un centime du taux 10 %, le taux 20 % ayant de la place.
-        if (k === 35) await refuser([L(20, 7n), L(10, 8n)], REFUS.plafondTaux(10), '35e avoir, 0,08 € à 10 %');
+        if (k === 35) await refuser([L(20, 7n), L(10, 8n)], REFUS.plafondTaux('10'), '35e avoir, 0,08 € à 10 %');
         if (k === 49) {
-          // Seul le plafond HT global est franchi (TVA 1,09 €, TTC 9,98 €) : 409 du total, et non celui du taux 5,5 %.
-          await refuser([L(5.5, 8n)], REFUS.plafondTotal, 'dernier avoir, 0,08 € à 5,5 % (HT global seul)');
+          // Le plafond HT global est le seul des plafonds globaux franchi (TVA 1,09 €, TTC 9,98 €) ; celui du taux 5,5 % l'est aussi
+          // (base 3,08 € > 3,00 €), mais les plafonds globaux sont lus d'abord : 409 du total, et non celui du taux 5,5 %.
+          await refuser([L(5.5, 8n)], REFUS.plafondTotal, 'dernier avoir, 0,08 € à 5,5 % (HT seul des plafonds globaux)');
           // Dépassement d'un centime du dernier avoir.
           await refuser([L(20, 8n)], REFUS.plafondTotal, 'dernier avoir, 0,08 € à 20 %');
           assert.deepEqual(await soldes(facture.id), ['EMISE', 9.9, 0, 0.09], 'avant le dernier avoir : 9,90 € crédités, reste 0,09 €');
@@ -500,15 +545,15 @@ if (!TEST_DATABASE_URL) {
         if (k === 30) {
           // Taux 5,5 % épuisé (3,00 € et 0,17 € de TVA) : un centime de plus, seul ou avec des lignes à 20 % et 10 % qui ont de la place,
           // est refusé en entier (lecture écartée : avoir admis pour ses autres lignes).
-          await refuser([L(5.5, 1n)], REFUS.plafondTaux(5.5), '0,01 € à 5,5 % après le 30e');
-          await refuser([L(20, 7n), L(10, 7n), L(5.5, 10n)], REFUS.plafondTaux(5.5), 'trois lignes après le 30e');
+          await refuser([L(5.5, 1n)], REFUS.plafondTaux('5,5'), '0,01 € à 5,5 % après le 30e');
+          await refuser([L(20, 7n), L(10, 7n), L(5.5, 10n)], REFUS.plafondTaux('5,5'), 'trois lignes après le 30e');
         }
         if (k === 35) {
-          await refuser([L(10, 1n)], REFUS.plafondTaux(10), '0,01 € à 10 % après le 35e');
-          await refuser([L(20, 7n), L(10, 7n)], REFUS.plafondTaux(10), 'deux lignes après le 35e');
+          await refuser([L(10, 1n)], REFUS.plafondTaux('10'), '0,01 € à 10 % après le 35e');
+          await refuser([L(20, 7n), L(10, 7n)], REFUS.plafondTaux('10'), 'deux lignes après le 35e');
           // Deux taux épuisés dans le même avoir (10 % et 5,5 %, lignes dans cet ordre), le total ayant de la place : le refus nomme le
           // taux de 5,5 %, les taux étant contrôlés dans l'ordre croissant (lectures écartées : ordre des lignes, ordre décroissant).
-          await refuser([L(10, 1n), L(5.5, 1n)], REFUS.plafondTaux(5.5), 'deux taux épuisés après le 35e');
+          await refuser([L(10, 1n), L(5.5, 1n)], REFUS.plafondTaux('5,5'), 'deux taux épuisés après le 35e');
         }
       }
       // Facture créditée en entier : un centime de plus, à chacun de ses taux, est refusé (plafond global lu d'abord).
@@ -555,17 +600,19 @@ if (!TEST_DATABASE_URL) {
       await serie({ auteurFacture: 'AT', auteurs: ['AT', 'AD'], refusPar: ['AT', 'AD'], motif: 'série assistante technique' });
     });
 
-    // Plafond de TVA global (N2 du contrôle, précisé) : sur une facture cohérente, ce plafond peut être seul franchi ; il fixe alors le
-    // message du refus (409 du total et non du taux). Sur la même facture, la TVA du taux 10 % est atteinte avant sa base.
-    test('plafond de TVA global seul franchi, facture cohérente à 20 % et 10 % (5,96 € HT, 0,94 € de TVA) : 3,48 € à 20 % refusé au total (409), et non au taux ; la TVA du taux 10 % atteinte (0,25 €) laisse 0,04 € de base, admis à 0,00 € de TVA ; plafonds exacts admis ; par l’administration et l’assistante technique', async () => {
+    // Plafond de TVA global (N2 du contrôle, précisé) : sur une facture cohérente, ce plafond peut être le seul des plafonds globaux
+    // franchi ; le plafond du taux l'est alors aussi (3,48 € > 3,47 €), et seul l'ordre des contrôles, plafonds globaux d'abord, fixe
+    // le message du refus (409 du total et non du taux ; N1 du contrôle de cohérence avant fusion de #573, commentaire 6934250994 de
+    // #572). Sur la même facture, la TVA du taux 10 % est atteinte avant sa base.
+    test('plafond de TVA global, seul des plafonds globaux franchi, facture cohérente à 20 % et 10 % (5,96 € HT, 0,94 € de TVA) : 3,48 € à 20 % refusé au total (409), et non au taux ; la TVA du taux 10 % atteinte (0,25 €) laisse 0,04 € de base, admis à 0,00 € de TVA ; plafonds exacts admis ; par l’administration et l’assistante technique', async () => {
       for (const [auteurFacture, a, b] of [['AD', 'AD', 'DIR'], ['AT', 'AT', 'AD']]) {
         const facture = await factureEmise(par(auteurFacture), `plafond de TVA global ${auteurFacture}`, LIGNES_G);
         assert.deepEqual([...totaux(facture), ...ventilation(facture)], [5.96, 0.94, 6.9, [10, 2.49, 0.25, 2.74], [20, 3.47, 0.69, 4.16]]);
         const g1 = await avoirCree(facture.id, [L(10, 245n)], par(a));
         assert.deepEqual([...totaux(g1), ...ventilation(g1)], [2.45, 0.25, 2.7, [10, 2.45, 0.25, 2.7]], 'G1');
         // Base du taux 10 % franchie d'un centime (2,50 € > 2,49 €), sans TVA de plus.
-        await refuse(() => avoir(facture.id, [L(10, 5n)], par(b)), 409, REFUS.plafondTaux(10), `${auteurFacture} : 0,05 € à 10 %`);
-        // Seul le plafond de TVA global : lecture écartée, 409 du taux 20 %.
+        await refuse(() => avoir(facture.id, [L(10, 5n)], par(b)), 409, REFUS.plafondTaux('10'), `${auteurFacture} : 0,05 € à 10 %`);
+        // Le plafond de TVA global, seul des plafonds globaux (le taux 20 % franchi aussi) : lecture écartée, 409 du taux 20 %.
         await refuse(() => avoir(facture.id, [L(20, 348n)], par(b)), 409, REFUS.plafondTotal, `${auteurFacture} : 3,48 € à 20 %`);
         await refuse(() => avoir(facture.id, [L(20, 348n)], par(a)), 409, REFUS.plafondTotal, `${auteurFacture} : 3,48 € à 20 %, autre auteur`);
         const g3 = await avoirCree(facture.id, [L(20, 347n)], par(b));
@@ -588,12 +635,12 @@ if (!TEST_DATABASE_URL) {
       const historique = await transaction((tx) => pieceSql(tx, { type: 'AVOIR', factureOrigineId: facture.id, taux: 10, ligneHt: 0.05, totaux: [0.05, 0.01, 0.06] }));
       const relu = await enBase(historique.id);
       assert.deepEqual([relu.ventilationTva.length, ...totaux(relu)], [0, 0.05, 0.01, 0.06], 'avoir sans ventilation enregistrée');
-      await refuse(() => avoir(facture.id, [L(10, 996n)], par('AD')), 409, REFUS.plafondTaux(10), '9,96 € à 10 % après l’avoir sans ventilation');
+      await refuse(() => avoir(facture.id, [L(10, 996n)], par('AD')), 409, REFUS.plafondTaux('10'), '9,96 € à 10 % après l’avoir sans ventilation');
       const h1 = await avoirCree(facture.id, [L(10, 5n)], par('AD'));
       assert.deepEqual([...totaux(h1), ...ventilation(h1)], [0.05, 0, 0.05, [10, 0.05, 0, 0.05]], 'H1 : TVA 0,00 €');
       const h2 = await avoirCree(facture.id, [L(10, 990n)], par('AD'));
       assert.deepEqual([...totaux(h2), ...ventilation(h2)], [9.9, 0.99, 10.89, [10, 9.9, 0.99, 10.89]], 'H2 : taux épuisé exactement');
-      await refuse(() => avoir(facture.id, [L(10, 1n)], par('AD')), 409, REFUS.plafondTaux(10), '0,01 € à 10 % après H2');
+      await refuse(() => avoir(facture.id, [L(10, 1n)], par('AD')), 409, REFUS.plafondTaux('10'), '0,01 € à 10 % après H2');
       assert.deepEqual(await soldes(facture.id), ['EMISE', 11, 0, 12]);
     });
 
@@ -605,6 +652,89 @@ if (!TEST_DATABASE_URL) {
         const relue = await enBase(facture.id);
         assert.deepEqual([relue.type, relue.statut, ...totaux(relue), ...ventilation(relue)], ['FACTURE', 'EMISE', ...cas.totaux, [20, ...cas.ventilation]], cas.plafond);
         for (const auteur of ['AD', 'DIR']) await refuse(() => avoir(facture.id, [L(20, cas.avoir)], par(auteur)), 409, cas.refus, `plafond ${cas.plafond} (${auteur})`);
+      }
+    });
+
+    // #572 (cadrage v2, périmètre 2, et critère « Avoir partiel au-delà du plafond d'un taux : 409 « … TVA à 5,5 % … », « … TVA à
+    // 10 % … », « … TVA à 2,1 % … » (facture historique à 2,1 %, comme `api.test.mjs`, l. 24822), « … TVA à 20 % … » » ; périmètre :
+    // « TVA à 0 % » aussi), en session, par l'administration (super administrateur, administrateur, directeur) et par l'assistante
+    // technique sur une facture de son poste (section « Tests » du cadrage).
+    //  - Facture K, créée et émise par l'API : 1 × 10,00 € à chacun des quatre taux français ; HT 40,00 €, TVA 0 + 0,55 + 1,00 +
+    //    2,00 = 3,55 €, TTC 43,55 €. Avoir de 1 × 10,01 € à un taux : base du taux 10,01 € > 10,00 €, 409 du taux, alors que le total
+    //    a de la place (HT 10,01 € ≤ 40,00 € ; TVA au plus 2,00 € ≤ 3,55 € ; TTC au plus 12,01 € ≤ 43,55 €).
+    //  - Facture L, historique à 2,1 % (factureHistoriqueSql) : avoir de 1 × 10,01 € à 2,1 % : TVA 0,21021 → 0,21 € ; total HT
+    //    10,01 € ≤ 20,00 €, TVA 0,21 € ≤ 2,21 €, TTC 10,22 € ≤ 22,21 € ; base du taux 10,01 € > 10,00 € : 409 du taux 2,1 %. De même,
+    //    5,00 € à 20 % et 10,01 € à 2,1 % (HT 15,01 €, TVA 1,21 €, TTC 16,22 €, sous les plafonds globaux, le taux 20 % ayant de la
+    //    place) : 409 du taux 2,1 %.
+    //  - Sur K, 5,00 € à 20 %, 5,00 € à 0 % et 10,01 € à 5,5 % (HT 20,01 €, TVA 1,55 €, TTC 21,56 €) : seul le taux 5,5 % est
+    //    franchi, 409 du taux 5,5 %.
+    // Chaque attendu est écrit à la main. Lectures écartées (mutants du cadrage), chacune distincte de l'attendu : taux au point
+    // (« 5.5 », « 2.1 » : état d'avant #572, ou locale omise sous `en-US`, celle de la CI) ; arrondi à l'unité (« 6 », « 2 ») ; deux
+    // décimales forcées (« 0,00 », « 5,50 », « 2,10 », « 10,00 », « 20,00 »).
+    test('#572 : taux au format français dans le refus du plafond d’un taux, 409 « … TVA à 0 % … », « … à 5,5 % … », « … à 10 % … », « … à 20 % … » sur une facture aux quatre taux et « … à 2,1 % … » sur une facture historique, par l’administration et par l’assistante technique sur une facture de son poste, sans écriture ni numéro', async () => {
+      const TAUX = [
+        { taux: 0, ecrit: '0', ecartees: ['0,00'] },
+        { taux: 5.5, ecrit: '5,5', ecartees: ['5.5', '6', '5,50'] },
+        { taux: 10, ecrit: '10', ecartees: ['10,00', '10.00'] },
+        { taux: 20, ecrit: '20', ecartees: ['20,00', '20.00'] },
+      ];
+      const HISTORIQUE = { taux: 2.1, ecrit: '2,1', ecartees: ['2.1', '2', '2,10'] };
+      // Témoin des montants, hors de l'application (centimes) : TVA de chaque taux de K (10,00 €) et de l'avoir de 10,01 €.
+      assert.deepEqual(TAUX.map((t) => exact.tva(1000n, t.taux)), [0n, 55n, 100n, 200n]);
+      assert.deepEqual(TAUX.map((t) => exact.tva(1001n, t.taux)), [0n, 55n, 100n, 200n]);
+      assert.ok(TAUX.every((t) => 1001n <= 4000n && exact.tva(1001n, t.taux) <= 355n && 1001n + exact.tva(1001n, t.taux) <= 4355n), 'K : le total a de la place');
+      // K, avoir de trois taux : 5,00 € à 20 % (TVA 1,00 €), 5,00 € à 0 %, 10,01 € à 5,5 % (TVA 0,55 €) : HT 20,01 €, TVA 1,55 €,
+      // TTC 21,56 €, sous les plafonds globaux ; seul le taux 5,5 % est franchi.
+      assert.deepEqual([exact.tva(500n, 20), exact.tva(500n, 0)], [100n, 0n]);
+      assert.ok(2001n <= 4000n && 155n <= 355n && 2156n <= 4355n && 500n <= 1000n);
+      // L : TVA de 10,00 € et de 10,01 € à 2,1 % ; avoir de 10,01 € à 2,1 % seul, puis avec 5,00 € à 20 %.
+      assert.deepEqual([exact.tva(1000n, 2.1), exact.tva(1001n, 2.1)], [21n, 21n]);
+      assert.ok(1001n <= 2000n && 21n <= 221n && 1001n + 21n <= 2221n, 'L : le total a de la place');
+      assert.ok(1501n <= 2000n && 121n <= 221n && 1622n <= 2221n && 500n <= 1000n, 'L, deux taux : le total et le taux 20 % ont de la place');
+      for (const t of [...TAUX, HISTORIQUE]) {
+        for (const ecartee of t.ecartees) assert.notEqual(REFUS.plafondTaux(ecartee), REFUS.plafondTaux(t.ecrit), `lecture écartée « ${ecartee} » pour ${t.ecrit} %`);
+      }
+      for (const [auteurFacture, auteurs] of [['AD', ['AD', 'DIR', 'SA']], ['AT', ['AT', 'AD']]]) {
+        const facture = await factureEmise(par(auteurFacture), `taux au format français ${auteurFacture}`, TAUX.map((t) => ligne(`facturé à ${t.ecrit} %`, 1, 10, t.taux, 'PRESTATION')));
+        assert.deepEqual([facture.creeParType, ...totaux(facture), ...ventilation(facture)], [ROLE[auteurFacture], 40, 3.55, 43.55, [0, 10, 0, 10], [5.5, 10, 0.55, 10.55], [10, 10, 1, 11], [20, 10, 2, 12]], 'facture K');
+        for (const t of TAUX) {
+          for (const auteur of auteurs) {
+            await refuse(() => avoir(facture.id, [L(t.taux, 1001n)], par(auteur)), 409, REFUS.plafondTaux(t.ecrit), `${auteurFacture} : 10,01 € à ${t.ecrit} % (${auteur})`);
+          }
+        }
+        await refuse(() => avoir(facture.id, [L(20, 500n), L(0, 500n), L(5.5, 1001n)], par(auteurs[0])), 409, REFUS.plafondTaux('5,5'), `${auteurFacture} : trois taux, 5,5 % seul franchi`);
+        const historique = await transaction((tx) => factureHistoriqueSql(tx, auteurFacture));
+        const relue = await enBase(historique.id);
+        assert.deepEqual([relue.creeParType, ...totaux(relue), ...ventilation(relue)], [ROLE[auteurFacture], 20, 2.21, 22.21, [2.1, 10, 0.21, 10.21], [20, 10, 2, 12]], 'facture L, historique à 2,1 %');
+        for (const auteur of auteurs) {
+          await refuse(() => avoir(historique.id, [L(2.1, 1001n)], par(auteur)), 409, REFUS.plafondTaux(HISTORIQUE.ecrit), `${auteurFacture} : 10,01 € à 2,1 % sur la facture historique (${auteur})`);
+          await refuse(() => avoir(historique.id, [L(20, 500n), L(2.1, 1001n)], par(auteur)), 409, REFUS.plafondTaux(HISTORIQUE.ecrit), `${auteurFacture} : 5,00 € à 20 % et 10,01 € à 2,1 % (${auteur})`);
+        }
+      }
+    });
+
+    // Taux à deux décimales (audit des montants de #592, mutant « une décimale au plus » survivant) : le taux d'une ligne d'avoir a
+    // au plus deux décimales, comme la colonne (Decimal(5, 2)), et le message les garde toutes (`maximumFractionDigits: 2`, cadrage v2,
+    // périmètre 2). Les taux joués plus haut (0, 5,5, 10, 20 et 2,1) en ont au plus une : ils ne séparent pas l'attendu d'une lecture à
+    // une décimale au plus, celle des pourcentages de marge de l'écran (`maximumFractionDigits: 1`). Facture historique à 1,75 % (taux
+    // réduit des départements d'outre-mer, qu'Iris n'admet pas à la saisie ; écrite en base, aucune donnée réelle, règle 4),
+    // cohérente : 1 × 10,00 € à 1,75 % (TVA 0,175 → 0,18 €) et 1 × 10,00 € à 20 % (TVA 2,00 €) ; HT 20,00 €, TVA 2,18 €, TTC
+    // 22,18 €. Avoir de 1 × 10,01 € à 1,75 % : TVA 0,175175 → 0,18 € ; total HT 10,01 € ≤ 20,00 €, TVA 0,18 € ≤ 2,18 €, TTC 10,19 € ≤
+    // 22,18 € ; base du taux 10,01 € > 10,00 € : 409 du taux 1,75 %. Lectures écartées, chacune distincte de l'attendu : une décimale
+    // au plus (« 1,8 »), arrondi à l'unité (« 2 »), taux au point (« 1.75 », état d'avant #572 ou locale omise sous `en-US`).
+    test('#572, taux à deux décimales : sur une facture historique à 1,75 %, le refus du plafond du taux cite « 1,75 % », et non « 1,8 % », « 2 % » ni « 1.75 % », par l’administration et par l’assistante technique sur une facture de son poste, sans écriture ni numéro', async () => {
+      const t = { taux: 1.75, ecrit: '1,75', ecartees: ['1,8', '2', '1.75'] };
+      assert.deepEqual([exact.tva(1000n, t.taux), exact.tva(1001n, t.taux)], [18n, 18n]);
+      assert.ok(1001n <= 2000n && 18n <= 218n && 1001n + 18n <= 2218n, 'le total a de la place');
+      for (const ecartee of t.ecartees) assert.notEqual(REFUS.plafondTaux(ecartee), REFUS.plafondTaux(t.ecrit), `lecture écartée « ${ecartee} »`);
+      // Une facture émise par l'API fige l'identité de l'émetteur que la facture historique reprend : le test ne dépend pas des
+      // précédents (il passe seul, par --test-name-pattern).
+      await factureEmise(par('AD'), 'identité de l’émetteur figée', [ligne('visite', 1, 1, 20)]);
+      for (const auteur of ['AD', 'AT']) {
+        const historique = await transaction((tx) => factureHistoriqueSql(tx, auteur, { taux: t.taux, tvaCentimes: 18 }));
+        const relue = await enBase(historique.id);
+        assert.deepEqual([relue.creeParType, ...totaux(relue), ...ventilation(relue)], [ROLE[auteur], 20, 2.18, 22.18, [1.75, 10, 0.18, 10.18], [20, 10, 2, 12]], `${auteur} : facture historique à 1,75 %`);
+        await refuse(() => avoir(historique.id, [L(t.taux, 1001n)], par(auteur)), 409, REFUS.plafondTaux(t.ecrit), `${auteur} : 10,01 € à 1,75 %`);
       }
     });
 

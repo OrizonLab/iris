@@ -25,7 +25,7 @@ import { voitRentabilite } from '../chantiers/droits';
 import { SaisieInterventionInvalide, creerInterventionNumerotee, estEncadrementCoutIntervention, exposerIntervention, lireDetailsIntervention } from '../interventions/metier';
 import { SaisieContratInvalide, creerContratMaintenance, lireSaisieContrat } from '../contrats/metier';
 import {
-  DevisSaisieError, DevisConflitError, DevisDroitError, DevisIntrouvableError, lireTauxAcompteSaisi, devisPayload, NATURE_DEVIS_PAR_FAMILLE, devisPourLecteur, resoudreLignesDevis,
+  DevisSaisieError, DevisConflitError, DevisDroitError, DevisIntrouvableError, lireTauxAcompteSaisi, lireAcompteExigeSaisi, devisPayload, NATURE_DEVIS_PAR_FAMILLE, devisPourLecteur, resoudreLignesDevis,
   devisInclude, contenuDevisSigne, copieLigneDevis, verrouillerDevis, acompteDevisPayload, nouveauNumeroDevis, totauxDevis,
   heuresPrevuesLignes, PLAFOND_HEURES_PREVUES,
 } from './metier';
@@ -72,6 +72,7 @@ const creerDevis: express.RequestHandler = async (req, res) => { try {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const payload = devisPayload(body);
   lireTauxAcompteSaisi(body);
+  lireAcompteExigeSaisi(body);
   if (!await prisma.client.findUnique({ where: { id: payload.clientId } })) throw new DevisSaisieError('Client introuvable.');
   const auTempsPasse = payload.auTempsPasse ?? false;
   exigerCoherenceTempsPasse(auTempsPasse, payload.references);
@@ -90,6 +91,7 @@ const modifierDevis: express.RequestHandler = async (req, res) => { try {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const payload = devisPayload(body);
   lireTauxAcompteSaisi(body);
+  lireAcompteExigeSaisi(body);
   // Taux par défaut lu avant la transaction, comme pour la duplication : le client global y réclamerait une seconde
   // connexion du pool (#240, #250). Fenêtre de lecture : un changement de ce taux entre cette lecture et la
   // transaction n'est pas vu par la modification en cours ; un taux déjà exigé est gardé, et les réglages du temps

@@ -33,6 +33,10 @@ import { envoiFacture } from './envois';
 import { facturesVisibles, journalPourLeLecteur, pieceVisible } from './droits';
 import { lireOrigineRepere, origineDejaFacturee } from './repere';
 
+// Taux de TVA d'un message, au format français (#572) : « 5,5 », « 20 ». Deux décimales au plus suffisent : le taux
+// d'une ligne d'avoir en a au plus deux (lignesAvoirPartiel), comme la colonne (Decimal(5, 2)).
+const tauxFr = (taux: number) => Number(taux).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+
 export function enregistrerRoutesFactures(app: Express): void {
   // Date de la dernière facture numérotée, que l'écran compare aux brouillons : ouverte à l'assistante technique
   // (AT-3), qui l'apprendrait du refus d'émission (choix par défaut, à confirmer).
@@ -545,7 +549,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
           const source = ventilationSource.get(ventilation.tauxTva)!;
           const htCumule = cumulPrecedent(ventilation.tauxTva, 'totalHt').plus(ventilation.totalHt);
           const tvaCumulee = cumulPrecedent(ventilation.tauxTva, 'totalTva').plus(ventilation.totalTva);
-          if (htCumule.gt(source.totalHt) || tvaCumulee.gt(source.totalTva) || htCumule.plus(tvaCumulee).gt(source.totalTtc)) throw new AvoirPlafondError(`Cet avoir dépasse le plafond restant pour la TVA à ${ventilation.tauxTva} % de la facture d’origine.`);
+          if (htCumule.gt(source.totalHt) || tvaCumulee.gt(source.totalTva) || htCumule.plus(tvaCumulee).gt(source.totalTtc)) throw new AvoirPlafondError(`Cet avoir dépasse le plafond restant pour la TVA à ${tauxFr(ventilation.tauxTva)} % de la facture d’origine.`);
         }
         const identiteEmetteurId = await figerIdentiteEmetteur(tx);
         const ecritures = await ecrituresPourPiece(tx, { lignes, ventilationTva, totalTtc }, facture.id);

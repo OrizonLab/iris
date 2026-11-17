@@ -318,6 +318,20 @@ export const REFUS_TAUX_ACOMPTE = 'Le taux d’acompte doit être un pourcentage
 // défaut réglé à 0 % signifie qu'aucun acompte n'est exigé (réponse de Nelson du 17-11-2026, ci-dessous).
 export const REFUS_ACOMPTE_ZERO = 'Un acompte exigé ne peut pas être de 0 % : indiquez un taux, ou décochez « Exiger un acompte ».';
 export type TauxAcompteSaisi = { etat: 'absent' } | { etat: 'vide' } | { etat: 'valeur'; taux: number };
+// Case « acompte exigé » envoyée (#570) : booléen strict, comme « auTempsPasse » du même corps. Lue par `!!`, la
+// chaîne « false » exigeait un acompte au taux par défaut. Seul un client d'API peut envoyer autre chose qu'un
+// booléen : l'écran envoie toujours la case. La clé absente garde son sens (création : non exigé ; modification :
+// état du devis). Contrairement à « auTempsPasse », `null` est refusé (lecture retenue, à confirmer) : lu comme
+// « absent », il garderait en silence un acompte exigé à qui voulait dire « non », et la case a deux valeurs par
+// défaut (non exigé pour l'API, cochée d'office à l'écran). Contrôle de forme, avant la transaction comme celui du
+// taux : il passe avant le 404 et les 409, après le refus d'un taux malformé.
+export const REFUS_ACOMPTE_EXIGE = '« acompteExige » doit valoir true ou false.';
+export function lireAcompteExigeSaisi(body: Record<string, unknown>): boolean | undefined {
+  if (!Object.hasOwn(body, 'acompteExige')) return undefined;
+  const valeur = body.acompteExige;
+  if (typeof valeur !== 'boolean') throw new DevisSaisieError(REFUS_ACOMPTE_EXIGE);
+  return valeur;
+}
 export function lireTauxAcompteSaisi(body: Record<string, unknown>): TauxAcompteSaisi {
   if (!Object.hasOwn(body, 'tauxAcompte')) return { etat: 'absent' };
   const valeur = body.tauxAcompte;
@@ -331,10 +345,11 @@ export function lireTauxAcompteSaisi(body: Record<string, unknown>): TauxAcompte
 // l'épuisaient jusqu'à l'expiration (500).
 export function acompteDevisPayload(body: Record<string, unknown>, tauxAcompteDefaut: number, precedent?: { acompteExige: boolean; tauxAcompte: Prisma.Decimal | null; acompteRecuLe: Date | null }) {
   const saisi = lireTauxAcompteSaisi(body);
+  const caseSaisie = lireAcompteExigeSaisi(body);
   // Après encaissement, les conditions qui ont déclenché celui-ci constituent une preuve :
   // elles sont reprises telles quelles, même si le formulaire réémet des valeurs différentes.
   if (precedent?.acompteRecuLe) return { acompteExige: precedent.acompteExige, tauxAcompte: precedent.tauxAcompte };
-  const acompteExige = precedent && !Object.hasOwn(body, 'acompteExige') ? precedent.acompteExige : !!body.acompteExige;
+  const acompteExige = caseSaisie ?? (precedent ? precedent.acompteExige : false);
   if (!acompteExige) return { acompteExige, tauxAcompte: null };
   if (saisi.etat === 'valeur' && saisi.taux === 0) throw new DevisSaisieError(REFUS_ACOMPTE_ZERO);
   // Une valeur vide prend le taux par défaut, comme avant ce lot ; une clé absente, dans un PATCH portant sur les
