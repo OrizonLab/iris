@@ -32,17 +32,27 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
               </label>
               {/* Politique d'acompte de la société. Elle ne vit pas dans le code : la
                   changer ici suffit. Elle ne s'applique qu'aux devis émis ENSUITE — chaque
-                  devis fige son taux à l'émission, comme les barèmes de commission. */}
-              <label className="flex items-center gap-3 w-fit">
-                <span className="text-sm font-semibold text-gray-700">Taux d'acompte proposé par défaut</span>
-                <input
-                  type="number" name="tauxAcompteDefaut" min="0" max="100" step="0.01"
-                  defaultValue={parametres?.tauxAcompteDefaut ?? 30}
-                  className="form-input w-28" style={{ margin: 0 }}
-                  title="Proposé à la création d'un devis exigeant un acompte. Sans effet sur les devis déjà émis."
-                />
-                <span className="text-sm text-gray-500">% du TTC</span>
-              </label>
+                  devis fige son taux à l'émission, comme les barèmes de commission.
+                  Décisions de Nelson du 17-11-2026 : 40 % par défaut, réglé dans cet onglet, proposé
+                  sur chaque nouveau devis (case « Exiger un acompte » cochée d'office) ; à 0 %, aucun
+                  acompte n'est exigé. Même formulaire et même route que les autres réglages de la carte. */}
+              <fieldset className="border border-gray-100 rounded-lg p-4 space-y-2">
+                <legend className="text-sm font-bold text-gray-700 px-1">Devis et acompte</legend>
+                <label className="flex flex-wrap items-center gap-3 w-fit">
+                  <span className="text-sm font-semibold text-gray-700">Taux d'acompte proposé par défaut</span>
+                  <input
+                    type="number" name="tauxAcompteDefaut" min="0" max="100" step="0.01"
+                    defaultValue={parametres?.tauxAcompteDefaut ?? 40}
+                    className="form-input w-28" style={{ margin: 0 }}
+                    aria-describedby="aide-taux-acompte-defaut"
+                    title="Sans effet sur les devis déjà émis."
+                  />
+                  <span className="text-sm text-gray-500">% du TTC</span>
+                </label>
+                <p id="aide-taux-acompte-defaut" className="text-xs text-gray-500 m-0">
+                  Proposé sur chaque nouveau devis ; 0 % : aucun acompte n’est exigé.
+                </p>
+              </fieldset>
               {/* Alertes du suivi des chantiers (liste et tableau de bord). Vider le délai désactive
                   l'alerte sans saisie ; vider le seuil le retire, une marge estimée négative restant signalée. */}
               <fieldset className="border border-gray-100 rounded-lg p-4 space-y-3">

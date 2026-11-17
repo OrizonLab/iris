@@ -16,7 +16,7 @@ C'est aussi la règle permanente ajoutée le même jour à `CLAUDE.md` : toute n
 2. **Aucune valeur métier inventée.**
    - Pas de prix, de commission, de compte comptable ni de délai de paiement par défaut.
    - Ce qui n'a pas de comportement actuel reste vide tant que la société ne l'a pas réglé, comme le plan comptable aujourd'hui.
-   - Les valeurs déjà présentes dans le code sont présentées comme les valeurs actuelles, à confirmer par la société : acompte de 30 %, seuil de marge faible de 15 %, alerte après 14 jours sans saisie, etc.
+   - Les valeurs déjà présentes dans le code sont présentées comme les valeurs actuelles, à confirmer par la société : acompte de 40 % (décision de Nelson du 17-11-2026 ; 30 % avant), seuil de marge faible de 15 %, alerte après 14 jours sans saisie, etc.
 3. **Tout changement de paramètre est journalisé**, dans la même transaction, comme les réglages existants (`JournalAdministration`). Une entrée par enregistrement, avec les seuls champs modifiés.
 4. **« Qui fait quoi » relève des droits.** Qui clôture, qui convertit, qui facture : ces choix se règlent par les rôles de [`MODELE-DROITS-CIBLE.md`](MODELE-DROITS-CIBLE.md), avec ses permissions (`chantiers.cloturer`, `devis.convertir`…), et non par des paramètres séparés. L'assistant de démarrage les présente ensemble.
 5. **Montants et conformité sous validation.**
@@ -31,7 +31,7 @@ C'est aussi la règle permanente ajoutée le même jour à `CLAUDE.md` : toute n
 
 | Bloc | Paramètres | Qui les modifie | Journal |
 |---|---|---|---|
-| Paramètres métier (`Parametres`) | marge commerciale active ; taux d'acompte proposé (30 %) ; seuil de marge faible (15 %) ; jours sans saisie (14) | administrateur | oui |
+| Paramètres métier (`Parametres`) | marge commerciale active ; taux d'acompte proposé (40 % depuis la décision de Nelson du 17-11-2026 ; 0 % : aucun acompte exigé) ; seuil de marge faible (15 %) ; jours sans saisie (14) | administrateur | oui |
 | Destinataires de la rentabilité | conducteur, hiérarchie, directeurs, assistantes techniques (quatre cases de `Parametres`, la quatrième décochée par défaut, depuis AT-2b) | administrateur | oui. Ils deviennent la permission `rentabilite.voir` des rôles dans la proposition de droits. |
 | Module | Planning activé ou non (`planningActif`) | super administrateur | oui |
 | Journal | durée de conservation (90 jours, de 1 à 90) | super administrateur | oui |
@@ -200,7 +200,7 @@ Les principes de la section 2 s'appliquent : aucune valeur métier inventée, mo
    - **Listes verrouillées en base** (moyens de paiement, natures de ligne) : elles restent verrouillées jusqu'au lot P3, qui les fera tenir par la société. Ce lot demandera la validation de Nelson, car elles touchent la comptabilité.
    - **Site de facturation (C-13 bis)** : l'ordre de repli actuel est gardé (site de facturation désigné, puis site principal, siège, premier par ordre alphabétique), pour ne bloquer aucune émission. La liste de contrôle « Prêt à facturer » signalera un client sans site de facturation désigné.
 2. **Valeurs initiales d'une nouvelle société.**
-   - **Réglages numériques** (acompte de 30 %, seuil de marge faible de 15 %, alerte après 14 jours sans saisie, marge affichée) : la société démarre avec les valeurs actuelles du code. L'assistant les présente comme « valeurs proposées, à confirmer ». Rien n'est bloqué, et aucune valeur nouvelle n'est inventée ; aucun montant ne change pour l'installation existante.
+   - **Réglages numériques** (acompte de 30 %, porté à 40 % par la décision de Nelson du 17-11-2026, seuil de marge faible de 15 %, alerte après 14 jours sans saisie, marge affichée) : la société démarre avec les valeurs actuelles du code. L'assistant les présente comme « valeurs proposées, à confirmer ». Rien n'est bloqué, et aucune valeur nouvelle n'est inventée ; aucun montant ne change pour l'installation existante.
    - **Listes propres à un métier**, comme les types de chantier de la sûreté : une nouvelle société les trouve vides dès que le lot P3 les rend paramétrables, et les saisit à l'étape « Listes ». Une installation existante garde les siennes.
 3. **Assistant de démarrage.**
    - Il est réservé au super administrateur ; l'administrateur le consulte.

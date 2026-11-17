@@ -135,7 +135,9 @@ test('devis à l’écran, Chromium en anglais : « 1,5 » × « 18,75 » à « 
     const item = page.getByRole('listitem').filter({ hasText: objet });
     // #499 : forme des documents (virgule, espace ordinaire U+0020 avant « € »).
     await expect(item).toContainText(/HT 28,13 € · TVA 1,55 € · TTC 29,68 €/);
-    await expect(item.getByText(/^Acompte de/)).toHaveText('Acompte de 37,5 % exigé avant conversion du devis');
+    // Texte de l'historique depuis le lot acompte (cadrage v3.1 du 17-11-2026, C2 : « Acompte de X % exigé avant l’ouverture du
+    // chantier », décision du 17-11-2026, « L'acompte ne bloque que le chantier »).
+    await expect(item.getByText(/^Acompte de/)).toHaveText('Acompte de 37,5 % exigé avant l’ouverture du chantier');
 
     // Édition : quantité, PU et TVA pré-remplis à la virgule ; « 2,25 » au clavier, envoyé tel quel.
     await item.getByRole('button', { name: 'Modifier' }).click();
@@ -176,7 +178,7 @@ test('taux de l’acompte affiché au centième, comme le PDF : « 12,25 % », �
   await allerSurPageAdmin('/devis');
   for (const [taux, affiche] of cas) {
     const item = page.getByRole('listitem').filter({ hasText: `Taux affiché E2E ${suffixe} ${taux}` });
-    await expect(item.getByText(/^Acompte de/)).toHaveText(`Acompte de ${affiche} % exigé avant conversion du devis`);
+    await expect(item.getByText(/^Acompte de/)).toHaveText(`Acompte de ${affiche} % exigé avant l’ouverture du chantier`);
   }
 });
 

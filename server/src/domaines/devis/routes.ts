@@ -210,7 +210,9 @@ const envoyerDevis: express.RequestHandler = async (req, res) => { try {
 // entre que par la route d'annulation, qui exige un motif et vérifie le chantier lié — et
 // on n'en sort jamais. `EN_ATTENTE_ACOMPTE` est le choix explicite fait après acceptation :
 // ouvrir le chantier tout de suite, ou attendre l'acompte. Un devis peut y revenir tant
-// que l'acompte n'est pas constaté, mais pas une fois le chantier ouvert.
+// que l'acompte n'est pas constaté, ni une fois converti. Depuis la décision de Nelson du
+// 17-11-2026 (« L'acompte ne bloque que le chantier »), ce statut ne retient que le chantier :
+// une intervention ou un contrat se créent sans attendre l'acompte.
 const TRANSITIONS_DEVIS: Record<string, string[]> = {
   BROUILLON: ['ENVOYE'],
   ENVOYE: ['REFUSE', 'BROUILLON'],
@@ -355,15 +357,17 @@ const convertirDevis: express.RequestHandler = async (req, res) => { try {
     if (devis.statut === 'ANNULE') throw new DevisSaisieError(`Ce devis est annulé : il ne peut plus ${libelles.ouvrir}.`);
     const versionPlusRecente = await tx.devis.findFirst({ where: { dossierId: devis.dossierId, version: { gt: devis.version }, statut: { not: 'ANNULE' } }, select: { id: true } });
     if (versionPlusRecente) throw new DevisConflitError('Seule la dernière version non annulée du dossier peut être convertie.');
-    if (devis.statut === 'EN_ATTENTE_ACOMPTE') throw new DevisSaisieError(`Ce devis attend son acompte : ${libelles.pasEncore}.`);
-    if (devis.statut !== 'ACCEPTE') throw new DevisSaisieError('Seul un devis accepté peut être converti.');
+    // L'acompte ne bloque que le chantier (décision de Nelson du 17-11-2026, « L'acompte ne bloque que le chantier ») :
+    // une intervention ou un contrat se créent depuis un devis accepté, qu'il attende ou non son acompte.
+    if (cible === 'CHANTIER' && devis.statut === 'EN_ATTENTE_ACOMPTE') throw new DevisSaisieError(`Ce devis attend son acompte : ${libelles.pasEncore}.`);
+    if (devis.statut !== 'ACCEPTE' && !(cible !== 'CHANTIER' && devis.statut === 'EN_ATTENTE_ACOMPTE')) throw new DevisSaisieError('Seul un devis accepté peut être converti.');
     if (!devis.signature) throw new DevisSaisieError('Seul un devis signé en interne peut être converti.');
     const dejaConverti = refusDejaConverti(devis.conversions, cible);
     if (dejaConverti) throw new DevisConflitError(dejaConverti);
     // Verrou de fond, indépendant du statut : un devis qui exige un acompte n'ouvre pas de
     // chantier tant que sa réception n'a pas été constatée. Le statut peut être manipulé,
-    // pas ce fait.
-    if (devis.acompteExige && !devis.acompteRecuLe) throw new DevisSaisieError(`L’acompte exigé par ce devis n’a pas été constaté : ${libelles.pas}.`);
+    // pas ce fait. Il ne vaut que pour le chantier (décision de Nelson du 17-11-2026).
+    if (cible === 'CHANTIER' && devis.acompteExige && !devis.acompteRecuLe) throw new DevisSaisieError(`L’acompte exigé par ce devis n’a pas été constaté : ${libelles.pas}.`);
     // Une autre version du dossier a déjà été convertie, puis a pu être annulée avec ce qu'elle a
     // créé : les conversions d'une affaire partent toutes du même devis. Sa reprise passe par la
     // duplication du devis, qui crée une nouvelle affaire (cf. POST /api/devis/:id/duplication).
@@ -607,7 +611,8 @@ export function enregistrerRoutesDevis(app: Express): void {
   // donc à renvoyer et à faire réaccepter : dupliquer ne contourne pas l'accord du client.
   // Le lien vers l'origine évite de retrouver deux devis jumeaux sans savoir lequel remplace
   // l'autre. Le taux d'acompte est relu depuis les paramètres du jour : un duplicata est un
-  // devis neuf, il suit la politique en vigueur au moment où il est émis.
+  // devis neuf, il suit la politique en vigueur au moment où il est émis. Un taux par défaut
+  // réglé à 0 % donne un duplicata sans acompte (réponse de Nelson du 17-11-2026).
   // La source est lue sous son verrou, dans la transaction qui crée le duplicata, comme pour une
   // révision : une modification en cours est attendue puis copiée en entier, lignes et totaux.
   // Le taux et le numéro d'affaire sont lus avant, sur le client global : pendant la transaction,
@@ -652,8 +657,8 @@ export function enregistrerRoutesDevis(app: Express): void {
           dossierId: crypto.randomUUID(), numero, version: 1,
           clientId: source.clientId, objet: source.objet,
           totalHt: source.totalHt, totalTva: source.totalTva, totalTtc: source.totalTtc,
-          acompteExige: source.acompteExige,
-          tauxAcompte: source.acompteExige ? tauxAcompteDefaut : null,
+          acompteExige: source.acompteExige && Number(tauxAcompteDefaut) > 0,
+          tauxAcompte: source.acompteExige && Number(tauxAcompteDefaut) > 0 ? tauxAcompteDefaut : null,
           auTempsPasse: source.auTempsPasse,
           ...reglagesTempsPasse,
           origineDevisId: source.id,

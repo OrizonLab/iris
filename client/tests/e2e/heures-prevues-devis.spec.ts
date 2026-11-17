@@ -37,6 +37,12 @@ test('écran du devis : le total des heures prévues, durée indicative × quant
   await page.getByRole('textbox', { name: /Désignation/ }).nth(1).fill('Câblage saisi à la main');
   await page.getByRole('textbox', { name: 'Qté' }).nth(1).fill('1.5');
   await page.getByRole('textbox', { name: 'PU HT' }).nth(1).fill('50');
+  // Lot acompte (cadrage v3.1 du 17-11-2026, « E2E à adapter ») : la case est cochée d'office (décision de Nelson du
+  // 17-11-2026, « Cochée d'office (Recommandé) ») et l'acompte exigé retient l'ouverture du chantier ; ce parcours, qui
+  // ouvre le chantier par l'API sans constater d'acompte, décoche la case.
+  const caseAcompte = page.getByRole('checkbox', { name: 'Exiger un acompte avant l’ouverture du chantier' });
+  await expect(caseAcompte).toBeChecked();
+  await caseAcompte.uncheck();
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
 
   // 2 × 1 h 30 de mise en service, plus 1,5 h saisie à la main.

@@ -232,12 +232,12 @@ GET /api/devis/:id/envois requireAuth#07b983da0ce5 > <anonymous>{permission="dev
 POST /api/devis/:id/envois requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > envoyerDevis#08cbf1915d21
 PUT /api/devis/:id/statut requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > changerStatutDevis#bae4b07f199b
 PUT /api/v1/devis/:id/statut <anonymous>{scope="devis:write"}#4aeb6d464b38 > changerStatutDevis#bae4b07f199b
-POST /api/devis/:id/convertir requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > convertirDevis#cb920c3bac31
-POST /api/v1/devis/:id/convertir <anonymous>{scope="devis:write"}#4aeb6d464b38 > convertirDevis#cb920c3bac31
+POST /api/devis/:id/convertir requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > convertirDevis#a12f29c57cfd
+POST /api/v1/devis/:id/convertir <anonymous>{scope="devis:write"}#4aeb6d464b38 > convertirDevis#a12f29c57cfd
 GET /api/devis/a-convertir requireAuth#07b983da0ce5 > <anonymous>{permission="devis:read"}#c4dc4769916b > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#8e9e09399810
 POST /api/devis/:id/acompte requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#46d632fba771
 POST /api/devis/:id/annulation requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#4177370b8648
-POST /api/devis/:id/duplication requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#46d5c4cc5f88
+POST /api/devis/:id/duplication requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#24eaa81368c6
 GET /api/company requireAuth#07b983da0ce5 > <anonymous>#0b08e4374fe7
 PUT /api/company requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 > <anonymous>#f4c33f529f68
 GET /api/company/logo requireAuth#07b983da0ce5 > <anonymous>#8234217eaf1c

@@ -93,7 +93,12 @@ const ROUTES_E = ROUTES_A.filter((route) => !RESERVEES_5D.includes(route) && !SA
 // de #437. Comme en D1a-5a pour ces classes de routes, les 16 comptes les jouent, refusés à l'entrée compris (15 avant le lot « Assistante technique »).
 const ROUTE_CORRECTION_COUT = 'PATCH /api/interventions/:id/couts/:type/:coutId';
 const ROUTES_N4 = ['POST /api/contrats-maintenance/:id/generer-intervention', 'PUT /api/interventions/:id/a-suivre', 'POST /api/mentions-legales/:version/publier'];
-const ROUTES_TOUS_COMPTES = [ROUTE_CORRECTION_COUT, ...ROUTES_N4];
+// Lot acompte (cadrage v3.1 du 17-11-2026, T1 : « ajouter POST /api/devis/:id/convertir à la cible devis-acompte-attendu
+// (…). L'assistante technique y crée le contrat ou l'intervention (201), et le chantier lui est refusé ») : la conversion,
+// route marquée validation-avant-droit, est jouée par les 16 comptes sur cette seule cible propre, avec les trois corps
+// des droits individuels (décision de Nelson du 17-11-2026, « L'acompte ne bloque que le chantier »).
+const ROUTE_CONVERSION = 'POST /api/devis/:id/convertir';
+const ROUTES_TOUS_COMPTES = [ROUTE_CORRECTION_COUT, ...ROUTES_N4, ROUTE_CONVERSION];
 // Champs réservés à D1a-5d, qu'aucun corps de ce fichier ne porte (test « périmètre ») : montant vendu, prix d'achat
 // prévu d'une ligne de devis, prix d'achat d'une fiche du catalogue, planningActif, destinataires de la rentabilité.
 const RESERVE_5D = /budgetGlobalVendu|prixAchatUnitaireHt|prixAchatHt|planningActif|rentabilite/;
@@ -257,6 +262,8 @@ const CORPS = {
   'POST /api/contrats-maintenance/:id/generer-intervention': () => [{ nom: null, corps: () => ({}) }],
   'POST /api/mentions-legales/:version/publier': () => [{ nom: null, corps: () => ({}) }],
   'PUT /api/interventions/:id/a-suivre': () => [{ nom: 'aSuivre=non', corps: () => ({ aSuivre: false }) }],
+  // --- T1 du lot acompte : conversion du devis à l'acompte attendu, mêmes corps que les droits individuels ---
+  [ROUTE_CONVERSION]: (cible, d) => CORPS_DROITS[ROUTE_CONVERSION](cible, d),
 };
 // Corps des routes que seuls les droits individuels rejouent (routes marquées ou (b) de individuels-sans-gain.txt).
 const CORPS_DROITS = {
@@ -511,7 +518,7 @@ if (!TEST_DATABASE_URL) {
       await api(SA, 'PUT', `/api/devis/${devisAcompte.id}/statut`, { statut: 'ENVOYE' });
       await api(SA, 'POST', `/api/devis/${devisAcompte.id}/signature`, { signataire: 'TEST Signataire matrice', confirme: true }, 201);
       const cibleDevisAcompte = { nom: 'devis-acompte-attendu', ids: { id: devisAcompte.id }, relations: {} };
-      for (const route of ['POST /api/devis/:id/signature', 'POST /api/devis/:id/envois', 'PUT /api/devis/:id/statut', 'POST /api/devis/:id/acompte', 'POST /api/devis/:id/annulation']) CIBLES_PROPRES[route] = [cibleDevisAcompte];
+      for (const route of ['POST /api/devis/:id/signature', 'POST /api/devis/:id/envois', 'PUT /api/devis/:id/statut', 'POST /api/devis/:id/acompte', 'POST /api/devis/:id/annulation', ROUTE_CONVERSION]) CIBLES_PROPRES[route] = [cibleDevisAcompte];
 
       // Coûts SAV d'une suite rattachée à une affaire clôturée, et d'une suite rattachée à une affaire annulée (note N5
       // de l'audit des montants de #437) : chantier ouvert par la conversion d'un devis (titulaire CT), intervention du
@@ -839,6 +846,30 @@ if (!TEST_DATABASE_URL) {
       assert.equal(reponse('TECH', 'POST /api/interventions/:id/couts/heures', 'suite-affaire-annulee', corps('date et heures')), ANNULEE);
     });
 
+    // Lot acompte (cadrage v3.1 du 17-11-2026, T1 ; décision de Nelson du 17-11-2026, « L'acompte ne bloque que le
+    // chantier ») : sur le devis accepté et signé dont l'acompte exigé n'est pas constaté, l'assistante technique et
+    // l'administration créent l'intervention et le contrat (201, écrits), et le chantier leur est refusé par le verrou
+    // d'acompte (400, inchangé) ; le commercial reste refusé pour l'intervention et le contrat (403, droits inchangés).
+    // Lecture écartée : le verrou d'acompte appliqué encore à l'intervention ou au contrat (400 « L’acompte exigé par ce
+    // devis n’a pas été constaté : l’intervention ne peut pas être créée. »).
+    testPrepare('conversion du devis à l’acompte attendu (lot acompte, T1) : l’assistante technique et l’administration créent l’intervention et le contrat (201), le chantier leur est refusé (400) ; le commercial reste refusé (403)', () => {
+      const reponse = (compte, nom) => {
+        const debut = [compte, ROUTE_CONVERSION, 'devis-acompte-attendu', `${CONTEXTE_DEFAUT}, corps ${nom}`].join(SEPARATEUR) + SEPARATEUR;
+        const trouvees = lignes.filter((l) => l.startsWith(debut));
+        assert.equal(trouvees.length, 1, `ligne attendue : ${debut}`);
+        return trouvees[0].slice(debut.length);
+      };
+      const CHANTIER_REFUSE = '400 « L’acompte exigé par ce devis n’a pas été constaté : le chantier ne peut pas être ouvert. » inchangé';
+      for (const compte of ['AT', ...ADMINISTRATION]) {
+        assert.match(reponse(compte, 'cible=INTERVENTION'), /^201 écrit \(.*DevisConversion.*Intervention/, `${compte} : intervention`);
+        assert.match(reponse(compte, 'cible=CONTRAT'), /^201 écrit \(.*ContratMaintenance.*DevisConversion/, `${compte} : contrat`);
+        assert.equal(reponse(compte, 'cible=CHANTIER'), CHANTIER_REFUSE, `${compte} : chantier`);
+      }
+      assert.equal(reponse('COM', 'cible=INTERVENTION'), '403 « Création réservée à l’encadrement SAV. » inchangé');
+      assert.equal(reponse('COM', 'cible=CONTRAT'), '403 « La création d’un contrat de maintenance est réservée à l’administration et à l’assistante technique. » inchangé');
+      assert.equal(reponse('COM', 'cible=CHANTIER'), CHANTIER_REFUSE);
+    });
+
     // Avenant, ligne D1a-5b : « champs ignorés en silence (état de la base inchangé) » ; étude préalable, §1.7, bloc S :
     // « statut et client d'un non-administrateur ». Code : PATCH /api/chantiers/:id n'accepte le client que de
     // l'administration et de l'assistante technique (chantiers/routes.ts, `allowed`) ; le statut n'y est plus écrit par
@@ -904,7 +935,7 @@ if (!TEST_DATABASE_URL) {
       const ciblesAdmises = [cibleSansFamille('/api/comptabilite/tva/:taux')];
       assert.deepEqual(lignesAvecMontant(lignes, { comptes: COMPTES_JOUES, constat: true, ciblesAdmises }), [], 'lignes qui portent un montant, ou un nombre hors du code de la réponse et des comptes d’objets d’un refus');
       for (const texte of diagnostics) t.diagnostic(texte);
-      t.diagnostic(`routes : ${ROUTES_E.length} (a) non marquées, ${ROUTES_TOUS_COMPTES.length} sur cibles propres (correction d’un coût SAV, note N4) ; comptes : ${COMPTES_JOUES.length}`);
+      t.diagnostic(`routes : ${ROUTES_E.length} (a) non marquées, ${ROUTES_TOUS_COMPTES.length} sur cibles propres (correction d’un coût SAV, note N4, conversion du devis à l’acompte attendu) ; comptes : ${COMPTES_JOUES.length}`);
       t.diagnostic(`cas : ${lignes.length} (en parallèle ${chiffres.casParalleles}, un à un ${chiffres.casUnAUn}) ; écrits : ${chiffres.casEcrits} ; remises : ${remise.remises} ; comptes refusés avant la cible non rejoués : ${chiffres.refusesNonRejoues} ; lots rejoués : ${chiffres.lotsRejoues.length ? chiffres.lotsRejoues.join(' ; ') : 'aucun'}`);
       for (const [route, r] of Object.entries(chiffres.parRoute)) t.diagnostic(`${route} : ${r.cibles} cible(s), ${r.cas} cas, ${r.ms} ms`);
       comparerAvecReference(lignes, REFERENCE, 'ecritures-modifications.txt');
