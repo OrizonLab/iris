@@ -210,8 +210,8 @@ const envoyerDevis: express.RequestHandler = async (req, res) => { try {
 // entre que par la route d'annulation, qui exige un motif et vérifie le chantier lié — et
 // on n'en sort jamais. `EN_ATTENTE_ACOMPTE` est le choix explicite fait après acceptation :
 // ouvrir le chantier tout de suite, ou attendre l'acompte. Un devis accepté qui exige un acompte
-// peut y passer tant qu'il n'est pas converti, même acompte constaté (le chantier attend alors son
-// retour à « accepté ») ; il ne repasse « accepté » qu'acompte constaté. Depuis la décision de Nelson du
+// peut y passer tant qu'il n'est pas converti et que son acompte n'est pas constaté (#578) ; il ne
+// repasse « accepté » qu'acompte constaté. Depuis la décision de Nelson du
 // 17-11-2026 (« L'acompte ne bloque que le chantier »), ce statut ne retient que le chantier :
 // une intervention ou un contrat se créent sans attendre l'acompte.
 const TRANSITIONS_DEVIS: Record<string, string[]> = {
@@ -245,6 +245,10 @@ const changerStatutDevis: express.RequestHandler = async (req, res) => { try {
     if (!TRANSITIONS_DEVIS[devis.statut]?.includes(statut)) throw new DevisSaisieError(`Transition ${devis.statut} → ${statut} interdite.`);
     // Passer en attente d'acompte n'a de sens que si le devis en exige un.
     if (statut === 'EN_ATTENTE_ACOMPTE' && !devis.acompteExige) throw new DevisSaisieError('Ce devis n’exige pas d’acompte.');
+    // Acompte déjà constaté : plus rien à attendre. Sinon, converti ensuite en intervention ou en contrat (admis depuis
+    // l'attente d'acompte, décision de Nelson du 17-11-2026), le devis ne repasserait plus « accepté » (statut figé,
+    // constatation déjà faite) et son chantier ne s'ouvrirait jamais (#578).
+    if (statut === 'EN_ATTENTE_ACOMPTE' && devis.acompteRecuLe) throw new DevisSaisieError('L’acompte de ce devis a déjà été constaté.');
     if (statut === 'ACCEPTE' && devis.statut === 'EN_ATTENTE_ACOMPTE' && !devis.acompteRecuLe) throw new DevisSaisieError('L’acompte de ce devis n’a pas encore été constaté.');
     return tx.devis.update({ where: { id: devis.id }, data: { statut }, include: devisInclude });
   });

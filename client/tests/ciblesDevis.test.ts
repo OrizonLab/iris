@@ -55,8 +55,8 @@ test('acompte exigé non constaté, devis accepté : l’intervention et le cont
 
 test('en attente d’acompte : l’intervention et le contrat sont proposés, jamais le chantier, même acompte constaté', () => {
   assert.deepEqual(ciblesProposees(devisEcran({ statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true }), true), ['INTERVENTION', 'CONTRAT']);
-  // En attente d'acompte, acompte constaté (la route de statut y fait passer un devis accepté dont l'acompte est déjà
-  // constaté, audit des droits de #576) : le chantier suit le statut.
+  // En attente d'acompte, acompte constaté : état que les routes ne produisent plus depuis #578 (la constatation repasse le
+  // devis « accepté », et le retour en attente d'un devis constaté est refusé) ; reçu malgré tout, le chantier suit le statut.
   assert.deepEqual(ciblesProposees(devisEcran({ statut: 'EN_ATTENTE_ACOMPTE', acompteExige: true, acompteRecuLe: '2026-11-17T00:00:00.000Z' }), true), ['INTERVENTION', 'CONTRAT']);
 });
 

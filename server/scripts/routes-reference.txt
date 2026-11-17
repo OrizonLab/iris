@@ -230,8 +230,8 @@ POST /api/devis/:id/signature requireAuth#07b983da0ce5 > <anonymous>{permission=
 GET /api/devis/:id/document.pdf requireAuth#07b983da0ce5 > <anonymous>{permission="devis:read"}#c4dc4769916b > imprimerDevis#1a5d3834cffa
 GET /api/devis/:id/envois requireAuth#07b983da0ce5 > <anonymous>{permission="devis:read"}#c4dc4769916b > lireEnvoisDevis#6c5946c461d1
 POST /api/devis/:id/envois requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > envoyerDevis#08cbf1915d21
-PUT /api/devis/:id/statut requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > changerStatutDevis#bae4b07f199b
-PUT /api/v1/devis/:id/statut <anonymous>{scope="devis:write"}#4aeb6d464b38 > changerStatutDevis#bae4b07f199b
+PUT /api/devis/:id/statut requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > changerStatutDevis#ae260c2b711d
+PUT /api/v1/devis/:id/statut <anonymous>{scope="devis:write"}#4aeb6d464b38 > changerStatutDevis#ae260c2b711d
 POST /api/devis/:id/convertir requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > convertirDevis#a12f29c57cfd
 POST /api/v1/devis/:id/convertir <anonymous>{scope="devis:write"}#4aeb6d464b38 > convertirDevis#a12f29c57cfd
 GET /api/devis/a-convertir requireAuth#07b983da0ce5 > <anonymous>{permission="devis:read"}#c4dc4769916b > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#8e9e09399810

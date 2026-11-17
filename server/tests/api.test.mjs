@@ -5181,16 +5181,26 @@ if (!TEST_DATABASE_URL) {
         }
       });
 
-      test('un changement de statut lancé en même temps que la conversion ne modifie pas un devis converti', async () => {
+      // #578 (R1 du contrôle avant fusion de #576) : un devis dont l'acompte est constaté ne repasse plus « en attente
+      // d'acompte ». Ce test lançait ce retour en même temps que l'ouverture du chantier pour éprouver le verrou du devis :
+      // sans lui, les deux réussissaient. Depuis #578, le retour est refusé quel que soit l'ordre (la constatation, qui le
+      // refuse, précède la course), et plus aucun changement de statut ne peut réussir face à l'ouverture du chantier : un
+      // devis accepté n'a qu'« en attente d'acompte » pour destination, refusé sans acompte exigé, acompte constaté ou devis
+      // converti, et un devis exigé non constaté n'ouvre pas de chantier. La course ne départage donc plus le verrou, que les
+      // courses de la révision, de l'annulation et de l'acompte éprouvent encore. Le test garde ce qui reste vrai : quel que
+      // soit l'ordre, l'ouverture passe (201), le retour en attente est refusé (400), par l'acompte constaté s'il passe avant
+      // elle, par le statut figé s'il passe après, et le devis converti reste « accepté ». Trois tours.
+      test('un retour en attente d’acompte lancé en même temps que l’ouverture du chantier est refusé, avant comme après elle, et le devis converti reste accepté (#578)', async () => {
         for (let tour = 0; tour < 3; tour += 1) {
           const devis = await devisAccepte(`TEST Ouverture et statut simultanés ${tour}`, { acompteExige: true });
           const acompte = await request(app).post(`/api/devis/${devis.id}/acompte`).set(admin()).send({ recuLe: '01-10-2026', montant: 60, reference: `TEST-VIR-STATUT-${tour}` });
           assert.equal(acompte.status, 200, JSON.stringify(acompte.body));
-          const reponses = await Promise.all([convertir(devis.id), request(app).put(`/api/devis/${devis.id}/statut`).set(admin()).send({ statut: 'EN_ATTENTE_ACOMPTE' })]);
-          assert.equal(reponses.filter((r) => r.status < 300).length, 1, JSON.stringify(reponses.map((r) => [r.status, r.body.error])));
-          assert.ok(reponses.every((r) => r.status < 500), JSON.stringify(reponses.map((r) => [r.status, r.body.error])));
+          const [conversion, statut] = await Promise.all([convertir(devis.id), request(app).put(`/api/devis/${devis.id}/statut`).set(admin()).send({ statut: 'EN_ATTENTE_ACOMPTE' })]);
+          assert.equal(conversion.status, 201, JSON.stringify(conversion.body));
+          assert.equal(statut.status, 400, JSON.stringify(statut.body));
+          assert.ok(['L’acompte de ce devis a déjà été constaté.', 'Le chantier de ce devis est déjà ouvert : seule une annulation peut revenir dessus.'].includes(statut.body.error), statut.body.error);
           const relu = await prisma.devis.findUnique({ where: { id: devis.id }, include: { conversions: true } });
-          assert.ok(!(relu.conversions.length && relu.statut !== 'ACCEPTE'), `devis converti au statut ${relu.statut}`);
+          assert.deepEqual([relu.statut, relu.conversions.map((c) => c.cibleType)], ['ACCEPTE', ['CHANTIER']], 'le devis converti reste accepté');
         }
       });
 
