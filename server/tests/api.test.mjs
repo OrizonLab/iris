@@ -167,6 +167,15 @@ if (!TEST_DATABASE_URL) {
     prisma.ecritureFacture.deleteMany({ where: { factureId: id } }),
     prisma.facture.deleteMany({ where: { id } }),
   ]);
+  // Le journal des chantiers, interventions et contrats est en ajout seul en base (#304, cadrage v2) : seul le
+  // nettoyage de la base jetable en purge les écritures de test, garde suspendu le temps d'une transaction (un arrêt
+  // en cours de route ne peut pas le laisser désactivé), comme les autres journaux de ce fichier. Le garde du vidage
+  // (TRUNCATE) n'est jamais suspendu : aucun nettoyage ne vide la table.
+  const purgerJournalSaisie = (where) => prisma.$transaction([
+    prisma.$executeRawUnsafe('ALTER TABLE "JournalSaisieChantier" DISABLE TRIGGER "journal_saisie_chantier_ajout_seul"'),
+    prisma.journalSaisieChantier.deleteMany({ where }),
+    prisma.$executeRawUnsafe('ALTER TABLE "JournalSaisieChantier" ENABLE TRIGGER "journal_saisie_chantier_ajout_seul"'),
+  ]);
 
   let cleApi = '';
 
@@ -286,12 +295,12 @@ if (!TEST_DATABASE_URL) {
     await prisma.sequenceFacture.deleteMany({});
     await prisma.sequenceAvoir.deleteMany({});
     const interventionIds = (await prisma.intervention.findMany({ where: { client: { raisonSociale: { startsWith: 'TEST ' } } }, select: { id: true } })).map((intervention) => intervention.id);
-    await prisma.journalSaisieChantier.deleteMany({ where: { interventionId: { in: interventionIds } } });
+    await purgerJournalSaisie({ interventionId: { in: interventionIds } });
     await prisma.coutInterventionHeure.deleteMany({ where: { interventionId: { in: interventionIds } } });
     await prisma.coutInterventionAchat.deleteMany({ where: { interventionId: { in: interventionIds } } });
     await prisma.intervention.deleteMany({ where: { id: { in: interventionIds } } });
     const contratIds = (await prisma.contratMaintenance.findMany({ where: { client: { raisonSociale: { startsWith: 'TEST ' } } }, select: { id: true } })).map((contrat) => contrat.id);
-    await prisma.journalSaisieChantier.deleteMany({ where: { contratMaintenanceId: { in: contratIds } } });
+    await purgerJournalSaisie({ contratMaintenanceId: { in: contratIds } });
     await prisma.contratMaintenance.deleteMany({ where: { client: { raisonSociale: { startsWith: 'TEST ' } } } });
     // Passages de la génération des visites (lot pilote 5) : dans une base de test, tous viennent
     // des tests ; repartir sans eux rend l'alerte de la génération indépendante des suites passées.
@@ -307,7 +316,7 @@ if (!TEST_DATABASE_URL) {
     await prisma.apiAccessKey.deleteMany({ where: { nom: { startsWith: 'TEST ' } } });
     // Domaine chantier : l'ordre suit les clés étrangères — les lignes rattachées d'abord.
     const chantierIds = (await prisma.chantier.findMany({ where: { nom: { startsWith: 'TEST ' } }, select: { id: true } })).map((chantier) => chantier.id);
-    await prisma.journalSaisieChantier.deleteMany({ where: { chantierId: { in: chantierIds } } });
+    await purgerJournalSaisie({ chantierId: { in: chantierIds } });
     await prisma.achatReel.deleteMany({ where: { chantier: { nom: { startsWith: 'TEST ' } } } });
     await prisma.pointageHeure.deleteMany({ where: { chantier: { nom: { startsWith: 'TEST ' } } } });
     await prisma.chantier.deleteMany({ where: { nom: { startsWith: 'TEST ' } } });
@@ -358,7 +367,7 @@ if (!TEST_DATABASE_URL) {
     ];
     // Les journaux sont maintenant référentiellement reliés à leurs auteurs : ils partent
     // avant les comptes afin que le harnais reste rejouable après une interruption.
-    await prisma.journalSaisieChantier.deleteMany({ where: { auteur: { email: { in: emailsUtilisateursTest } } } });
+    await purgerJournalSaisie({ auteur: { email: { in: emailsUtilisateursTest } } });
     await prisma.user.deleteMany({ where: { email: { in: emailsUtilisateursTest } } });
   };
 
@@ -857,7 +866,7 @@ if (!TEST_DATABASE_URL) {
       } });
       if (commercial) {
         const chantierIds = (await prisma.chantier.findMany({ where: { commercialId: commercial.id }, select: { id: true } })).map((c) => c.id);
-        await prisma.journalSaisieChantier.deleteMany({ where: { chantierId: { in: chantierIds } } });
+        await purgerJournalSaisie({ chantierId: { in: chantierIds } });
         await prisma.chantier.deleteMany({ where: { id: { in: chantierIds } } });
         await prisma.user.delete({ where: { id: commercial.id } });
       }
@@ -947,7 +956,7 @@ if (!TEST_DATABASE_URL) {
       if (chantier) {
         await prisma.achatReel.deleteMany({ where: { chantierId: chantier.id } });
         await prisma.pointageHeure.deleteMany({ where: { chantierId: chantier.id } });
-        await prisma.journalSaisieChantier.deleteMany({ where: { chantierId: chantier.id } });
+        await purgerJournalSaisie({ chantierId: chantier.id });
         await prisma.chantier.delete({ where: { id: chantier.id } });
       }
       if (fournisseur) await prisma.fournisseur.delete({ where: { id: fournisseur.id } });
@@ -1235,7 +1244,7 @@ if (!TEST_DATABASE_URL) {
       const email = 'archiviste.pointage@iris.test';
       const residu = await prisma.user.findUnique({ where: { email } });
       if (residu) {
-        await prisma.journalSaisieChantier.deleteMany({ where: { auteurId: residu.id } });
+        await purgerJournalSaisie({ auteurId: residu.id });
         await prisma.pointageHeure.deleteMany({ where: { OR: [{ createdById: residu.id }, { updatedById: residu.id }, { archivedById: residu.id }] } });
         await prisma.user.delete({ where: { id: residu.id } });
       }
@@ -1255,7 +1264,7 @@ if (!TEST_DATABASE_URL) {
         assert.equal(archive.status, 200, 'la délégation rend l’archivage du pointage possible');
       } finally {
         await prisma.chantier.update({ where: { id: idChantierA }, data: { responsableId: idConducteur } });
-        await prisma.journalSaisieChantier.deleteMany({ where: { auteurId: archiviste.id } });
+        await purgerJournalSaisie({ auteurId: archiviste.id });
         await prisma.pointageHeure.deleteMany({ where: { OR: [{ createdById: archiviste.id }, { updatedById: archiviste.id }, { archivedById: archiviste.id }] } });
         await prisma.user.delete({ where: { id: archiviste.id } });
       }
@@ -1292,15 +1301,19 @@ if (!TEST_DATABASE_URL) {
         assert.equal(archiveLongue.status, 200, `${scenario.nom} : 300 caractères doivent être acceptés`);
         const modele = scenario.nom === 'achat' ? prisma.achatReel : prisma.pointageHeure;
         await modele.update({ where: { id: creation.body.id }, data: { archivedAt: null, archivedById: null, motifArchivage: null } });
-        await prisma.journalSaisieChantier.deleteMany({ where: { cibleId: creation.body.id, action: 'ARCHIVAGE' } });
+        // Le journal est en ajout seul (#304, cadrage v2, N5) : la trace du premier archivage reste après la remise de
+        // l'écriture à l'état actif, faite en base pour rejouer l'archivage. Les traces se comptent donc : la création,
+        // les deux archivages, puis aucune après le second (correction et nouvel archivage refusés).
         const archive = await request(app).delete(`${scenario.chemin}/${creation.body.id}`).set('Authorization', `Bearer ${session}`).send({ motifArchivage: 'Saisie en double' });
         assert.equal(archive.status, 200, `${scenario.nom} archivé`);
+        const tracesApresArchivage = await prisma.journalSaisieChantier.count({ where: { cible: scenario.cible, cibleId: creation.body.id } });
         const correction = await request(app).patch(`${scenario.chemin}/${creation.body.id}`).set('Authorization', `Bearer ${sessionConducteur}`).send(scenario.correction);
         assert.equal(correction.status, 409, `${scenario.nom} archivé ne doit plus être corrigible`);
         const secondeArchive = await request(app).delete(`${scenario.chemin}/${creation.body.id}`).set('Authorization', `Bearer ${session}`).send({ motifArchivage: 'Deuxième demande' });
         assert.equal(secondeArchive.status, 409, `${scenario.nom} archivé ne doit plus être archivable`);
-        const traces = await prisma.journalSaisieChantier.findMany({ where: { cible: scenario.cible, cibleId: creation.body.id } });
-        assert.equal(traces.length, 2, `${scenario.nom} ne crée aucune trace après archivage`);
+        const traces = await prisma.journalSaisieChantier.findMany({ where: { cible: scenario.cible, cibleId: creation.body.id }, orderBy: { createdAt: 'asc' } });
+        assert.deepEqual(traces.map((trace) => [trace.action, trace.motif]), [['CREATION', null], ['ARCHIVAGE', motifLong], ['ARCHIVAGE', 'Saisie en double']], `${scenario.nom} : la création et les deux archivages restent tracés`);
+        assert.equal(traces.length, tracesApresArchivage, `${scenario.nom} ne crée aucune trace après archivage`);
       }
     });
 
@@ -1487,8 +1500,13 @@ if (!TEST_DATABASE_URL) {
       assert.equal(suppression.status, 409);
       assert.match(suppression.body.error, /preuve de traçabilité/);
       assert.ok(await prisma.user.findUnique({ where: { id: auteur.id } }));
-      await prisma.journalSaisieChantier.delete({ where: { id: trace.id } });
-      await prisma.user.delete({ where: { id: auteur.id } });
+      // Le journal est en ajout seul (#304, cadrage v2, N5) : la trace n'est plus supprimée pour libérer le compte. Elle
+      // reste intacte, et la base refuse elle aussi la suppression du compte, par la clé auteurId (RESTRICT, P2003),
+      // avant le déclencheur du journal. La trace et le compte (adresse de emailsUtilisateursTest) partent avec le
+      // nettoyage du harnais.
+      assert.deepEqual(await prisma.journalSaisieChantier.findUnique({ where: { id: trace.id } }), trace);
+      await assert.rejects(prisma.user.delete({ where: { id: auteur.id } }), (erreur) => erreur.code === 'P2003', 'la clé auteurId retient le compte');
+      assert.ok(await prisma.user.findUnique({ where: { id: auteur.id } }));
     });
 
     test('un administrateur voit bien toutes les lignes', async () => {
@@ -30125,6 +30143,168 @@ if (!TEST_DATABASE_URL) {
       } finally {
         assert.equal((await envoyer('put', '/api/parametres', sa, { rentabiliteAssistantesTechniques: reglage, rentabiliteDirecteurs: reglageDirecteurs })).status, 200);
       }
+    });
+  });
+
+  // Lot #304 (cadrage v2 du 17-11-2026, prêt à coder ; note N4 du troisième audit interne de #302 ; message de Nelson du
+  // 17-11-2026, « Ok continu ») : le journal des chantiers, des interventions et des contrats (JournalSaisieChantier) est
+  // en ajout seul en base, comme les autres journaux d'audit (règle 2 de la méthode ; C-15 de PARAMETRAGE-CIBLE.md,
+  // « Journaux en ajout seul »). Choix par défaut, à confirmer. Migration 20261117140000_journal_saisie_ajout_seul :
+  // journal_saisie_chantier_ajout_seul (BEFORE UPDATE OR DELETE, par ligne) et journal_saisie_chantier_sans_vidage
+  // (BEFORE TRUNCATE, fonction commune refuser_vidage_sans_suppression()). Critères du cadrage : « Un UPDATE, un DELETE
+  // ou un TRUNCATE sur JournalSaisieChantier est refusé par la base, avec le message, et l'écriture reste inchangée » ;
+  // « Toutes les routes qui écrivent le journal fonctionnent comme avant ».
+  // Les écritures éprouvées sont posées par les routes, sur les trois parents. Chaque tentative est jouée dans une
+  // transaction annulée : si un garde régressait, la base de test ne serait ni modifiée ni vidée sous les tests suivants,
+  // et le test échouerait sur « … acceptée ». La mise à niveau d'une base qui porte déjà des écritures est éprouvée par
+  // journal-saisie-ajout-seul-migration.test.mjs. Aucune route de clé d'intégration n'écrit ce journal autrement que les
+  // routes de session éprouvées ici (insertion seule, inchangée par le lot).
+  describe('Journal des chantiers, interventions et contrats en ajout seul (#304) : modification, suppression et vidage refusés par la base, écritures des routes inchangées', () => {
+    const REFUS_AJOUT_SEUL = /Le journal des chantiers, interventions et contrats est en ajout seul : une écriture ne se modifie ni ne se supprime\./;
+    const REFUS_VIDAGE = /Vidage de « JournalSaisieChantier » interdit \(TRUNCATE\) : ses lignes ne se suppriment pas\./;
+    const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    let jeton = '';
+    let auth = {};
+    let clientA = null, clientB = null, chantier = null, intervenant = null, achat = null, intervention = null, contrat = null;
+    // Les écritures de départ, posées par les routes : création et correction d'un achat (chantier), création d'une
+    // intervention et d'un contrat.
+    let ecritures = [];
+    const desParents = () => ({ OR: [{ chantierId: chantier.id }, { interventionId: intervention.id }, { contratMaintenanceId: contrat.id }] });
+    // Ligne entière, telle que la base la garde (toutes les colonnes, horodatage compris).
+    const ligne = async (id) => (await prisma.$queryRaw`SELECT to_jsonb(j) AS ligne FROM "JournalSaisieChantier" j WHERE j."id" = ${id}`)[0]?.ligne ?? null;
+    const lignesDesParents = async () => (await prisma.$queryRaw`SELECT to_jsonb(j) AS ligne FROM "JournalSaisieChantier" j
+      WHERE j."chantierId" = ${chantier.id} OR j."interventionId" = ${intervention.id} OR j."contratMaintenanceId" = ${contrat.id} ORDER BY j."id"`).map((r) => r.ligne);
+    // Tentative jouée dans une transaction annulée : acceptée, elle n'est pas gardée et la promesse est rejetée sur son
+    // nom, que le motif du refus attendu ne reconnaît pas.
+    const tentativeAnnulee = (nom, operation) => prisma.$transaction(async (tx) => {
+      await operation(tx);
+      throw new Error(`${nom} : acceptée`);
+    });
+
+    before(async () => {
+      const login = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(login.status, 200);
+      jeton = login.body.token;
+      auth = { Authorization: `Bearer ${jeton}` };
+      clientA = await prisma.client.create({ data: { raisonSociale: `TEST Client journal 304 A ${suffixe}` } });
+      clientB = await prisma.client.create({ data: { raisonSociale: `TEST Client journal 304 B ${suffixe}` } });
+      chantier = await prisma.chantier.create({ data: { nom: `TEST Journal 304 ${suffixe}`, client: clientA.raisonSociale, clientId: clientA.id, dateDebut: new Date(), budgetGlobalVendu: 1000 } });
+      const categorie = await prisma.categorie.create({ data: { nom: `TEST Catégorie journal 304 ${suffixe}` } });
+      const fournisseur = await prisma.fournisseur.create({ data: { nom: `TEST Fournisseur journal 304 ${suffixe}` } });
+      intervenant = await prisma.intervenant.create({ data: { nom: `TEST Intervenant journal 304 ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 40 } });
+      const creationAchat = await request(app).post('/api/achats').set(auth).send({ chantierId: chantier.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date: '06-09-2026', description: 'TEST achat journal 304', montantHT: 25 });
+      assert.equal(creationAchat.status, 200, JSON.stringify(creationAchat.body));
+      achat = creationAchat.body;
+      const correction = await request(app).patch(`/api/achats/${achat.id}`).set(auth).send({ montantHT: 30, motifCorrection: 'Correction nécessaire' });
+      assert.equal(correction.status, 200, JSON.stringify(correction.body));
+      const creationIntervention = await request(app).post('/api/interventions').set(auth).send({ clientId: clientA.id, titre: `TEST Intervention journal 304 ${suffixe}` });
+      assert.equal(creationIntervention.status, 201, JSON.stringify(creationIntervention.body));
+      intervention = creationIntervention.body;
+      const creationContrat = await request(app).post('/api/contrats-maintenance').set(auth).send({ clientId: clientA.id, titre: `TEST Contrat journal 304 ${suffixe}`, periodiciteMois: 6, dureePrevisionnelleMinutes: 90, dateDebut: '01-11-2026' });
+      assert.equal(creationContrat.status, 201, JSON.stringify(creationContrat.body));
+      contrat = creationContrat.body;
+      ecritures = await prisma.journalSaisieChantier.findMany({ where: desParents(), orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+      assert.deepEqual(ecritures.map((e) => [e.cible, e.action]).sort(), [['ACHAT', 'CREATION'], ['ACHAT', 'CORRECTION'], ['CONTRAT', 'CREATION'], ['INTERVENTION', 'CREATION']].sort(), 'une écriture par route');
+      assert.ok(ecritures.find((e) => e.action === 'CORRECTION').avant, 'la correction porte un « avant »');
+    });
+
+    test('une écriture du journal ne se modifie pas : UPDATE refusé par la base avec le message, par Prisma comme en SQL, quelle que soit la colonne, sur un chantier, une intervention et un contrat ; l’écriture reste identique', async () => {
+      for (const ecriture of ecritures) {
+        const contexte = `${ecriture.cible} ${ecriture.action}`;
+        const avant = await ligne(ecriture.id);
+        assert.ok(avant, `${contexte} : écriture en base`);
+        const tentatives = [
+          ['motif, par Prisma', (tx) => tx.journalSaisieChantier.update({ where: { id: ecriture.id }, data: { motif: 'TEST motif réécrit' } })],
+          ['auteur, par Prisma (updateMany)', (tx) => tx.journalSaisieChantier.updateMany({ where: { id: ecriture.id }, data: { auteurNom: 'TEST auteur usurpé' } })],
+          ['horodatage, en SQL', (tx) => tx.$executeRaw`UPDATE "JournalSaisieChantier" SET "createdAt" = ${new Date('2020-01-01T00:00:00.000Z')} WHERE "id" = ${ecriture.id}`],
+          ['contenu, en SQL', (tx) => tx.$executeRaw`UPDATE "JournalSaisieChantier" SET "avant" = NULL, "apres" = '{}'::jsonb WHERE "id" = ${ecriture.id}`],
+          ['cible, en SQL', (tx) => tx.$executeRaw`UPDATE "JournalSaisieChantier" SET "cibleId" = 'TEST-autre-cible' WHERE "id" = ${ecriture.id}`],
+        ];
+        for (const [nom, operation] of tentatives) await assert.rejects(tentativeAnnulee(`${contexte}, ${nom}`, operation), REFUS_AJOUT_SEUL, `${contexte}, ${nom}`);
+        assert.deepEqual(await ligne(ecriture.id), avant, `${contexte} : écriture identique`);
+      }
+      // Toutes les écritures des trois parents à la fois : refusé aussi, aucune ne change.
+      const toutes = await lignesDesParents();
+      await assert.rejects(tentativeAnnulee('modification de toutes les écritures', (tx) => tx.journalSaisieChantier.updateMany({ where: desParents(), data: { motif: 'TEST tout réécrit' } })), REFUS_AJOUT_SEUL);
+      assert.deepEqual(await lignesDesParents(), toutes);
+    });
+
+    test('une écriture du journal ne se supprime pas : DELETE refusé par la base avec le message, par Prisma comme en SQL, une à une ou toutes ensemble ; aucune écriture ne manque', async () => {
+      const toutes = await lignesDesParents();
+      assert.equal(toutes.length, ecritures.length);
+      for (const ecriture of ecritures) {
+        const contexte = `${ecriture.cible} ${ecriture.action}`;
+        const tentatives = [
+          ['par Prisma', (tx) => tx.journalSaisieChantier.delete({ where: { id: ecriture.id } })],
+          ['par Prisma (deleteMany de sa cible)', (tx) => tx.journalSaisieChantier.deleteMany({ where: { cible: ecriture.cible, cibleId: ecriture.cibleId } })],
+          ['en SQL', (tx) => tx.$executeRaw`DELETE FROM "JournalSaisieChantier" WHERE "id" = ${ecriture.id}`],
+        ];
+        for (const [nom, operation] of tentatives) await assert.rejects(tentativeAnnulee(`${contexte}, suppression ${nom}`, operation), REFUS_AJOUT_SEUL, `${contexte}, suppression ${nom}`);
+      }
+      await assert.rejects(tentativeAnnulee('suppression de toutes les écritures des trois parents', (tx) => tx.journalSaisieChantier.deleteMany({ where: desParents() })), REFUS_AJOUT_SEUL);
+      assert.deepEqual(await lignesDesParents(), toutes, 'aucune écriture ne manque ni ne change');
+    });
+
+    test('le journal ne se vide pas : TRUNCATE refusé par la base, qui nomme la table ; aucune écriture ne manque', async () => {
+      const total = await prisma.journalSaisieChantier.count();
+      const toutes = await lignesDesParents();
+      await assert.rejects(tentativeAnnulee('vidage du journal', (tx) => tx.$executeRawUnsafe('TRUNCATE "JournalSaisieChantier"')), REFUS_VIDAGE);
+      assert.equal(await prisma.journalSaisieChantier.count(), total);
+      assert.deepEqual(await lignesDesParents(), toutes);
+    });
+
+    // Effets sur les comptes, d'après l'inventaire du contrôleur (cadrage v2) : la suppression d'un compte auteur reste
+    // refusée par la clé auteurId (ON DELETE RESTRICT), avant le déclencheur, et la route répond 409, jamais 500 ; le
+    // changement de son identifiant (ON UPDATE CASCADE) réécrirait ses écritures, et devient refusé (effet nouveau écrit
+    // dans la migration, qu'aucun code ne déclenche). Témoin : un compte sans écriture change d'identifiant.
+    test('compte auteur d’une écriture : sa suppression reste refusée (409 par la route, clé auteurId en base), et le changement de son identifiant, qui réécrirait l’écriture, est refusé par le journal ; un compte sans écriture en change (témoin)', async () => {
+      const emails = [`journal304.auteur.${suffixe}@iris.test`, `journal304.temoin.${suffixe}@iris.test`];
+      const [auteur, temoin] = await Promise.all(emails.map((email) => prisma.user.create({ data: { email, name: 'TEST Auteur journal 304', role: 'ADMIN' } })));
+      try {
+        const trace = await prisma.journalSaisieChantier.create({ data: { chantierId: chantier.id, cible: 'CHANTIER', cibleId: chantier.id, action: 'CHANGEMENT_TITULAIRE', auteurId: auteur.id, auteurNom: auteur.name, avant: { responsableId: null, nom: null }, apres: { responsableId: auteur.id, nom: auteur.name } } });
+        const avant = await ligne(trace.id);
+        const suppression = await request(app).delete(`/api/users/${auteur.id}`).set(auth);
+        assert.equal(suppression.status, 409, JSON.stringify(suppression.body));
+        assert.match(suppression.body.error, /preuve de traçabilité/);
+        await assert.rejects(tentativeAnnulee('suppression du compte auteur en base', (tx) => tx.user.delete({ where: { id: auteur.id } })), (erreur) => erreur.code === 'P2003', 'la clé auteurId retient le compte');
+        await assert.rejects(tentativeAnnulee('changement d’identifiant du compte auteur', (tx) => tx.$executeRaw`UPDATE "User" SET "id" = ${randomUUID()} WHERE "id" = ${auteur.id}`), REFUS_AJOUT_SEUL);
+        assert.deepEqual(await ligne(trace.id), avant, 'écriture identique');
+        assert.ok(await prisma.user.findUnique({ where: { id: auteur.id } }), 'compte auteur conservé');
+        await assert.rejects(tentativeAnnulee('changement d’identifiant d’un compte sans écriture', async (tx) => {
+          assert.equal(await tx.$executeRaw`UPDATE "User" SET "id" = ${randomUUID()} WHERE "id" = ${temoin.id}`, 1);
+        }), /changement d’identifiant d’un compte sans écriture : acceptée/, 'témoin : le refus vient du journal, non du compte');
+      } finally {
+        await purgerJournalSaisie({ auteurId: auteur.id });
+        await prisma.user.deleteMany({ where: { email: { in: emails } } });
+      }
+    });
+
+    test('les routes écrivent toujours le journal : chaque écriture s’ajoute et les précédentes restent identiques (achat archivé puis restauré, heure et client de l’affaire ; intervention planifiée, démarrée et son compte rendu ; contrat suspendu puis réactivé)', async () => {
+      const avant = await lignesDesParents();
+      const idsAvant = avant.map((l) => l.id);
+      const etapes = [
+        ['archivage de l’achat', () => request(app).delete(`/api/achats/${achat.id}`).set(auth).send({ motifArchivage: 'Saisie en double' }), 200],
+        ['restauration de l’achat', () => request(app).post(`/api/achats/${achat.id}/restaurer`).set(auth).send({ motifRestauration: 'Saisie vérifiée et rétablie' }), 200],
+        ['heure', () => request(app).post('/api/heures').set(auth).send({ chantierId: chantier.id, intervenantId: intervenant.id, date: '06-09-2026', nbrHeures: 2 }), 200],
+        ['client de l’affaire', () => request(app).patch(`/api/chantiers/${chantier.id}`).set(auth).send({ clientId: clientB.id }), 200],
+        ['intervention planifiée', () => request(app).patch(`/api/interventions/${intervention.id}/statut`).set(auth).send({ statut: 'PLANIFIEE' }), 200],
+        ['intervention démarrée', () => request(app).patch(`/api/interventions/${intervention.id}/statut`).set(auth).send({ statut: 'EN_COURS' }), 200],
+        ['compte rendu', () => ajouterCompteRendu(intervention.id, jeton, 'TEST Compte rendu journal 304.'), 201],
+        ['contrat suspendu', () => request(app).patch(`/api/contrats-maintenance/${contrat.id}/statut`).set(auth).send({ statut: 'SUSPENDU', motif: 'TEST suspension journal 304' }), 200],
+        ['contrat réactivé', () => request(app).patch(`/api/contrats-maintenance/${contrat.id}/statut`).set(auth).send({ statut: 'ACTIF', motif: 'TEST réactivation journal 304' }), 200],
+      ];
+      for (const [nom, appel, statut] of etapes) {
+        const reponse = await appel();
+        assert.equal(reponse.status, statut, `${nom} : ${JSON.stringify(reponse.body)}`);
+      }
+      const apres = await lignesDesParents();
+      assert.deepEqual(apres.filter((l) => idsAvant.includes(l.id)), avant, 'les écritures précédentes restent identiques');
+      const nouvelles = await prisma.journalSaisieChantier.findMany({ where: { ...desParents(), id: { notIn: idsAvant } } });
+      assert.deepEqual(nouvelles.map((e) => [e.cible, e.action]).sort(), [
+        ['ACHAT', 'ARCHIVAGE'], ['ACHAT', 'RESTAURATION'], ['HEURE', 'CREATION'], ['CHANTIER', 'CHANGEMENT_CLIENT'],
+        ['INTERVENTION', 'CHANGEMENT_STATUT'], ['INTERVENTION', 'CHANGEMENT_STATUT'], ['INTERVENTION_RAPPORT', 'CREATION'], ['CONTRAT', 'SUSPENSION'], ['CONTRAT', 'REACTIVATION'],
+      ].sort(), 'une écriture de plus par route');
+      assert.equal(apres.length, avant.length + etapes.length);
     });
   });
 }
