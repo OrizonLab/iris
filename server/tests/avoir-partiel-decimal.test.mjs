@@ -311,27 +311,30 @@ if (!TEST_DATABASE_URL) {
     // plus admis à la saisie depuis le lot des taux français, mais une facture émise avant lui le porte et reçoit ses avoirs
     // partiels à son taux. Écrite en base (aucune donnée réelle, règle 4), cohérente : 1 × 10,00 € à 2,1 % (TVA 0,21 €) et
     // 1 × 10,00 € à 20 % (TVA 2,00 €) ; HT 20,00 €, TVA 2,21 €, TTC 22,21 € ; écritures équilibrées sur le TTC ; émise, scellée,
-    // créée au nom du type de compte donné (l'assistante technique ne voit que les factures de son poste).
-    const factureHistoriqueSql = async (tx, cle) => {
+    // créée au nom du type de compte donné (l'assistante technique ne voit que les factures de son poste). Taux et TVA de la ligne
+    // historique en paramètres (audit des montants de #592 : facture à 1,75 %, plus bas) ; par défaut, 2,1 % et 0,21 €.
+    const factureHistoriqueSql = async (tx, cle, { taux = 2.1, tvaCentimes = 21 } = {}) => {
+      const euros = (centimes) => centimes / 100;
+      const ecrit = String(taux).replace('.', ',');
       const identite = await prisma.identiteEmetteur.findFirstOrThrow({ select: { id: true } });
       const date = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
       const piece = await tx.facture.create({ data: {
         id: randomUUID(), clientId: client.id, clientRaisonSociale: client.raisonSociale, type: 'FACTURE', statut: 'EMISE', estAvoirAnnulation: false,
-        dateEmission: date, dateEcheance: date, totalHt: 20, totalTva: 2.21, totalTtc: 22.21, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST décimal facture historique à 2,1 %',
+        dateEmission: date, dateEcheance: date, totalHt: 20, totalTva: euros(200 + tvaCentimes), totalTtc: euros(2200 + tvaCentimes), origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST décimal facture historique à ${ecrit} %`,
         identiteEmetteurId: identite.id, creeParType: ROLE[cle], createdById: idDe(cle),
       } });
       await tx.factureLigne.createMany({ data: [
-        { factureId: piece.id, ordre: 0, designation: 'TEST décimal historique à 2,1 %', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 2.1, totalHt: 10, totalTtc: 10.21 },
+        { factureId: piece.id, ordre: 0, designation: `TEST décimal historique à ${ecrit} %`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: taux, totalHt: 10, totalTtc: euros(1000 + tvaCentimes) },
         { factureId: piece.id, ordre: 1, designation: 'TEST décimal historique à 20 %', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 20, totalHt: 10, totalTtc: 12 },
       ] });
       await tx.factureVentilationTva.createMany({ data: [
-        { factureId: piece.id, tauxTva: 2.1, totalHt: 10, totalTva: 0.21, totalTtc: 10.21 },
+        { factureId: piece.id, tauxTva: taux, totalHt: 10, totalTva: euros(tvaCentimes), totalTtc: euros(1000 + tvaCentimes) },
         { factureId: piece.id, tauxTva: 20, totalHt: 10, totalTva: 2, totalTtc: 12 },
       ] });
       await tx.ecritureFacture.createMany({ data: [
-        { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', debit: 22.21, credit: 0 },
+        { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', debit: euros(2200 + tvaCentimes), credit: 0 },
         { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', debit: 0, credit: 20 },
-        { factureId: piece.id, ordre: 2, cle: 'TVA:2.1', tauxTva: 2.1, journalCode: 'VE', compteNum: '445799', compteLib: 'TEST TVA 2,1', debit: 0, credit: 0.21 },
+        { factureId: piece.id, ordre: 2, cle: `TVA:${taux}`, tauxTva: taux, journalCode: 'VE', compteNum: '445799', compteLib: `TEST TVA ${ecrit}`, debit: 0, credit: euros(tvaCentimes) },
         { factureId: piece.id, ordre: 3, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', debit: 0, credit: 2 },
       ] });
       return tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
@@ -707,6 +710,31 @@ if (!TEST_DATABASE_URL) {
           await refuse(() => avoir(historique.id, [L(2.1, 1001n)], par(auteur)), 409, REFUS.plafondTaux(HISTORIQUE.ecrit), `${auteurFacture} : 10,01 € à 2,1 % sur la facture historique (${auteur})`);
           await refuse(() => avoir(historique.id, [L(20, 500n), L(2.1, 1001n)], par(auteur)), 409, REFUS.plafondTaux(HISTORIQUE.ecrit), `${auteurFacture} : 5,00 € à 20 % et 10,01 € à 2,1 % (${auteur})`);
         }
+      }
+    });
+
+    // Taux à deux décimales (audit des montants de #592, mutant « une décimale au plus » survivant) : le taux d'une ligne d'avoir a
+    // au plus deux décimales, comme la colonne (Decimal(5, 2)), et le message les garde toutes (`maximumFractionDigits: 2`, cadrage v2,
+    // périmètre 2). Les taux joués plus haut (0, 5,5, 10, 20 et 2,1) en ont au plus une : ils ne séparent pas l'attendu d'une lecture à
+    // une décimale au plus, celle des pourcentages de marge de l'écran (`maximumFractionDigits: 1`). Facture historique à 1,75 % (taux
+    // réduit des départements d'outre-mer, qu'Iris n'admet pas à la saisie ; écrite en base, aucune donnée réelle, règle 4),
+    // cohérente : 1 × 10,00 € à 1,75 % (TVA 0,175 → 0,18 €) et 1 × 10,00 € à 20 % (TVA 2,00 €) ; HT 20,00 €, TVA 2,18 €, TTC
+    // 22,18 €. Avoir de 1 × 10,01 € à 1,75 % : TVA 0,175175 → 0,18 € ; total HT 10,01 € ≤ 20,00 €, TVA 0,18 € ≤ 2,18 €, TTC 10,19 € ≤
+    // 22,18 € ; base du taux 10,01 € > 10,00 € : 409 du taux 1,75 %. Lectures écartées, chacune distincte de l'attendu : une décimale
+    // au plus (« 1,8 »), arrondi à l'unité (« 2 »), taux au point (« 1.75 », état d'avant #572 ou locale omise sous `en-US`).
+    test('#572, taux à deux décimales : sur une facture historique à 1,75 %, le refus du plafond du taux cite « 1,75 % », et non « 1,8 % », « 2 % » ni « 1.75 % », par l’administration et par l’assistante technique sur une facture de son poste, sans écriture ni numéro', async () => {
+      const t = { taux: 1.75, ecrit: '1,75', ecartees: ['1,8', '2', '1.75'] };
+      assert.deepEqual([exact.tva(1000n, t.taux), exact.tva(1001n, t.taux)], [18n, 18n]);
+      assert.ok(1001n <= 2000n && 18n <= 218n && 1001n + 18n <= 2218n, 'le total a de la place');
+      for (const ecartee of t.ecartees) assert.notEqual(REFUS.plafondTaux(ecartee), REFUS.plafondTaux(t.ecrit), `lecture écartée « ${ecartee} »`);
+      // Une facture émise par l'API fige l'identité de l'émetteur que la facture historique reprend : le test ne dépend pas des
+      // précédents (il passe seul, par --test-name-pattern).
+      await factureEmise(par('AD'), 'identité de l’émetteur figée', [ligne('visite', 1, 1, 20)]);
+      for (const auteur of ['AD', 'AT']) {
+        const historique = await transaction((tx) => factureHistoriqueSql(tx, auteur, { taux: t.taux, tvaCentimes: 18 }));
+        const relue = await enBase(historique.id);
+        assert.deepEqual([relue.creeParType, ...totaux(relue), ...ventilation(relue)], [ROLE[auteur], 20, 2.18, 22.18, [1.75, 10, 0.18, 10.18], [20, 10, 2, 12]], `${auteur} : facture historique à 1,75 %`);
+        await refuse(() => avoir(historique.id, [L(t.taux, 1001n)], par(auteur)), 409, REFUS.plafondTaux(t.ecrit), `${auteur} : 10,01 € à 1,75 %`);
       }
     });
 
