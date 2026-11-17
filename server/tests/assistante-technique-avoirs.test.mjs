@@ -65,7 +65,8 @@ const REFUS = {
   ligneInvalide: 'Ligne d’avoir partiel invalide.',
   tauxAbsent: 'Le taux de TVA d’une ligne d’avoir doit être présent sur la facture d’origine.',
   plafondTotal: 'Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.',
-  plafondTaux55: 'Cet avoir dépasse le plafond restant pour la TVA à 5.5 % de la facture d’origine.',
+  // Taux au format français depuis #572 (cadrage v2 du lot, périmètre 2) : « 5,5 % », et non « 5.5 % » (état d'avant le lot).
+  plafondTaux55: 'Cet avoir dépasse le plafond restant pour la TVA à 5,5 % de la facture d’origine.',
   plafondTaux20: 'Cet avoir dépasse le plafond restant pour la TVA à 20 % de la facture d’origine.',
   nonCreditable: 'Seule une facture émise ou réglée peut recevoir un avoir partiel.',
   nonAnnulable: 'Seule une facture émise peut être annulée.',

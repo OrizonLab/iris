@@ -62,7 +62,7 @@ GET /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab >
 POST /api/factures/:id/emettre requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#05d1ef8eec83
 POST /api/factures/:id/regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#7c4c1669baf6
 POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#3331fa97353f
-POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#ed6b2e549294
+POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#b5b468df96d7
 GET /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#e75e8b253ce9
 POST /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#960cb2d49dfe
 GET /api/reglements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c8df78a7855a
@@ -220,10 +220,10 @@ DELETE /api/v1/catalogue/:family/:id <anonymous>{scope="catalogue:write"}#4aeb6d
 GET /api/devis/catalogue requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#eb08907e9f54
 GET /api/devis requireAuth#07b983da0ce5 > <anonymous>{permission="devis:read"}#c4dc4769916b > listerDevis#1b0df21d4732
 GET /api/v1/devis <anonymous>{scope="devis:read"}#4aeb6d464b38 > listerDevis#1b0df21d4732
-POST /api/devis requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > creerDevis#87da0a7b437b
-POST /api/v1/devis <anonymous>{scope="devis:write"}#4aeb6d464b38 > creerDevis#87da0a7b437b
-PATCH /api/devis/:id requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > modifierDevis#36900bfd4361
-PATCH /api/v1/devis/:id <anonymous>{scope="devis:write"}#4aeb6d464b38 > modifierDevis#36900bfd4361
+POST /api/devis requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > creerDevis#9cf9dbc7e3be
+POST /api/v1/devis <anonymous>{scope="devis:write"}#4aeb6d464b38 > creerDevis#9cf9dbc7e3be
+PATCH /api/devis/:id requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > modifierDevis#54b1d1b451a0
+PATCH /api/v1/devis/:id <anonymous>{scope="devis:write"}#4aeb6d464b38 > modifierDevis#54b1d1b451a0
 POST /api/devis/:id/revisions requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > creerRevision#eedad79d1cb1
 POST /api/v1/devis/:id/revisions <anonymous>{scope="devis:write"}#4aeb6d464b38 > creerRevision#eedad79d1cb1
 POST /api/devis/:id/signature requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > signerDevis#238b4b2a1dbb
