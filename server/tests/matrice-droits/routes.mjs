@@ -24,6 +24,10 @@
 // et n'écrit plus. Les trois routes de comptes passent donc de (b) à (a) marquée validation-avant-droit, comme le type
 // d'un compte (le 400 du drapeau précède le refus du super administrateur ciblé, le 404 du compte système et les refus
 // métier), et le partage du planning de (c) à (a).
+// Lot #587, volet montants (cadrage v3, « Tests », matrices) : l'encaissement d'un chantier lit son drapeau en booléen
+// strict, obligatoire ; son corps vide répond 400 sur un chantier existant non annulé, après le 404 et le 409 de l'affaire
+// annulée, rendus sous le verrou de la ligne. La route reste en (a), non marquée validation-avant-droit : la garde
+// requireAdmin précède le contrôle, et le 400 ne masque ni le 404 ni le 409.
 
 // Routes ouvertes sans session : exclues des matrices d'entrée (le lien public du planning a sa petite table à
 // part, cadrage §2.1, N5).

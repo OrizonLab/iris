@@ -117,7 +117,7 @@ GET /api/chantiers/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#7244
 GET /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > lireEnvoisRapportChantier#686d69fd2e44
 POST /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > envoyerRapportChantier#b8c79c1eee9b
 POST /api/chantiers requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#5a2a6ae542c5
-PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#00d95d66dd00
+PATCH /api/chantiers/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#9466f5833b93
 DELETE /api/chantiers/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c4bcd35fe13f
 PATCH /api/chantiers/:id/statut requireAuth#07b983da0ce5 > blockCommercialSeulement#f36b50e5b6cd > refuserAssistanteTechniqueStatut#cc5d47d07441 > <anonymous>#7e280a3c7ca9
 PATCH /api/chantiers/:id/commercial requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#6584b46898e4
@@ -171,8 +171,8 @@ POST /api/heures requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:wr
 PATCH /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#f7414586d918
 DELETE /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#a964dff53d9c
 POST /api/heures/:id/restaurer requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#bc81f9477fc9
-PATCH /api/chantiers/:id/encaisse requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#14023a803135
-PUT /api/commerciaux/:id/prime-mensuelle requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#1e069a7e8edc
+PATCH /api/chantiers/:id/encaisse requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#ec1f0d417acb
+PUT /api/commerciaux/:id/prime-mensuelle requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#cccb396d8e6a
 GET /api/parametres requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#b469f501b945
 GET /api/registry/companies requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#9636734be755
 GET /api/admin/api-keys requireAuth#07b983da0ce5 > requireSuperAdmin#f8122bc14e34 > <anonymous>#691b4b5290ef

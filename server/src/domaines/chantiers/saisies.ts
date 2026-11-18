@@ -11,7 +11,7 @@ import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { dateIsoStricte } from '../../commun/dates';
 import { decimalToNumber } from '../../commun/montants';
-import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide } from '../../commun/validation';
+import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide, booleenStrict } from '../../commun/validation';
 import { valeurJournal } from '../../commun/journal-administration';
 import { CHANTIER_LITE_SELECT, journaliserChangementChantier } from './metier';
 import { requireTravauxWrite, requireTravauxArchive, RefusChantier, REFUS_AFFAIRE_ANNULEE_ENCAISSEMENT, chantierSelonRentabilite } from './droits';
@@ -409,12 +409,17 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
   // prend aussi l'annulation du devis (devis/annulation.ts).
   app.patch('/api/chantiers/:id/encaisse', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const encaisse = !!req.body.encaisse;
+      // Drapeau obligatoire, en booléen strict (#587, volet montants ; lecture retenue, à confirmer par Nelson) : un corps
+      // vide ne désencaisse plus le chantier, et « false » ne l'encaisse plus. Le refus (400) est rendu sous le verrou,
+      // après le 404 et le 409 de l'affaire annulée (qui vaut quel que soit le corps, #449), et avant toute écriture.
+      const lecture = booleenStrict(req.body, 'encaisse', { obligatoire: true });
       const id = paramId(req);
       const chantier = await transactionVerifiee(async (tx) => {
         const [ligne] = await tx.$queryRaw<Array<{ statut: string; encaisse: boolean; dateEncaissement: Date | null }>>(Prisma.sql`SELECT "statut", "encaisse", "dateEncaissement" FROM "Chantier" WHERE "id" = ${id} FOR UPDATE`);
         if (!ligne) return null;
         if (ligne.statut === 'ANNULE') throw new RefusChantier(409, REFUS_AFFAIRE_ANNULEE_ENCAISSEMENT);
+        if (!lecture.ok) throw new RefusChantier(400, lecture.erreur);
+        const encaisse = lecture.valeur as boolean;
         if (ligne.encaisse === encaisse) return tx.chantier.findUniqueOrThrow({ where: { id } });
         const dateEncaissement = encaisse ? new Date() : null;
         await journaliserChangementChantier(tx, id, (req as AuthRequest).user!, 'CHANGEMENT_ENCAISSEMENT',
