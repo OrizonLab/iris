@@ -24,7 +24,8 @@ export function motifRestaurationValide(value: unknown): string | null {
 // pas un objet (absent, scalaire, tableau : Express 5 laisse alors `req.body` à `undefined`) est lu comme vide, donc
 // « clé absente », sans erreur. La clé absente est admise (`undefined`) pour un champ facultatif et refusée pour un
 // champ obligatoire, celui d'une route qui n'existe que pour le poser. Le refus est rendu, non levé : l'appelant le
-// renvoie en 400 avant toute lecture ou écriture en base.
+// renvoie en 400 avant toute écriture, et en règle générale avant toute lecture en base (l'encaissement d'un chantier le
+// rend après le 404 et le 409 de sa ligne verrouillée, #587).
 export type LectureBooleen = { ok: true; valeur: boolean | undefined } | { ok: false; erreur: string };
 export function booleenStrict(corps: unknown, cle: string, options: { obligatoire: boolean }): LectureBooleen {
   const objet = corps !== null && typeof corps === 'object' && !Array.isArray(corps) ? corps as Record<string, unknown> : {};

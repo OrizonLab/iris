@@ -11,7 +11,7 @@ import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, aujourdHuiEntreprise, dateIsoStricte } from '../../commun/dates';
 import { decimalToNumber, sommeExacte, differenceExacte } from '../../commun/montants';
-import { nombreDecimalNonNegatif } from '../../commun/validation';
+import { nombreDecimalNonNegatif, booleenStrict } from '../../commun/validation';
 import { getParametres } from '../parametres/metier';
 import { getCompanySettings } from '../administration/metier';
 import { normaliserNumeroDevis, erreurNumeroDevis, numeroDevisDejaPris } from '../devis/metier';
@@ -347,7 +347,11 @@ export function enregistrerRoutesChantiers(app: Express): void {
       // Facultative (contrairement au numéro de devis) : peut être vidée.
       if ('adresse' in req.body) data.adresse = String(req.body.adresse || '').trim() || null;
       if ('types' in req.body) data.types = sanitizeTypes(req.body.types);
-      if ('baremeReduit' in req.body) data.baremeReduit = !!req.body.baremeReduit;
+      // Champ facultatif, en booléen strict (#587, volet montants) : la clé absente garde la valeur ; toute autre valeur que
+      // true ou false, null compris, est refusée avant la transaction, donc sans écrire aucun champ de la fiche.
+      const bareme = booleenStrict(req.body, 'baremeReduit', { obligatoire: false });
+      if (!bareme.ok) return res.status(400).json({ error: bareme.erreur });
+      if (bareme.valeur !== undefined) data.baremeReduit = bareme.valeur;
 
       const chantier = await transactionVerifiee(async (tx) => {
         // Verrou de la ligne, pour toute modification (#285) : une annulation du devis, une clôture ou

@@ -1028,20 +1028,20 @@ AD | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 400
 AD | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 400
 AD | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 400
 AD | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 404 « Chantier introuvable »
-AD | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 200
+AD | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 400
 AD | PATCH /api/chantiers/:id/encaisse | chantier-annule | défaut | 409 « Cette affaire est annulée : elle ne peut pas être encaissée. »
-AD | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 200
-AD | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 200
+AD | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 400
+AD | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 400
 AD | PATCH /api/chantiers/:id/encaisse | inexistant | défaut | 404 « Chantier introuvable »
 AD | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 400 validation-avant-droit
 AD | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 400 validation-avant-droit
@@ -1742,20 +1742,20 @@ AD-COM | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 400
 AD-COM | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 400
 AD-COM | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 400
 AD-COM | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 404 « Chantier introuvable »
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 200
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 400
 AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-annule | défaut | 409 « Cette affaire est annulée : elle ne peut pas être encaissée. »
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 200
-AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 200
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 400
+AD-COM | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 400
 AD-COM | PATCH /api/chantiers/:id/encaisse | inexistant | défaut | 404 « Chantier introuvable »
 AD-COM | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 400 validation-avant-droit
 AD-COM | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 400 validation-avant-droit
@@ -7842,20 +7842,20 @@ DIR | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 400
 DIR | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 400
 DIR | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 400
 DIR | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 404 « Chantier introuvable »
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 200
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 400
 DIR | PATCH /api/chantiers/:id/encaisse | chantier-annule | défaut | 409 « Cette affaire est annulée : elle ne peut pas être encaissée. »
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 200
-DIR | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 200
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 400
+DIR | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 400
 DIR | PATCH /api/chantiers/:id/encaisse | inexistant | défaut | 404 « Chantier introuvable »
 DIR | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 400 validation-avant-droit
 DIR | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 400 validation-avant-droit
@@ -10182,20 +10182,20 @@ SA | PATCH /api/chantiers/:id/commercial | chantier-resp | défaut | 400
 SA | PATCH /api/chantiers/:id/commercial | chantier-tech-branche-resp | défaut | 400
 SA | PATCH /api/chantiers/:id/commercial | chantier-termine | défaut | 400
 SA | PATCH /api/chantiers/:id/commercial | inexistant | défaut | 404 « Chantier introuvable »
-SA | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 200
+SA | PATCH /api/chantiers/:id/encaisse | chantier-ac | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-ad | défaut | 400
 SA | PATCH /api/chantiers/:id/encaisse | chantier-annule | défaut | 409 « Cette affaire est annulée : elle ne peut pas être encaissée. »
-SA | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 200
-SA | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 200
+SA | PATCH /api/chantiers/:id/encaisse | chantier-autre | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-com | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-com-titulaire | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-cpt | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-ct-branche-resp | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-dc | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-dir | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-resp | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-tech-branche-resp | défaut | 400
+SA | PATCH /api/chantiers/:id/encaisse | chantier-termine | défaut | 400
 SA | PATCH /api/chantiers/:id/encaisse | inexistant | défaut | 404 « Chantier introuvable »
 SA | PATCH /api/chantiers/:id/statut | chantier-ac | défaut | 400 validation-avant-droit
 SA | PATCH /api/chantiers/:id/statut | chantier-ad | défaut | 400 validation-avant-droit

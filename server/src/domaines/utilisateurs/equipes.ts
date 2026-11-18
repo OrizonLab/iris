@@ -7,7 +7,7 @@ import { type AuthRequest, requireAuth } from '../../http/auth';
 import { requireAdmin } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { decimalToNumber } from '../../commun/montants';
-import { nombreDecimalNonNegatif } from '../../commun/validation';
+import { nombreDecimalNonNegatif, booleenStrict } from '../../commun/validation';
 import { journaliserAdministration, changementsJournal } from '../../commun/journal-administration';
 import { refuseSuperAdminTarget, libelleCompteJournal, lireCompteVerrouille, ISOLATION_RETRAIT, verrouillerRetraitsComptes } from './comptes';
 import { INCLUSION_RATTACHEMENT, avecMainOeuvre, journaliserRattachementSupprime, rattacherMainOeuvre } from './rattachement-main-oeuvre';
@@ -239,15 +239,20 @@ export function enregistrerRoutesPrimeMensuelle(app: Express): void {
   // route reste, sans montant (choix par défaut, à confirmer).
   app.put('/api/commerciaux/:id/prime-mensuelle', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const periode = String(req.body.periode || '');
+      // Corps absent (Express 5 laisse alors `req.body` à `undefined`) : lu comme vide, d'où le 400 de la période (#587).
+      const periode = String(req.body?.periode || '');
       if (!/^\d{4}-\d{2}$/.test(periode)) {
         return res.status(400).json({ error: 'Période invalide (attendu "YYYY-MM").' });
       }
+      // Drapeau obligatoire, en booléen strict (#587, volet montants ; choix par défaut, à confirmer) : une clé absente ne
+      // retire plus le suivi et ne crée plus de ligne sans journal. Contrôlé après la période, avant toute lecture en base.
+      const suivi = booleenStrict(req.body, 'suiviAdministratif', { obligatoire: true });
+      if (!suivi.ok) return res.status(400).json({ error: suivi.erreur });
+      const suiviAdministratif = suivi.valeur as boolean;
       const commercial = await prisma.user.findUnique({ where: { id: paramId(req) } });
       if (!commercial || !isCommercialLike(commercial)) {
         return res.status(404).json({ error: 'Commercial introuvable.' });
       }
-      const suiviAdministratif = !!req.body.suiviAdministratif;
       const prime = await transactionVerifiee(async (tx) => {
         // Verrou sur le couple commercial + période, que la ligne existe déjà ou non : deux
         // enregistrements simultanés ne journalisent pas deux fois le même changement.
