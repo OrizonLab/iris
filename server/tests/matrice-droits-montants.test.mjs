@@ -828,7 +828,9 @@ if (!TEST_DATABASE_URL) {
         ['PUT /api/planning/types/:id', 'type-planning', `/api/planning/types/${id('type-planning', 'type-planning')}`, 'libellé', () => ({ nom: 'TEST Type renommé par la matrice des montants' })],
         ['DELETE /api/planning/types/:id', 'type-planning-libre', `/api/planning/types/${P['type-planning-libre']}`, 'sans corps', corpsVide],
         ['POST /api/planning/share', SANS_CIBLE, '/api/planning/share', 'sans corps', corpsVide],
-        ['PATCH /api/planning/share', SANS_CIBLE, '/api/planning/share', 'sans corps', corpsVide],
+        // Drapeau obligatoire en booléen strict depuis le lot #587 (cadrage v2, « Tests », matrices, point 4) : le corps
+        // vide est refusé ; { active: false } garde l'écriture du super administrateur et son entrée DESACTIVATION.
+        ['PATCH /api/planning/share', SANS_CIBLE, '/api/planning/share', 'active=non', () => ({ active: false })],
         ['PUT /api/interventions/:id/planning', 'intervention-creee-ct', `/api/interventions/${id('intervention', 'intervention-creee-ct')}/planning`, 'jour, créneau et fiche libre', () => ({ dateDebut: d.demain, creneau: 'JOURNEE', intervenantIds: [d.ficheLibre] })],
         ['POST /api/interventions/:id/remise-a-planifier', 'curative-sans-chantier-branche', `/api/interventions/${id('intervention', 'curative-sans-chantier-branche')}/remise-a-planifier`, 'motif', () => ({ motif: motif('la remise à planifier') })],
       ];

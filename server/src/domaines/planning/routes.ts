@@ -10,6 +10,7 @@ import { perimetreChantiers } from '../../droits/perimetres';
 import { paramId } from '../../http/requete';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, aujourdHuiEntreprise, ajouterJoursCivils } from '../../commun/dates';
 import { journaliserAdministration, verrouillerReglage } from '../../commun/journal-administration';
+import { booleenStrict } from '../../commun/validation';
 import { getCompanySettings } from '../administration/metier';
 import { getInterventionFilterForUser, synchroniserAffectationsIntervention } from '../interventions/metier';
 import { requirePlanningActif, parsePlanningJour, parsePlanningCouleur, PLANNING_EVENT_INCLUDE, validatePlanningEvent } from './metier';
@@ -282,7 +283,11 @@ export function enregistrerRoutesPlanning(app: Express): void {
   // lien déjà communiqué aux techniciens.
   app.patch('/api/planning/share', requireAuth, requireAdmin, requirePlanningActif, async (req, res) => {
     try {
-      const active = !!req.body.active;
+      // Drapeau obligatoire, en booléen strict (#587), avant toute lecture en base (choix par défaut, à confirmer) :
+      // un corps vide ne ferme plus le lien, et « false » ne l'ouvre plus.
+      const lu = booleenStrict(req.body, 'active', { obligatoire: true });
+      if (!lu.ok) return res.status(400).json({ error: lu.erreur });
+      const active = lu.valeur === true;
       const share = await transactionVerifiee(async (tx) => {
         await verrouillerReglage(tx, 'PlanningPublicShare');
         const existing = await tx.planningPublicShare.findUnique({ where: { id: 'singleton' } });

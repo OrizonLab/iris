@@ -17,8 +17,13 @@
 // Classement relevé dans le code de main (d8ac605), puis éprouvé : chaque écriture (a) est jouée à corps vide sur
 // toutes les cibles réelles de sa famille, et l'empreinte de toute la base, prise avant et après la route, prouve
 // qu'aucune n'écrit. Une modification partielle dont le corps vide ne change rien (PATCH /api/chantiers/:id,
-// PUT /api/clients/:id…) est donc en (a) ; une route dont le corps vide exécute l'action (désactiver un compte,
+// PUT /api/clients/:id…) est donc en (a) ; une route dont le corps vide exécute l'action (supprimer un compte,
 // archiver un équipement, recopier une affectation du planning…) est en (b), ou en (c) sans paramètre.
+// Lot #587 (cadrage v2, « Tests », matrices, point 1) : l'activation d'un compte, son accès financier, sa marque « aussi
+// commercial » et le partage du planning lisent leur drapeau en booléen strict, obligatoire : leur corps vide répond 400
+// et n'écrit plus. Les trois routes de comptes passent donc de (b) à (a) marquée validation-avant-droit, comme le type
+// d'un compte (le 400 du drapeau précède le refus du super administrateur ciblé, le 404 du compte système et les refus
+// métier), et le partage du planning de (c) à (a).
 
 // Routes ouvertes sans session : exclues des matrices d'entrée (le lien public du planning a sa petite table à
 // part, cadrage §2.1, N5).
@@ -136,10 +141,10 @@ export const ROUTES_SESSION = {
   'DELETE /api/users/:id': B('compte'),
   'PATCH /api/users/:id/role': A('compte', VAD),
   'PATCH /api/users/:id/responsable-hierarchique': A('compte', VAD),
-  'PATCH /api/users/:id/est-commercial': B('compte'),
+  'PATCH /api/users/:id/est-commercial': A('compte', VAD),
   'PUT /api/users/:id/permissions': A('compte'),
-  'PATCH /api/users/:id/acces-finance': B('compte'),
-  'PATCH /api/users/:id/actif': B('compte'),
+  'PATCH /api/users/:id/acces-finance': A('compte', VAD),
+  'PATCH /api/users/:id/actif': A('compte', VAD),
   // --- Équipes et fiches intervenant ---
   'GET /api/commerciaux': L(),
   'GET /api/conducteurs': L(),
@@ -162,7 +167,7 @@ export const ROUTES_SESSION = {
   'DELETE /api/planning/types/:id': B('type-planning'),
   'GET /api/planning/share': L(),
   'POST /api/planning/share': C3(),
-  'PATCH /api/planning/share': C3(),
+  'PATCH /api/planning/share': A(),
   // --- Référentiels des achats ---
   'GET /api/categories': L(),
   'POST /api/categories': A(),

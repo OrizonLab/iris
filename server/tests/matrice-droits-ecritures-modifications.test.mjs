@@ -258,6 +258,13 @@ const CORPS = {
   'PUT /api/company': () => [{ nom: 'identité, téléphone changé', corps: () => ({ ...SOCIETE, telephone: '02 31 00 00 09' }) }],
   'PUT /api/company/logo': () => [{ nom: 'logo JPEG', corps: () => ({ fichier: `data:image/jpeg;base64,${LOGO.toString('base64')}` }) }],
   'PUT /api/journal-administration/conservation': () => [{ nom: 'durée de conservation changée', corps: () => ({ jours: 30 }) }],
+  // Partage du planning : route (a) depuis le lot #587 (cadrage v2, « Tests », matrices, point 1 : drapeau obligatoire en
+  // booléen strict, le corps vide n'écrit plus), donc jouée ici, comme toute route (a) non marquée. Lien fermé (entrée
+  // DESACTIVATION), puis la valeur actuelle du jeu de données (lien ouvert), qui n'écrit que la date de mise à jour.
+  'PATCH /api/planning/share': () => [
+    { nom: 'active=non', corps: () => ({ active: false }) },
+    { nom: 'active=oui', corps: () => ({ active: true }) },
+  ],
   // --- N4 de l'audit des droits de #437 : actions jouées à corps vide, retrait de la marque « à suivre » ---
   'POST /api/contrats-maintenance/:id/generer-intervention': () => [{ nom: null, corps: () => ({}) }],
   'POST /api/mentions-legales/:version/publier': () => [{ nom: null, corps: () => ({}) }],
@@ -662,11 +669,12 @@ if (!TEST_DATABASE_URL) {
 
     // Avenant, ligne D1a-5b : « Routes (a) de session non marquées sur cibles réelles, avec un corps valide, hors des
     // routes et des champs réservés à 5d » ; ligne D1a-5d : « factures, avoirs et règlements, toutes leurs routes
-    // d'écriture (a) ». Étude préalable, §1.1 : 91 routes (a), dont 16 marquées.
-    testPrepare('périmètre : les 75 routes (a) non marquées, moins les 8 routes des factures, avoirs et règlements réservées à D1a-5d et les 3 routes refusées à tous avant la cible, chacune avec un corps valide pour chaque cible', () => {
-      assert.equal(ROUTES_A.length, 75, `routes (a) non marquées : ${ROUTES_A.join(', ')}`);
+    // d'écriture (a) ». Étude préalable, §1.1 : 91 routes (a), dont 16 marquées. Lot #587 (cadrage v2, « Tests »,
+    // matrices, point 1) : le partage du planning passe des (c) aux (a) non marquées (76, dont 65 jouées).
+    testPrepare('périmètre : les 76 routes (a) non marquées, moins les 8 routes des factures, avoirs et règlements réservées à D1a-5d et les 3 routes refusées à tous avant la cible, chacune avec un corps valide pour chaque cible', () => {
+      assert.equal(ROUTES_A.length, 76, `routes (a) non marquées : ${ROUTES_A.join(', ')}`);
       assert.deepEqual(RESERVEES_5D.filter((route) => !ROUTES_A.includes(route)), [], 'routes réservées à 5d : toutes des (a) non marquées');
-      assert.equal(ROUTES_E.length, 64, `routes jouées : ${ROUTES_E.join(', ')}`);
+      assert.equal(ROUTES_E.length, 65, `routes jouées : ${ROUTES_E.join(', ')}`);
       for (const route of SANS_COMPTE_ADMIS) assert.ok(COMPTES_JOUES.every((compte) => refuseAvantLaCible(compte, route)), `${route} : un compte admis à l’entrée`);
       for (const route of RESERVEES_5D) assert.equal(CORPS[route], undefined, `${route} : réservée à 5d, sans corps ici`);
       const routesJouees = [...ROUTES_E, ...ROUTES_TOUS_COMPTES];
