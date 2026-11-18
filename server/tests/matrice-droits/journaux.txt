@@ -248,9 +248,9 @@ AD | GET /api/journal-administration | JournalAdministration COMPTE CREATION par
 AD | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial | 200 visible
 AD | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial, accesFinance=oui | 200 visible
 AD | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA, concerne un SA ← SA POST /api/users sur — | défaut, corps role=SUPERADMIN | 200 absente
-AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut | 200 visible
+AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+AD | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut, corps actif=non | 200 visible
 AD | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
 AD | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PUT /api/intervenants/:id/compte sur fiche-libre | défaut, corps compte=TECH-SANS-FICHE | 200 visible
 AD | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par DIR ← DIR PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
@@ -282,9 +282,9 @@ AD | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICA
 AD | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps anticipationVisitesJours=trente | 200 visible
 AD | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
 AD | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par SA ← SA PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
-AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut | 200 visible
-AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut | 200 visible
-AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut | 200 visible
+AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
 AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par AD ← AD POST /api/planning/share sur — | défaut | 200 visible
 AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par DIR ← DIR POST /api/planning/share sur — | défaut | 200 visible
 AD | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par SA ← SA POST /api/planning/share sur — | défaut | 200 visible
@@ -316,9 +316,9 @@ AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE C
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial, accesFinance=oui | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA, concerne un SA ← SA POST /api/users sur — | défaut, corps role=SUPERADMIN | 200 absente
-AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut, corps actif=non | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PUT /api/intervenants/:id/compte sur fiche-libre | défaut, corps compte=TECH-SANS-FICHE | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par DIR ← DIR PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
@@ -350,9 +350,9 @@ AD | GET /api/journal-administration/export.csv | JournalAdministration PARAMETR
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps anticipationVisitesJours=trente | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par SA ← SA PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
-AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut | 200 visible
-AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut | 200 visible
-AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par AD ← AD POST /api/planning/share sur — | défaut | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par DIR ← DIR POST /api/planning/share sur — | défaut | 200 visible
 AD | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par SA ← SA POST /api/planning/share sur — | défaut | 200 visible
@@ -398,10 +398,11 @@ AD | PATCH /api/interventions/:id/statut | intervention-affectee-tech | défaut,
 AD | PATCH /api/interventions/:id/statut | intervention-chantier-ct | défaut, corps statut=EN_COURS | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par AD
 AD | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=ANNULEE et motif | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par AD
 AD | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=PLANIFIEE | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par AD
-AD | PATCH /api/planning/share | — | défaut | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD
-AD | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par AD
+AD | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD
+AD | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par AD
+AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User) ; aucune entrée
 AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE AUSSI_COMMERCIAL par AD
-AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps vide | 200 écrit (User) ; aucune entrée
+AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps vide | 400 « « estCommercial » doit valoir true ou false. » inchangé ; aucune entrée
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE RATTACHEMENT par AD
 AD | PATCH /api/users/:id/role | compte-technicien | défaut, corps role=DIRECTEUR | 200 écrit (Intervenant,JournalAdministration,User) ; entrées : JournalAdministration COMPTE FICHE_INTERVENANT par AD + JournalAdministration COMPTE TYPE_COMPTE par AD
 AD | POST /api/achats | chantierId=chantier-ct | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier) ; entrées : JournalSaisieChantier ACHAT CREATION par AD ; montant écrit relu en base ; montant journalisé identique
@@ -777,9 +778,9 @@ CT | GET /api/journal-administration | JournalAdministration COMPTE CREATION par
 CT | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial, accesFinance=oui | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA, concerne un SA ← SA POST /api/users sur — | défaut, corps role=SUPERADMIN | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PUT /api/intervenants/:id/compte sur fiche-libre | défaut, corps compte=TECH-SANS-FICHE | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par DIR ← DIR PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 403 « Accès réservé aux administrateurs »
@@ -811,9 +812,9 @@ CT | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICA
 CT | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps anticipationVisitesJours=trente | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par SA ← SA PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
-CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut, corps active=non | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut, corps active=non | 403 « Accès réservé aux administrateurs »
+CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut, corps active=non | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par AD ← AD POST /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par DIR ← DIR POST /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
 CT | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par SA ← SA POST /api/planning/share sur — | défaut | 403 « Accès réservé aux administrateurs »
@@ -883,10 +884,11 @@ DIR | PATCH /api/interventions/:id/statut | intervention-affectee-tech | défaut
 DIR | PATCH /api/interventions/:id/statut | intervention-chantier-ct | défaut, corps statut=EN_COURS | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par DIR
 DIR | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=ANNULEE et motif | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par DIR
 DIR | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=PLANIFIEE | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par DIR
-DIR | PATCH /api/planning/share | — | défaut | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR
-DIR | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par DIR
+DIR | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR
+DIR | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par DIR
+DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User) ; aucune entrée
 DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE AUSSI_COMMERCIAL par DIR
-DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps vide | 200 écrit (User) ; aucune entrée
+DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps vide | 400 « « estCommercial » doit valoir true ou false. » inchangé ; aucune entrée
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE RATTACHEMENT par DIR
 DIR | PATCH /api/users/:id/role | compte-technicien | défaut, corps role=DIRECTEUR | 200 écrit (Intervenant,JournalAdministration,User) ; entrées : JournalAdministration COMPTE FICHE_INTERVENANT par DIR + JournalAdministration COMPTE TYPE_COMPTE par DIR
 DIR | POST /api/achats | chantierId=chantier-ct | défaut, corps achat | 200 écrit (AchatReel,JournalSaisieChantier) ; entrées : JournalSaisieChantier ACHAT CREATION par DIR ; montant écrit relu en base ; montant journalisé identique
@@ -1189,9 +1191,9 @@ SA | GET /api/journal-administration | JournalAdministration COMPTE CREATION par
 SA | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial | 200 visible
 SA | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial, accesFinance=oui | 200 visible
 SA | GET /api/journal-administration | JournalAdministration COMPTE CREATION par SA, concerne un SA ← SA POST /api/users sur — | défaut, corps role=SUPERADMIN | 200 visible
-SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut | 200 visible
+SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+SA | GET /api/journal-administration | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut, corps actif=non | 200 visible
 SA | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
 SA | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PUT /api/intervenants/:id/compte sur fiche-libre | défaut, corps compte=TECH-SANS-FICHE | 200 visible
 SA | GET /api/journal-administration | JournalAdministration COMPTE FICHE_INTERVENANT par DIR ← DIR PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
@@ -1223,9 +1225,9 @@ SA | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICA
 SA | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps anticipationVisitesJours=trente | 200 visible
 SA | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
 SA | GET /api/journal-administration | JournalAdministration PARAMETRES MODIFICATION par SA ← SA PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
-SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut | 200 visible
-SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut | 200 visible
-SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut | 200 visible
+SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
 SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par AD ← AD POST /api/planning/share sur — | défaut | 200 visible
 SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par DIR ← DIR POST /api/planning/share sur — | défaut | 200 visible
 SA | GET /api/journal-administration | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par SA ← SA POST /api/planning/share sur — | défaut | 200 visible
@@ -1257,9 +1259,9 @@ SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE C
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA ← SA POST /api/users sur — | défaut, corps compte commercial, accesFinance=oui | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE CREATION par SA, concerne un SA ← SA POST /api/users sur — | défaut, corps role=SUPERADMIN | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par AD ← AD PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par DIR ← DIR PATCH /api/users/:id/actif sur compte-technicien | défaut, corps actif=non | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE DESACTIVATION par SA ← SA PATCH /api/users/:id/actif sur compte-commercial | défaut, corps actif=non | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par AD ← AD PUT /api/intervenants/:id/compte sur fiche-libre | défaut, corps compte=TECH-SANS-FICHE | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration COMPTE FICHE_INTERVENANT par DIR ← DIR PATCH /api/users/:id/role sur compte-technicien | défaut, corps role=DIRECTEUR | 200 visible
@@ -1291,9 +1293,9 @@ SA | GET /api/journal-administration/export.csv | JournalAdministration PARAMETR
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps anticipationVisitesJours=trente | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par DIR ← DIR PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARAMETRES MODIFICATION par SA ← SA PUT /api/parametres sur — | défaut, corps margeCommercialeActive=non | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut | 200 visible
-SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par AD ← AD PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par DIR ← DIR PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
+SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA ← SA PATCH /api/planning/share sur — | défaut, corps active=non | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par AD ← AD POST /api/planning/share sur — | défaut | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par DIR ← DIR POST /api/planning/share sur — | défaut | 200 visible
 SA | GET /api/journal-administration/export.csv | JournalAdministration PARTAGE_PLANNING NOUVEAU_LIEN par SA ← SA POST /api/planning/share sur — | défaut | 200 visible
@@ -1339,13 +1341,15 @@ SA | PATCH /api/interventions/:id/statut | intervention-affectee-tech | défaut,
 SA | PATCH /api/interventions/:id/statut | intervention-chantier-ct | défaut, corps statut=EN_COURS | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par SA
 SA | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=ANNULEE et motif | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par SA
 SA | PATCH /api/interventions/:id/statut | intervention-creee-ct | défaut, corps statut=PLANIFIEE | 200 écrit (Intervention,JournalSaisieChantier) ; entrées : JournalSaisieChantier INTERVENTION CHANGEMENT_STATUT par SA
-SA | PATCH /api/planning/share | — | défaut | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA
+SA | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare) ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par SA
+SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 200 écrit (User) ; aucune entrée
 SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE ACCES_FINANCE par SA
-SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps vide | 200 écrit (User) ; aucune entrée
+SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps vide | 400 « « accesFinance » doit valoir true ou false. » inchangé ; aucune entrée
 SA | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE ACCES_FINANCE par SA, concerne un SA
-SA | PATCH /api/users/:id/actif | compte-commercial | défaut | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par SA
+SA | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE DESACTIVATION par SA
+SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 200 écrit (User) ; aucune entrée
 SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE AUSSI_COMMERCIAL par SA, concerne un SA
-SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps vide | 200 écrit (User) ; aucune entrée
+SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps vide | 400 « « estCommercial » doit valoir true ou false. » inchangé ; aucune entrée
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=SA | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE RATTACHEMENT par SA, concerne un SA
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-superadmin | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE RATTACHEMENT par SA, concerne un SA
 SA | PATCH /api/users/:id/role | compte-commercial | défaut, corps role=DIRECTEUR | 200 écrit (JournalAdministration,User) ; entrées : JournalAdministration COMPTE TYPE_COMPTE par SA

@@ -356,6 +356,8 @@ AD | PATCH /api/interventions/:id/couts/:type/:coutId | heures-archivees-suite-a
 AD | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-affaire-close | défaut, corps nbrHeures et motif | 403 « Accès non autorisé. » inchangé
 AD | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 409 « L’affaire de cette suite est annulée : plus aucun coût ne peut y être saisi. » inchangé
 AD | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier)
+AD | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare)
+AD | PATCH /api/planning/share | — | défaut, corps active=oui | 200 écrit (PlanningPublicShare)
 AD | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut, corps motif de restauration | 200 écrit (AchatReel,JournalSaisieChantier)
 AD | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
 AD | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
@@ -662,6 +664,8 @@ AD-COM | PATCH /api/interventions/:id/couts/:type/:coutId | heures-archivees-sui
 AD-COM | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-affaire-close | défaut, corps nbrHeures et motif | 403 « Accès non autorisé. » inchangé
 AD-COM | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 409 « L’affaire de cette suite est annulée : plus aucun coût ne peut y être saisi. » inchangé
 AD-COM | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier)
+AD-COM | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare)
+AD-COM | PATCH /api/planning/share | — | défaut, corps active=oui | 200 écrit (PlanningPublicShare)
 AD-COM | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut, corps motif de restauration | 200 écrit (AchatReel,JournalSaisieChantier)
 AD-COM | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
 AD-COM | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
@@ -2329,6 +2333,8 @@ DIR | PATCH /api/interventions/:id/couts/:type/:coutId | heures-archivees-suite-
 DIR | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-affaire-close | défaut, corps nbrHeures et motif | 403 « Accès non autorisé. » inchangé
 DIR | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 409 « L’affaire de cette suite est annulée : plus aucun coût ne peut y être saisi. » inchangé
 DIR | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier)
+DIR | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare)
+DIR | PATCH /api/planning/share | — | défaut, corps active=oui | 200 écrit (PlanningPublicShare)
 DIR | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut, corps motif de restauration | 200 écrit (AchatReel,JournalSaisieChantier)
 DIR | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
 DIR | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
@@ -3091,6 +3097,8 @@ SA | PATCH /api/interventions/:id/couts/:type/:coutId | heures-archivees-suite-a
 SA | PATCH /api/interventions/:id/couts/:type/:coutId | heures-suite-affaire-close | défaut, corps nbrHeures et motif | 403 « Accès non autorisé. » inchangé
 SA | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-archive-suite-affaire-annulee | défaut, corps montantHT et motif | 409 « L’affaire de cette suite est annulée : plus aucun coût ne peut y être saisi. » inchangé
 SA | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-suite-affaire-close | défaut, corps montantHT et motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier)
+SA | PATCH /api/planning/share | — | défaut, corps active=non | 200 écrit (JournalAdministration,PlanningPublicShare)
+SA | PATCH /api/planning/share | — | défaut, corps active=oui | 200 écrit (PlanningPublicShare)
 SA | POST /api/achats/:id/restaurer | achat-archive-chantier-ct | défaut, corps motif de restauration | 200 écrit (AchatReel,JournalSaisieChantier)
 SA | POST /api/achats/:id/restaurer | achat-chantier-autre | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé
 SA | POST /api/achats/:id/restaurer | achat-chantier-ct | défaut, corps motif de restauration | 409 « Cet achat est déjà actif. » inchangé

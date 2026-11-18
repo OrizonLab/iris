@@ -379,10 +379,25 @@ AC | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 AC | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 AC | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Accès non autorisé pour un compte assistante commerciale. »
 AC | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Accès non autorisé pour un compte assistante commerciale. »
-AC | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+AC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+AC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+AC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+AC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 AC | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+AC | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 AC | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+AC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 AC | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 AC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 AC | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -1078,11 +1093,26 @@ AD | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 AD | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 AD | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 AD | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-AD | PATCH /api/planning/share | — | défaut | 200 écrit
-AD | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. » inchangé
+AD | PATCH /api/planning/share | — | défaut | 400
+AD | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
+AD | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+AD | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+AD | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+AD | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+AD | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 AD | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
-AD | PATCH /api/users/:id/actif | inexistant | défaut | 404 « Utilisateur introuvable. »
-AD | PATCH /api/users/:id/est-commercial | inexistant | défaut | 404 « Utilisateur introuvable. »
+AD | PATCH /api/users/:id/actif | compte-administrateur | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/actif | compte-commercial | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/actif | compte-superadmin | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/actif | compte-systeme | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/actif | compte-technicien | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/actif | inexistant | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 validation-avant-droit
+AD | PATCH /api/users/:id/est-commercial | inexistant | défaut | 400 validation-avant-droit
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 400 validation-avant-droit
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 400 validation-avant-droit
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-superadmin | défaut | 400 validation-avant-droit
@@ -1777,11 +1807,26 @@ AD-COM | PATCH /api/interventions/:id/statut | intervention-terminee-signee | d�
 AD-COM | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 AD-COM | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 AD-COM | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-AD-COM | PATCH /api/planning/share | — | défaut | 200 écrit
-AD-COM | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. » inchangé
+AD-COM | PATCH /api/planning/share | — | défaut | 400
+AD-COM | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
+AD-COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+AD-COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+AD-COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+AD-COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+AD-COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 AD-COM | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
-AD-COM | PATCH /api/users/:id/actif | inexistant | défaut | 404 « Utilisateur introuvable. »
-AD-COM | PATCH /api/users/:id/est-commercial | inexistant | défaut | 404 « Utilisateur introuvable. »
+AD-COM | PATCH /api/users/:id/actif | compte-administrateur | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/actif | compte-commercial | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/actif | compte-superadmin | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/actif | compte-systeme | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/actif | compte-technicien | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/actif | inexistant | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 validation-avant-droit
+AD-COM | PATCH /api/users/:id/est-commercial | inexistant | défaut | 400 validation-avant-droit
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 400 validation-avant-droit
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 400 validation-avant-droit
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-superadmin | défaut | 400 validation-avant-droit
@@ -2670,10 +2715,25 @@ AT | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 AT | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 AT | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 AT | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-AT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+AT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+AT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+AT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+AT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 AT | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+AT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+AT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 AT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -3369,10 +3429,25 @@ COM | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défa
 COM | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 403 « Accès non autorisé pour un compte commercial. »
 COM | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Accès non autorisé pour un compte commercial. »
 COM | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Accès non autorisé pour un compte commercial. »
-COM | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 COM | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+COM | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 COM | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 COM | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 COM | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -4068,10 +4143,25 @@ CPT | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défa
 CPT | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 CPT | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Accès non autorisé pour un compte comptable. »
 CPT | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Accès non autorisé pour un compte comptable. »
-CPT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+CPT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+CPT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+CPT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+CPT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 CPT | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+CPT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CPT | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CPT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CPT | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 CPT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 CPT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -4767,10 +4857,25 @@ CPT-FINANCE | PATCH /api/interventions/:id/statut | intervention-terminee-signee
 CPT-FINANCE | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 CPT-FINANCE | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Accès non autorisé pour un compte comptable. »
 CPT-FINANCE | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Accès non autorisé pour un compte comptable. »
-CPT-FINANCE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 CPT-FINANCE | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 CPT-FINANCE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -5466,10 +5571,25 @@ CT | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 CT | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 CT | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 CT | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-CT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+CT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+CT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+CT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+CT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 CT | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+CT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CT | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CT | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 CT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 CT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -6165,10 +6285,25 @@ CT-N1 | PATCH /api/interventions/:id/statut | intervention-terminee-signee | dé
 CT-N1 | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 CT-N1 | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 CT-N1 | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-CT-N1 | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 CT-N1 | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+CT-N1 | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 CT-N1 | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -6864,10 +6999,25 @@ DC | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 DC | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 DC | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Accès non autorisé pour un compte directeur commercial. »
 DC | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Accès non autorisé pour un compte directeur commercial. »
-DC | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+DC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+DC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+DC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+DC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 DC | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+DC | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 DC | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+DC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 DC | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 DC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 DC | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -7757,11 +7907,26 @@ DIR | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défa
 DIR | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 DIR | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 DIR | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-DIR | PATCH /api/planning/share | — | défaut | 200 écrit
-DIR | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. » inchangé
+DIR | PATCH /api/planning/share | — | défaut | 400
+DIR | PATCH /api/planning/share | — | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
+DIR | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+DIR | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+DIR | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+DIR | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+DIR | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 DIR | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
-DIR | PATCH /api/users/:id/actif | inexistant | défaut | 404 « Utilisateur introuvable. »
-DIR | PATCH /api/users/:id/est-commercial | inexistant | défaut | 404 « Utilisateur introuvable. »
+DIR | PATCH /api/users/:id/actif | compte-administrateur | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/actif | compte-commercial | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/actif | compte-superadmin | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/actif | compte-systeme | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/actif | compte-technicien | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/actif | inexistant | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 validation-avant-droit
+DIR | PATCH /api/users/:id/est-commercial | inexistant | défaut | 400 validation-avant-droit
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 400 validation-avant-droit
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 400 validation-avant-droit
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-superadmin | défaut | 400 validation-avant-droit
@@ -8654,10 +8819,25 @@ RESP | PATCH /api/interventions/:id/statut | intervention-terminee-signee | déf
 RESP | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 RESP | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 RESP | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-RESP | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+RESP | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+RESP | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+RESP | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+RESP | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 RESP | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+RESP | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 RESP | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+RESP | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 RESP | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 RESP | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 RESP | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -9353,10 +9533,25 @@ RESP-SANS-BRANCHE | PATCH /api/interventions/:id/statut | intervention-terminee-
 RESP-SANS-BRANCHE | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 RESP-SANS-BRANCHE | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 RESP-SANS-BRANCHE | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 PLANNING_DESACTIVE « Le module Planning est désactivé par l'administration. »
-RESP-SANS-BRANCHE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 RESP-SANS-BRANCHE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -10052,11 +10247,26 @@ SA | PATCH /api/interventions/:id/statut | intervention-terminee-signee | défau
 SA | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 SA | PATCH /api/planning/events/:id | inexistant | défaut | 404 « Affectation introuvable. »
 SA | PATCH /api/planning/events/:id | inexistant | planningActif=non | 404 « Affectation introuvable. »
-SA | PATCH /api/planning/share | — | défaut | 200 écrit
-SA | PATCH /api/planning/share | — | planningActif=non | 200 écrit
-SA | PATCH /api/users/:id/acces-finance | inexistant | défaut | 404 « Utilisateur introuvable. »
-SA | PATCH /api/users/:id/actif | inexistant | défaut | 404 « Utilisateur introuvable. »
-SA | PATCH /api/users/:id/est-commercial | inexistant | défaut | 404 « Utilisateur introuvable. »
+SA | PATCH /api/planning/share | — | défaut | 400
+SA | PATCH /api/planning/share | — | planningActif=non | 400
+SA | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/acces-finance | inexistant | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | compte-administrateur | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | compte-commercial | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | compte-superadmin | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | compte-systeme | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | compte-technicien | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/actif | inexistant | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 validation-avant-droit
+SA | PATCH /api/users/:id/est-commercial | inexistant | défaut | 400 validation-avant-droit
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 400 validation-avant-droit
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 400 validation-avant-droit
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-superadmin | défaut | 400 validation-avant-droit
@@ -11139,10 +11349,25 @@ TECH | PATCH /api/interventions/:id/statut | intervention-terminee-signee | déf
 TECH | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 TECH | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. »
 TECH | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Un technicien ne modifie ni le planning ni les référentiels. »
-TECH | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+TECH | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+TECH | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+TECH | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+TECH | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 TECH | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+TECH | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 TECH | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+TECH | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 TECH | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 TECH | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 TECH | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
@@ -11838,10 +12063,25 @@ TECH-SANS-FICHE | PATCH /api/interventions/:id/statut | intervention-terminee-si
 TECH-SANS-FICHE | PATCH /api/interventions/:id/statut | visite-contrat | défaut | 400 validation-avant-droit
 TECH-SANS-FICHE | PATCH /api/planning/events/:id | inexistant | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. »
 TECH-SANS-FICHE | PATCH /api/planning/events/:id | inexistant | planningActif=non | 403 « Un technicien ne modifie ni le planning ni les référentiels. »
-TECH-SANS-FICHE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/planning/share | — | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/planning/share | — | planningActif=non | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur »
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur »
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur »
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur »
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur »
 TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | inexistant | défaut | 403 « Accès réservé au super administrateur »
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | PATCH /api/users/:id/actif | inexistant | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs »
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs »
 TECH-SANS-FICHE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut | 403 « Accès réservé aux administrateurs »

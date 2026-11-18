@@ -12,6 +12,7 @@ import { requireAdmin, requireSuperAdmin } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { API_SCOPES } from '../../http/cles-api';
 import { journaliserAdministration, changementsJournal } from '../../commun/journal-administration';
+import { booleenStrict } from '../../commun/validation';
 import { normalizeEmail } from '../authentification/sso';
 
 // Autorise un nouveau compte à se connecter (liste blanche SSO / création de compte).
@@ -167,6 +168,12 @@ export function enregistrerRoutesComptes(app: Express): void {
 
   app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
     try {
+      // Cases facultatives, lues en booléen strict (#587) en tête du gestionnaire, pour tout demandeur et tout type de
+      // compte, même quand la valeur sera ignorée plus bas (choix par défaut, à confirmer) : clé absente = false.
+      const estCommercialLu = booleenStrict(req.body, 'estCommercial', { obligatoire: false });
+      if (!estCommercialLu.ok) return res.status(400).json({ error: estCommercialLu.erreur });
+      const accesFinanceLu = booleenStrict(req.body, 'accesFinance', { obligatoire: false });
+      if (!accesFinanceLu.ok) return res.status(400).json({ error: accesFinanceLu.erreur });
       const email = normalizeEmail(req.body.email);
       const name = String(req.body.name ?? '').trim();
       const role = ALLOWED_ROLES.includes(req.body.role) ? req.body.role : 'CONDUCTEUR_TRAVAUX';
@@ -177,10 +184,10 @@ export function enregistrerRoutesComptes(app: Express): void {
       // "estCommercial" n'a de sens que pour un ADMIN/SUPERADMIN (cf. isCommercialLike) :
       // ignoré pour les autres rôles, pour éviter un état orphelin sans effet mais trompeur
       // en base.
-      const estCommercial = peutEtreAussiCommercial(role) && !!req.body.estCommercial;
+      const estCommercial = peutEtreAussiCommercial(role) && estCommercialLu.valeur === true;
       // L'accès au Suivi financier ne s'accorde que par un superadmin (cf. peutVoirFinance) :
       // un administrateur qui pourrait cocher la case se l'attribuerait à lui-même.
-      const accesFinance = isSuperAdminRole((req as AuthRequest).user?.role) && !!req.body.accesFinance;
+      const accesFinance = isSuperAdminRole((req as AuthRequest).user?.role) && accesFinanceLu.valeur === true;
       if (accesFinance && role === ROLE_TECHNICIEN) {
         return res.status(400).json({ error: 'L’accès financier ne s’accorde pas à un compte technicien.' });
       }
@@ -446,6 +453,10 @@ export function enregistrerRoutesComptes(app: Express): void {
   // ADMIN : un COMMERCIAL est déjà commercial, un conducteur n'a pas vocation à y apparaître.
   app.patch('/api/users/:id/est-commercial', requireAuth, requireAdmin, async (req, res) => {
     try {
+      // Drapeau obligatoire, en booléen strict (#587), avant toute lecture en base (choix par défaut, à confirmer).
+      const lu = booleenStrict(req.body, 'estCommercial', { obligatoire: true });
+      if (!lu.ok) return res.status(400).json({ error: lu.erreur });
+      const estCommercial = lu.valeur === true;
       const target = await prisma.user.findFirst({ where: compteGere(paramId(req)) });
       if (!target) {
         return res.status(404).json({ error: 'Utilisateur introuvable.' });
@@ -466,7 +477,7 @@ export function enregistrerRoutesComptes(app: Express): void {
         if (!peutEtreAussiCommercial(avant.role)) throw Object.assign(new Error('Seul un compte Administrateur peut être marqué "aussi commercial".'), { code: 'TYPE_CHANGE' });
         const apres = await tx.user.update({
           where: { id: target.id },
-          data: { estCommercial: !!req.body.estCommercial },
+          data: { estCommercial },
           select: { id: true, name: true, email: true, role: true, estCommercial: true, accesFinance: true, permissions: true, actif: true },
         });
         await journaliserDroitsCompte(tx, req, 'AUSSI_COMMERCIAL', avant, apres, ['estCommercial']);
@@ -518,11 +529,15 @@ export function enregistrerRoutesComptes(app: Express): void {
   // lui-même. Un superadmin y accède de toute façon sans cette autorisation.
   app.patch('/api/users/:id/acces-finance', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
+      // Drapeau obligatoire, en booléen strict (#587), avant toute lecture en base (choix par défaut, à confirmer).
+      const lu = booleenStrict(req.body, 'accesFinance', { obligatoire: true });
+      if (!lu.ok) return res.status(400).json({ error: lu.erreur });
+      const accesFinance = lu.valeur === true;
       const target = await prisma.user.findFirst({ where: compteGere(paramId(req)) });
       if (!target) {
         return res.status(404).json({ error: 'Utilisateur introuvable.' });
       }
-      if (req.body.accesFinance && target.role === ROLE_TECHNICIEN) {
+      if (accesFinance && target.role === ROLE_TECHNICIEN) {
         return res.status(400).json({ error: 'L’accès financier ne s’accorde pas à un compte technicien.' });
       }
       // État « avant » relu sous verrou, en READ COMMITTED explicite : celui du moment (ISOLATION_RETRAIT).
@@ -530,7 +545,7 @@ export function enregistrerRoutesComptes(app: Express): void {
         const avant = await lireCompteVerrouille(tx, target.id);
         const apres = await tx.user.update({
           where: { id: target.id },
-          data: { accesFinance: !!req.body.accesFinance },
+          data: { accesFinance },
           select: { id: true, name: true, email: true, role: true, estCommercial: true, accesFinance: true, permissions: true, actif: true },
         });
         await journaliserDroitsCompte(tx, req, 'ACCES_FINANCE', avant, apres, ['accesFinance']);
@@ -550,6 +565,11 @@ export function enregistrerRoutesComptes(app: Express): void {
   // suppression du compte. L'opération est réversible d'un clic.
   app.patch('/api/users/:id/actif', requireAuth, requireAdmin, async (req, res) => {
     try {
+      // Drapeau obligatoire, en booléen strict (#587), avant toute lecture en base (choix par défaut, à confirmer) :
+      // un corps vide ne désactive plus le compte, et « false » ne le réactive plus.
+      const lu = booleenStrict(req.body, 'actif', { obligatoire: true });
+      if (!lu.ok) return res.status(400).json({ error: lu.erreur });
+      const actif = lu.valeur === true;
       const authUser = (req as AuthRequest).user!;
       const target = await prisma.user.findFirst({ where: compteGere(paramId(req)) });
       if (!target) {
@@ -559,7 +579,6 @@ export function enregistrerRoutesComptes(app: Express): void {
       if (refus) {
         return res.status(403).json({ error: refus });
       }
-      const actif = !!req.body.actif;
       // On ne se désactive pas soi-même (on se verrouillerait dehors), et on ne désactive pas
       // le dernier superadmin actif : plus personne ne piloterait les modules ni les comptes.
       if (!actif && target.id === authUser.id) {

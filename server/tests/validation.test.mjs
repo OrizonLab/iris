@@ -1200,3 +1200,53 @@ describe('Lot 6a-2 : bornes des remplacements hors WinAnsi', () => {
     }
   });
 });
+
+// Lot #587, volet droits et sécurité (cadrage v2, périmètre 1 et « Tests » : « Tests unitaires de booleenStrict : corps
+// undefined, null, tableau ; valeurs chaînes, nombres, objets, null ; clé absente, champ obligatoire puis facultatif »).
+// Le lecteur est appelé directement : seuls true et false sont admis ; toute autre valeur présente, null compris
+// (lecture de #570), est refusée au message « « <clé> » doit valoir true ou false. » ; la présence est testée par
+// Object.hasOwn ; un corps qui n'est pas un objet (Express 5 laisse req.body à undefined sans corps JSON) est lu comme
+// vide, sans TypeError ; la clé absente est admise (undefined) pour un champ facultatif et refusée pour un champ
+// obligatoire.
+const { booleenStrict } = await import('../dist/src/commun/validation.js');
+describe('Lot #587 : drapeau d’un corps d’API lu en booléen strict (booleenStrict)', () => {
+  const refus = (cle) => ({ ok: false, erreur: `« ${cle} » doit valoir true ou false.` });
+  const OPTIONS = [{ obligatoire: true }, { obligatoire: false }];
+
+  test('true et false sont admis tels quels, que le champ soit obligatoire ou facultatif', () => {
+    for (const options of OPTIONS) {
+      assert.deepEqual(booleenStrict({ actif: true }, 'actif', options), { ok: true, valeur: true });
+      assert.deepEqual(booleenStrict({ actif: false }, 'actif', options), { ok: true, valeur: false });
+      // Les autres clés du corps n'y changent rien.
+      assert.deepEqual(booleenStrict({ actif: false, active: 'x', estCommercial: null }, 'actif', options), { ok: true, valeur: false });
+    }
+  });
+
+  test('toute autre valeur présente est refusée, null compris, au message qui nomme la clé : chaînes, nombres, objets, tableaux, booléen emballé', () => {
+    const valeurs = ['false', 'true', '0', '1', '', 'oui', 0, 1, -1, Number.NaN, null, {}, { valeur: true }, [], [true], [false], new Boolean(false), new Boolean(true), undefined];
+    for (const options of OPTIONS) {
+      for (const valeur of valeurs) {
+        for (const cle of ['actif', 'accesFinance', 'estCommercial', 'active']) {
+          assert.deepEqual(booleenStrict({ [cle]: valeur }, cle, options), refus(cle), `${cle} = ${String(valeur)} (${typeof valeur}), ${JSON.stringify(options)}`);
+        }
+      }
+    }
+  });
+
+  test('clé absente : refusée pour un champ obligatoire, admise sans valeur (undefined) pour un champ facultatif ; une clé voisine ou héritée ne compte pas', () => {
+    const absents = [{}, { active: true }, { Actif: true }, Object.create({ actif: true }), JSON.parse('{"__proto__": {"actif": true}}')];
+    for (const corps of absents) {
+      assert.deepEqual(booleenStrict(corps, 'actif', { obligatoire: true }), refus('actif'), `obligatoire, ${JSON.stringify(corps)}`);
+      assert.deepEqual(booleenStrict(corps, 'actif', { obligatoire: false }), { ok: true, valeur: undefined }, `facultatif, ${JSON.stringify(corps)}`);
+    }
+  });
+
+  test('corps absent, null, tableau ou scalaire : lu comme un corps vide, sans erreur levée', () => {
+    const corpsNonObjets = [undefined, null, [], [true], [{ actif: true }], 'actif', 'true', true, false, 0, 1];
+    for (const corps of corpsNonObjets) {
+      assert.doesNotThrow(() => booleenStrict(corps, 'actif', { obligatoire: true }), `corps ${JSON.stringify(corps)}`);
+      assert.deepEqual(booleenStrict(corps, 'actif', { obligatoire: true }), refus('actif'), `obligatoire, corps ${JSON.stringify(corps)}`);
+      assert.deepEqual(booleenStrict(corps, 'actif', { obligatoire: false }), { ok: true, valeur: undefined }, `facultatif, corps ${JSON.stringify(corps)}`);
+    }
+  });
+});

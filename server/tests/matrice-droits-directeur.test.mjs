@@ -72,7 +72,9 @@ const ECARTS = {
     // La cible « compte-administrateur » est le compte AD lui-même : AD ne se supprime ni ne se désactive ; le directeur,
     // qui en a les droits, supprime et désactive ce compte, qui n'est pas le sien. Écart de données, et non de droits.
     { cle: 'DELETE /api/users/:id | compte-administrateur | défaut', nature: 'soi-même', ad: '403 « Vous ne pouvez pas supprimer votre propre compte. » inchangé' },
-    { cle: 'PATCH /api/users/:id/actif | compte-administrateur | défaut', nature: 'soi-même', ad: '400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé' },
+    // Lot #587 (cadrage v2, « Tests », matrices, point 2) : la désactivation se joue avec { actif: false }, le corps vide
+    // étant refusé ; l'écart suit la variante « actif=non » (la variante « actif=oui » est la même pour AD et DIR).
+    { cle: 'PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non', nature: 'soi-même', ad: '400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé' },
   ],
 };
 

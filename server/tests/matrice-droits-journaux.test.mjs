@@ -10,9 +10,10 @@
 //  - §2.1 : pour chaque couple (route, corps) qui écrit une table de journal dans ecritures-actions.txt ou
 //    ecritures-modifications.txt, une écriture rejouée par SA, par AD et par un compte hors administration, choisis
 //    parmi les comptes qui écrivent ce couple en 5a ou 5b (un test de couverture relit ces deux références) ; les
-//    écritures jamais vues « écrit » en 5a et 5b (partage du planning, retrait du logo posé, accès financier et « aussi
-//    commercial » qui changent, avancement de l'échéance d'un contrat dont la visite est terminée, rattachement au
-//    chantier de l'intervention d'un devis déjà converti en intervention) ; les écritures sans entrée, enregistrées
+//    écritures jamais vues « écrit » en 5a et 5b (nouveau lien du partage du planning, retrait du logo posé, avancement
+//    de l'échéance d'un contrat dont la visite est terminée, rattachement au chantier de l'intervention d'un devis déjà
+//    converti en intervention ; la fermeture du lien, l'accès financier et la marque « aussi commercial » qui changent
+//    le sont depuis le lot #587, qui y joue leur drapeau, devenu obligatoire) ; les écritures sans entrée, enregistrées
 //    telles quelles (« aucune entrée ») : écarts connus, état décidé, clôture et réouverture d'un chantier ;
 //  - §2.2 : chaque entrée nouvelle lue par SA, par AD, par l'auteur s'il est hors administration, et par un compte
 //    refusé par couple (route de lecture, dossier parent) ; l'export CSV du journal d'administration lu par SA et AD,
@@ -214,7 +215,8 @@ if (!TEST_DATABASE_URL) {
       return cheminPour(modele, null, null);
     };
     // Un cas d'écriture. `source` : « couple » (couple de 5a ou 5b, dont `couple` est le contexte), « nouvelle »
-    // (jamais vue écrire en 5a et 5b), « sans entrée » (écart connu ou état décidé), « génération ». `prealables` :
+    // (jamais vue écrire en 5a et 5b), « sans entrée » (écart connu ou état décidé), « refus du drapeau » (corps vide
+    // d'un drapeau de compte, refusé depuis le lot #587), « génération ». `prealables` :
     // écritures faites avant le cas, sans ligne ; `lirePrealables` : leurs entrées sont lues aussi ; `refuses` : compte
     // refusé d'une route de lecture, quand l'écriture fait entrer le refusé par défaut dans le périmètre ; `montant` :
     // relecture en base (§2.4).
@@ -477,15 +479,19 @@ if (!TEST_DATABASE_URL) {
         ajouter(compte, 'PUT /api/intervenants/:id/compte', 'fiche-libre', 'défaut, corps compte=TECH-SANS-FICHE', () => ({ userId: C['TECH-SANS-FICHE'].id }));
         ajouter(compte, 'PUT /api/intervenants/:id/main-oeuvre', 'fiche-libre', 'défaut, corps mainOeuvreId=main-oeuvre-matrice', () => ({ mainOeuvreId: d.mainOeuvre }));
         ajouter(compte, 'PUT /api/parametres', SANS_CIBLE, 'défaut, corps margeCommercialeActive=non', () => ({ margeCommercialeActive: false }));
-        // Partage du planning (routes (c), jamais vues « écrit » en 5a et 5b, cadrage §2.1) : nouveau lien, désactivation.
+        // Partage du planning : nouveau lien (route (c), jamais vue « écrit » en 5a et 5b, cadrage §2.1) ; fermeture du
+        // lien, route (a) depuis le lot #587 (drapeau obligatoire en booléen strict, corps vide refusé : cadrage v2,
+        // « Tests », matrices, point 3), couple de 5b, jouée avec { active: false } pour garder l'entrée DESACTIVATION.
         ajouter(compte, 'POST /api/planning/share', SANS_CIBLE, 'défaut', corpsVide, { source: 'nouvelle' });
-        ajouter(compte, 'PATCH /api/planning/share', SANS_CIBLE, 'défaut', corpsVide, { source: 'nouvelle' });
+        ajouter(compte, 'PATCH /api/planning/share', SANS_CIBLE, 'défaut, corps active=non', () => ({ active: false }));
       }
       ajouter(SA, 'POST /api/users', SANS_CIBLE, 'défaut, corps role=SUPERADMIN', corpsUser({ role: 'SUPERADMIN' }));
       ajouter(SA, 'DELETE /api/users/:id', 'compte-superadmin-second', 'défaut', corpsVide);
       for (const compte of ['AD', 'DIR']) ajouter(compte, 'DELETE /api/users/:id', 'compte-commercial', 'défaut', corpsVide);
-      ajouter(SA, 'PATCH /api/users/:id/actif', 'compte-commercial', 'défaut', corpsVide);
-      for (const compte of ['AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/actif', 'compte-technicien', 'défaut', corpsVide);
+      // Désactivation d'un compte : { actif: false } depuis le lot #587 (cadrage v2, « Tests », matrices, point 3 : le
+      // corps vide est refusé), pour garder les entrées DESACTIVATION et leurs lignes de visibilité.
+      ajouter(SA, 'PATCH /api/users/:id/actif', 'compte-commercial', 'défaut, corps actif=non', () => ({ actif: false }));
+      for (const compte of ['AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/actif', 'compte-technicien', 'défaut, corps actif=non', () => ({ actif: false }));
       ajouter(SA, 'PATCH /api/users/:id/responsable-hierarchique', 'compte-superadmin', 'défaut, corps responsable=RESP', responsable('RESP'));
       for (const compte of ['AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/responsable-hierarchique', 'compte-commercial', 'défaut, corps responsable=RESP', responsable('RESP'));
       ajouter(SA, 'PATCH /api/users/:id/responsable-hierarchique', 'compte-commercial', 'défaut, corps responsable=SA', responsable(SA));
@@ -500,14 +506,22 @@ if (!TEST_DATABASE_URL) {
       });
       ajouter(SA, 'PUT /api/users/:id/permissions', 'compte-superadmin', 'défaut, corps permissions=clients:read', () => ({ permissions: ['clients:read'] }));
       ajouter(SA, 'PUT /api/users/:id/permissions', 'compte-commercial', 'défaut, corps permissions=finances:read', () => ({ permissions: ['finances:read'] }));
-      // Accès financier et « aussi commercial » : avec un corps qui change la valeur (jamais vus « écrit » avec leur
-      // entrée en 5a, joués à corps vide), et à corps vide (« un enregistrement sans changement n'écrit rien »).
-      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-superadmin', 'défaut, corps accesFinance=oui', () => ({ accesFinance: true }), { source: 'nouvelle' });
-      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps accesFinance=oui', () => ({ accesFinance: true }), { source: 'nouvelle' });
-      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps vide', corpsVide, { source: 'sans entrée' });
-      ajouter(SA, 'PATCH /api/users/:id/est-commercial', 'compte-superadmin', 'défaut, corps estCommercial=oui', () => ({ estCommercial: true }), { source: 'nouvelle' });
-      for (const compte of ['AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/est-commercial', 'compte-administrateur', 'défaut, corps estCommercial=oui', () => ({ estCommercial: true }), { source: 'nouvelle' });
-      for (const compte of [SA, 'AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/est-commercial', compte === SA ? 'compte-superadmin' : 'compte-administrateur', 'défaut, corps vide', corpsVide, { source: 'sans entrée' });
+      // Accès financier et « aussi commercial » : avec un corps qui change la valeur (couples de 5a depuis le lot #587, qui
+      // y joue leur drapeau, devenu obligatoire ; avant, joués à corps vide, ils n'y écrivaient pas leur entrée), et avec
+      // un corps qui reprend la valeur actuelle (false : ni COM, ni AD, ni SA n'ont l'accès ou la marque), qui écrit le
+      // compte sans entrée (« un enregistrement sans changement n'écrit rien ») ; le corps vide, joué à part, est refusé
+      // en 400 sans entrée (lot #587, cadrage v2, « Tests », matrices, point 3, et périmètre 5).
+      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-superadmin', 'défaut, corps accesFinance=oui', () => ({ accesFinance: true }));
+      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps accesFinance=oui', () => ({ accesFinance: true }));
+      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps accesFinance=non', () => ({ accesFinance: false }), { source: 'sans entrée' });
+      ajouter(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps vide', corpsVide, { source: 'refus du drapeau' });
+      ajouter(SA, 'PATCH /api/users/:id/est-commercial', 'compte-superadmin', 'défaut, corps estCommercial=oui', () => ({ estCommercial: true }));
+      for (const compte of ['AD', 'DIR']) ajouter(compte, 'PATCH /api/users/:id/est-commercial', 'compte-administrateur', 'défaut, corps estCommercial=oui', () => ({ estCommercial: true }));
+      for (const compte of [SA, 'AD', 'DIR']) {
+        const cible = compte === SA ? 'compte-superadmin' : 'compte-administrateur';
+        ajouter(compte, 'PATCH /api/users/:id/est-commercial', cible, 'défaut, corps estCommercial=non', () => ({ estCommercial: false }), { source: 'sans entrée' });
+        ajouter(compte, 'PATCH /api/users/:id/est-commercial', cible, 'défaut, corps vide', corpsVide, { source: 'refus du drapeau' });
+      }
 
       // Clés d'intégration (réservées au SA) : l'entrée du journal et l'historique des clés.
       ajouter(SA, 'POST /api/admin/api-keys', SANS_CIBLE, 'défaut, corps nom et scope', () => ({ nom: 'TEST Clé créée par la matrice des journaux', scopes: ['clients:read'] }));
@@ -932,17 +946,25 @@ if (!TEST_DATABASE_URL) {
 
     // Cadrage §2.1 : « Écritures sans entrée, enregistrées telles quelles (« aucune entrée »), chacune reliée à sa source
     // dans le corps de la PR » ; écritures jamais vues « écrit » en 5a et 5b, jouées ici.
-    testPrepare('écritures sans entrée enregistrées telles quelles (conversion en chantier, comptes comptables, taux horaire, clôture et réouverture d’un chantier, corps vides) ; mentions légales sans auteur ; écritures jamais vues en 5a et 5b, avec leur entrée', () => {
+    testPrepare('écritures sans entrée enregistrées telles quelles (conversion en chantier, comptes comptables, taux horaire, clôture et réouverture d’un chantier, drapeau d’un compte qui reprend sa valeur) ; corps vide d’un drapeau de compte refusé sans entrée ; mentions légales sans auteur ; écritures jamais vues en 5a et 5b, avec leur entrée', () => {
       const sansEntree = cas.filter((c) => c.source === 'sans entrée');
       assert.ok(sansEntree.length >= 14, `cas « sans entrée » : ${sansEntree.length}`);
       for (const c of sansEntree) assert.match(reponseDe(c.compte, c.route, c.cible, c.contexte), /^20\d écrit \([^)]*\) ; aucune entrée$/, `${c.compte} ${c.route} sur ${c.cible} (${c.contexte})`);
+      // Lot #587 (cadrage v2, « Tests », matrices, point 3, et périmètre 5 : « Rien n'est écrit sur un refus ») : le corps
+      // vide d'un drapeau de compte, obligatoire, est refusé en 400 au message du drapeau, sans écriture ni entrée.
+      const refusDrapeau = cas.filter((c) => c.source === 'refus du drapeau');
+      assert.equal(refusDrapeau.length, 4, `cas « refus du drapeau » : ${refusDrapeau.length}`);
+      for (const c of refusDrapeau) {
+        const cle = c.route.endsWith('/acces-finance') ? 'accesFinance' : 'estCommercial';
+        assert.equal(reponseDe(c.compte, c.route, c.cible, c.contexte), `400 « « ${cle} » doit valoir true ou false. » inchangé ; aucune entrée`, `${c.compte} ${c.route} sur ${c.cible} (${c.contexte})`);
+      }
       for (const compte of [SA, 'AD']) {
         assert.match(reponseDe(compte, 'POST /api/mentions-legales', SANS_CIBLE, 'défaut, corps mentions, CGV et pénalités'), / ; entrées : MentionsLegalesVersion VERSION CREATION, sans auteur$/);
         assert.match(reponseDe(compte, 'POST /api/mentions-legales/:version/publier', 'version-brouillon', 'défaut'), / ; entrées : MentionsLegalesVersion VERSION PUBLICATION, sans auteur \+ MentionsLegalesVersion VERSION RETRAIT, sans auteur$/);
         assert.match(reponseDe(compte, 'POST /api/devis/:id/convertir', 'devis-converti-intervention', 'défaut, corps cible=CHANTIER'), new RegExp(` ; entrées : JournalSaisieChantier INTERVENTION RATTACHEMENT_CHANTIER par ${compte}$`));
         assert.match(reponseDe(compte, 'POST /api/contrats-maintenance/:id/avancer-echeance', 'contrat-visite-terminee', 'défaut, corps sans corps'), new RegExp(`^200 écrit \\(.*\\) ; entrées : JournalSaisieChantier CONTRAT AVANCEMENT_ECHEANCE par ${compte}$`));
         assert.match(reponseDe(compte, 'POST /api/planning/share', SANS_CIBLE, 'défaut'), new RegExp(` ; entrées : JournalAdministration PARTAGE_PLANNING [A-Z_]+ par ${compte}$`));
-        assert.match(reponseDe(compte, 'PATCH /api/planning/share', SANS_CIBLE, 'défaut'), new RegExp(` ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par ${compte}$`));
+        assert.match(reponseDe(compte, 'PATCH /api/planning/share', SANS_CIBLE, 'défaut, corps active=non'), new RegExp(` ; entrées : JournalAdministration PARTAGE_PLANNING DESACTIVATION par ${compte}$`));
       }
       assert.match(reponseDe(SA, 'DELETE /api/company/logo', SANS_CIBLE, 'défaut, logo posé'), / ; entrées : JournalAdministration SOCIETE LOGO_DOCUMENTS_RETIRE par SA$/);
       assert.match(reponseDe(SA, 'PATCH /api/users/:id/acces-finance', 'compte-commercial', 'défaut, corps accesFinance=oui'), / ; entrées : JournalAdministration COMPTE ACCES_FINANCE par SA$/);

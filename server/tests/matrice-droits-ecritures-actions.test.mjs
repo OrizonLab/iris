@@ -5,19 +5,21 @@
 // Tests seuls : ce fichier enregistre le comportement actuel, sans rien corriger (cadrage §1 et §7). Il reprend les
 // outils, les comptes, le jeu de données et la table des routes de D1a-1 (server/tests/matrice-droits/), et ajoute
 // l'outil de remise en état (matrice-droits/remise-en-etat.mjs, avenant section 1, approche A3). Il enregistre :
-//  - les 20 routes (b) de session (action sans corps, avec un paramètre), jouées à corps vide par les 16 comptes sur
-//    CHAQUE CIBLE RÉELLE de leur famille, et non plus sur un identifiant inexistant (cadrage §2.4 (b) : « le refus sur
-//    un dossier réel, dans ou hors du périmètre, relève de D1a-5 »), dont l'émission d'une facture (brouillon émis ;
-//    refus sur une facture émise et sur un avoir, sans effet) ;
-//  - les 16 routes (a) marquées validation-avant-droit (13 avec une famille de cibles ; POST /api/achats, /api/heures
-//    et /api/devis sans famille), rejouées AVEC UN CORPS VALIDE par les 16 comptes sur chaque cible réelle de leur
-//    famille, ou avec la cible portée par le corps (chantierId, clientId), dans et hors du périmètre. Le corps peut
-//    dépendre de l'état de la cible (statut d'une intervention ou d'un chantier, relu en base) : un corps par état, et
-//    plusieurs quand le droit dépend du corps (annulation, marque « à suivre » posée ou retirée, rôle de super
-//    administrateur, cible de la conversion d'un devis). Aucun corps ne porte de champ réservé à D1a-5d : ni prix
-//    d'achat prévu d'une ligne de devis (prixAchatUnitaireHt), ni budgetGlobalVendu, ni champ d'un groupe de
-//    MONTANTS_MASQUES_ECRITURES ; un montant requis par la route (montantHT d'un achat, quantité et montant d'un coût
-//    SAV, prix des lignes d'un devis) y est, et le refus comme l'absence d'effet sont joués pour qui ne doit pas écrire.
+//  - les 17 routes (b) de session (action sans corps, avec un paramètre ; 20 avant le lot #587), jouées à corps vide
+//    par les 16 comptes sur CHAQUE CIBLE RÉELLE de leur famille, et non plus sur un identifiant inexistant (cadrage
+//    §2.4 (b) : « le refus sur un dossier réel, dans ou hors du périmètre, relève de D1a-5 »), dont l'émission d'une
+//    facture (brouillon émis ; refus sur une facture émise et sur un avoir, sans effet) ;
+//  - les 19 routes (a) marquées validation-avant-droit (16 avec une famille de cibles ; POST /api/achats, /api/heures
+//    et /api/devis sans famille ; 16 et 13 avant le lot #587, qui y range l'activation d'un compte, son accès
+//    financier et sa marque « aussi commercial »), rejouées AVEC UN CORPS VALIDE par les 16 comptes sur chaque cible
+//    réelle de leur famille, ou avec la cible portée par le corps (chantierId, clientId), dans et hors du périmètre. Le
+//    corps peut dépendre de l'état de la cible (statut d'une intervention ou d'un chantier, relu en base) : un corps
+//    par état, et plusieurs quand le droit dépend du corps (annulation, marque « à suivre » posée ou retirée, rôle de
+//    super administrateur, cible de la conversion d'un devis, drapeau d'un compte posé ou retiré). Aucun corps ne
+//    porte de champ réservé à D1a-5d : ni prix d'achat prévu d'une ligne de devis (prixAchatUnitaireHt), ni
+//    budgetGlobalVendu, ni champ d'un groupe de MONTANTS_MASQUES_ECRITURES ; un montant requis par la route (montantHT
+//    d'un achat, quantité et montant d'un coût SAV, prix des lignes d'un devis) y est, et le refus comme l'absence
+//    d'effet sont joués pour qui ne doit pas écrire.
 //    L'envoi du compte rendu (POST /api/interventions/:id/envois) passe par la messagerie (canal absent), jamais par
 //    Microsoft 365.
 // Une ligne : compte, route, cible, contexte (« défaut », suivi du nom du corps pour une route marquée), réponse (code,
@@ -127,6 +129,23 @@ const CORPS = {
   'PATCH /api/users/:id/responsable-hierarchique': (_cible, d) => [
     { nom: 'responsable=RESP', corps: () => ({ responsableHierarchiqueId: d.comptes.RESP.id }) },
     { nom: 'responsable=SA', corps: () => ({ responsableHierarchiqueId: d.comptes.SA.id }) },
+  ],
+  // Drapeaux d'un compte, lus en booléen strict et obligatoires depuis le lot #587 (cadrage v2, « Tests », matrices,
+  // point 2) : leur corps vide répond 400 ; chacun est rejoué posé et retiré, pour garder sur les cibles réelles les
+  // refus que le corps vide éprouvait avant le lot (super administrateur ciblé : 403 ; compte système : 404 ; son propre
+  // compte : 400 ; compte qui n'est pas administrateur « aussi commercial » : 400 ; technicien et accès financier : 400)
+  // et les écritures (désactivation, marque, accès accordé ; et la même valeur, que seul updatedAt révèle).
+  'PATCH /api/users/:id/actif': () => [
+    { nom: 'actif=non', corps: () => ({ actif: false }) },
+    { nom: 'actif=oui', corps: () => ({ actif: true }) },
+  ],
+  'PATCH /api/users/:id/est-commercial': () => [
+    { nom: 'estCommercial=oui', corps: () => ({ estCommercial: true }) },
+    { nom: 'estCommercial=non', corps: () => ({ estCommercial: false }) },
+  ],
+  'PATCH /api/users/:id/acces-finance': () => [
+    { nom: 'accesFinance=oui', corps: () => ({ accesFinance: true }) },
+    { nom: 'accesFinance=non', corps: () => ({ accesFinance: false }) },
   ],
   // Fiche intervenant reliée à un compte technicien actif sans fiche.
   'PUT /api/intervenants/:id/compte': (_cible, d) => [{ nom: 'compte=TECH-SANS-FICHE', corps: () => ({ userId: d.comptes['TECH-SANS-FICHE'].id }) }],
@@ -353,9 +372,12 @@ if (!TEST_DATABASE_URL) {
     // Avenant, section 2, ligne D1a-5a : « les 20 routes (b) de session » et « les 16 routes (a) marquées
     // `validation-avant-droit` ». Leur répartition (13 avec une famille de cibles ; POST /api/achats, /api/heures et
     // /api/devis sans famille, la cible portée par le corps) vient de l'étude préalable (§1.1), et non de l'avenant.
-    testPrepare('périmètre : les 20 routes (b) et les 16 routes marquées validation-avant-droit, chacune avec ses cibles réelles et, pour une route marquée, un corps valide pour chaque cible', () => {
-      assert.equal(ROUTES_B.length, 20, `routes (b) : ${ROUTES_B.join(', ')}`);
-      assert.equal(ROUTES_MARQUEES.length, 16, `routes marquées : ${ROUTES_MARQUEES.join(', ')}`);
+    // Lot #587 (cadrage v2, « Tests », matrices, point 2) : l'activation d'un compte, son accès financier et sa marque
+    // « aussi commercial » passent des (b) aux routes marquées : 17 routes (b) et 19 routes marquées, dont 16 avec une
+    // famille de cibles.
+    testPrepare('périmètre : les 17 routes (b) et les 19 routes marquées validation-avant-droit, chacune avec ses cibles réelles et, pour une route marquée, un corps valide pour chaque cible', () => {
+      assert.equal(ROUTES_B.length, 17, `routes (b) : ${ROUTES_B.join(', ')}`);
+      assert.equal(ROUTES_MARQUEES.length, 19, `routes marquées : ${ROUTES_MARQUEES.join(', ')}`);
       assert.deepEqual(ROUTES_MARQUEES.filter((route) => !ROUTES_SESSION[route].famille).sort(), Object.keys(CIBLE_DU_CORPS).sort(), 'routes marquées sans famille : la cible est portée par le corps');
       assert.deepEqual(Object.keys(CORPS).sort(), [...ROUTES_MARQUEES].sort(), 'un corps valide pour chaque route marquée, et pour elles seules');
       assert.deepEqual(ROUTES_B.filter((route) => !ROUTES_SESSION[route].famille), [ROUTE_MENTIONS], 'seule route (b) sans famille : la publication des mentions légales');

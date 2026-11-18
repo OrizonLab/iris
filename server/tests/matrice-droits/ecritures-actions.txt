@@ -53,21 +53,36 @@ AC | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 AC | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Accès non autorisé pour un compte assistante commerciale. » inchangé
 AC | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Accès non autorisé pour un compte assistante commerciale. » inchangé
 AC | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Accès non autorisé pour un compte assistante commerciale. » inchangé
-AC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-AC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-AC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-AC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-AC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-AC | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AC | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 AC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 AC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 AC | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -259,21 +274,36 @@ AD | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 AD | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 AD | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 AD | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-AD | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD | PATCH /api/users/:id/actif | compte-administrateur | défaut | 400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé
-AD | PATCH /api/users/:id/actif | compte-commercial | défaut | 200 écrit (JournalAdministration,User)
-AD | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-AD | PATCH /api/users/:id/actif | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-AD | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User)
-AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 200 écrit (User)
-AD | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
-AD | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-AD | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-AD | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé
+AD | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 200 écrit (User)
+AD | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+AD | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 200 écrit (User)
+AD | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 404 « Utilisateur introuvable. » inchangé
+AD | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 404 « Utilisateur introuvable. » inchangé
+AD | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+AD | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 200 écrit (User)
+AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User)
+AD | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User)
+AD | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 404 « Utilisateur introuvable. » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 404 « Utilisateur introuvable. » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 400 « Responsable hiérarchique introuvable ou désactivé. » inchangé
 AD | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
@@ -465,21 +495,36 @@ AD-COM | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps s
 AD-COM | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 AD-COM | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 AD-COM | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-AD-COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD-COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD-COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD-COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD-COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-AD-COM | PATCH /api/users/:id/actif | compte-administrateur | défaut | 200 écrit (JournalAdministration,User)
-AD-COM | PATCH /api/users/:id/actif | compte-commercial | défaut | 200 écrit (JournalAdministration,User)
-AD-COM | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-AD-COM | PATCH /api/users/:id/actif | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-AD-COM | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User)
-AD-COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 200 écrit (User)
-AD-COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
-AD-COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-AD-COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-AD-COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AD-COM | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+AD-COM | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 200 écrit (User)
+AD-COM | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+AD-COM | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 200 écrit (User)
+AD-COM | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD-COM | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD-COM | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 404 « Utilisateur introuvable. » inchangé
+AD-COM | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 404 « Utilisateur introuvable. » inchangé
+AD-COM | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+AD-COM | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 200 écrit (User)
+AD-COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User)
+AD-COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User)
+AD-COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 404 « Utilisateur introuvable. » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 404 « Utilisateur introuvable. » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+AD-COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 400 « Responsable hiérarchique introuvable ou désactivé. » inchangé
 AD-COM | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
@@ -671,21 +716,36 @@ AT | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 AT | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 AT | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 AT | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-AT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-AT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-AT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-AT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-AT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-AT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+AT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+AT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 AT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 AT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 AT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -877,21 +937,36 @@ COM | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps stat
 COM | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Accès non autorisé pour un compte commercial. » inchangé
 COM | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Accès non autorisé pour un compte commercial. » inchangé
 COM | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Accès non autorisé pour un compte commercial. » inchangé
-COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-COM | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+COM | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+COM | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 COM | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 COM | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -1083,21 +1158,36 @@ CPT | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps stat
 CPT | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
 CPT | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
 CPT | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
-CPT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 CPT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 CPT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 CPT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -1289,21 +1379,36 @@ CPT-FINANCE | PATCH /api/interventions/:id/statut | visite-contrat | défaut, co
 CPT-FINANCE | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
 CPT-FINANCE | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
 CPT-FINANCE | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Accès non autorisé pour un compte comptable. » inchangé
-CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-CPT-FINANCE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CPT-FINANCE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 CPT-FINANCE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 CPT-FINANCE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 CPT-FINANCE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -1495,21 +1600,36 @@ CT | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 CT | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 CT | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 CT | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-CT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 CT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 CT | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 CT | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -1701,21 +1821,36 @@ CT-N1 | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps st
 CT-N1 | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 CT-N1 | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 CT-N1 | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 404 « Affectation introuvable. » inchangé
-CT-N1 | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT-N1 | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT-N1 | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT-N1 | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT-N1 | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-CT-N1 | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-CT-N1 | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+CT-N1 | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 CT-N1 | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 CT-N1 | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 CT-N1 | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -1907,21 +2042,36 @@ DC | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 DC | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Accès non autorisé pour un compte directeur commercial. » inchangé
 DC | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Accès non autorisé pour un compte directeur commercial. » inchangé
 DC | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Accès non autorisé pour un compte directeur commercial. » inchangé
-DC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-DC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-DC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-DC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-DC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-DC | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-DC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DC | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+DC | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 DC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 DC | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 DC | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -2113,21 +2263,36 @@ DIR | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps stat
 DIR | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 DIR | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 DIR | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-DIR | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-DIR | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-DIR | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-DIR | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-DIR | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-DIR | PATCH /api/users/:id/actif | compte-administrateur | défaut | 200 écrit (JournalAdministration,User)
-DIR | PATCH /api/users/:id/actif | compte-commercial | défaut | 200 écrit (JournalAdministration,User)
-DIR | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-DIR | PATCH /api/users/:id/actif | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-DIR | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User)
-DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 200 écrit (User)
-DIR | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
-DIR | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
-DIR | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-DIR | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+DIR | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+DIR | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 200 écrit (User)
+DIR | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+DIR | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 200 écrit (User)
+DIR | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+DIR | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+DIR | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 404 « Utilisateur introuvable. » inchangé
+DIR | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 404 « Utilisateur introuvable. » inchangé
+DIR | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+DIR | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 200 écrit (User)
+DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User)
+DIR | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User)
+DIR | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 404 « Utilisateur introuvable. » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 404 « Utilisateur introuvable. » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+DIR | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 400 « Responsable hiérarchique introuvable ou désactivé. » inchangé
 DIR | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
@@ -2319,21 +2484,36 @@ RESP | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps sta
 RESP | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 RESP | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 RESP | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 404 « Affectation introuvable. » inchangé
-RESP | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 RESP | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 RESP | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 RESP | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -2525,21 +2705,36 @@ RESP-SANS-BRANCHE | PATCH /api/interventions/:id/statut | visite-contrat | défa
 RESP-SANS-BRANCHE | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 RESP-SANS-BRANCHE | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 RESP-SANS-BRANCHE | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 404 « Affectation introuvable. » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+RESP-SANS-BRANCHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 RESP-SANS-BRANCHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 RESP-SANS-BRANCHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 RESP-SANS-BRANCHE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -2731,21 +2926,36 @@ SA | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps statu
 SA | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 200 écrit (PlanningEvent)
 SA | PATCH /api/planning/events/:id | affectation-evenement | défaut | 200 écrit (PlanningEvent)
 SA | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 200 écrit (InterventionAffectation,PlanningEvent)
-SA | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-SA | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/actif | compte-administrateur | défaut | 200 écrit (JournalAdministration,User)
-SA | PATCH /api/users/:id/actif | compte-commercial | défaut | 200 écrit (JournalAdministration,User)
-SA | PATCH /api/users/:id/actif | compte-superadmin | défaut | 400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé
-SA | PATCH /api/users/:id/actif | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-SA | PATCH /api/users/:id/actif | compte-technicien | défaut | 200 écrit (JournalAdministration,User)
-SA | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
-SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 200 écrit (User)
-SA | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
-SA | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+SA | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 200 écrit (User)
+SA | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 200 écrit (User)
+SA | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 200 écrit (User)
+SA | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 200 écrit (User)
+SA | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 400 « L’accès financier ne s’accorde pas à un compte technicien. » inchangé
+SA | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 200 écrit (User)
+SA | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 200 écrit (User)
+SA | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 400 « Vous ne pouvez pas désactiver votre propre compte. » inchangé
+SA | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 200 écrit (User)
+SA | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 200 écrit (User)
+SA | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 200 écrit (User)
+SA | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+SA | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 200 écrit (User)
+SA | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 200 écrit (JournalAdministration,User)
+SA | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 404 « Utilisateur introuvable. » inchangé
+SA | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
+SA | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 400 « Seul un compte Administrateur peut être marqué "aussi commercial". » inchangé
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 200 écrit (JournalAdministration,User)
 SA | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 200 écrit (JournalAdministration,User)
@@ -2937,21 +3147,36 @@ TECH | PATCH /api/interventions/:id/statut | visite-contrat | défaut, corps sta
 TECH | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
 TECH | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
 TECH | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
-TECH | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 TECH | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 TECH | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 TECH | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
@@ -3143,21 +3368,36 @@ TECH-SANS-FICHE | PATCH /api/interventions/:id/statut | visite-contrat | défaut
 TECH-SANS-FICHE | PATCH /api/planning/events/:id | affectation-chantier-ct | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
 TECH-SANS-FICHE | PATCH /api/planning/events/:id | affectation-evenement | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
 TECH-SANS-FICHE | PATCH /api/planning/events/:id | projection-intervention-chantier-ct | défaut | 403 « Un technicien ne modifie ni le planning ni les référentiels. » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut | 403 « Accès réservé au super administrateur » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
-TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-administrateur | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-commercial | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-superadmin | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-systeme | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=non | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/acces-finance | compte-technicien | défaut, corps accesFinance=oui | 403 « Accès réservé au super administrateur » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-administrateur | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-commercial | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-superadmin | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-systeme | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/actif | compte-technicien | défaut, corps actif=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-administrateur | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-commercial | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-superadmin | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-systeme | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=non | 403 « Accès réservé aux administrateurs » inchangé
+TECH-SANS-FICHE | PATCH /api/users/:id/est-commercial | compte-technicien | défaut, corps estCommercial=oui | 403 « Accès réservé aux administrateurs » inchangé
 TECH-SANS-FICHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
 TECH-SANS-FICHE | PATCH /api/users/:id/responsable-hierarchique | compte-administrateur | défaut, corps responsable=SA | 403 « Accès réservé aux administrateurs » inchangé
 TECH-SANS-FICHE | PATCH /api/users/:id/responsable-hierarchique | compte-commercial | défaut, corps responsable=RESP | 403 « Accès réservé aux administrateurs » inchangé
