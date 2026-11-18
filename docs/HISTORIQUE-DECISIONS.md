@@ -5720,7 +5720,7 @@ PR documentaire de l'étape 6 du circuit, « Closes #590 » (notes de #586). Aud
 
 ## Lot du 18-11-2026 (#598)
 
-*Rédigé le 18-11-2026, `main` à `d80b355`.* Une PR fusionnée par Claude Code, par commit de fusion, après la CI verte sur la tête exacte : #598 (`d80b355`, 18-11-2026 à 23:37 UTC ; tête `cce5a2d`). **#598 est implémentée, non validée pour mise en service ; elle touche le chiffre d'affaires validé : non validée comptablement, sa fusion n'en valant pas une.** Aucune variable d'environnement.
+*Rédigé le 18-11-2026, `main` à `d80b355`.* Deux PR fusionnées par Claude Code, par commit de fusion, après la CI verte sur la tête exacte : #597 (documentaire, `dcdc2e4`, 18-11-2026 à 21:32 UTC ; tête `1a4d1b4`) et #598 (`d80b355`, 18-11-2026 à 23:37 UTC ; tête `cce5a2d`). **#598 est implémentée, non validée pour mise en service ; elle touche le chiffre d'affaires validé : non validée comptablement, sa fusion n'en valant pas une.** Aucune variable d'environnement.
 
 ### #598, encaissement, barème réduit et suivi administratif : drapeaux lus en booléen strict (volet montants de #587 ; fusion `d80b355`, tête `cce5a2d`, 18-11-2026)
 
@@ -5736,6 +5736,10 @@ Pas de « Closes » : [#587](https://github.com/Noxia-Groupe/iris/issues/587) ga
 - **Audits** (sur `cce5a2d`, constat publié sur #598, commentaire 6994859646) : `auditeur-montants` : fusionnable (19 mutants de montants, tous tués sauf un équivalent ; aucun test de montant ne manque ; suite complète 1 598/1 598 deux fois ; sa C1, sur le corps de la PR, est corrigée sans push ; N1 à N5 versées à #599) ; `auditeur-droits-securite` : fusionnable (gardes inchangées, aucun oracle nouveau, aucune preuve de droit perdue dans `entrees.txt`, 19 mutants tous tués, `npm audit --omit=dev` : 0 vulnérabilité ; sa C4, la question pour Nelson ambiguë sur le barème, est corrigée au mot près) ; `controleur-coherence` (mode 2) : fusionnable (code cohérent avec le cadrage v3 et avec #449, #285, #181, AT-2b et la décision du 17-10-2026 ; citations exactes au caractère près ; sa C4, la phrase « aucune remarque R ni T », corrigée en « une seule remarque T, facultative » ; N7 corrigée dans #599). Toutes les remarques C portaient sur le corps de la PR ou sur #426 et sont corrigées sans push ; la copie de travail est inchangée après chaque passage. Une seule remarque T, facultative : l'E2E de la modale du chantier, versée à #599.
 - **Question pour Nelson** (corps de #598, reprise en [passation, section 3](ROADMAP-PASSATION.md#3-questions-ouvertes-pour-nelson), question « Encaissement d'un chantier : drapeau absent ou invalide ») : garder le refus de l'encaissement sans drapeau valide et du `null` sur le barème ? D'ici la réponse, il est en vigueur. Non validé comptablement.
 - **Suivis** : [#587](https://github.com/Noxia-Groupe/iris/issues/587), ouverte, garde son **volet catalogue** (`stockSuivi`, `server/src/domaines/catalogue/metier.ts:93` ; `actif`, `routes.ts:90` et `main-oeuvre.ts:203`, déjà suivi par #324) ; [#599](https://github.com/Noxia-Groupe/iris/issues/599) (`suivi-audit` : commentaire de `booleenStrict`, deux mentions « à confirmer » dans le code, citation tronquée du README des tests, effet du barème sur `margeStandard` et `margeReduite`, E2E de la modale du chantier) ; [#426](https://github.com/Noxia-Groupe/iris/issues/426) (ajout du 18-11-2026 : `PATCH /api/chantiers/:id` sans corps JSON répond 500 « Error updating chantier »).
+
+### #597, passation et historique après #596 (fusion `dcdc2e4`, tête `1a4d1b4`, 18-11-2026)
+
+PR documentaire de l'étape 6 du circuit, « Closes #594 » (notes de #593). Audit interne : `controleur-coherence`, fusionnable sur `1a4d1b4` après ses remarques C1 à C3 et les notes N1 à N5 corrigées dans la PR, et sa remarque C4 corrigée dans le corps de la PR. CI : « CI — synthèse » en `success` sur `1a4d1b4` (série 44402196247), travaux lourds sautés (documentation seule).
 
 ### Dans la passation et les autres documents (18-11-2026, #598)
 
