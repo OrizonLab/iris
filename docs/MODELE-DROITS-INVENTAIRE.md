@@ -128,7 +128,7 @@ Dans les tableaux, « blockCommercial » se lit « tous sauf COM et DIR » et «
 | GET `/api/me` | 3201 | requireAuth | droits effectifs | tous |
 | PUT `/api/me/theme` | 3217 | requireAuth | uniquement le compte du jeton | tous |
 
-*Note de suite, 17-11-2026 : depuis #591 (`3c94606`, 17-11-2026), `resolveAuthorizedSsoUser`, citée dans la ligne de `POST /api/auth/sso` ci-dessus, est retirée : la route autorise la connexion Microsoft par `autoriserConnexionMicrosoft`, sur l'identifiant immuable `oid` + `tid` (#264). Le tableau décrit le code à `84e27a1`, et reste inchangé comme photographie. Le compteur des essais de l'accès de secours (« 5 essais par 15 min et par IP », ligne de `POST /api/auth/secours`) est purgé et borné à 10 000 adresses par #591.*
+*Note de suite, 17-11-2026, précisée le 18-11-2026 : la route `POST /api/auth/sso` n'appelle plus `resolveAuthorizedSsoUser`, citée dans sa ligne ci-dessus, depuis #562 (#264) : elle autorise la connexion Microsoft par `autoriserConnexionMicrosoft`, sur l'identifiant immuable `oid` + `tid`. #591 (`3c94606`, 17-11-2026) n'a fait que retirer la fonction devenue inutile (vérifié : aucun appel dans `server/src` avant #591). Le tableau décrit le code à `84e27a1`, et reste inchangé comme photographie. Le compteur des essais de l'accès de secours (« 5 essais par 15 min et par IP », ligne de `POST /api/auth/secours`) est purgé et borné à 10 000 adresses par #591.*
 
 #### Chantiers
 
