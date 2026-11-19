@@ -95,9 +95,16 @@ function lireClesMicrosoft(): Promise<void> {
 }
 
 async function getMicrosoftSigningKey(kid: string): Promise<crypto.KeyObject | null> {
-  // Seul un cache encore valable sert, avant comme après une tentative de lecture.
-  const chercher = (instant: number) =>
-    msJwksCache && instant - msJwksCache.fetchedAt < MS_JWKS_DUREE_CACHE_MS ? msJwksCache.keys.find((k) => k.kid === kid) : undefined;
+  // Seul un cache encore valable sert, avant comme après une tentative de lecture. Un cache daté dans le futur (horloge
+  // reculée depuis sa lecture) n'est pas valable : sans cela, une clé retirée par Microsoft serait acceptée au-delà de
+  // l'heure du cache, de toute la durée du recul (#607, N6 du contrôle de cohérence). Il est alors relu, la borne des
+  // lectures laissant passer une tentative datée dans le futur.
+  const valable = (instant: number) => {
+    if (!msJwksCache) return false;
+    const age = instant - msJwksCache.fetchedAt;
+    return age >= 0 && age < MS_JWKS_DUREE_CACHE_MS;
+  };
+  const chercher = (instant: number) => (valable(instant) ? msJwksCache!.keys.find((k) => k.kid === kid) : undefined);
   const maintenant = Date.now();
   let jwk = chercher(maintenant);
   if (!jwk) {

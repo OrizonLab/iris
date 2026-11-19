@@ -25,7 +25,10 @@
 //   - une lecture dure au plus 10 s (`AbortSignal.timeout(10_000)`), et un dépassement compte comme une tentative en
 //     échec (v2, point 4 ; v3, T1).
 //   - la lecture en cours est effacée à la fin de sa promesse, même quand `fetch` lève sans rendre la main (audit des
-//     droits de #606, N1).
+//     droits de #606, N1) ;
+//   - depuis le lot #607 et #608 (cadrage v2, N6 du contrôle de cohérence) : un cache n'est valable que si
+//     `0 <= instant - fetchedAt < 1 h` ; daté dans le futur (horloge reculée depuis sa lecture), il est expiré et relu, la
+//     borne des lectures laissant passer une tentative datée dans le futur.
 // Valeurs (60 s, 10 s) : choix par défaut, à confirmer.
 //
 // Tests sans base (v2, point 11) : `verifyMicrosoftIdentity(req)` ne lit que `req.body.idToken` et `req.ip`. Microsoft
@@ -219,7 +222,9 @@ function uneTraceDEchec(depuis, jetons, quoi, motif) {
 }
 const aucuneLigne = (depuis, quoi) => assert.deepEqual(textes().slice(depuis), [], quoi);
 
-describe('#589 : clés Microsoft relues au plus une fois par minute, lecture partagée, limitée à 10 s, cache gardé sur un échec', () => {
+// Titre repris du lot #607 et #608 (cadrage, point 5 : texte du commentaire 6998759218 de #608) : la formule « cache
+// gardé sur un échec » était celle de la première version de #606.
+describe('#589 : clés Microsoft relues au plus une fois par minute, lecture partagée, limitée à 10 s, seul un cache encore valable sert après un échec', () => {
   let verifier;
   beforeEach(() => {
     const sso = chargerSso();
@@ -390,6 +395,61 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
     assert.equal(await verifier(jetonForge()), null);
     assert.equal(lectures(), 3, 'plus de 60 s après la nouvelle tentative : une lecture');
     aucuneLigne(0, 'aucune trace');
+  });
+
+  // Lot #607 et #608, cadrage v2, N6 (intégré au lot) : « `sso.ts` traite un cache daté dans le futur (horloge reculée)
+  // comme frais : après un recul d'1 h, une clé retirée par Microsoft reste acceptée 1 h 30 de temps réel après la
+  // lecture. Correctif : un cache n'est valable que si `0 <= instant - fetchedAt < 1 h` ; daté dans le futur, il est
+  // expiré et relu ». Ici, le cache est lu à t0 avec les clés A et B ; à t0 + 30 min, Microsoft retire B, puis l'horloge
+  // recule d'une heure. Lecture écartée : un cache daté dans le futur tenu pour frais (`âge >= 0` retiré, règle d'avant
+  // le lot), sous laquelle B serait acceptée sans lecture jusqu'à ce que l'horloge rattrape t0 + 1 h, une heure et demie
+  // de temps réel après le recul.
+  test('#607, N6 : après un recul d’une heure, le cache, daté dans le futur, n’est pas tenu pour frais : il est relu, et une clé retirée par Microsoft entre-temps est refusée', async () => {
+    repondre = jwks(JWK_A, JWK_B);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE, 'lecture à t0 : clé B publiée, acceptée');
+    assert.equal(lectures(), 1);
+    aller(T0 + 30 * MIN);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE, 't0 + 30 min, cache frais : clé B acceptée sans lecture');
+    assert.equal(lectures(), 1);
+    repondre = jwks(JWK_A); // Microsoft retire la clé B
+    const recul = T0 - 30 * MIN; // l'horloge recule d'une heure : le cache, lu à t0, est daté dans le futur
+    aller(recul);
+    assert.equal(await verifier(jetonB()), null, 'cache daté dans le futur : relu, la clé B retirée est refusée');
+    assert.equal(lectures(), 2, 'une lecture, le cache daté dans le futur n’étant pas frais');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'la clé A, toujours publiée, est servie par le cache relu');
+    assert.equal(lectures(), 2, 'cache relu à l’instant : aucun appel de plus');
+    aller(recul + 30 * S);
+    assert.equal(await verifier(jetonB()), null, 'trente secondes après : la clé B reste refusée, sans lecture (borne)');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'la clé A est acceptée sans lecture : le cache relu est frais');
+    assert.equal(lectures(), 2);
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Même règle, relecture en échec : N6 (« daté dans le futur, il est expiré et relu »), combiné à la règle retenue après
+  // l'audit des droits de #606 (N2 : un cache expiré ne sert plus, avant comme après une tentative de lecture). Le cache
+  // daté dans le futur est relu ; la relecture échoue ; il ne sert pas, et la clé connue est refusée jusqu'à la lecture
+  // réussie suivante. Lecture écartée : un cache daté dans le futur tenu pour frais, sous lequel la clé A serait acceptée
+  // sans lecture ni trace, et une clé retirée par Microsoft le serait aussi tant que la sortie vers Microsoft est coupée.
+  test('#607, N6 : après un recul d’une heure et une relecture en échec, le cache daté dans le futur ne sert pas : la clé connue est refusée, une trace ; la lecture permise suivante la rétablit', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture à t0');
+    assert.equal(lectures(), 1);
+    repondre = () => new Response('Erreur interne', { status: 500 });
+    const recul = T0 - HEURE;
+    aller(recul);
+    const jeton = jetonA();
+    assert.equal(await verifier(jeton), null, 'cache daté dans le futur, relecture en échec : clé connue refusée');
+    assert.equal(lectures(), 2, 'le cache daté dans le futur est relu');
+    uneTraceDEchec(0, [jeton], 'relecture du cache daté dans le futur en échec', 'statut HTTP 500');
+    const depuis = lignes.length;
+    aller(recul + 30 * S);
+    assert.equal(await verifier(jetonA()), null, 'dans la minute de la tentative : clé connue toujours refusée, sans lecture');
+    assert.equal(lectures(), 2);
+    aucuneLigne(depuis, 'aucune autre trace dans la minute');
+    aller(recul + INTERVALLE + 1);
+    repondre = jwks(JWK_A);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture permise et réussie : connexion rétablie');
+    assert.equal(lectures(), 3);
+    aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
   });
 
   // Lectures en échec. Cadrage v2, N3 : « Échec » : statut hors 2xx, exception (réseau, délai), JSON invalide, `keys`

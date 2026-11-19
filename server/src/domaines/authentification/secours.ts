@@ -16,8 +16,9 @@ import { EMAIL_COMPTE_SYSTEME } from '../../droits/roles';
 //   - le compte visé doit exister, être actif ET être SUPERADMIN ;
 //   - la session ouverte dure 1 h, pas 7 jours (c'est un accès de dépannage) ;
 //   - 5 tentatives par quart d'heure et par IP, puis blocage ;
-//   - chaque tentative non bloquée (refus, succès, compte absent) laisse une trace dans les journaux du
-//     conteneur ; pendant un blocage, seul le premier essai bloqué de la fenêtre en laisse une (#589).
+//   - chaque tentative non bloquée (refus, succès, compte absent, erreur après un jeton valide) laisse une trace
+//     dans les journaux du conteneur, avec l'adresse (#608) ; pendant un blocage, seul le premier essai bloqué de la
+//     fenêtre en laisse une (#589).
 // Sans BREAK_GLASS_EMAIL + BREAK_GLASS_TOKEN dans l'environnement, la route est inactive
 // et répond 503 : une instance qui n'en veut pas n'a rien à désactiver.
 export const BREAK_GLASS_EMAIL = normalizeEmail(process.env.BREAK_GLASS_EMAIL || '');
@@ -49,8 +50,14 @@ const BREAK_GLASS_MAX_ESSAIS = 5;
 export const BREAK_GLASS_MAX_ADRESSES = 10_000;
 export const essaisSecours = new Map<string, { count: number; depuis: number }>();
 
-// Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes.
-const fenetrePassee = (depuis: number, maintenant: number) => maintenant - depuis > BREAK_GLASS_FENETRE_MS;
+// Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes, ou si elle est datée
+// dans le futur, ce qui n'arrive qu'après un recul de l'horloge du système (correction NTP) : sans cela, le blocage d'une
+// adresse serait prolongé de toute la durée du recul (#607). Une fenêtre ainsi passée repart de zéro, comme à son terme :
+// un recul rend au plus cinq essais à une adresse, sur un secret d'au moins 32 caractères, et qui ferait reculer
+// l'horloge du serveur ranimerait déjà les sessions expirées. Même règle que la borne de lecture des clés Microsoft
+// (sso.ts). Choix par défaut, à confirmer.
+const fenetrePassee = (depuis: number, maintenant: number) =>
+  maintenant < depuis || maintenant - depuis > BREAK_GLASS_FENETRE_MS;
 
 // Premier essai bloqué de la fenêtre de cette adresse (à lire juste après tropDEssaisSecours, qui l'a compté) : seul
 // celui-ci est tracé (#589), pour qu'une rafale d'essais bloqués ne remplisse pas les journaux du conteneur. Les
