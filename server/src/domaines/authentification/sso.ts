@@ -33,17 +33,18 @@ type CompteConnexion = Prisma.UserGetPayload<{ select: typeof CHAMPS_COMPTE_CONN
 // Lecture bornée (#589) : un jeton forgé, présenté sans authentification, ne doit pas faire lancer au serveur
 // autant d'appels sortants qu'il y a de jetons.
 //   - Au plus une lecture par intervalle de 60 s, réussie ou non (toute tentative est notée) ; une tentative datée
-//     dans le futur, après un recul de l'horloge, n'empêche pas la lecture (même principe que le compteur de
-//     l'accès de secours, #591).
+//     dans le futur, après un recul de l'horloge, n'empêche pas la lecture : un recul ne prolonge pas la borne.
 //   - Des demandes simultanées partagent la même lecture ; une demande dont le `kid` est dans le cache frais
 //     n'attend jamais une lecture en cours.
 //   - Une lecture dure au plus 10 s : sans délai, une lecture suspendue pourrait durer cinq minutes ou plus (délais
 //     par défaut du `fetch` de Node), et, puisqu'elle est partagée, retarderait d'autant toute relecture.
 //   - En cas d'échec (statut hors 2xx, erreur réseau ou délai dépassé, réponse illisible ou sans liste de clés),
-//     le cache précédent reste utilisé s'il existe, et une trace serveur est écrite (au plus une par minute, par
-//     la borne) : une panne passagère de Microsoft ne coupe pas les connexions dont la clé est connue.
+//     une trace serveur est écrite (au plus une par minute, par la borne) et le cache reste tel quel : encore
+//     valable, il sert ; expiré, il ne sert plus, comme avant #589. Une clé retirée par Microsoft n'est donc pas
+//     acceptée au-delà de l'heure du cache, même si la sortie vers Microsoft est coupée (audit des droits de #606,
+//     N2 : option la plus restrictive, règle 5, et comportement actuel, règle permanente 1).
 // Les deux durées sont des protections techniques (C-26 du paramétrage cible, gardées dans le code), et non des
-// règles de l'entreprise. Valeurs et cache gardé sur un échec : choix par défaut, à confirmer.
+// règles de l'entreprise. Valeurs : choix par défaut, à confirmer.
 const MS_JWKS_DUREE_CACHE_MS = 3600_000;
 const MS_JWKS_INTERVALLE_LECTURES_MS = 60_000;
 const MS_JWKS_DELAI_LECTURE_MS = 10_000;
@@ -68,7 +69,9 @@ function motifEchecLecture(erreur: unknown): string {
   return 'erreur réseau';
 }
 
-// Lance une lecture des clés et note la tentative ; la promesse rendue ne rejette jamais.
+// Lance une lecture des clés et note la tentative ; la promesse rendue ne rejette jamais. La lecture en cours est
+// effacée par le `finally` de la promesse, toujours exécuté après l'affectation qui la suit : une lecture terminée
+// avant d'avoir rendu la main (un `fetch` qui lèverait sans attendre) ne reste pas « en cours » pour toujours.
 function lireClesMicrosoft(): Promise<void> {
   msJwksDerniereTentative = Date.now();
   const lecture = (async () => {
@@ -83,24 +86,24 @@ function lireClesMicrosoft(): Promise<void> {
       msJwksCache = { keys: cles, fetchedAt: Date.now() };
     } catch (erreur) {
       console.warn(`[SSO] Lecture des clés Microsoft impossible : ${motifEchecLecture(erreur)}.`);
-    } finally {
-      msJwksLectureEnCours = null;
     }
-  })();
+  })().finally(() => {
+    msJwksLectureEnCours = null;
+  });
   msJwksLectureEnCours = lecture;
   return lecture;
 }
 
 async function getMicrosoftSigningKey(kid: string): Promise<crypto.KeyObject | null> {
-  const chercher = () => msJwksCache?.keys.find((k) => k.kid === kid);
+  // Seul un cache encore valable sert, avant comme après une tentative de lecture.
+  const chercher = (instant: number) =>
+    msJwksCache && instant - msJwksCache.fetchedAt < MS_JWKS_DUREE_CACHE_MS ? msJwksCache.keys.find((k) => k.kid === kid) : undefined;
   const maintenant = Date.now();
-  const frais = !!msJwksCache && maintenant - msJwksCache.fetchedAt < MS_JWKS_DUREE_CACHE_MS;
-  let jwk = frais ? chercher() : undefined;
+  let jwk = chercher(maintenant);
   if (!jwk) {
     if (msJwksLectureEnCours) await msJwksLectureEnCours;
     else if (lectureClesPermise(maintenant)) await lireClesMicrosoft();
-    // Après la lecture, ou sans elle (borne), le cache, même expiré, sert encore s'il porte ce `kid`.
-    jwk = chercher();
+    jwk = chercher(Date.now());
   }
   if (!jwk) return null;
   return crypto.createPublicKey({ key: jwk as crypto.webcrypto.JsonWebKey, format: 'jwk' });

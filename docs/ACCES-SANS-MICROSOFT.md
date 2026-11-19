@@ -92,9 +92,10 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
   haut que le nombre réel de proxys, l'adresse est celle qu'écrit le client, jusqu'à la taille
   d'un en-tête (16 Ko), soit environ 160 Mo pour une table pleine.
 - La session dure **1 heure**, contre 7 jours pour une connexion Microsoft.
-- Chaque tentative non bloquée (refus, succès, compte absent) est écrite dans les journaux du
-  conteneur avec l'IP, celle du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne
-  du proxy, #261) ; pendant un blocage, seul le premier essai bloqué de la fenêtre l'est (#589 ;
+- Chaque refus du jeton et chaque accès réussi sont écrits dans les journaux du conteneur avec
+  l'IP, celle du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne du proxy,
+  #261) ; un jeton valide pour un compte absent, inactif ou non `SUPERADMIN` l'est aussi, sans
+  l'IP ; pendant un blocage, seul le premier essai bloqué de la fenêtre l'est, avec l'IP (#589 ;
   une ligne par adresse et par fenêtre : choix par défaut, à confirmer) :
   `docker logs iris_backend | grep SECOURS`.
 

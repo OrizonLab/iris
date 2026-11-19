@@ -12,15 +12,21 @@
 //     dernière tentative date de plus de 60 secondes, sinon le jeton est refusé sans appel sortant (point 1) ;
 //   - la dernière tentative vaut « jamais » au départ (null), et non 0 (v2, N6 ; v3, N-a) ;
 //   - une tentative datée dans le futur, après un recul de l'horloge, n'empêche pas la lecture (v2, C3) ;
-//   - le cache expiré (une heure) suit la même borne ; en cas d'échec, le cache précédent reste utilisé s'il existe, et
-//     une trace `[SSO] Lecture des clés Microsoft impossible : <motif>.` est écrite, sans jeton ni identifiant ;
-//     « échec » : statut hors 2xx, exception (réseau, délai), JSON invalide, `keys` absent ou qui n'est pas un tableau
-//     (v2, N3) ;
+//   - le cache expiré (une heure) suit la même borne ; une lecture en échec laisse une trace
+//     `[SSO] Lecture des clés Microsoft impossible : <motif>.`, sans jeton ni identifiant (v2, N3) ; « échec » : statut
+//     hors 2xx, exception (réseau, délai), JSON invalide, `keys` absent ou qui n'est pas un tableau (v2, N3) ;
+//   - seul un cache encore valable (moins d'une heure) sert, avant comme après une tentative de lecture : en cas d'échec,
+//     un cache encore valable laisse accepter un `kid` connu, un cache expiré ne sert plus, comme avant ce lot. Règle
+//     retenue par Claude Code après l'audit des droits de #606 (N2 : option la plus restrictive, règle 5 de la méthode,
+//     et comportement actuel, règle permanente 1), qui remplace le « cache précédent gardé, même expiré » du cadrage :
+//     une clé retirée par Microsoft ne doit pas rester acceptée sans limite de durée tant que la relecture échoue ;
 //   - des demandes simultanées partagent une seule lecture en cours ; une demande dont le `kid` est dans le cache frais
 //     n'attend jamais une lecture en cours (point 1 ; v2, N4) ;
 //   - une lecture dure au plus 10 s (`AbortSignal.timeout(10_000)`), et un dépassement compte comme une tentative en
 //     échec (v2, point 4 ; v3, T1).
-// Valeurs (60 s, 10 s) et cache gardé sur un échec : choix par défaut, à confirmer.
+//   - la lecture en cours est effacée à la fin de sa promesse, même quand `fetch` lève sans rendre la main (audit des
+//     droits de #606, N1).
+// Valeurs (60 s, 10 s) : choix par défaut, à confirmer.
 //
 // Tests sans base (v2, point 11) : `verifyMicrosoftIdentity(req)` ne lit que `req.body.idToken` et `req.ip`. Microsoft
 // est simulé dans le processus, comme dans sso-identifiant.test.mjs : AZURE_TENANT_ID et AZURE_CLIENT_ID sont posés
@@ -189,13 +195,18 @@ const lectures = () => appels.length;
 const textes = () => lignes.map((l) => `${l.methode} ${l.texte}`);
 
 // Cadrage v2, N3 : « Une trace `[SSO] Lecture des clés Microsoft impossible : <motif>.` est écrite à chaque lecture en
-// échec […], sans jeton ni identifiant. » Le texte du motif n'est pas fixé par le cadrage : seule la forme est vérifiée.
+// échec […], sans jeton ni identifiant. » Le cadrage ne fixe pas le texte du motif ; l'exploitant s'y fie pourtant pour
+// distinguer une panne du réseau d'une réponse de Microsoft (audit des droits de #606, T1) : le motif de chaque sorte
+// d'échec est vérifié au mot près, ce qui écarte aussi la recopie du message brut d'une erreur (l'extrait du corps que
+// cite `JSON.parse`, par exemple). Lectures écartées : `keys` non tableau lu comme une erreur réseau ; délai dépassé ou
+// réponse illisible lus comme une erreur réseau ; message brut de l'erreur ajouté au motif.
 const TRACE_ECHEC = /^\[SSO\] Lecture des clés Microsoft impossible : \S.*\.$/;
-function uneTraceDEchec(depuis, jetons, quoi) {
+function uneTraceDEchec(depuis, jetons, quoi, motif) {
   const nouvelles = lignes.slice(depuis);
   assert.equal(nouvelles.length, 1, `${quoi} : une seule ligne attendue, reçu :\n${textes().slice(depuis).join('\n')}`);
   assert.equal(nouvelles[0].methode, 'warn', quoi);
   assert.match(nouvelles[0].texte, TRACE_ECHEC, quoi);
+  assert.equal(nouvelles[0].texte, `[SSO] Lecture des clés Microsoft impossible : ${motif}.`, `${quoi} : motif`);
   const texte = nouvelles[0].texte.toLowerCase();
   const secrets = { oid: OID, locataire: LOCATAIRE, application: APPLICATION, adresse: ADRESSE, ip: IP, kidA: KID_A, kidB: KID_B, ...Object.fromEntries(kidsForges.map((k, i) => [`kidForge${i}`, k])) };
   for (const jeton of jetons) {
@@ -294,7 +305,7 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
     // Chaque lecture a demandé le délai de 10 s et l'a transmis à `fetch`.
     assert.deepEqual(delais, [DELAI, DELAI, DELAI]);
     appels.forEach((appel, i) => assert.equal(appel.signal, controleurs[i].signal, `lecture ${i + 1} : signal du délai transmis`));
-    // Cadrage v2, N6 (N2 du contrôle) : aucune ligne `[SSO]` de refus pour un jeton forgé.
+    // Cadrage v2, point 6 (note N2 du contrôle) : aucune ligne `[SSO]` de refus pour un jeton forgé.
     aucuneLigne(0, 'aucune trace pour des jetons forgés');
   });
 
@@ -385,25 +396,26 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
   // absent ou qui n'est pas un tableau. Le statut 503 porte une liste de clés valide (avec la clé B) : elle ne doit pas
   // servir (lecture écartée : un statut ignoré). Le corps `null` est un JSON valide sans `keys`.
   const ECHECS = [
-    ['statut HTTP 500', () => new Response('Erreur interne', { status: 500 })],
-    ['statut HTTP 503 avec une liste de clés', () => json({ keys: [JWK_A, JWK_B] }, 503)],
-    ['exception de fetch (réseau)', () => { throw new TypeError('fetch failed'); }],
-    ['JSON invalide', () => new Response('<html>Service indisponible</html>', { status: 200, headers: { 'content-type': 'text/html' } })],
-    ['keys absent', () => json({ autre: [JWK_B] })],
-    ['corps JSON null', () => json(null)],
-    ['keys qui est un objet', () => json({ keys: JWK_B })],
-    ['keys qui est un texte', () => json({ keys: KID_B })],
+    ['statut HTTP 500', () => new Response('Erreur interne', { status: 500 }), 'statut HTTP 500'],
+    ['statut HTTP 503 avec une liste de clés', () => json({ keys: [JWK_A, JWK_B] }, 503), 'statut HTTP 503'],
+    ['exception de fetch (réseau)', () => { throw new TypeError('fetch failed'); }, 'erreur réseau'],
+    ['JSON invalide', () => new Response('<html>Service indisponible</html>', { status: 200, headers: { 'content-type': 'text/html' } }), 'réponse illisible'],
+    ['keys absent', () => json({ autre: [JWK_B] }), 'réponse sans liste de clés'],
+    ['corps JSON null', () => json(null), 'réponse sans liste de clés'],
+    ['keys qui est un objet', () => json({ keys: JWK_B }), 'réponse sans liste de clés'],
+    ['keys qui est un texte', () => json({ keys: KID_B }), 'réponse sans liste de clés'],
   ];
 
-  for (const [quoi, echec] of ECHECS) {
+  for (const [quoi, echec, motif] of ECHECS) {
     // Cadrage, point 1 : « toute lecture […] note l'instant de la tentative, réussie ou non » ; « le cache expiré […] suit
-    // la même borne […] ; en cas d'échec de la lecture, le cache précédent reste utilisé s'il existe » ; v2, N3 : le
-    // cache gardé change le comportement d'avant (un cache expiré dont la relecture échouait refusait la connexion), avec
-    // une trace « au plus une par minute grâce à la borne ». Lectures écartées : instant noté seulement en cas de succès
-    // (le jeton suivant relancerait une lecture) ; cache vidé ou ignoré sur un échec (la clé A serait refusée une fois
-    // le cache expiré) ; cache expiré relu sans borne après un échec (une lecture par jeton) ; échec sans trace, ou trace
-    // à chaque jeton.
-    test(`lecture en échec (${quoi}) avec un cache précédent : tentative notée, une trace sans jeton ni identifiant, aucune relecture dans les 60 s, cache précédent gardé, même expiré`, async () => {
+    // la même borne ». Règle retenue après l'audit des droits de #606 (N2), qui remplace le « cache précédent gardé, même
+    // expiré » du cadrage : en cas d'échec, seul un cache encore valable (moins d'une heure) sert ; un cache expiré ne sert
+    // plus, avant comme après la tentative, comme avant ce lot. Lectures écartées : instant noté seulement en cas de
+    // succès (le jeton suivant relancerait une lecture) ; cache vidé sur un échec (la clé A serait refusée alors que le
+    // cache est encore valable) ; cache expiré servi après un échec, ou tant que la borne empêche de le relire (la clé A
+    // serait acceptée au-delà de l'heure : lecture du cadrage v1, écartée par N2) ; cache expiré relu sans borne après un
+    // échec (une lecture par jeton) ; échec sans trace, ou trace à chaque jeton.
+    test(`lecture en échec (${quoi}) : tentative notée, une trace sans jeton ni identifiant, aucune relecture dans les 60 s ; le cache encore valable laisse accepter la clé connue jusqu’à la fin de son heure ; expiré, il ne sert plus, et la clé connue est refusée jusqu’à la lecture réussie suivante`, async () => {
       assert.deepEqual(await verifier(jetonA()), IDENTITE);
       assert.equal(lectures(), 1);
       aller(T0 + 61 * S);
@@ -412,38 +424,44 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
       const jeton = jetonB();
       assert.equal(await verifier(jeton), null, 'kid inconnu, lecture en échec : refusé');
       assert.equal(lectures(), 2, 'la lecture a eu lieu');
-      uneTraceDEchec(depuis, [jeton], 'lecture en échec');
+      uneTraceDEchec(depuis, [jeton], 'lecture en échec', motif);
       depuis = lignes.length;
-      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'clé du cache frais : acceptée');
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache encore valable : la clé connue reste acceptée');
       aller(T0 + 91 * S);
       assert.equal(await verifier(jetonB()), null);
       assert.equal(await verifier(jetonForge()), null);
       aller(T0 + 121 * S);
       assert.equal(await verifier(jetonForge()), null);
       assert.equal(lectures(), 2, 'la tentative en échec est notée : aucune relecture dans les 60 s');
-      aucuneLigne(depuis, 'aucune autre trace dans la minute');
+      aller(T0 + DUREE_CACHE - 1); // cache lu à t0 : encore valable une milliseconde
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache encore valable, une milliseconde avant la fin de son heure : clé connue acceptée');
+      assert.equal(lectures(), 2, 'clé connue du cache valable : aucune lecture');
+      aucuneLigne(depuis, 'aucune autre trace');
 
       aller(T0 + DUREE_CACHE + 1); // cache lu à t0 : expiré
       depuis = lignes.length;
-      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache expiré, relecture en échec : la clé connue du cache précédent reste acceptée');
+      assert.equal(await verifier(jetonA()), null, 'cache expiré, relecture en échec : la clé connue est refusée');
       assert.equal(lectures(), 3, 'cache expiré : une lecture');
-      uneTraceDEchec(depuis, [], 'relecture du cache expiré en échec');
+      uneTraceDEchec(depuis, [], 'relecture du cache expiré en échec', motif);
       depuis = lignes.length;
-      aller(T0 + DUREE_CACHE + 30 * S);
-      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache expiré, dans la minute : la clé connue reste acceptée');
-      assert.equal(await verifier(jetonB()), null);
+      for (const instant of [T0 + DUREE_CACHE + 30 * S, T0 + DUREE_CACHE + 1 + INTERVALLE]) {
+        aller(instant);
+        assert.equal(await verifier(jetonA()), null, `T0 + ${instant - T0} ms : la clé du cache expiré reste refusée`);
+        assert.equal(await verifier(jetonB()), null, `T0 + ${instant - T0} ms`);
+      }
       assert.equal(lectures(), 3, 'cache expiré : même borne, aucune relecture dans les 60 s');
       aucuneLigne(depuis, 'aucune autre trace dans la minute');
 
       aller(T0 + DUREE_CACHE + INTERVALLE + 2);
       repondre = jwks(JWK_A, JWK_B); // Microsoft répond de nouveau
-      assert.deepEqual(await verifier(jetonB()), IDENTITE, 'lecture suivante réussie : la clé B est acceptée');
-      assert.deepEqual(await verifier(jetonA()), IDENTITE);
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture suivante réussie : connexion rétablie');
+      assert.deepEqual(await verifier(jetonB()), IDENTITE, 'et la clé B est acceptée');
       assert.equal(lectures(), 4);
       aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
     });
 
-    // Cadrage, point 1 : le cache précédent n'est gardé « que s'il existe » ; la tentative est notée même sans cache.
+    // Cadrage, point 1 : le cache précédent ne sert « que s'il existe » (et, depuis N2 de l'audit des droits de #606,
+    // s'il est encore valable) ; la tentative est notée même sans cache.
     // Lectures écartées : instant noté seulement en cas de succès (une lecture par jeton pendant toute la panne) ; une
     // réponse en échec mise en cache (la clé B du statut 503 serait acceptée, ou le cache vide empêcherait la lecture
     // suivante).
@@ -452,7 +470,7 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
       const jeton = jetonB();
       assert.equal(await verifier(jeton), null, 'première lecture en échec : refusé');
       assert.equal(lectures(), 1);
-      uneTraceDEchec(0, [jeton], 'première lecture en échec');
+      uneTraceDEchec(0, [jeton], 'première lecture en échec', motif);
       const depuis = lignes.length;
       for (const instant of [T0 + 1, T0 + 30 * S, T0 + INTERVALLE]) {
         aller(instant);
@@ -468,6 +486,63 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
       aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
     });
   }
+
+  // Règle retenue après l'audit des droits de #606 (N2) : un cache expiré ne sert plus, « ni avant ni après une tentative
+  // de lecture ». Ici, une tentative en échec trente secondes avant la fin de l'heure du cache fait que la borne empêche
+  // de le relire au moment où il expire : la clé connue est refusée, sans lecture, jusqu'à la lecture permise suivante,
+  // qui la rétablit. Lecture écartée : un cache expiré servi tant que la borne empêche de le relire (lecture du cadrage
+  // v1), sous laquelle la clé A resterait acceptée sans lecture.
+  test('cache qui expire pendant que la borne empêche de le relire : la clé connue est refusée sans lecture, puis acceptée après la lecture permise suivante', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture à t0');
+    aller(T0 + DUREE_CACHE - 30 * S);
+    repondre = () => new Response('Erreur interne', { status: 500 });
+    const forge = jetonForge();
+    assert.equal(await verifier(forge), null);
+    assert.equal(lectures(), 2, 'tentative en échec trente secondes avant la fin de l’heure du cache');
+    uneTraceDEchec(0, [forge], 'tentative en échec', 'statut HTTP 500');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache encore valable : clé connue acceptée');
+    const depuis = lignes.length;
+    for (const instant of [T0 + DUREE_CACHE + 1, T0 + DUREE_CACHE + 30 * S]) {
+      aller(instant);
+      assert.equal(await verifier(jetonA()), null, `T0 + ${instant - T0} ms : cache expiré, relecture bornée, clé connue refusée`);
+    }
+    assert.equal(lectures(), 2, 'aucune lecture : la dernière tentative date de 60 s au plus');
+    aucuneLigne(depuis, 'aucune trace sans lecture');
+    aller(T0 + DUREE_CACHE + 30 * S + 1);
+    repondre = jwks(JWK_A);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture permise et réussie : connexion rétablie');
+    assert.equal(lectures(), 3);
+    aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
+  });
+
+  // Audit des droits de #606, N1 (correctif appliqué par Claude Code) : la lecture en cours est effacée à la fin de sa
+  // promesse, même quand `fetch` lève sans rendre la main. Effacée dans le corps de la lecture, elle l'était avant que la
+  // lecture ne soit notée « en cours » : elle le restait alors, déjà terminée, et toute demande suivante l'attendait sans
+  // jamais relire. Lecture écartée : la lecture en cours effacée dans son propre corps, sous laquelle la connexion ne
+  // reviendrait jamais, même après la minute de la borne.
+  test('fetch qui lève sans rendre la main : lecture notée en échec (erreur réseau), et la lecture permise suivante a bien lieu', async () => {
+    const fetchSimule = globalThis.fetch;
+    let leverAussitot = true;
+    globalThis.fetch = (entree, options = {}) => {
+      if (!leverAussitot) return fetchSimule(entree, options);
+      const adresse = typeof entree === 'string' ? entree : entree instanceof URL ? entree.href : entree.url;
+      if (adresse !== ADRESSE_CLES) autresAppels.push(adresse);
+      appels.push({ signal: options.signal });
+      throw new TypeError('fetch failed');
+    };
+    const jeton = jetonA();
+    assert.equal(await verifier(jeton), null, 'lecture en échec, sans cache : refusé');
+    assert.equal(lectures(), 1);
+    uneTraceDEchec(0, [jeton], 'fetch qui lève aussitôt', 'erreur réseau');
+    aller(T0 + 30 * S);
+    assert.equal(await verifier(jetonA()), null);
+    assert.equal(lectures(), 1, 'dans la minute : aucune lecture');
+    leverAussitot = false;
+    repondre = jwks(JWK_A);
+    aller(T0 + INTERVALLE + 1);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'après la minute : la lecture a lieu et rétablit la connexion');
+    assert.equal(lectures(), 2);
+  });
 
   // Ajout de Claude Code après la note 5 du rédacteur des tests (règle retenue sur la même branche) : une lecture réussie
   // ne garde que les éléments de `keys` qui sont des objets (ni nul, ni tableau, ni valeur simple). Sans ce filtre, un
@@ -495,7 +570,7 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
   // précédent gardé, trace écrite, aucune relecture dans les 60 s. Mutant à tuer : « délai retiré ». » Lectures écartées :
   // aucun délai (la lecture ne finit jamais : ni signal demandé, ni signal transmis) ; un autre délai que 10 s ; un
   // signal demandé mais non transmis à `fetch` ; un abandon qui ne compte pas comme une tentative en échec.
-  test('délai de 10 s : chaque lecture demande un signal de 10 s et le transmet à fetch ; une lecture suspendue, abandonnée par ce signal, est notée en échec, cache précédent gardé, une trace, aucune relecture dans les 60 s', async () => {
+  test('délai de 10 s : chaque lecture demande un signal de 10 s et le transmet à fetch ; une lecture suspendue, abandonnée par ce signal, est notée en échec, cache encore valable gardé, une trace, aucune relecture dans les 60 s', async () => {
     assert.deepEqual(await verifier(jetonA()), IDENTITE);
     assert.deepEqual(delais, [DELAI], 'la lecture demande un délai de 10 s');
     assert.equal(appels[0].signal, controleurs[0].signal, 'le signal du délai est transmis à fetch');
@@ -512,8 +587,8 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
     aller(T0 + 71 * S);
     controleurs[1].abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
     assert.equal(await enCours, null, 'lecture abandonnée au bout de 10 s : jeton refusé');
-    uneTraceDEchec(depuis, [jeton], 'lecture abandonnée');
-    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache précédent gardé');
+    uneTraceDEchec(depuis, [jeton], 'lecture abandonnée', 'délai de 10 s dépassé');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache encore valable (lu à t0) gardé : clé connue acceptée');
     aller(T0 + 101 * S); // 40 s après la tentative, 30 s après son abandon
     assert.equal(await verifier(jetonB()), null);
     assert.equal(await verifier(jetonForge()), null);
@@ -539,7 +614,7 @@ describe('#589 : POST /api/auth/sso, jetons forgés refusés sans multiplier les
 
   // Cadrage, « Tests attendus » : « N jetons forgés à `kid` inconnu dans l'intervalle : un seul appel sortant (après la
   // première lecture), tous refusés 401, sans liaison ni écriture » ; constat : « Un client non authentifié peut donc
-  // faire lancer au serveur autant d'appels sortants qu'il envoie de jetons forgés (`POST /api/auth/sso`) » ; v2, N6 : « Aucune ligne
+  // faire lancer au serveur autant d'appels sortants qu'il envoie de jetons forgés (`POST /api/auth/sso`) » ; v2, point 6 (note N2 du contrôle) : « Aucune ligne
   // `[SSO]` de refus pour un jeton forgé ». La base est injoignable : une lecture ou une écriture aurait répondu 500. Cette
   // instance de sso.js, chargée avec l'application, ne sert qu'à ce test. Lecture écartée : une lecture par jeton forgé
   // (comportement d'avant ce lot : soixante lectures).
