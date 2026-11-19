@@ -5809,6 +5809,20 @@ PR documentaire de l'étape 6 du circuit (passation et historique après #603, v
 - **Passation** : point de reprise (état, « PR ouvertes », « Prochaine action »), en-tête, section 1 (puce de #606), « Défauts connus » (sécurité de la connexion), section 4 (bloc « Sécurité de la connexion (#562) » : choix par défaut de #606 ; la mention du suivi #589 devenue caduque est remplacée). Section 3 : rien de nouveau, aucune décision de Nelson n'est attendue au-delà des choix par défaut à confirmer. Les textes remplacés de l'en-tête et des lignes « État » et « PR ouvertes » sont archivés : [en-tête de la passation au 19-11-2026 (commit `890d384`)](#en-tête-de-la-passation-au-19-11-2026-commit-890d384).
 - **Autres documents** : `ACCES-SANS-MICROSOFT.md` et `CONFIGURATION-ENVIRONNEMENT.md`, modifiés par #606, sont cohérents avec la passation ; ils ne sont pas réécrits ici.
 
+## Décision du 19-11-2026 sur la consommation de la CI
+
+*Rédigé le 19-11-2026, `main` à `70c55d5` (après la fusion de #609).*
+
+- **Question posée** (passation, section 3, relevée le 18-11-2026, [CI bloquée du 17 au 18-11-2026](#ci-bloquée-du-17-au-18-11-2026)) : la règle de consommation de la CI de la décision du 14-11-2026, fixée pour un dépôt privé limité à 2 000 minutes GitHub Actions par mois, est-elle à garder maintenant que le dépôt est de nouveau public ?
+- **Message de Nelson du 19-11-2026, mot pour mot** : « La nous sommes en public donc pas forcement d'economie de minute d'utilisation github et donc tu peux continuer ».
+- **Lecture retenue, à corriger par Nelson si besoin** :
+  - l'économie de minutes n'est plus une exigence ;
+  - le workflow (`.github/workflows/ci.yml`) reste tel quel : travaux lourds sautés pour une série de documentation seule, arbre attesté, cache de Playwright. Il ne change aucun contrôle, et le message n'en demande pas le retrait ;
+  - « CI verte » s'entend toujours de « CI — synthèse » en `success` sur la SHA exacte ;
+  - regrouper les corrections d'un passage d'audit en un seul push reste la pratique par défaut (un seul passage de vérification porte alors sur toutes), sans être une exigence ;
+  - une sauvegarde intermédiaire sur une PR ouverte peut se pousser avec ou sans le jeton de saut de GitHub ; une tête sans série n'est toujours pas verte, et aucune série ne se relance par un commit vide ni par la réécriture d'un commit déjà poussé.
+- **Dans les documents** : `CLAUDE.md` (puce « Consommation de la CI » du mode de livraison, et étape 4 du circuit d'une PR) cite le message et la lecture ; `docs/CONFIGURATION-ENVIRONNEMENT.md` (section « Consommation de la CI ») ; la passation retire la question de la section 3, met à jour la puce du point de reprise, le bloc « Consommation de la CI (#546) » de la section 4 et la question sur `npm audit` en CI.
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.
