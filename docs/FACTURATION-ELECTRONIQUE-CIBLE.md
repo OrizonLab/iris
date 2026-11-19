@@ -686,7 +686,7 @@ Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les q
 
 ## 12. Points documentaires
 
-Les 27 points de l'inventaire documentaire du lot 0, et leur traitement.
+Les 27 points de l'inventaire documentaire du lot 0, et leur traitement. Pour les points 5, 6, 8, 10, 20 et 24, « (cette PR) » désigne la PR documentaire des points du lot 0 (19-11-2026, [historique](HISTORIQUE-DECISIONS.md#points-documentaires-du-lot-0-19-11-2026)) ; pour les autres, « cette PR » désigne la PR du lot 0 (#620). Tout ce que ces points décrivent de la facturation électronique reste **prévu**.
 
 | # | Point | Traitement |
 |---|---|---|
@@ -694,12 +694,12 @@ Les 27 points de l'inventaire documentaire du lot 0, et leur traitement.
 | 2 | Documentation d'intégration : calendrier daté, réception en vigueur, e-reporting | Cette PR |
 | 3 | Nuancer « facture émise immuable » (intégration, principe 6 du paramétrage cible, `ADMINISTRATION-DOCUMENTS-EMAILS.md`, `CLAUDE.md`) | Intégration : cette PR. Autres documents : FE-5, après la réponse à N-08 |
 | 4 | Intégration : « Chaque export est journalisé avec période » est faux | Cette PR (marqué prévu) |
-| 5 | Intégration et vision : le courriel ne vaut plus transmission B2B ; ce qui est gardé | Intégration : cette PR. Vision : PR documentaire après la fusion |
-| 6 | Paramétrage cible et inventaire : relier A2 à la décision du 19-11-2026 | PR documentaire après la fusion |
+| 5 | Intégration et vision : le courriel ne vaut plus transmission B2B ; ce qui est gardé | Intégration : #620. Vision : **fait** (cette PR) |
+| 6 | Paramétrage cible et inventaire : relier A2 à la décision du 19-11-2026 | **Fait** (cette PR) : note datée dans chacun des deux documents |
 | 7 | Vision : « échue », « partiellement réglée », « réglée » et « encaissée » | FE-7 |
-| 8 | Paramétrage cible et inventaire : constats périmés depuis #217 et #300 | PR documentaire après la fusion (hors facturation électronique) |
+| 8 | Paramétrage cible et inventaire : constats périmés depuis #217 et #300 | **Fait** (cette PR) : note datée dans chacun des deux documents (hors facturation électronique) |
 | 9 | README, phase 8 | PR documentaire après la fusion |
-| 10 | `MODELE-DONNEES-CIBLE.md` : « transition manuelle actuelle « Réglée » » | PR documentaire après la fusion |
+| 10 | `MODELE-DONNEES-CIBLE.md` : « transition manuelle actuelle « Réglée » » | **Fait** (cette PR) : phrase corrigée, avec ses sources |
 | 11 | Issues #526 et #35 à mettre à jour | Commentaires d'état par Claude Code, hors de cette PR |
 | 12 | Intégration : données structurées incomplètes | Cette PR, par renvoi à la section 5 |
 | 13 | Intégration : état de chaque point de l'architecture | Cette PR |
@@ -709,11 +709,11 @@ Les 27 points de l'inventaire documentaire du lot 0, et leur traitement.
 | 17 | Facture d'acompte | Cette PR (N-12, Q-21) |
 | 18 | Passation, section 3 : questions de cabinet | Cette PR (section 11.2) ; passation après la fusion |
 | 19 | Passation, section 3 : rejet et refus ; facture à 0,00 € refusée | Cette PR (section 7) ; passation après la fusion |
-| 20 | Passation, section 4 : compatibilité des choix « forts » | Cette PR (section 6) ; passation après la fusion |
+| 20 | Passation, section 4 : compatibilité des choix « forts » | Section 6 : #620. Passation : **fait** (cette PR), une ligne « Facturation électronique » par bloc concerné |
 | 21 | Paramétrage cible, décision 1 : état et lot | FE-1 |
 | 22 | Droits cible : permissions du connecteur et de la réception | FE-4, FE-9, avec les lots de droits |
 | 23 | Configuration : variables du connecteur | FE-4 (règle permanente 3) ; noms proposés en 8.3 |
-| 24 | Historique : sources de l'ancien A2 (#153) et des règles du 17-10-2026 (#155) | PR documentaire après la fusion |
+| 24 | Historique : sources de l'ancien A2 (#153) et des règles du 17-10-2026 (#155) | **Fait** (cette PR) : sources citées dans l'historique |
 | 25 | Liens `Noxia-Groupe/iris` au lieu de `OrizonLab/iris` | Hors facturation électronique : passage hebdomadaire du `controleur-coherence` |
 | 26 | Documents à créer | Cette PR pour la proposition ; FE-DOC pour les deux autres |
 | 27 | Sources officielles absentes des documents | Cette PR (section 2) |
