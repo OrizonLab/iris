@@ -295,7 +295,7 @@ Pour le bac à sable, puis pour la production : URL du Flow Service, URL du Dire
 | `EFACTURE_WEBHOOK_SECRET` | Vérification de la signature des rappels | Secret ; seulement avec un webhook | FE-4 |
 | `EFACTURE_VALIDATEUR_URL` | Adresse du service de validation | Selon N-15 | FE-3 |
 
-Avec la norme, la clé de signature d'un webhook est renvoyée à l'abonnement (`signingKey`, critère 6), et le schéma `Webhook` de la liste des abonnements (`GET /v1/webhooks`) la reprend : FE-4 dira si `EFACTURE_WEBHOOK_SECRET` reste utile. Dans tous les cas, la clé suit le cadrage (« Secrets en variables d'environnement documentées ») : jamais écrite en base, dans un journal ni dans le dépôt ; sans variable, elle est relue au démarrage et gardée en mémoire seule. Le stockage des fichiers conservés pourra demander d'autres variables, selon N-16 (FE-10). Critère de FE-4 : « sans variables, le connecteur ne s'active pas et Iris fonctionne comme avant ».
+Avec la norme, la clé de signature d'un webhook est renvoyée à l'abonnement (`signingKey`, critère 6), et le schéma `Webhook` de la liste des abonnements (`GET /v1/webhooks`) la reprend : FE-4 dira si `EFACTURE_WEBHOOK_SECRET` reste utile. Dans tous les cas, la clé suit le cadrage (« Secrets en variables d'environnement documentées ») : jamais écrite en base, dans un journal ni dans le dépôt ; sans variable, elle serait relue au démarrage et gardée en mémoire seule (choix par défaut, à confirmer). Le stockage des fichiers conservés pourra demander d'autres variables, selon N-16 (FE-10). Critère de FE-4 : « sans variables, le connecteur ne s'active pas et Iris fonctionne comme avant ».
 
 Pour FE-4 (choix par défaut, à confirmer) :
 - Les adresses `EFACTURE_PA_URL_*` reçoivent le secret client et le jeton : `https` seulement, sans identifiants dans l'adresse, redirections refusées, adresse locale admise pour le faux serveur des tests, valeur refusée au démarrage, comme `MICROSOFT_GRAPH_URL` ([configuration](CONFIGURATION-ENVIRONNEMENT.md#envoi-des-documents-par-microsoft-365)).
@@ -352,3 +352,4 @@ Selon le critère 8 et la documentation de mobilité de la PA. Iris garde la PA 
 8. Le contrôle de compatibilité sans écriture chez la PA en production, et sans facture d'Iris pour son document de test (section 7.5).
 9. Les garde-fous d'un webhook, s'il est retenu par FE-4 (critère 6).
 10. Aucune clé d'intégration n'active le connecteur, ne lit sa configuration ni ne lance le contrôle (section 7.4).
+11. Les garde-fous des variables proposées : adresses en `https` seul, `EFACTURE_PA_ENVIRONNEMENT` sans valeur par défaut et gardé avec chaque transmission et chaque statut (modèle de données de FE-5, à confirmer par Nelson à son cadrage), vie du secret client et de la clé de signature (section 7.3).
