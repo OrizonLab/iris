@@ -30367,11 +30367,14 @@ if (!TEST_DATABASE_URL) {
   // secours-trace.test.mjs et trust-proxy.test.mjs. Les lignes sont captées sur `console.warn` le temps de chaque
   // requête ; la table des essais est vidée au départ et dans un `finally`, pour qu'aucun essai de ces tests ne bloque la
   // suite du fichier. Les tests n'ont pas de proxy de confiance : l'adresse est celle de la connexion (127.0.0.1).
+  // Depuis le lot #607 et #608 (cadrage v1, point 1, et v2, N2 ; issue `suivi-audit` #608), la ligne du compte absent
+  // porte l'adresse, sous la même forme « depuis <ip> » que les autres lignes (choix par défaut, à confirmer) ; le 403 et
+  // son corps ne changent pas. L'erreur après un bon jeton (500) est prouvée sans base par secours-trace.test.mjs.
   describe('Trace de l’accès de secours (#589) : succès et compte absent toujours tracés, une ligne par accès', () => {
     const ADRESSE_LOCALE = String.raw`(::ffff:)?127\.0\.0\.1`;
     const LIGNE_REFUS = new RegExp(String.raw`^\[SECOURS\] Tentative d'accès de secours REFUSÉE depuis ${ADRESSE_LOCALE}\.$`);
     const LIGNE_SUCCES = new RegExp(String.raw`^\[SECOURS\] ACCÈS DE SECOURS UTILISÉ par secours@iris\.test depuis ${ADRESSE_LOCALE} — session d'une heure\.$`);
-    const LIGNE_COMPTE_ABSENT = '[SECOURS] Jeton valide mais compte secours@iris.test absent, inactif ou non superadmin.';
+    const LIGNE_COMPTE_ABSENT = new RegExp(String.raw`^\[SECOURS\] Jeton valide mais compte secours@iris\.test absent, inactif ou non superadmin, depuis ${ADRESSE_LOCALE}\.$`);
     // Exécute la requête en captant console.warn, et rend la réponse avec les lignes écrites pendant ce temps.
     const avecTrace = async (appel) => {
       const avertissements = mock.method(console, 'warn', () => {});
@@ -30408,9 +30411,9 @@ if (!TEST_DATABASE_URL) {
 
     // Compte absent : le jeton est le bon, mais le compte de secours est désactivé le temps du test (rétabli dans un
     // `finally`, et par le `before` du fichier si une exécution est interrompue). Refus sans écriture : aucun jeton de
-    // session, compte et journal d'administration inchangés. Lecture écartée : une ligne « compte absent » supprimée ou
-    // répétée.
-    test('compte absent : jeton valide mais compte de secours désactivé, 403 sans jeton de session ni écriture, une ligne « Jeton valide mais compte … absent, inactif ou non superadmin. », inchangée, à chaque essai', async () => {
+    // session, compte et journal d'administration inchangés. Lectures écartées : une ligne « compte absent » supprimée ou
+    // répétée ; une ligne sans l'adresse (texte d'avant #608).
+    test('compte absent : jeton valide mais compte de secours désactivé, 403 sans jeton de session ni écriture, une ligne « Jeton valide mais compte … absent, inactif ou non superadmin, depuis <ip>. » à chaque essai', async () => {
       const { essaisSecours } = await import('../dist/src/domaines/authentification/secours.js');
       const compte = () => prisma.user.findUniqueOrThrow({ where: { email: 'secours@iris.test' }, select: { id: true, actif: true, role: true, updatedAt: true } });
       essaisSecours.clear();
@@ -30422,7 +30425,8 @@ if (!TEST_DATABASE_URL) {
           const { res, lignes } = await essai(process.env.BREAK_GLASS_TOKEN);
           assert.deepEqual([res.status, res.body], [403, { error: "Le compte de secours n'est pas un super administrateur actif." }], `essai ${rang}`);
           assert.equal(res.body.token, undefined, `essai ${rang} : aucun jeton de session`);
-          assert.deepEqual(lignes, [LIGNE_COMPTE_ABSENT], `essai ${rang}`);
+          assert.equal(lignes.length, 1, `essai ${rang} : une seule ligne (${JSON.stringify(lignes)})`);
+          assert.match(lignes[0], LIGNE_COMPTE_ABSENT, `essai ${rang}`);
         }
         assert.deepEqual(await compte(), avant, 'compte inchangé');
         assert.equal(await prisma.journalAdministration.count(), journalAvant, 'rien n’est écrit au journal d’administration');

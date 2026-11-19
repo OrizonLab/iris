@@ -98,7 +98,7 @@ export function enregistrerRoutesAuthentification(app: Express): void {
       // Le secret seul ne suffit pas : il ouvre un compte précis, qui doit encore exister,
       // être actif et être superadmin. Un compte rétrogradé ou désactivé ferme la porte.
       if (!user) {
-        console.warn(`[SECOURS] Jeton valide mais compte ${BREAK_GLASS_EMAIL} absent, inactif ou non superadmin.`);
+        console.warn(`[SECOURS] Jeton valide mais compte ${BREAK_GLASS_EMAIL} absent, inactif ou non superadmin, depuis ${ip}.`);
         return res.status(403).json({ error: "Le compte de secours n'est pas un super administrateur actif." });
       }
       const jeton = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
@@ -106,6 +106,9 @@ export function enregistrerRoutesAuthentification(app: Express): void {
       essaisSecours.delete(ip);
       res.json({ token: jeton, user: { ...user, permissions: permissionsEffectives(user) }, expiresIn: 3600 });
     } catch {
+      // Un jeton valide a été présenté : l'erreur est tracée avec l'adresse (#608), sans son message ni sa pile, qui
+      // pourraient citer l'adresse de la base ou un extrait de requête. Texte de la ligne : choix par défaut, à confirmer.
+      console.warn(`[SECOURS] Jeton valide mais erreur lors de l'ouverture de la session de secours depuis ${ip}.`);
       res.status(500).json({ error: "Erreur lors de l'ouverture de la session de secours." });
     }
   });

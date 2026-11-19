@@ -84,7 +84,13 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
   production, l'adresse retenue est celle du client si `TRUST_PROXY` est réglée (2 pour la
   chaîne Docker décrite plus haut) ; sans ce réglage, c'est celle du conteneur nginx, si bien
   que le blocage est commun à tous (#261). La fenêtre de quinze minutes court depuis le premier
-  essai ; les fenêtres passées sont retirées du compteur au fil des essais (#563).
+  essai ; les fenêtres passées sont retirées du compteur au fil des essais (#563). Après un recul
+  de l'horloge du serveur (correction NTP), une fenêtre datée dans le futur est tenue pour passée :
+  un essai fait avant que l'horloge ait rattrapé son début en ouvre une nouvelle, au lieu d'attendre
+  qu'elle s'achève, prolongée de la durée du recul (#607 ; choix par défaut, à confirmer). Une
+  fenêtre que le recul ne date pas dans le futur (recul plus court que son âge), ou que l'horloge
+  rattrape avant qu'un essai l'ait retirée, garde son compte jusqu'à son terme : le blocage dure
+  alors jusqu'à la durée du recul de plus.
 - Le compteur des essais garde au plus 10 000 adresses. Au-delà, la fenêtre la plus ancienne
   sort et l'adresse nouvelle est comptée : une rafale d'adresses ne peut ni saturer la mémoire
   du serveur, ni bloquer l'accès pour tous (#563 ; valeur et règle de sortie : choix par défaut,
@@ -94,10 +100,11 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
 - La session dure **1 heure**, contre 7 jours pour une connexion Microsoft.
 - Chaque refus du jeton et chaque accès réussi sont écrits dans les journaux du conteneur avec
   l'IP, celle du client lorsque `TRUST_PROXY` est réglée (sinon l'adresse interne du proxy,
-  #261) ; un jeton valide pour un compte absent, inactif ou non `SUPERADMIN` l'est aussi, sans
-  l'IP ; pendant un blocage, seul le premier essai bloqué de la fenêtre l'est, avec l'IP (#589 ;
-  une ligne par adresse et par fenêtre : choix par défaut, à confirmer) :
-  `docker logs iris_backend | grep SECOURS`.
+  #261). Un jeton valide pour un compte absent, inactif ou non `SUPERADMIN`, ou suivi d'une
+  erreur à l'ouverture de la session (réponse 500), l'est aussi, avec l'IP et sans le détail de
+  l'erreur (#608 ; textes des lignes : choix par défaut, à confirmer). Pendant un blocage, seul le
+  premier essai bloqué de la fenêtre l'est, avec l'IP (#589 ; une ligne par adresse et par
+  fenêtre : choix par défaut, à confirmer) : `docker logs iris_backend | grep SECOURS`.
 
 ### Après usage
 

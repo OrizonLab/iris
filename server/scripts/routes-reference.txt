@@ -106,7 +106,7 @@ GET /api/health <anonymous>#8e6d60bb30d8
 GET /api/config <anonymous>#8496550e7475
 POST /api/auth/sso <anonymous>#dbe416e30bcb
 GET /api/auth/secours/etat <anonymous>#24b8a487cf83
-POST /api/auth/secours <anonymous>#3ca5876e8b26
+POST /api/auth/secours <anonymous>#76591bc21155
 GET /api/me requireAuth#07b983da0ce5 > <anonymous>#eefe8f938bf2
 PUT /api/me/theme requireAuth#07b983da0ce5 > <anonymous>#16df72f47e17
 GET /api/chantiers requireAuth#07b983da0ce5 > listerChantiers#be67b1095dc1
