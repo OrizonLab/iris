@@ -30436,4 +30436,239 @@ if (!TEST_DATABASE_URL) {
       essaisSecours.clear();
     });
   });
+
+  // Lot #582 (cadrage v1 complété de la v2, qui fait foi ; issue `suivi-audit` #582, note N8 du contrôle de cohérence du
+  // cadrage de #304 ; messages de Nelson du 16-11-2026, « continu avec les issu. », et du 19-11-2026) : le journal des
+  // chantiers, des interventions et des contrats reçoit son horodatage de la base (déclencheur
+  // `journal_saisie_chantier_horodatage`, `BEFORE INSERT`, `clock_timestamp() AT TIME ZONE 'UTC'`), comme les autres
+  // journaux d'audit (règle 2 ; C-15 de PARAMETRAGE-CIBLE.md). Point 2 du périmètre : « rien ne change pour
+  // l'application : Prisma lit la ligne après le déclencheur (RETURNING) ». Tests attendus de la v2 : non-régression par
+  // les routes, dont un coût d'intervention (`COUT_INTERVENTION_*`) et une écriture au nom du compte système (génération
+  // des visites, T1) ; « la seconde écriture d'une même transaction porte un instant supérieur ou égal à la première, et
+  // la lecture se compare comme un ensemble » (C1 : deux écritures d'une même milliseconde peuvent porter le même instant,
+  // et l'ordre à instant égal n'est pas garanti, N4).
+  // Par une route, l'instant que Prisma calcule et envoie (C1) et celui de la base ne différeraient que de quelques
+  // microsecondes. Chaque appel se fait donc sous un verrou de partage du journal, pris par une autre connexion : la
+  // route avance jusqu'à son insertion au journal, qui attend ; le verrou n'est relâché qu'une fois cette attente
+  // constatée (pg_locks), 50 ms plus tard, et l'instant de la libération est relevé sur l'horloge de la base. Horodatée
+  // par la base, l'écriture porte un instant postérieur à la libération ; horodatée par Prisma, un instant antérieur à
+  // l'attente. La borne haute est relevée après l'appel, avec 1 ms de marge (C3 : TIMESTAMP(3) arrondit à la
+  // milliseconde, la borne relevée est tronquée). La migration elle-même est éprouvée par
+  // journal-saisie-horodatage-migration.test.mjs.
+  describe('Journal des chantiers, interventions et contrats horodaté par la base (#582) : la date envoyée est remplacée par l’instant de l’insertion, les routes écrivent toujours le journal', () => {
+    const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const ANTIDATEE = '2020-01-01T00:00:00.000Z';
+    const POSTDATEE = '2099-12-31T23:59:59.999Z';
+    const MARGE_MS = 1;
+    const SYSTEME = { id: '00000000-0000-4000-8000-000000000001', nom: 'Iris (automatique)' };
+    let jeton = '';
+    let auth = {};
+    let admin = null;
+    let clientA = null, clientB = null, chantier = null, categorie = null, fournisseur = null, intervenant = null, commercial = null, intervention = null, contrat = null;
+    // Bornes des créations faites dans le `before` (intervention, contrat), vérifiées avec les autres écritures des routes.
+    const creations = {};
+    // Instant de l'horloge de la base, en millisecondes, tronqué.
+    const instantBase = async (db = prisma) => Number((await db.$queryRaw`SELECT floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS ms`)[0].ms);
+    const encadre = (date, bornes, contexte) => {
+      const ms = new Date(date).getTime();
+      assert.ok(ms >= bornes.debut && ms <= bornes.fin + MARGE_MS,
+        `${contexte} : horodatage ${new Date(ms).toISOString()} hors de [${new Date(bornes.debut).toISOString()} ; ${new Date(bornes.fin).toISOString()} + ${MARGE_MS} ms]`);
+    };
+    // Appel fait sous un verrou de partage du journal (en-tête du bloc). Rend la réponse et les bornes de ses écritures :
+    // l'instant de la libération du verrou, relevé alors que l'insertion attendait, et l'instant relevé après l'appel.
+    const sousVerrou = async (appel) => {
+      let signaler;
+      const pris = new Promise((resoudre) => { signaler = resoudre; });
+      let attente = false;
+      let liberation = null;
+      const verrou = prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('LOCK TABLE "JournalSaisieChantier" IN SHARE MODE');
+        signaler();
+        for (let essai = 0; essai < 200 && !attente; essai += 1) {
+          attente = (await tx.$queryRaw`SELECT count(*)::int AS n FROM pg_locks WHERE relation = '"JournalSaisieChantier"'::regclass AND NOT granted`)[0].n > 0;
+          if (!attente) await new Promise((resoudre) => setTimeout(resoudre, 25));
+        }
+        await new Promise((resoudre) => setTimeout(resoudre, 50));
+        liberation = await instantBase(tx);
+      }, { timeout: 20_000 });
+      await Promise.race([pris, verrou]);
+      const [resultat] = await Promise.all([Promise.resolve(appel()), verrou]);
+      const fin = await instantBase();
+      assert.ok(attente, `l’insertion au journal a attendu la libération du verrou (réponse : ${resultat?.status ?? ''} ${JSON.stringify(resultat?.body ?? resultat ?? null)})`);
+      return { resultat, bornes: { debut: liberation, fin } };
+    };
+    const desParents = () => ({ OR: [{ chantierId: chantier.id }, { interventionId: intervention.id }, { contratMaintenanceId: contrat.id }] });
+    // Lecture d'un journal par sa route : mêmes écritures qu'en base, comparées comme un ensemble (l'ordre de deux
+    // écritures au même instant n'est pas garanti), même horodatage, et tri de la plus récente à la plus ancienne.
+    const verifierLecture = async (chemin, where, contexte) => {
+      const lu = await request(app).get(chemin).set(auth);
+      assert.equal(lu.status, 200, `${contexte} : ${JSON.stringify(lu.body)}`);
+      const enBase = await prisma.journalSaisieChantier.findMany({ where });
+      assert.ok(enBase.length > 0, `${contexte} : des écritures en base`);
+      const parId = (entrees) => entrees.map((e) => [e.id, new Date(e.createdAt).toISOString()]).sort((a, b) => a[0].localeCompare(b[0]));
+      assert.deepEqual(parId(lu.body), parId(enBase), `${contexte} : mêmes écritures, même horodatage`);
+      const instants = lu.body.map((e) => new Date(e.createdAt).getTime());
+      assert.ok(instants.every((t, i) => i === 0 || instants[i - 1] >= t), `${contexte} : de la plus récente à la plus ancienne`);
+      return lu.body;
+    };
+
+    before(async () => {
+      const login = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(login.status, 200);
+      jeton = login.body.token;
+      auth = { Authorization: `Bearer ${jeton}` };
+      admin = await prisma.user.findUniqueOrThrow({ where: { email: 'secours@iris.test' }, select: { id: true, name: true } });
+      commercial = await prisma.user.create({ data: { email: `journal582.commercial.${suffixe}@iris.test`, name: 'TEST Commercial journal 582', role: 'COMMERCIAL', actif: true } });
+      clientA = await prisma.client.create({ data: { raisonSociale: `TEST Client journal 582 A ${suffixe}` } });
+      clientB = await prisma.client.create({ data: { raisonSociale: `TEST Client journal 582 B ${suffixe}` } });
+      chantier = await prisma.chantier.create({ data: { nom: `TEST Journal 582 ${suffixe}`, client: clientA.raisonSociale, clientId: clientA.id, dateDebut: new Date(), budgetGlobalVendu: 1000 } });
+      categorie = await prisma.categorie.create({ data: { nom: `TEST Catégorie journal 582 ${suffixe}` } });
+      fournisseur = await prisma.fournisseur.create({ data: { nom: `TEST Fournisseur journal 582 ${suffixe}` } });
+      intervenant = await prisma.intervenant.create({ data: { nom: `TEST Intervenant journal 582 ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 40 } });
+      const creationIntervention = await sousVerrou(() => request(app).post('/api/interventions').set(auth).send({ clientId: clientA.id, titre: `TEST Intervention journal 582 ${suffixe}` }));
+      assert.equal(creationIntervention.resultat.status, 201, JSON.stringify(creationIntervention.resultat.body));
+      intervention = creationIntervention.resultat.body;
+      creations.intervention = creationIntervention.bornes;
+      const creationContrat = await sousVerrou(() => request(app).post('/api/contrats-maintenance').set(auth).send({ clientId: clientA.id, titre: `TEST Contrat journal 582 ${suffixe}`, periodiciteMois: 6, dureePrevisionnelleMinutes: 90, dateDebut: '01-11-2026' }));
+      assert.equal(creationContrat.resultat.status, 201, JSON.stringify(creationContrat.resultat.body));
+      contrat = creationContrat.resultat.body;
+      creations.contrat = creationContrat.bornes;
+    });
+
+    // Le commercial de test n'est pas auteur d'écriture : la fiche est détachée de lui avant la suppression du compte. Le
+    // reste (affaire, intervention, contrats, clients et leur journal) part avec le nettoyage du harnais (préfixe TEST).
+    after(async () => {
+      if (!commercial) return;
+      await prisma.chantier.updateMany({ where: { commercialId: commercial.id }, data: { commercialId: null } });
+      await prisma.user.deleteMany({ where: { id: commercial.id } });
+    });
+
+    // Lectures écartées : déclencheur absent ou AFTER (la date envoyée par l'appelant resterait, et Prisma la relirait) ;
+    // conversion de fuseau retirée (sous le fuseau de Paris, l'heure locale, une ou deux heures d'avance, sortirait de
+    // l'encadrement).
+    test('une écriture posée directement, par Prisma ou en SQL, antidatée ou postdatée, sur un chantier, une intervention et un contrat, reçoit l’instant de son insertion, en UTC même sous le fuseau de Paris ; Prisma relit la ligne écrite par la base', async () => {
+      const ecritures = [
+        ['chantier', () => ({ chantierId: chantier.id, cible: 'ACHAT', cibleId: randomUUID(), action: 'CREATION' })],
+        ['intervention', () => ({ interventionId: intervention.id, cible: 'COUT_INTERVENTION_ACHAT', cibleId: randomUUID(), action: 'CREATION' })],
+        ['contrat', () => ({ contratMaintenanceId: contrat.id, cible: 'CONTRAT', cibleId: contrat.id, action: 'SUSPENSION' })],
+      ];
+      for (const [parent, donnees] of ecritures) {
+        for (const [nom, date] of [['antidatée', ANTIDATEE], ['postdatée', POSTDATEE]]) {
+          const contexte = `${parent}, ${nom}`;
+          const { cree, relu, parSql, reluSql, bornes, bornesSql } = await prisma.$transaction(async (tx) => {
+            await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE 'Europe/Paris'`);
+            assert.equal((await tx.$queryRaw`SELECT current_setting('TimeZone') AS fuseau`)[0].fuseau, 'Europe/Paris');
+            const debut = await instantBase(tx);
+            const cree = await tx.journalSaisieChantier.create({ data: { ...donnees(), auteurId: admin.id, auteurNom: admin.name, motif: `TEST écriture ${nom} 582`, createdAt: new Date(date) } });
+            const fin = await instantBase(tx);
+            const relu = await tx.journalSaisieChantier.findUniqueOrThrow({ where: { id: cree.id } });
+            const d = donnees();
+            const debutSql = await instantBase(tx);
+            const [parSql] = await tx.$queryRaw`INSERT INTO "JournalSaisieChantier" ("id", "chantierId", "interventionId", "contratMaintenanceId", "cible", "cibleId", "action", "auteurId", "auteurNom", "motif", "createdAt")
+              VALUES (${randomUUID()}, ${d.chantierId ?? null}, ${d.interventionId ?? null}, ${d.contratMaintenanceId ?? null}, ${d.cible}, ${d.cibleId}, ${d.action}, ${admin.id}, ${admin.name}, ${`TEST écriture SQL ${nom} 582`}, ${date.replace('T', ' ').replace('Z', '')}::timestamp(3))
+              RETURNING "id", "createdAt"`;
+            const finSql = await instantBase(tx);
+            const reluSql = await tx.journalSaisieChantier.findUniqueOrThrow({ where: { id: parSql.id } });
+            return { cree, relu, parSql, reluSql, bornes: { debut, fin }, bornesSql: { debut: debutSql, fin: finSql } };
+          });
+          encadre(cree.createdAt, bornes, `${contexte}, par Prisma (valeur rendue par la création)`);
+          assert.equal(relu.createdAt.toISOString(), cree.createdAt.toISOString(), `${contexte}, par Prisma : la création rend l’horodatage écrit en base`);
+          encadre(parSql.createdAt, bornesSql, `${contexte}, en SQL (RETURNING)`);
+          assert.equal(reluSql.createdAt.toISOString(), new Date(parSql.createdAt).toISOString(), `${contexte}, en SQL : RETURNING rend l’horodatage écrit en base`);
+          // Hors de la transaction, la ligne gardée est la même.
+          assert.equal((await prisma.journalSaisieChantier.findUniqueOrThrow({ where: { id: cree.id } })).createdAt.toISOString(), cree.createdAt.toISOString());
+        }
+      }
+    });
+
+    test('les routes écrivent toujours le journal, horodaté par la base : chantier (achat, heure, client et titulaire dans la même requête, commercial, encaissement), intervention (création, matériel, statut, compte rendu) et contrat (création, suspension) ; la seconde écriture d’une même requête au même instant ou après la première ; lectures par les routes comparées comme un ensemble', async () => {
+      // Créations faites dans le `before`.
+      for (const [parent, where] of [['intervention', { interventionId: intervention.id, cible: 'INTERVENTION', action: 'CREATION' }], ['contrat', { contratMaintenanceId: contrat.id, cible: 'CONTRAT', action: 'CREATION' }]]) {
+        const [creation, ...autres] = await prisma.journalSaisieChantier.findMany({ where });
+        assert.ok(creation && !autres.length, `${parent} : une écriture de création`);
+        assert.equal(creation.auteurId, admin.id);
+        encadre(creation.createdAt, creations[parent], `${parent} : création`);
+      }
+      const etapes = [
+        ['achat', () => request(app).post('/api/achats').set(auth).send({ chantierId: chantier.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date: '06-09-2026', description: 'TEST achat journal 582', montantHT: 25 }), 200, [['ACHAT', 'CREATION']]],
+        ['heure', () => request(app).post('/api/heures').set(auth).send({ chantierId: chantier.id, intervenantId: intervenant.id, date: '06-09-2026', nbrHeures: 2 }), 200, [['HEURE', 'CREATION']]],
+        // Deux écritures dans la transaction de la même requête : le client, puis le titulaire.
+        ['client et titulaire', () => request(app).patch(`/api/chantiers/${chantier.id}`).set(auth).send({ clientId: clientB.id, responsableId: admin.id }), 200, [['CHANTIER', 'CHANGEMENT_CLIENT'], ['CHANTIER', 'CHANGEMENT_TITULAIRE']]],
+        ['commercial', () => request(app).patch(`/api/chantiers/${chantier.id}/commercial`).set(auth).send({ commercialId: commercial.id }), 200, [['CHANTIER', 'CHANGEMENT_COMMERCIAL']]],
+        ['encaissement', () => request(app).patch(`/api/chantiers/${chantier.id}/encaisse`).set(auth).send({ encaisse: true }), 200, [['CHANTIER', 'CHANGEMENT_ENCAISSEMENT']]],
+        ['matériel de l’intervention', () => request(app).post(`/api/interventions/${intervention.id}/couts/achats`).set(auth).send({ fournisseurId: fournisseur.id, date: '06-09-2026', description: 'TEST matériel journal 582', montantHT: 12 }), 201, [['COUT_INTERVENTION_ACHAT', 'CREATION']]],
+        ['intervention planifiée', () => request(app).patch(`/api/interventions/${intervention.id}/statut`).set(auth).send({ statut: 'PLANIFIEE' }), 200, [['INTERVENTION', 'CHANGEMENT_STATUT']]],
+        ['intervention démarrée', () => request(app).patch(`/api/interventions/${intervention.id}/statut`).set(auth).send({ statut: 'EN_COURS' }), 200, [['INTERVENTION', 'CHANGEMENT_STATUT']]],
+        ['compte rendu', () => ajouterCompteRendu(intervention.id, jeton, 'TEST Compte rendu journal 582.'), 201, [['INTERVENTION_RAPPORT', 'CREATION']]],
+        ['contrat suspendu', () => request(app).patch(`/api/contrats-maintenance/${contrat.id}/statut`).set(auth).send({ statut: 'SUSPENDU', motif: 'TEST suspension journal 582' }), 200, [['CONTRAT', 'SUSPENSION']]],
+      ];
+      for (const [nom, appel, statut, attendues] of etapes) {
+        const idsAvant = (await prisma.journalSaisieChantier.findMany({ where: desParents(), select: { id: true } })).map((e) => e.id);
+        const { resultat, bornes } = await sousVerrou(appel);
+        assert.equal(resultat.status, statut, `${nom} : ${JSON.stringify(resultat.body)}`);
+        const nouvelles = await prisma.journalSaisieChantier.findMany({ where: { ...desParents(), id: { notIn: idsAvant } } });
+        assert.deepEqual(nouvelles.map((e) => [e.cible, e.action]).sort(), [...attendues].sort(), `${nom} : écritures de la route`);
+        for (const e of nouvelles) {
+          assert.deepEqual([e.auteurId, e.auteurNom], [admin.id, admin.name], `${nom} : auteur`);
+          encadre(e.createdAt, bornes, `${nom}, ${e.cible} ${e.action}`);
+        }
+        if (attendues.length === 2) {
+          const [premiere, seconde] = attendues.map(([cible, action]) => nouvelles.find((e) => e.cible === cible && e.action === action));
+          assert.ok(seconde.createdAt.getTime() >= premiere.createdAt.getTime(),
+            `${nom} : ${seconde.action} (${seconde.createdAt.toISOString()}) au même instant ou après ${premiere.action} (${premiere.createdAt.toISOString()})`);
+        }
+      }
+      await verifierLecture(`/api/chantiers/${chantier.id}/journal-saisies`, { chantierId: chantier.id }, 'journal du chantier');
+      await verifierLecture(`/api/interventions/${intervention.id}/journal-saisies`, { interventionId: intervention.id }, 'journal de l’intervention');
+      await verifierLecture(`/api/contrats-maintenance/${contrat.id}/journal-saisies`, { contratMaintenanceId: contrat.id }, 'journal du contrat');
+    });
+
+    // Génération automatique (lot pilote 5) au nom du compte système : la visite de l'échéance du 01-01-2000 est terminée,
+    // le passage du 15-01-2000 (11 h UTC : ce jour-là dans chaque fuseau français que la société peut avoir) avance
+    // l'échéance au 01-02-2000, puis crée sa visite, dans l'anticipation de 30 jours, dans la même transaction. Le passage
+    // traite les contrats actifs de la plus proche échéance à la plus lointaine : celui-ci, d'une échéance antérieure à
+    // celles des autres tests, écrit le premier au journal, et c'est son insertion qui attend le verrou (en-tête du bloc).
+    test('génération automatique des visites : l’avancement de l’échéance et la visite créée, au nom du compte système dans la même transaction, sont horodatés par la base, la visite au même instant ou après l’avancement ; lectures par les routes comparées comme un ensemble', async () => {
+      const { executerGenerationVisites } = await import('../dist/index.js');
+      const JOUR = '2000-01-15';
+      const anticipationAvant = (await prisma.parametres.findUnique({ where: { id: 'singleton' }, select: { anticipationVisitesJours: true } }))?.anticipationVisitesJours ?? null;
+      const regler = (anticipationVisitesJours) => request(app).put('/api/parametres').set(auth).send({ anticipationVisitesJours });
+      const creation = await request(app).post('/api/contrats-maintenance').set(auth).send({ clientId: clientA.id, titre: `TEST Contrat génération journal 582 ${suffixe}`, periodiciteMois: 1, dureePrevisionnelleMinutes: 60, dateDebut: '01-01-2000' });
+      assert.equal(creation.status, 201, JSON.stringify(creation.body));
+      const contratGenere = creation.body;
+      const premiere = await request(app).post(`/api/contrats-maintenance/${contratGenere.id}/generer-intervention`).set(auth);
+      assert.equal(premiere.status, 201, JSON.stringify(premiere.body));
+      for (const statut of ['PLANIFIEE', 'EN_COURS']) {
+        const res = await request(app).patch(`/api/interventions/${premiere.body.id}/statut`).set(auth).send({ statut });
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+      }
+      const fin = await terminerIntervention(premiere.body.id, jeton);
+      assert.equal(fin.status, 200, JSON.stringify(fin.body));
+      const idsAvant = (await prisma.journalSaisieChantier.findMany({ where: { contratMaintenanceId: contratGenere.id }, select: { id: true } })).map((e) => e.id);
+      try {
+        assert.equal((await regler(30)).status, 200);
+        await prisma.executionGenerationVisites.deleteMany({ where: { cleJourAutomatique: JOUR } });
+        const { resultat: passage, bornes } = await sousVerrou(() => executerGenerationVisites({ type: 'AUTOMATIQUE' }, new Date(`${JOUR}T11:00:00.000Z`)));
+        assert.ok(passage, 'passage automatique du jour');
+        assert.ok(!passage.erreurs.some((e) => e.contratId === contratGenere.id), JSON.stringify(passage.erreurs));
+        assert.ok(!passage.contratsIgnores.some((c) => c.contratId === contratGenere.id), JSON.stringify(passage.contratsIgnores));
+        const visite = await prisma.intervention.findFirstOrThrow({ where: { contratMaintenanceId: contratGenere.id, echeanceContrat: new Date('2000-02-01T00:00:00.000Z') } });
+        const avancement = await prisma.journalSaisieChantier.findMany({ where: { contratMaintenanceId: contratGenere.id, id: { notIn: idsAvant } } });
+        assert.deepEqual(avancement.map((e) => [e.cible, e.action, e.auteurId, e.auteurNom]), [['CONTRAT', 'AVANCEMENT_ECHEANCE', SYSTEME.id, SYSTEME.nom]], 'une écriture d’avancement, au nom du compte système');
+        const creationVisite = await prisma.journalSaisieChantier.findMany({ where: { interventionId: visite.id } });
+        assert.deepEqual(creationVisite.map((e) => [e.cible, e.action, e.auteurId, e.auteurNom]), [['INTERVENTION', 'CREATION_CONTRAT', SYSTEME.id, SYSTEME.nom]], 'une écriture de création de la visite, au nom du compte système');
+        encadre(avancement[0].createdAt, bornes, 'avancement de l’échéance');
+        encadre(creationVisite[0].createdAt, bornes, 'création de la visite');
+        assert.ok(creationVisite[0].createdAt.getTime() >= avancement[0].createdAt.getTime(),
+          `création de la visite (${creationVisite[0].createdAt.toISOString()}) au même instant ou après l’avancement (${avancement[0].createdAt.toISOString()})`);
+        const journalContrat = await verifierLecture(`/api/contrats-maintenance/${contratGenere.id}/journal-saisies`, { contratMaintenanceId: contratGenere.id }, 'journal du contrat généré');
+        assert.deepEqual(journalContrat.map((e) => e.action).sort(), ['AVANCEMENT_ECHEANCE', 'CREATION']);
+        const journalVisite = await verifierLecture(`/api/interventions/${visite.id}/journal-saisies`, { interventionId: visite.id }, 'journal de la visite générée');
+        assert.deepEqual(journalVisite.map((e) => [e.action, e.auteurId]), [['CREATION_CONTRAT', SYSTEME.id]]);
+      } finally {
+        await prisma.executionGenerationVisites.deleteMany({ where: { cleJourAutomatique: JOUR } });
+        assert.equal((await regler(anticipationAvant ?? '')).status, 200, 'anticipation rétablie');
+      }
+    });
+  });
 }
