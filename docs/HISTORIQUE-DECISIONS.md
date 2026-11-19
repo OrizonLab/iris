@@ -6054,9 +6054,12 @@ Constats publiés en commentaires de la PR ; le corps de la PR en tient le déta
   - trop-perçu, et forme d'« Encaissée » après un avoir partiel, deux formes étant admises par S3 §2.6 (N-17, Q-08) ;
   - PDF recalculé (#534) face à une pièce transmise qui doit rester figée (N-08).
 
-### Dans la passation (19-11-2026, #620)
+### Dans la passation et les autres documents (19-11-2026, #620)
 
-- **Passation** : point de reprise (états « État » et « PR ouvertes », paragraphe d'en-tête, liste des PR ouvertes, ligne « Prochaine action » : la PR a de FE-DOC, les questions N-01 et N-02, puis la suite des issues), section 1 (« Facturation électronique (A2) » : « proposition en revue » devient la proposition fusionnée, statut exact ; note N6 du contrôle de cohérence de #620), section 2 (même mise à jour du lot 0), section 3 (renvoi vers les questions de la proposition, sans les recopier). Les textes remplacés de l'en-tête sont archivés : [en-tête de la passation au 19-11-2026 (commit `e27aa7e`)](#en-tête-de-la-passation-au-19-11-2026-commit-e27aa7e).
+- **Passation** : point de reprise (états « État » et « PR ouvertes », paragraphe d'en-tête, liste des PR ouvertes, ligne « Prochaine action » : la PR a de FE-DOC, les questions N-01 et N-02, puis la suite des issues), section 1 (bloc « Facturation et comptabilité — partiel », puce « Absent : facturation électronique » : « proposition en revue » devient la proposition fusionnée, statut exact ; note N6 du contrôle de cohérence de #620), section 2 (même mise à jour du lot 0), section 3 (renvoi vers les questions de la proposition, sans les recopier). Les textes remplacés de l'en-tête sont archivés : [en-tête de la passation au 19-11-2026 (commit `e27aa7e`)](#en-tête-de-la-passation-au-19-11-2026-commit-e27aa7e).
+- **README** : phase 8, la conformité de facturation électronique renvoie à la proposition, fusionnée comme base de travail (portée : choix par défaut, à confirmer ; socle légal non vérifié) ; ses lots, dont l'adaptateur de plateforme, sont prévus, et rien n'en est validé (point 9 de la section 12 de la proposition).
+- **Documentation d'intégration** : « en revue » devient « fusionnée par #620 le 19-11-2026 comme base de travail » (section « Facturation électronique française »).
+- **Proposition** : son en-tête dit désormais « Statut : proposition, fusionnée par #620 le 19-11-2026 comme base de travail », comme les propositions validées par leur fusion.
 
 ## En-tête de la passation au 30-10-2026
 

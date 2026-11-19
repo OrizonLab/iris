@@ -2,7 +2,7 @@
 
 > **Proposition du 19-11-2026, lot 0 de la facturation électronique** (audit de conformité, avant tout code), demandée par la décision de Nelson du 19-11-2026 ([historique](HISTORIQUE-DECISIONS.md#décision-du-19-11-2026-sur-la-facturation-électronique)). Établie sur `main` à `1803612`, à partir de trois inventaires du 19-11-2026 (exigences réglementaires, code, documentation), dont elle reprend l'essentiel. L'inventaire des exigences est versé en annexe : [`FACTURATION-ELECTRONIQUE-EXIGENCES.md`](FACTURATION-ELECTRONIQUE-EXIGENCES.md), avec le détail des sources et des extraits lus. Les inventaires du code et de la documentation ne le sont pas : la matrice (section 5) et les sections 6 et 12 en reprennent les constats, relus sur `1803612`.
 >
-> **Statut : proposition.** Tout ce qu'elle décrit est **prévu**. Rien n'est implémenté, rien n'est validé pour mise en service.
+> **Statut : proposition, fusionnée par #620 le 19-11-2026 comme base de travail** (portée de la fusion ci-dessous). Tout ce qu'elle décrit est **prévu**. Rien n'est implémenté, rien n'est validé pour mise en service.
 >
 > **Portée de sa fusion** (choix par défaut, à confirmer) :
 > - fusionner la proposition valide la matrice de conformité (section 5) et le découpage en lots (section 8) comme base de travail ;

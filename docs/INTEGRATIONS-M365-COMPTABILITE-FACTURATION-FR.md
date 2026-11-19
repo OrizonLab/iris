@@ -50,7 +50,7 @@ Une facture émise est immuable : une correction passe par avoir ou document cor
 
 ## Facturation électronique française
 
-La cible détaillée, la matrice de conformité, le découpage en lots et les questions ouvertes sont dans la proposition [`FACTURATION-ELECTRONIQUE-CIBLE.md`](FACTURATION-ELECTRONIQUE-CIBLE.md), en revue. Ce qui suit en est le résumé ; tout y est **prévu**, sauf mention contraire.
+La cible détaillée, la matrice de conformité, le découpage en lots et les questions ouvertes sont dans la proposition [`FACTURATION-ELECTRONIQUE-CIBLE.md`](FACTURATION-ELECTRONIQUE-CIBLE.md), fusionnée par #620 le 19-11-2026 comme base de travail (portée : choix par défaut, à confirmer, écrite dans son en-tête). Ce qui suit en est le résumé ; tout y est **prévu**, sauf mention contraire.
 
 ### Rôle de la plateforme agréée
 
