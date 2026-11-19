@@ -101,8 +101,9 @@ export function catalogueExtraPayload(family: CatalogueFamily, body: Record<stri
     return {
       unite: String(body.unite || 'unité'),
       prixAchatHt: cataloguePrixAchat(body.prixAchatHt),
-      // Clé absente : faux, comme avant, le PUT envoyant la fiche entière (choix par défaut, à confirmer ;
-      // la question ouverte « le PUT remplace la fiche » de la passation vaut aussi pour ce champ).
+      // Clé absente : faux, comme avant, le PUT envoyant la fiche entière (choix par défaut, à confirmer ; la question
+      // de la section 3 de la passation, bloc « Catalogue dans les devis (lot pilote 2, #161) », sur le prix d'achat
+      // effacé par une modification qui l'omet, vaut aussi pour ce champ, #604).
       stockSuivi: drapeauCatalogue(body, 'stockSuivi') ?? false,
       stockActuel: catalogueNombre(body.stockActuel, 'Stock'),
     };
