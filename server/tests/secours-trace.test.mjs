@@ -20,6 +20,17 @@
 // `mock.timers` (`Date` seulement) pour la fenêtre suivante ; la table des essais est vidée avant et après chaque test.
 // Le succès et le compte absent, qui lisent la base, sont prouvés dans api.test.mjs (bloc « Trace de l’accès de secours
 // (#589) ») ; la preuve HTTP en processus séparé, derrière deux proxys, est dans trust-proxy.test.mjs.
+//
+// Lot #607 et #608, « accès de secours : traces complètes et recul de l'horloge » (cadrage v1 complété de la v2 du
+// controleur-coherence, `main` à c575020 ; issues `suivi-audit` #608, N4 de l'audit des droits de #606, et #607, N4 du
+// contrôle de cohérence de #606 ; messages de Nelson des 16 au 19-11-2026). Dernier bloc de ce fichier :
+//   - un bon jeton suivi d'une erreur à l'ouverture de la session répond toujours 500, au corps inchangé, et laisse une
+//     ligne `[SECOURS] Jeton valide mais erreur lors de l'ouverture de la session de secours depuis <ip>.`, sans le
+//     message ni la pile de l'erreur (point 2 ; v2, N1 et N2 ; texte de la ligne : choix par défaut, à confirmer). La base
+//     injoignable de ce fichier fournit l'erreur : la lecture du compte de secours échoue, après le contrôle du secret ;
+//   - l'essai suivi d'une erreur reste compté (v2, T1) ;
+//   - une fenêtre datée dans le futur, après un recul de l'horloge, est passée : l'adresse repart de zéro, et le premier
+//     blocage de la fenêtre rouverte a sa ligne (point 3 ; v2, T1, option ; choix par défaut, à confirmer).
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test, { afterEach, beforeEach, describe, mock } from 'node:test';
@@ -63,6 +74,7 @@ try {
 
 const SEUIL = 5; // essais admis par adresse et par fenêtre (#563)
 const MIN = 60_000;
+const HEURE = 60 * MIN;
 const FENETRE = 15 * MIN;
 const T0 = Date.UTC(2026, 10, 19, 9); // 19-11-2026, 9 h UTC
 const A = '198.51.100.11';
@@ -75,6 +87,9 @@ const REFUS = { error: 'Jeton de secours invalide.' };
 const BLOCAGE = { error: 'Trop de tentatives. Réessayez dans quinze minutes.' };
 const ligneRefus = (ip) => `warn [SECOURS] Tentative d'accès de secours REFUSÉE depuis ${ip}.`;
 const ligneBlocage = (ip) => `warn [SECOURS] Trop de tentatives depuis ${ip} — blocage temporaire.`;
+// Lot #607 et #608 : corps du 500 inchangé (point 2) ; ligne de l'erreur (v2, N1 : choix par défaut, à confirmer).
+const ERREUR = { error: "Erreur lors de l'ouverture de la session de secours." };
+const ligneErreur = (ip) => `warn [SECOURS] Jeton valide mais erreur lors de l'ouverture de la session de secours depuis ${ip}.`;
 
 const AVERTISSEMENT_NODE = /^\(node:\d+\) [A-Za-z]*Warning: /;
 let lignes = [];
@@ -179,6 +194,81 @@ describe('#589 : trace de l’accès de secours, une ligne « Trop de tentatives
     await bloque(A, 7, false, 'fenêtre 2, essai 7 : non tracé');
     aller(T0 + FENETRE + 1 + 5 * MIN);
     await bloque(A, 8, false, 'fenêtre 2, cinq minutes plus tard : non tracé');
+    assert.deepEqual(lignes.filter((l) => l.includes('Trop de tentatives')), [ligneBlocage(A), ligneBlocage(A)], 'une ligne par fenêtre');
+    assert.equal(lignes.filter((l) => l.includes('REFUSÉE')).length, 2 * SEUIL, 'tous les refus sont tracés');
+  });
+});
+
+describe('#608 et #607 : erreur après un bon jeton tracée avec l’adresse, sans son détail ; fenêtre rouverte par un recul de l’horloge', () => {
+  beforeEach(() => {
+    essaisSecours.clear();
+    lignes = [];
+    for (const methode of ['log', 'info', 'warn', 'error', 'debug']) {
+      mock.method(console, methode, (...args) => {
+        const texte = format(...args);
+        if (!AVERTISSEMENT_NODE.test(texte)) lignes.push(`${methode} ${texte}`);
+      });
+    }
+    mock.timers.enable({ apis: ['Date'], now: T0 });
+  });
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+    essaisSecours.clear();
+  });
+
+  // Cadrage du lot #607 et #608, point 2 : « dans le `catch`, une ligne […] depuis ${ip}, sans le message ni la pile de
+  // l'erreur (qui pourraient contenir une adresse de base ou un extrait de requête). Le 500 et son corps ne changent
+  // pas » ; v2, N1 (texte retenu, choix par défaut, à confirmer) ; v2, N2 : « bon jeton depuis une adresse neuve, 500, une
+  // ligne, sans `iris_injoignable` ni `127.0.0.1:1` » ; v2, T1 : « l'entrée de l'adresse reste après un 500 (pas de
+  // remise à zéro du compteur) ». Cinq bons jetons depuis A, adresse neuve, répondent chacun 500 avec une seule ligne ; la
+  // fenêtre reste celle du premier essai ; le sixième, bon jeton encore, est bloqué (429, ligne « Trop de tentatives ») :
+  // chaque essai suivi d'une erreur compte. Lectures écartées : aucune trace (comportement d'avant #608) ; une trace sans
+  // l'adresse ; le message ou la pile de l'erreur recopiés dans la trace (celle de Prisma cite l'adresse de la base) ; une
+  // trace sous un autre niveau que les autres lignes `[SECOURS]` d'un essai (`warn`) ; l'entrée de l'adresse retirée ou
+  // remise à zéro sur un 500, sous laquelle une panne de la base laisserait essayer le secret sans limite.
+  test('#608 : bon jeton suivi d’une erreur à l’ouverture de la session : 500 au corps inchangé, une seule ligne « Jeton valide mais erreur … depuis <ip>. », sans le détail de l’erreur ; l’essai reste compté, et le sixième est bloqué', async () => {
+    assert.equal(essaisSecours.get(A), undefined, 'adresse neuve');
+    for (let i = 1; i <= SEUIL; i += 1) {
+      const r = await essai(A, { token: JETON_SECOURS });
+      assert.deepEqual(r, { statut: 500, corps: ERREUR, lignes: [ligneErreur(A)], compte: i }, `bon jeton ${i} : 500, une ligne, essai compté`);
+      assert.equal(essaisSecours.get(A).depuis, T0, `bon jeton ${i} : la fenêtre reste celle du premier essai`);
+    }
+    await bloque(A, SEUIL + 1, true, 'sixième essai, bon jeton : bloqué, tracé', { token: JETON_SECOURS });
+    assert.deepEqual(lignes, [...Array(SEUIL).fill(ligneErreur(A)), ligneBlocage(A)], 'cinq erreurs et un blocage tracés, rien d’autre');
+    // Rien de l'erreur dans les journaux : ni l'adresse de la base, ni ses identifiants, ni le message de Prisma, ni le
+    // secret présenté.
+    for (const ligne of lignes) {
+      for (const fragment of ['iris_injoignable', '127.0.0.1:1', 'iris:iris', 'postgresql://', 'prisma', "can't reach", 'database', JETON_SECOURS.toLowerCase()]) {
+        assert.ok(!ligne.toLowerCase().includes(fragment), `« ${fragment} » recopié dans la trace : ${ligne}`);
+      }
+    }
+  });
+
+  // Une autre adresse : sa ligne d'erreur porte la sienne, et l'erreur de A ne bloque ni ne compte pour elle. Lecture
+  // écartée : une adresse figée dans la trace, ou un compteur commun aux essais suivis d'une erreur.
+  test('#608 : l’erreur d’une autre adresse est tracée avec son adresse, et compte pour elle seule', async () => {
+    const r1 = await essai(A, { token: JETON_SECOURS });
+    assert.deepEqual(r1, { statut: 500, corps: ERREUR, lignes: [ligneErreur(A)], compte: 1 }, 'A');
+    const r2 = await essai(B, { token: JETON_SECOURS });
+    assert.deepEqual(r2, { statut: 500, corps: ERREUR, lignes: [ligneErreur(B)], compte: 1 }, 'B');
+    await refuse(A, 2, 'A, jeton faux : refus tracé, compte de A seul');
+    assert.equal(essaisSecours.get(B).count, 1, 'B garde son compte');
+  });
+
+  // Cadrage, point 3 (#607) : « l'adresse n'est plus bloquée au-delà de la fenêtre après un recul : sa fenêtre repart de
+  // zéro, en fin de table » ; v2, T1 (option) : « une nouvelle ligne « Trop de tentatives » au premier blocage de la
+  // fenêtre rouverte par un recul ». Lecture écartée : la règle d'avant #607, sous laquelle A resterait bloquée (429, sans
+  // ligne) jusqu'au terme de sa fenêtre, une heure et quart de temps réel après le recul.
+  test('#607 : après un recul d’une heure, une adresse bloquée repart de zéro : cinq refus tracés, puis une nouvelle ligne « Trop de tentatives » au premier blocage de la fenêtre rouverte', async () => {
+    for (let i = 1; i <= SEUIL; i += 1) await refuse(A, i, `fenêtre 1, essai ${i}`);
+    await bloque(A, SEUIL + 1, true, 'fenêtre 1, essai 6 : tracé');
+    await bloque(A, SEUIL + 2, false, 'fenêtre 1, essai 7 : non tracé');
+    aller(T0 - HEURE); // l'horloge recule d'une heure
+    for (let i = 1; i <= SEUIL; i += 1) await refuse(A, i, `après le recul, essai ${i} : fenêtre rouverte`);
+    assert.equal(essaisSecours.get(A).depuis, T0 - HEURE, 'la fenêtre rouverte court depuis le premier essai après le recul');
+    await bloque(A, SEUIL + 1, true, 'après le recul, essai 6 : premier blocage de la fenêtre rouverte, tracé');
+    await bloque(A, SEUIL + 2, false, 'après le recul, essai 7 : non tracé');
     assert.deepEqual(lignes.filter((l) => l.includes('Trop de tentatives')), [ligneBlocage(A), ligneBlocage(A)], 'une ligne par fenêtre');
     assert.equal(lignes.filter((l) => l.includes('REFUSÉE')).length, 2 * SEUIL, 'tous les refus sont tracés');
   });

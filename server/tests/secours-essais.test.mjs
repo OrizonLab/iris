@@ -9,7 +9,9 @@
 //     ouverte : la table garde l'ordre d'ouverture des fenêtres, chaque entrée n'est visitée qu'une fois, sans parcours
 //     complet à chaque essai ;
 //   - une seule règle pour le blocage et pour la purge : une fenêtre est passée quand plus de 15 minutes séparent
-//     l'instant présent du premier essai de la fenêtre (comparaison stricte) ;
+//     l'instant présent du premier essai de la fenêtre (comparaison stricte), ou, depuis #607 (cadrage du lot #607 et
+//     #608, point 3), quand ce premier essai est daté dans le futur, après un recul de l'horloge (choix par défaut, à
+//     confirmer) ;
 //   - une borne dure, BREAK_GLASS_MAX_ADRESSES = 10 000 (choix par défaut, à confirmer) : table pleine, après la purge,
 //     une adresse nouvelle fait sortir la fenêtre la plus ancienne, puis elle est admise, jamais refusée ;
 //   - le blocage inchangé en deçà de la borne : 5 essais par adresse et par fenêtre, le 6e refusé ; accès inactif : 503
@@ -99,26 +101,118 @@ describe('#563 : compteur des essais de l’accès de secours, purgé au fil des
     assert.deepEqual(suivi(A), { count: 1, depuis: T0 + FENETRE + 1 });
   });
 
-  // Audit des droits de #591, R1 : `Date.now()` suit l'horloge du système, qui peut reculer (correction NTP, horloge de la
-  // machine corrigée). Une fenêtre ouverte après le recul entre alors en table derrière une fenêtre ouverte avant lui, à
-  // l'heure plus tardive : la purge s'arrête sur celle-ci. Le blocage reste celui de la règle, entrée par entrée : la
-  // fenêtre de B court quinze minutes depuis son premier essai, et les essais de C ne se cumulent pas d'une fenêtre à
-  // l'autre. Lecture écartée : un blocage qui ne tient qu'à la purge, sous lequel B resterait bloquée jusqu'à ce que la
-  // fenêtre de A passe (une heure de plus), et C serait refusée au sixième essai de deux fenêtres.
-  test('horloge qui recule : la fenêtre d’une adresse ouverte après le recul court quinze minutes, même derrière une fenêtre ouverte avant lui', () => {
+  // Audit des droits de #591, R1, maintenu après #607 (cadrage du lot #607 et #608, v2, C1 ; test réécrit d'après la
+  // proposition du contrôle de cohérence) : `Date.now()` suit l'horloge du système, qui peut reculer (correction NTP).
+  // Une fenêtre datée dans le futur compte désormais comme passée (#607) ; mais un recul plus court que la fenêtre laisse
+  // en tête de table une fenêtre ouverte avant lui et encore ouverte, derrière laquelle passent les fenêtres d'adresses
+  // ouvertes après lui (B et C) : la purge s'arrête en tête, et le blocage de chaque adresse relit sa propre fenêtre.
+  // Ici, D est ouverte dix minutes avant A ; après un recul de cinq minutes, D arrête d'abord la purge, puis, passée,
+  // laisse A en tête, encore ouverte. Lectures écartées : un blocage qui ne tient qu'à la purge (contrôle par entrée
+  // retiré), sous lequel B resterait bloquée jusqu'à ce que la fenêtre de A passe (cinq minutes de plus), et C serait
+  // refusée au sixième essai de deux fenêtres ; une comparaison large (`maintenant <= depuis`), sous laquelle chaque
+  // essai de B au même instant rouvrirait sa fenêtre (B jamais bloquée).
+  test('horloge qui recule de cinq minutes : la fenêtre d’une adresse ouverte après le recul court quinze minutes, même derrière une fenêtre ouverte avant lui et encore ouverte ; les essais ne se cumulent pas d’une fenêtre à l’autre', () => {
+    aller(T0 - 10 * MIN);
+    tropDEssaisSecours(D);
+    aller(T0);
     tropDEssaisSecours(A);
-    const recul = T0 - 60 * MIN; // l'horloge recule d'une heure
+    const recul = T0 - 5 * MIN; // l'horloge recule de cinq minutes
     aller(recul);
     assert.deepEqual(essais(B, 6), [false, false, false, false, false, true]);
     essais(C, 3);
+    assert.deepEqual(adresses(), [D, A, B, C], 'D, ouverte, arrête la purge : A, datée dans le futur, reste derrière elle');
     aller(recul + FENETRE);
     assert.equal(tropDEssaisSecours(B), true, 'à quinze minutes pile du premier essai de B, B reste bloquée');
+    assert.deepEqual(adresses(), [A, B, C], 'D, passée, est purgée ; A, encore ouverte, arrête la purge');
     aller(recul + FENETRE + 1);
     assert.equal(tropDEssaisSecours(B), false, 'une milliseconde après, B repart de zéro, même avec A ouverte en tête');
     assert.deepEqual(suivi(B), { count: 1, depuis: recul + FENETRE + 1 });
     assert.deepEqual(essais(C, 3), [false, false, false], 'C : nouvelle fenêtre, ses trois premiers essais ne comptent plus');
     assert.deepEqual(suivi(C), { count: 3, depuis: recul + FENETRE + 1 });
-    assert.deepEqual(suivi(A), { count: 1, depuis: T0 }, 'A, ouverte avant le recul, reste en table avec son compte');
+    assert.deepEqual(suivi(A), { count: 1, depuis: T0 }, 'A, ouverte avant le recul et encore ouverte, reste en table avec son compte');
+    assert.deepEqual(adresses(), [A, B, C], 'B et C, rouvertes, en fin de table, dans l’ordre de leur réouverture');
+  });
+
+  // #607 (cadrage du lot #607 et #608, point 3 ; « Tests attendus » : « 6 essais à T0 (bloqué), recul d'une heure :
+  // l'essai suivant n'est plus bloqué (fenêtre repartie de zéro) » ; choix par défaut, à confirmer) : une fenêtre datée
+  // dans le futur (ouverte avant un recul de l'horloge) compte comme passée. Lecture écartée : la règle d'avant #607
+  // (`maintenant < depuis` retiré), sous laquelle A resterait bloquée jusqu'au terme de sa fenêtre, une heure et quart de
+  // temps réel après le recul (sonde du contrôle de #606).
+  test('#607 : après un recul d’une heure, une adresse bloquée repart de zéro au premier essai, pour une nouvelle fenêtre de cinq essais', () => {
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    const recul = T0 - 60 * MIN;
+    aller(recul);
+    assert.equal(tropDEssaisSecours(A), false, 'fenêtre datée dans le futur : passée');
+    assert.deepEqual(suivi(A), { count: 1, depuis: recul });
+    assert.deepEqual(essais(A, 5), [false, false, false, false, true], 'nouvelle fenêtre de cinq essais');
+    aller(recul + FENETRE);
+    assert.equal(tropDEssaisSecours(A), true, 'la nouvelle fenêtre court quinze minutes depuis son premier essai');
+    aller(recul + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(A), false, 'une milliseconde après, elle est passée');
+  });
+
+  // #607 (cadrage, point 3, premier effet : « sa fenêtre repart de zéro, en fin de table (comme une fenêtre passée) ») :
+  // le recul, de cinq minutes, est plus court que la fenêtre. D, ouverte dix minutes avant A et encore ouverte, arrête la
+  // purge en tête de table : c'est le contrôle de l'entrée de A elle-même qui tient sa fenêtre, datée dans le futur, pour
+  // passée. Lectures écartées : la règle d'avant #607, sous laquelle A resterait bloquée vingt minutes de temps réel
+  // après le recul ; un blocage qui ne tient qu'à la purge (contrôle par entrée retiré), sous lequel A resterait bloquée
+  // tant que D arrête la purge ; une entrée remise à zéro sur place, et non en fin de table.
+  test('#607 : après un recul de cinq minutes, une adresse bloquée dont la fenêtre est datée dans le futur repart de zéro, en fin de table, même derrière une fenêtre encore ouverte', () => {
+    aller(T0 - 10 * MIN);
+    tropDEssaisSecours(D);
+    aller(T0);
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    aller(T0 + 1);
+    tropDEssaisSecours(B);
+    assert.deepEqual(adresses(), [D, A, B]);
+    const recul = T0 - 5 * MIN;
+    aller(recul);
+    assert.equal(tropDEssaisSecours(A), false, 'fenêtre de A datée dans le futur : passée, même derrière D encore ouverte');
+    assert.deepEqual(suivi(A), { count: 1, depuis: recul });
+    assert.deepEqual(adresses(), [D, B, A], 'A repart en fin de table ; D, ouverte, arrête la purge ; B, datée dans le futur, attend derrière elle');
+    assert.deepEqual(suivi(D), { count: 1, depuis: T0 - 10 * MIN }, 'D garde son compte');
+  });
+
+  // #607 (cadrage, point 3, deuxième effet : « la purge au fil des essais retire aussi les fenêtres datées dans le futur
+  // rencontrées en tête de table (elles sont « passées ») ») ; mesure de la sonde du contrôle (N4) : table stable au lieu
+  // de grossir. Lecture écartée : la règle d'avant #607, sous laquelle la purge s'arrêterait sur A pendant une heure et
+  // quart, et la table garderait A, B et C.
+  test('#607 : après un recul d’une heure, la purge retire les fenêtres datées dans le futur en tête de table', () => {
+    essais(A, 2);
+    aller(T0 + 1);
+    essais(B, 6);
+    aller(T0 + 2);
+    tropDEssaisSecours(C);
+    aller(T0 - 60 * MIN);
+    assert.equal(tropDEssaisSecours(D), false);
+    assert.deepEqual(table(), [[D, 1, T0 - 60 * MIN]]);
+  });
+
+  // Audit des droits de #612 (C2 et T1) : limites de la règle de #607, écrites dans docs/ACCES-SANS-MICROSOFT.md. Une
+  // fenêtre n'est tenue pour passée que tant qu'elle est datée dans le futur : (1) un recul plus court que son âge ne la
+  // date pas dans le futur, et la prolonge de toute sa durée ; (2) une fenêtre datée dans le futur que l'horloge rattrape
+  // sans qu'aucun essai l'ait retirée reprend son compte jusqu'à son terme. Dans les deux cas, le blocage dure jusqu'à la
+  // durée du recul de plus, ce qui est conservateur (aucun essai de plus n'est admis).
+  test('#607, audit de #612 : un recul de cinq minutes plus court que l’âge de la fenêtre la prolonge de cinq minutes de temps réel', () => {
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    aller(T0 + 10 * MIN);
+    aller(T0 + 5 * MIN); // recul de cinq minutes, dix minutes après le premier essai
+    assert.equal(tropDEssaisSecours(A), true, 'fenêtre non datée dans le futur : toujours bloquée');
+    aller(T0 + FENETRE);
+    assert.equal(tropDEssaisSecours(A), true, 'vingt minutes de temps réel après le premier essai : encore bloquée');
+    aller(T0 + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(A), false, 'libérée au terme de la fenêtre lu sur l’horloge');
+  });
+
+  test('#607, audit de #612 : une fenêtre datée dans le futur que l’horloge rattrape sans essai reprend son compte jusqu’à son terme', () => {
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    aller(T0 + MIN);
+    aller(T0 - 59 * MIN); // recul d'une heure ; aucun essai pendant l'heure qui suit
+    aller(T0 + MIN);
+    assert.equal(tropDEssaisSecours(A), true, 'l’horloge a rattrapé le début de la fenêtre : bloquée');
+    assert.deepEqual(suivi(A), { count: 7, depuis: T0 });
+    aller(T0 + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(A), false, 'libérée au terme de la fenêtre');
   });
 
   // --- Purge au fil des essais ---
