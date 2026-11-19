@@ -5718,6 +5718,8 @@ PR documentaire de l'étape 6 du circuit, « Closes #590 » (notes de #586). Aud
 - **Règle de consommation de la CI inchangée.** La décision de Nelson du 14-11-2026 ([CLAUDE.md](../CLAUDE.md#mode-de-livraison)) reste en vigueur tant que Nelson n'en décide pas autrement. Son motif, un dépôt privé limité à 2 000 minutes par mois, n'est plus d'actualité depuis que le dépôt est public : **c'est une question pour Nelson, sans changement de règle** (passation, section 3). Aucun chiffre sur les minutes d'un dépôt public n'est avancé ici.
 - **À reporter ailleurs (hors de `docs/`).** `CLAUDE.md` (puce « Consommation de la CI », « le dépôt, redevenu privé, est limité à 2 000 minutes ») décrit toujours le dépôt privé : la puce résume la décision de Nelson du 14-11-2026 et cite son message mot pour mot ; sa mise à jour éventuelle est du ressort de Claude Code, sur décision de Nelson.
 
+*Note du 19-11-2026 : la question est tranchée et `CLAUDE.md` est mis à jour : [Décision du 19-11-2026 sur la consommation de la CI](#décision-du-19-11-2026-sur-la-consommation-de-la-ci).*
+
 ## Lot du 18-11-2026 (#598)
 
 *Rédigé le 18-11-2026, `main` à `d80b355`.* Deux PR fusionnées par Claude Code, par commit de fusion, après la CI verte sur la tête exacte : #597 (documentaire, `dcdc2e4`, 18-11-2026 à 21:32 UTC ; tête `1a4d1b4`) et #598 (`d80b355`, 18-11-2026 à 23:37 UTC ; tête `cce5a2d`). **#598 est implémentée, non validée pour mise en service ; elle touche le chiffre d'affaires validé : non validée comptablement, sa fusion n'en valant pas une.** Aucune variable d'environnement.
@@ -5808,6 +5810,22 @@ PR documentaire de l'étape 6 du circuit (passation et historique après #603, v
 
 - **Passation** : point de reprise (état, « PR ouvertes », « Prochaine action »), en-tête, section 1 (puce de #606), « Défauts connus » (sécurité de la connexion), section 4 (bloc « Sécurité de la connexion (#562) » : choix par défaut de #606 ; la mention du suivi #589 devenue caduque est remplacée). Section 3 : rien de nouveau, aucune décision de Nelson n'est attendue au-delà des choix par défaut à confirmer. Les textes remplacés de l'en-tête et des lignes « État » et « PR ouvertes » sont archivés : [en-tête de la passation au 19-11-2026 (commit `890d384`)](#en-tête-de-la-passation-au-19-11-2026-commit-890d384).
 - **Autres documents** : `ACCES-SANS-MICROSOFT.md` et `CONFIGURATION-ENVIRONNEMENT.md`, modifiés par #606, sont cohérents avec la passation ; ils ne sont pas réécrits ici.
+
+## Décision du 19-11-2026 sur la consommation de la CI
+
+*Rédigé le 19-11-2026, `main` à `70c55d5` (après la fusion de #609).*
+
+- **Question posée** (passation, section 3, relevée le 18-11-2026, [CI bloquée du 17 au 18-11-2026](#ci-bloquée-du-17-au-18-11-2026)) : la règle de consommation de la CI de la décision du 14-11-2026, fixée pour un dépôt privé limité à 2 000 minutes GitHub Actions par mois, est-elle à garder maintenant que le dépôt est de nouveau public ?
+- **À quoi il répond** : au compte rendu de Claude Code du 19-11-2026 (03:42 UTC), dont l'une des « Questions qui t'attendent, Nelson » disait, mot pour mot : « la règle de consommation, fixée quand le dépôt était privé, reste-t-elle en vigueur maintenant qu'il est public ? »
+- **Message de Nelson du 19-11-2026, mot pour mot** : « La nous sommes en public donc pas forcement d'economie de minute d'utilisation github et donc tu peux continuer ».
+- **Lecture retenue, à corriger par Nelson si besoin** :
+  - l'économie de minutes n'est plus une exigence ;
+  - le workflow (`.github/workflows/ci.yml`) reste tel quel : travaux lourds sautés pour une série de documentation seule, arbre attesté, cache de Playwright. Il ne change aucun contrôle, hors le risque résiduel de l'attestation, accepté par Nelson le 15-11-2026, et le message n'en demande pas le retrait ;
+  - « CI verte » s'entend toujours de « CI — synthèse » en `success` sur la SHA exacte ;
+  - regrouper les corrections d'un passage d'audit en un seul push reste la pratique par défaut (un seul passage de vérification porte alors sur toutes), sans être une exigence ;
+  - une sauvegarde intermédiaire sur une PR ouverte peut se pousser avec ou sans le jeton de saut de GitHub ; ce jeton ne figure jamais dans le titre d'une PR, un message de fusion ni le commit de tête qui doit lancer la série ; une tête sans série n'est toujours pas verte, et le push qui lance la série porte un changement réel : aucune série ne se relance par un commit vide ni par la réécriture d'un commit déjà poussé ;
+  - « tu peux continuer » est lu comme : poursuivre le travail.
+- **Dans les documents** : `CLAUDE.md` (puce « Consommation de la CI » du mode de livraison, et étape 4 du circuit d'une PR) cite le message et la lecture ; `docs/CONFIGURATION-ENVIRONNEMENT.md` (section « Consommation de la CI ») ; la passation retire la question de la section 3, met à jour la puce du point de reprise, le bloc « Consommation de la CI (#546) » de la section 4 et la question sur `npm audit` en CI.
 
 ## En-tête de la passation au 30-10-2026
 
