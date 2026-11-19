@@ -16,7 +16,8 @@ import { EMAIL_COMPTE_SYSTEME } from '../../droits/roles';
 //   - le compte visé doit exister, être actif ET être SUPERADMIN ;
 //   - la session ouverte dure 1 h, pas 7 jours (c'est un accès de dépannage) ;
 //   - 5 tentatives par quart d'heure et par IP, puis blocage ;
-//   - chaque tentative, réussie ou non, laisse une trace dans les journaux du conteneur.
+//   - chaque tentative non bloquée (refus, succès, compte absent) laisse une trace dans les journaux du
+//     conteneur ; pendant un blocage, seul le premier essai bloqué de la fenêtre en laisse une (#589).
 // Sans BREAK_GLASS_EMAIL + BREAK_GLASS_TOKEN dans l'environnement, la route est inactive
 // et répond 503 : une instance qui n'en veut pas n'a rien à désactiver.
 export const BREAK_GLASS_EMAIL = normalizeEmail(process.env.BREAK_GLASS_EMAIL || '');
@@ -50,6 +51,14 @@ export const essaisSecours = new Map<string, { count: number; depuis: number }>(
 
 // Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes.
 const fenetrePassee = (depuis: number, maintenant: number) => maintenant - depuis > BREAK_GLASS_FENETRE_MS;
+
+// Premier essai bloqué de la fenêtre de cette adresse (à lire juste après tropDEssaisSecours, qui l'a compté) : seul
+// celui-ci est tracé (#589), pour qu'une rafale d'essais bloqués ne remplisse pas les journaux du conteneur. Les
+// suivants ne lisent même pas le jeton. Une ligne par adresse et par fenêtre, sans ligne de synthèse : choix par
+// défaut, à confirmer.
+export function premierEssaiBloqueSecours(ip: string): boolean {
+  return essaisSecours.get(ip)?.count === BREAK_GLASS_MAX_ESSAIS + 1;
+}
 
 export function tropDEssaisSecours(ip: string): boolean {
   const maintenant = Date.now();

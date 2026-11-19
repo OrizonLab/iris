@@ -183,7 +183,10 @@ function jouerEssais({ trustProxy, cwd = dossierVide }) {
   const ligne = sortie.stdout.split('\n').find((l) => l.startsWith('STATUTS_SECOURS '));
   assert.ok(ligne, sortie.stdout);
   const statuts = JSON.parse(ligne.slice('STATUTS_SECOURS '.length));
-  // Adresses écrites dans les journaux du conteneur, dans l'ordre : refus du jeton, puis blocages.
+  // Adresses écrites dans les journaux du conteneur, dans l'ordre : refus du jeton, puis blocages. Depuis #589 (cadrage
+  // v2, C1), seul le premier essai bloqué d'une adresse dans sa fenêtre écrit la ligne de blocage : une ligne par adresse
+  // et par fenêtre (choix par défaut, à confirmer). Les assertions sur `bloquees` en sont la preuve HTTP, en processus
+  // séparé.
   const refusees = [...sortie.stderr.matchAll(/\[SECOURS\] Tentative d'accès de secours REFUSÉE depuis (\S+)\.\n/g)].map((m) => m[1]);
   const bloquees = [...sortie.stderr.matchAll(/\[SECOURS\] Trop de tentatives depuis (\S+) — blocage temporaire\./g)].map((m) => m[1]);
   return { statuts, refusees, bloquees, stderr: sortie.stderr };
@@ -201,9 +204,11 @@ describe('#261 : limite de l’accès de secours par client derrière deux proxy
   test('TRUST_PROXY=2 : le client A est bloqué au sixième essai quelle que soit l’adresse qu’il forge, le client B ne l’est pas, même en forgeant l’adresse de A, et les journaux portent l’adresse de chaque client', () => {
     const { statuts, refusees, bloquees, stderr } = jouerEssais({ trustProxy: '2' });
     assert.deepEqual(parEssai(statuts), parEssai([401, 401, 401, 401, 401, 429, 429, 401, 401]));
-    // Cadrage : « Les journaux [SECOURS] … depuis <ip> portent alors l'adresse du client. »
+    // Cadrage : « Les journaux [SECOURS] … depuis <ip> portent alors l'adresse du client. » #589 : les essais 6 et 7 de A
+    // sont bloqués (429), mais seul le premier, l'essai 6, est tracé (lecture écartée : une ligne par essai bloqué,
+    // comportement d'avant #589).
     assert.deepEqual(refusees, [CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_B, CLIENT_B]);
-    assert.deepEqual(bloquees, [CLIENT_A, CLIENT_A]);
+    assert.deepEqual(bloquees, [CLIENT_A]);
     assert.doesNotMatch(stderr, /depuis 203\.0\.113\./, 'aucune adresse forgée n’est retenue');
     assert.doesNotMatch(stderr, new RegExp(`depuis ${echapper(PROXY_1)}`), 'l’adresse du premier proxy n’est pas retenue');
     assert.doesNotMatch(stderr, /depuis (::ffff:)?127\.0\.0\.1/, 'l’adresse du nginx du frontend n’est pas retenue');
@@ -218,7 +223,9 @@ describe('#261 : limite de l’accès de secours par client derrière deux proxy
       const { statuts, refusees, bloquees } = jouerEssais({ trustProxy });
       assert.deepEqual(parEssai(statuts), parEssai([401, 401, 401, 401, 401, 429, 429, 429, 429]));
       assert.equal(refusees.length, 5);
-      assert.equal(bloquees.length, 4);
+      // #589 : quatre essais bloqués (6 à 9) pour la même adresse, dans la même fenêtre : une seule ligne de blocage
+      // (lecture écartée : quatre lignes, comportement d'avant #589).
+      assert.equal(bloquees.length, 1);
       for (const adresse of [...refusees, ...bloquees]) assert.match(adresse, /^(::ffff:)?127\.0\.0\.1$/, `adresse retenue : ${adresse}`);
     });
   }
@@ -231,6 +238,6 @@ describe('#261 : limite de l’accès de secours par client derrière deux proxy
     const { statuts, refusees, bloquees } = jouerEssais({ trustProxy: undefined, cwd: dossierAvecEnv });
     assert.deepEqual(parEssai(statuts), parEssai([401, 401, 401, 401, 401, 429, 429, 401, 401]));
     assert.deepEqual(refusees, [CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_A, CLIENT_B, CLIENT_B]);
-    assert.deepEqual(bloquees, [CLIENT_A, CLIENT_A]);
+    assert.deepEqual(bloquees, [CLIENT_A], '#589 : une seule ligne de blocage pour A dans sa fenêtre');
   });
 });
