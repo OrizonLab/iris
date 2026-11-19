@@ -2,10 +2,10 @@
 // strict (cadrage « catalogue : stockSuivi et actif lus en booléen strict », v1 complétée de sa v2, contrôlée par le
 // controleur-coherence, verdict « peut être codé tel quel » ; issue #587, section « Catalogue (joignable par une clé
 // catalogue:write) », commentaire d'état du 18-11-2026 ; #324, N3 de l'audit 2 : « sur une modification du catalogue, la
-// valeur texte "false" réactive une fiche, et null la désactive (!!body.actif) » ; messages de Nelson du 16-11-2026,
-// « continu avec les issu. », et du 17-11-2026, « Ok continu »). Règle 2 de la méthode : une fiche désactivée n'entre plus
-// dans un devis (forfait et temps passé de main d'œuvre) ni dans un rattachement d'intervenant ; la désactivation et la
-// réactivation d'une main d'œuvre sont journalisées.
+// valeur texte `"false"` réactive une fiche, et `null` la désactive (`!!body.actif`) » ; messages de Nelson du
+// 16-11-2026, « continu avec les issu. », et du 17-11-2026, « Ok continu »). Règle 2 de la méthode : une fiche désactivée
+// n'entre plus dans un devis (forfait et temps passé de main d'œuvre) ni dans un rattachement d'intervenant ; la
+// désactivation et la réactivation d'une main d'œuvre sont journalisées.
 //
 // Avant le lot, les deux champs étaient lus par `!!` : « false », « 0 », {} ou [] posaient le suivi du stock d'un article,
 // null le retirait ; « false » réactivait une fiche désactivée, null, 0 et la chaîne vide la désactivaient (et, pour une
@@ -457,6 +457,40 @@ if (!TEST_DATABASE_URL) {
           assert.deepEqual([(await ficheEnBase('prestations', mo.id)).actif, reponse.actif], [actif, actif], `${qui}, main d’œuvre, actif: ${actif}`);
           if (action) attendues.push(entree(action, !actif, actif));
           assert.deepEqual((await journalMainOeuvre(mo.id)).slice(1), attendues, `${qui}, main d’œuvre, actif: ${actif} : journal`);
+        }
+      }
+    });
+
+    // #604, point 1 (audit droits et sécurité de #603, T1) : la troisième branche de modifierPrestation, le retour d'une
+    // main d'œuvre non rattachée en prestation ordinaire, applique aussi `actif` (lu par drapeauCatalogue avant la
+    // transaction). Cadrage, périmètre 2 : « Une clé absente garde la valeur actuelle » ; « true et false : inchangés
+    // (désactivation, réactivation, journal de la main d'œuvre) ». true et false sont écrits et journalisés dans l'unique
+    // entrée RETRAIT_MAIN_OEUVRE (avant et après), sans entrée DESACTIVATION ou REACTIVATION à part ; clé absente, ou valeur
+    // identique : état gardé, sans actif au journal. En session seulement : une clé reçoit 403 sur une main d'œuvre
+    // existante (test d'ordre plus bas). Tue « actif non appliqué au retour en prestation ordinaire » (départ true, false
+    // envoyé : la fiche resterait active) et, dans cette branche, « actif absent lu faux » (départ true, clé absente : la
+    // fiche serait désactivée) et « actif absent lu vrai » (départ false, clé absente : la fiche serait réactivée), que les
+    // tests précédents ne jouent pas.
+    test('actif au retour d’une main d’œuvre non rattachée en prestation ordinaire : true et false appliqués et journalisés dans l’entrée RETRAIT_MAIN_OEUVRE, clé absente ou valeur identique gardées sans actif au journal, par le super administrateur, l’administrateur et le directeur', async () => {
+      for (const { qui, auth } of SESSION()) {
+        for (const [depart, envoye] of [[true, false], [false, true], [true, undefined], [false, undefined], [true, true], [false, false]]) {
+          const cas = `${qui}, retour, départ ${depart}, actif ${envoye === undefined ? 'absent' : envoye}`;
+          const mo = await creerMainOeuvre({ actif: depart });
+          const corps = { estMainOeuvre: false, reference: mo.reference, nom: `TEST Retour 587c ${suffixe()}`, tauxTva: '20', unite: 'forfait', prixVenteHt: '45', ...(envoye === undefined ? {} : { actif: envoye }) };
+          const reponse = await ok(appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, corps));
+          const attendu = envoye === undefined ? depart : envoye;
+          const relu = await ficheEnBase('prestations', mo.id);
+          assert.deepEqual([relu.estMainOeuvre, relu.actif, relu.nom, reponse.estMainOeuvre, reponse.actif], [false, attendu, corps.nom, false, attendu], `${cas} : état relu en base et réponse`);
+          const journal = await journalMainOeuvre(mo.id);
+          assert.deepEqual(journal.map((e) => e.action), ['CREATION', 'RETRAIT_MAIN_OEUVRE'], `${cas} : une seule entrée pour le retour`);
+          const derniere = journal.at(-1);
+          assert.deepEqual([derniere.domaine, derniere.type, derniere.cibleId, derniere.auteurId], ['REGLAGES', 'MAIN_OEUVRE', mo.id, comptes[qui].id], `${cas} : entrée du retour`);
+          assert.deepEqual([derniere.avant.estMainOeuvre, derniere.apres.estMainOeuvre], [true, false], `${cas} : retour journalisé`);
+          if (attendu === depart) {
+            assert.deepEqual(['actif' in derniere.avant, 'actif' in derniere.apres], [false, false], `${cas} : actif inchangé, absent du journal`);
+          } else {
+            assert.deepEqual([derniere.avant.actif, derniere.apres.actif], [depart, attendu], `${cas} : actif changé, journalisé`);
+          }
         }
       }
     });
