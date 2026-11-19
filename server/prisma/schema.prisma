@@ -250,6 +250,8 @@ model JournalSaisieChantier {
   avant          Json?
   apres          Json?
   motif          String?
+  // Imposé par la base à l'insertion (déclencheur journal_saisie_chantier_horodatage, #582) : la valeur envoyée
+  // par Prisma est remplacée par l'instant de l'insertion, en UTC.
   createdAt      DateTime @default(now())
 
   @@index([chantierId, createdAt])
