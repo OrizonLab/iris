@@ -247,7 +247,7 @@ L'essentiel du socle technique est donc **vérifié**, et le socle légal ne l'e
 - **Vérification.** Vérifiée.
 - **Classement.** Obligatoire pour la PA ; **recommandé (fortement)** pour Iris, dès le 01-09-2026.
 - **À valider.**
-  - Versions des artefacts : EN16931 validation-1.3.17 publiée le 12-10-2026, et 1.3.16 citée comme applicable au 15-05-2026 par S5. Suivre les mises à jour semestrielles de la Commission européenne.
+  - Versions des artefacts : EN16931 validation-1.3.17 publiée le 12-10-2026, et 1.3.16, version jointe dans S1, que S5 déclare applicable au 15-05-2026. Suivre les mises à jour semestrielles de la Commission européenne.
   - Les règles B2G (BR-FR-CPRO) ne sont pas encore couvertes par les schematrons.
 
 #### EX-08 : Représentation lisible jointe et taille maximale
@@ -774,7 +774,7 @@ Cette exigence est critique pour les invariants d'Iris : numérotation continue 
   - **Hors encaissement.** Si la TVA n'est pas due à l'encaissement, le vendeur peut transmettre « Encaissée » à l'acheteur seulement, pas au PPF.
   - **Exemple de la norme.** Une facture de 1 160 € TTC donne deux blocs : 720 € à 20 % et 440 € à 10 %.
 - **Sources.**
-  - S3 §2.1 (obligations des entreprises), §3.2.19 et §3.2.33 (cas n°34).
+  - S3 §2.1 (obligations des entreprises), §2.6 (litige suivi d'un avoir), §3.2.19 et §3.2.33 (cas n°34).
   - S2, feuille « CDV FE - CDAR » (MDT-207, 215, 216, 219, 224 ; règles G7.45, P1.15 à P1.18).
   - S2, règle BR-FR-CDV-14.
   - S17, CGI ann. II art. 242 nonies P (non vérifiée).
@@ -782,6 +782,7 @@ Cette exigence est critique pour les invariants d'Iris : numérotation continue 
 - **Classement.** Obligatoire, pour les services sans option et pour les acomptes. Date de l'émission selon la taille (01-09-2026 ou 01-09-2027).
 - **À valider.**
   - Montant TTC (`MEN`) ou « montant net » (P1.15) : Q-08.
+  - Après un avoir partiel : « créer un statut « Encaissée » pour F1 (totalité) et pour F2 (montant négatif) », « Fortement Recommandé », ou « Ou bien créer un statut « Encaissée » partiel sur F1 (si paiement partiel), et rien d’autre » (S3 §2.6, étapes 6a et 6b) : Q-08.
   - Acomptes sur livraisons de biens (Q-07).
   - Retenues de garantie, paiements groupés, travaux immobiliers (Q-06).
 
@@ -1167,7 +1168,7 @@ Cette exigence est critique pour les invariants d'Iris : numérotation continue 
 | **Total** | **52** | |
 
 Précisions :
-- Quatre exigences obligatoires ne s'appliquent que dans un cas précis : EX-04 (clients publics), EX-06 (émission en Factur-X), EX-22 (facture déjà payée) et EX-34 (statuts produits par Iris).
+- Trois exigences obligatoires ne s'appliquent que dans un cas précis : EX-04 (clients publics), EX-22 (facture déjà payée) et EX-34 (statuts produits par Iris). EX-06 ne vaut que pour une émission en Factur-X ; la proposition retient ce format par défaut (sa section 13) et la compte donc sans condition.
 - Exigences marquées « non vérifiée » : EX-37 et EX-41 ; EX-46 pour ses durées et son format légal ; EX-47 pour son obligation légale.
 - Exigences vérifiées sur les normes, mais non vérifiées pour une autre de leurs sources (texte légal, liste des 34 données, spécification Factur-X ou guide DGFiP) : EX-01, 02, 05, 06, 12, 19, 26, 30, 35, 38, 40, 45, 49 et 50.
 
