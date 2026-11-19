@@ -5,7 +5,7 @@ import type { AuthRequest } from '../../http/auth';
 import type { ApiRequest } from '../../http/cles-api';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { changementsJournal, journaliserAdministration } from '../../commun/journal-administration';
-import { cataloguePayload, catalogueExtraPayload, champsCommunsCatalogue } from './metier';
+import { cataloguePayload, catalogueExtraPayload, champsCommunsCatalogue, drapeauCatalogue } from './metier';
 
 // --- Main d'œuvre au catalogue (décisions de Nelson du 24-10-2026) ---
 // « Dans le catalogue » : une prestation du catalogue par main d'œuvre, avec quatre prix et la
@@ -200,7 +200,11 @@ export async function modifierPrestation(req: express.Request, id: string): Prom
   const demande = estMainOeuvreDemande(body);
   const dataMainOeuvre = demande === true ? payloadMainOeuvre(body) : null;
   const dataOrdinaire = demande === true || (demande === undefined && champsPropresRenseignes(body)) ? null : payloadPrestationOrdinaire(body);
-  const actif = body.actif !== undefined ? { actif: !!body.actif } : {};
+  // Activité : clé absente, valeur gardée ; autre que true ou false, 400 avant la transaction, donc avant
+  // le 404, le 403 d'une clé sur une main d'œuvre existante et le 409 des rattachements (#587 ; choix par
+  // défaut, à confirmer).
+  const actifDemande = drapeauCatalogue(body, 'actif');
+  const actif = actifDemande !== undefined ? { actif: actifDemande } : {};
   return transactionVerifiee(async (tx) => {
     const avant = await prestationVerrouillee(tx, id);
     if (!avant) throw new RefusCatalogue(404, 'Fiche catalogue introuvable.');

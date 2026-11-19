@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../../db';
 import { voitPrixAchatDevis } from '../../droits/visibilite';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
+import { booleenStrict } from '../../commun/validation';
 
 // --- Catalogue natif Iris ---
 // Trois familles partagent la même forme (référence, nom, prix, TVA, catégorie) et sont
@@ -76,6 +77,16 @@ export function cataloguePayload(body: Record<string, unknown>) {
   };
 }
 
+// Drapeau facultatif d'une fiche, lu en booléen strict (#587, volet catalogue ; #324) : clé absente,
+// undefined ; true ou false, tels quels ; toute autre valeur, null compris, refusée en 400 (Error sans
+// code, traduite par catalogueApiError) avant toute lecture en base. Le refus de null est un choix par
+// défaut, à confirmer (règle 5 : l'option la plus restrictive, et la même lecture que booleenStrict partout).
+export function drapeauCatalogue(body: Record<string, unknown>, cle: string): boolean | undefined {
+  const lecture = booleenStrict(body, cle, { obligatoire: false });
+  if (!lecture.ok) throw new Error(lecture.erreur);
+  return lecture.valeur;
+}
+
 // Champs propres à une famille : une prestation a une durée, un article un stock, un
 // équipement un fabricant (il devient un EquipementInstalle une fois posé chez un client).
 export function catalogueExtraPayload(family: CatalogueFamily, body: Record<string, unknown>) {
@@ -90,7 +101,9 @@ export function catalogueExtraPayload(family: CatalogueFamily, body: Record<stri
     return {
       unite: String(body.unite || 'unité'),
       prixAchatHt: cataloguePrixAchat(body.prixAchatHt),
-      stockSuivi: !!body.stockSuivi,
+      // Clé absente : faux, comme avant, le PUT envoyant la fiche entière (choix par défaut, à confirmer ;
+      // la question ouverte « le PUT remplace la fiche » de la passation vaut aussi pour ce champ).
+      stockSuivi: drapeauCatalogue(body, 'stockSuivi') ?? false,
       stockActuel: catalogueNombre(body.stockActuel, 'Stock'),
     };
   }
