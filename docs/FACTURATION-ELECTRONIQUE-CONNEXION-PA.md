@@ -247,7 +247,7 @@ Aucun montant ni seuil n'est fixé ici. Le coût et l'arbitrage entre les offres
 
 ## 6. Questions nouvelles
 
-Numérotées à part, pour ne pas heurter la numérotation de la proposition. Elles sont à reporter dans sa section 11 par une PR documentaire (choix par défaut, à confirmer).
+Numérotées à part, pour ne pas heurter la numérotation de la proposition. Elles sont reportées dans sa [section 11](FACTURATION-ELECTRONIQUE-CIBLE.md#11-questions), avec leurs identifiants, par la PR documentaire qui a suivi la fusion de #624 (choix par défaut, à confirmer).
 
 **Pour le cabinet.**
 
