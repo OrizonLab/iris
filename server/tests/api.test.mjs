@@ -177,6 +177,40 @@ if (!TEST_DATABASE_URL) {
     prisma.$executeRawUnsafe('ALTER TABLE "JournalSaisieChantier" ENABLE TRIGGER "journal_saisie_chantier_ajout_seul"'),
   ]);
 
+  // Journaux horodatés par la base (#582, puis #615 pour les journaux comptables). Instant de l'horloge de la base, en
+  // millisecondes, tronqué.
+  const instantBase = async (db = prisma) => Number((await db.$queryRaw`SELECT floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS ms`)[0].ms);
+  // Appel fait sous un verrou de partage d'un journal, pris par une autre connexion : l'appel avance jusqu'à son
+  // insertion au journal, qui attend ; le verrou n'est relâché qu'une fois cette attente constatée (pg_locks), 50 ms plus
+  // tard, et l'instant de la libération est relevé sur l'horloge de la base. Rend la réponse et les bornes de ses
+  // écritures : l'instant de la libération, relevé alors que l'insertion attendait, et l'instant relevé après l'appel.
+  // Assistant commun aux blocs #582 et #615 (N6 du cadrage de #615), paramétré par la table. L'attente est cherchée dans
+  // la base courante seulement (#619, note N1 de l'audit des droits de #617) : pg_locks couvre toutes les bases de
+  // l'instance, où les tests qui créent leur propre base jetable tournent en même temps que ce fichier.
+  const JOURNAUX_SOUS_VERROU = ['JournalSaisieChantier', 'JournalCompteComptable', 'JournalRegleComptable'];
+  const sousVerrou = async (table, appel) => {
+    assert.ok(JOURNAUX_SOUS_VERROU.includes(table), `${table} : journal inconnu`);
+    let signaler;
+    const pris = new Promise((resoudre) => { signaler = resoudre; });
+    let attente = false;
+    let liberation = null;
+    const verrou = prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`LOCK TABLE "${table}" IN SHARE MODE`);
+      signaler();
+      for (let essai = 0; essai < 200 && !attente; essai += 1) {
+        attente = (await tx.$queryRaw`SELECT count(*)::int AS n FROM pg_locks WHERE database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND relation = ${`"${table}"`}::regclass AND NOT granted`)[0].n > 0;
+        if (!attente) await new Promise((resoudre) => setTimeout(resoudre, 25));
+      }
+      await new Promise((resoudre) => setTimeout(resoudre, 50));
+      liberation = await instantBase(tx);
+    }, { timeout: 20_000 });
+    await Promise.race([pris, verrou]);
+    const [resultat] = await Promise.all([Promise.resolve(appel()), verrou]);
+    const fin = await instantBase();
+    assert.ok(attente, `${table} : l’insertion au journal a attendu la libération du verrou (réponse : ${resultat?.status ?? ''} ${JSON.stringify(resultat?.body ?? resultat ?? null)})`);
+    return { resultat, bornes: { debut: liberation, fin } };
+  };
+
   let cleApi = '';
 
   const nettoyer = async () => {
@@ -30471,36 +30505,13 @@ if (!TEST_DATABASE_URL) {
     let clientA = null, clientB = null, chantier = null, categorie = null, fournisseur = null, intervenant = null, commercial = null, intervention = null, contrat = null;
     // Bornes des créations faites dans le `before` (intervention, contrat), vérifiées avec les autres écritures des routes.
     const creations = {};
-    // Instant de l'horloge de la base, en millisecondes, tronqué.
-    const instantBase = async (db = prisma) => Number((await db.$queryRaw`SELECT floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS ms`)[0].ms);
     const encadre = (date, bornes, contexte) => {
       const ms = new Date(date).getTime();
       assert.ok(ms >= bornes.debut && ms <= bornes.fin + MARGE_MS,
         `${contexte} : horodatage ${new Date(ms).toISOString()} hors de [${new Date(bornes.debut).toISOString()} ; ${new Date(bornes.fin).toISOString()} + ${MARGE_MS} ms]`);
     };
-    // Appel fait sous un verrou de partage du journal (en-tête du bloc). Rend la réponse et les bornes de ses écritures :
-    // l'instant de la libération du verrou, relevé alors que l'insertion attendait, et l'instant relevé après l'appel.
-    const sousVerrou = async (appel) => {
-      let signaler;
-      const pris = new Promise((resoudre) => { signaler = resoudre; });
-      let attente = false;
-      let liberation = null;
-      const verrou = prisma.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe('LOCK TABLE "JournalSaisieChantier" IN SHARE MODE');
-        signaler();
-        for (let essai = 0; essai < 200 && !attente; essai += 1) {
-          attente = (await tx.$queryRaw`SELECT count(*)::int AS n FROM pg_locks WHERE relation = '"JournalSaisieChantier"'::regclass AND NOT granted`)[0].n > 0;
-          if (!attente) await new Promise((resoudre) => setTimeout(resoudre, 25));
-        }
-        await new Promise((resoudre) => setTimeout(resoudre, 50));
-        liberation = await instantBase(tx);
-      }, { timeout: 20_000 });
-      await Promise.race([pris, verrou]);
-      const [resultat] = await Promise.all([Promise.resolve(appel()), verrou]);
-      const fin = await instantBase();
-      assert.ok(attente, `l’insertion au journal a attendu la libération du verrou (réponse : ${resultat?.status ?? ''} ${JSON.stringify(resultat?.body ?? resultat ?? null)})`);
-      return { resultat, bornes: { debut: liberation, fin } };
-    };
+    // Appels faits sous un verrou de partage du journal (en-tête du bloc) : assistant commun `sousVerrou`, défini avec
+    // `instantBase` en tête de ce fichier (#615, N6 ; attente cherchée dans la base courante seulement, #619).
     const desParents = () => ({ OR: [{ chantierId: chantier.id }, { interventionId: intervention.id }, { contratMaintenanceId: contrat.id }] });
     // Lecture d'un journal par sa route : mêmes écritures qu'en base, comparées comme un ensemble (l'ordre de deux
     // écritures au même instant n'est pas garanti), même horodatage, et tri de la plus récente à la plus ancienne.
@@ -30529,11 +30540,11 @@ if (!TEST_DATABASE_URL) {
       categorie = await prisma.categorie.create({ data: { nom: `TEST Catégorie journal 582 ${suffixe}` } });
       fournisseur = await prisma.fournisseur.create({ data: { nom: `TEST Fournisseur journal 582 ${suffixe}` } });
       intervenant = await prisma.intervenant.create({ data: { nom: `TEST Intervenant journal 582 ${suffixe}`, role: 'Technicien', tauxHoraireCharge: 40 } });
-      const creationIntervention = await sousVerrou(() => request(app).post('/api/interventions').set(auth).send({ clientId: clientA.id, titre: `TEST Intervention journal 582 ${suffixe}` }));
+      const creationIntervention = await sousVerrou('JournalSaisieChantier', () => request(app).post('/api/interventions').set(auth).send({ clientId: clientA.id, titre: `TEST Intervention journal 582 ${suffixe}` }));
       assert.equal(creationIntervention.resultat.status, 201, JSON.stringify(creationIntervention.resultat.body));
       intervention = creationIntervention.resultat.body;
       creations.intervention = creationIntervention.bornes;
-      const creationContrat = await sousVerrou(() => request(app).post('/api/contrats-maintenance').set(auth).send({ clientId: clientA.id, titre: `TEST Contrat journal 582 ${suffixe}`, periodiciteMois: 6, dureePrevisionnelleMinutes: 90, dateDebut: '01-11-2026' }));
+      const creationContrat = await sousVerrou('JournalSaisieChantier', () => request(app).post('/api/contrats-maintenance').set(auth).send({ clientId: clientA.id, titre: `TEST Contrat journal 582 ${suffixe}`, periodiciteMois: 6, dureePrevisionnelleMinutes: 90, dateDebut: '01-11-2026' }));
       assert.equal(creationContrat.resultat.status, 201, JSON.stringify(creationContrat.resultat.body));
       contrat = creationContrat.resultat.body;
       creations.contrat = creationContrat.bornes;
@@ -30608,7 +30619,7 @@ if (!TEST_DATABASE_URL) {
       ];
       for (const [nom, appel, statut, attendues] of etapes) {
         const idsAvant = (await prisma.journalSaisieChantier.findMany({ where: desParents(), select: { id: true } })).map((e) => e.id);
-        const { resultat, bornes } = await sousVerrou(appel);
+        const { resultat, bornes } = await sousVerrou('JournalSaisieChantier', appel);
         assert.equal(resultat.status, statut, `${nom} : ${JSON.stringify(resultat.body)}`);
         const nouvelles = await prisma.journalSaisieChantier.findMany({ where: { ...desParents(), id: { notIn: idsAvant } } });
         assert.deepEqual(nouvelles.map((e) => [e.cible, e.action]).sort(), [...attendues].sort(), `${nom} : écritures de la route`);
@@ -30652,7 +30663,7 @@ if (!TEST_DATABASE_URL) {
       try {
         assert.equal((await regler(30)).status, 200);
         await prisma.executionGenerationVisites.deleteMany({ where: { cleJourAutomatique: JOUR } });
-        const { resultat: passage, bornes } = await sousVerrou(() => executerGenerationVisites({ type: 'AUTOMATIQUE' }, new Date(`${JOUR}T11:00:00.000Z`)));
+        const { resultat: passage, bornes } = await sousVerrou('JournalSaisieChantier', () => executerGenerationVisites({ type: 'AUTOMATIQUE' }, new Date(`${JOUR}T11:00:00.000Z`)));
         assert.ok(passage, 'passage automatique du jour');
         assert.ok(!passage.erreurs.some((e) => e.contratId === contratGenere.id), JSON.stringify(passage.erreurs));
         assert.ok(!passage.contratsIgnores.some((c) => c.contratId === contratGenere.id), JSON.stringify(passage.contratsIgnores));
@@ -30673,6 +30684,277 @@ if (!TEST_DATABASE_URL) {
         await prisma.executionGenerationVisites.deleteMany({ where: { cleJourAutomatique: JOUR } });
         assert.equal((await regler(anticipationAvant ?? '')).status, 200, 'anticipation rétablie');
       }
+    });
+  });
+
+  // Lot #615 (cadrage v1 complété de la v2, qui fait foi ; issue `suivi-audit` #615, note C2 du contrôle de cohérence du
+  // cadrage de #582 ; messages de Nelson du 16-11-2026, « continu avec les issu. », et du 19-11-2026) : les journaux
+  // comptables (« JournalCompteComptable » et « JournalRegleComptable ») reçoivent leur horodatage de la base
+  // (déclencheurs `journal_compte_comptable_horodatage` et `journal_regle_comptable_horodatage`, `BEFORE INSERT`,
+  // `clock_timestamp() AT TIME ZONE 'UTC'`), comme les autres journaux d'audit (règle 2 ; C-15 de PARAMETRAGE-CIBLE.md).
+  // Point 4 du périmètre : « Rien ne change pour l'application : Prisma relit la ligne écrite par la base (`RETURNING`) ;
+  // aucune route n'envoie de `createdAt` ». Tests attendus (cadrage, puis T2 de la v2) : non-régression par les routes,
+  // activation et désactivation d'un compte, modification d'un compte (`PATCH /api/comptabilite/comptes/:id`), import du
+  // plan en mode `mettre_a_jour`, phase `confirmer` (seule route qui écrit plusieurs entrées dans une même transaction :
+  // « chaque entrée horodatée par la base ; la seconde porte un instant supérieur ou égal à la première ; la lecture se
+  // compare comme un ensemble »), création, remappage et retrait d'une règle et d'un taux de TVA : le journal est
+  // toujours écrit et horodaté par la base.
+  // Chaque appel se fait sous un verrou de partage du journal qu'il écrit (assistant commun `sousVerrou`, en tête de ce
+  // fichier ; N6 de la v2, attente cherchée dans la base courante seulement, #619) : horodatée par la base, l'écriture
+  // porte un instant postérieur à la libération du verrou ; horodatée par Prisma, qui calcule l'instant avant d'envoyer
+  // l'insertion, un instant antérieur à l'attente. La borne haute est relevée après l'appel, avec 1 ms de marge
+  // (TIMESTAMP(3) arrondit à la milliseconde, la borne relevée est tronquée).
+  // N2 de la v2 : l'identifiant d'une écriture est un uuid v4 ; le second critère de tri des lectures (`id`) rend l'ordre
+  // stable, pas chronologique : ce bloc ne promet aucun ordre entre deux écritures du même instant. N4 : le compte des
+  // entrées par auteur reste couvert par le test #95 du bloc des contrats de maintenance. La migration elle-même est
+  // éprouvée par journaux-comptables-horodatage-migration.test.mjs. Aucun montant. Ces routes, réservées à
+  // l'administration et absentes de /api/v1 (aucune clé d'intégration), gardent leurs droits.
+  describe('Journaux comptables horodatés par la base (#615) : la date envoyée est remplacée par l’instant de l’insertion, les routes écrivent toujours le journal des comptes et le journal des règles', () => {
+    const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const ANTIDATEE = '2020-01-01T00:00:00.000Z';
+    const POSTDATEE = '2099-12-31T23:59:59.999Z';
+    const MARGE_MS = 1;
+    // Règle et taux de TVA propres au bloc : libérés au départ, puis remis dans leur état d'origine (le paramétrage
+    // comptable est commun à toute la base de test).
+    const CLE = 'VENTE_ARTICLE';
+    const TAUX = '8.5';
+    let auth = {};
+    let admin = null;
+    const encadre = (date, bornes, contexte) => {
+      const ms = new Date(date).getTime();
+      assert.ok(ms >= bornes.debut && ms <= bornes.fin + MARGE_MS,
+        `${contexte} : horodatage ${new Date(ms).toISOString()} hors de [${new Date(bornes.debut).toISOString()} ; ${new Date(bornes.fin).toISOString()} + ${MARGE_MS} ms]`);
+    };
+    // Code de compte libre, à douze chiffres (préfixe de quatre chiffres et huit tirés au hasard).
+    const codeLibre = async (prefixe) => {
+      for (;;) {
+        const code = `${prefixe}${String(randomInt(0, 100_000_000)).padStart(8, '0')}`;
+        if (!await prisma.compteComptable.findUnique({ where: { code }, select: { id: true } })) return code;
+      }
+    };
+    const creerCompte = async (prefixe, libelle, nature) => prisma.compteComptable.create({ data: { code: await codeLibre(prefixe), libelle: `TEST ${libelle} 615 ${suffixe}`, nature } });
+    // Lecture d'un journal par sa route : mêmes écritures qu'en base, comparées comme un ensemble (l'ordre de deux
+    // écritures au même instant n'est pas chronologique, N2), même horodatage, et tri de la plus ancienne à la plus
+    // récente.
+    const ensemble = (entrees) => entrees.map((e) => [e.id, new Date(e.createdAt).toISOString()]).sort((a, b) => a[0].localeCompare(b[0]));
+    const verifierLecture = async (chemin, enBase, contexte) => {
+      const lu = await request(app).get(chemin).set(auth);
+      assert.equal(lu.status, 200, `${contexte} : ${JSON.stringify(lu.body)}`);
+      assert.ok(enBase.length > 0, `${contexte} : des écritures en base`);
+      assert.deepEqual(ensemble(lu.body), ensemble(enBase), `${contexte} : mêmes écritures, même horodatage`);
+      const instants = lu.body.map((e) => new Date(e.createdAt).getTime());
+      assert.ok(instants.every((t, i) => i === 0 || instants[i - 1] <= t), `${contexte} : de la plus ancienne à la plus récente`);
+      return lu.body;
+    };
+    // La règle et le taux du bloc sont retirés s'ils existent, le corps s'exécute, puis ils sont remis dans leur état
+    // d'origine (présents ou absents), par les aides du harnais qui journalisent chaque transition.
+    const avecReglesLibres = async (corps) => {
+      const regle = await prisma.regleComptable.findUnique({ where: { cle: CLE } });
+      const taux = await prisma.regleTvaComptable.findUnique({ where: { taux: Number(TAUX) } });
+      if (regle) await retirerRegleFixture(CLE);
+      if (taux) await retirerTvaFixture(Number(TAUX));
+      try {
+        await corps();
+      } finally {
+        await retirerRegleFixture(CLE);
+        await retirerTvaFixture(Number(TAUX));
+        if (regle) await regleFixture(CLE, regle.journal ?? regle.compteId);
+        if (taux) await tvaFixture(Number(TAUX), taux.compteId);
+      }
+    };
+
+    before(async () => {
+      const login = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(login.status, 200);
+      auth = { Authorization: `Bearer ${login.body.token}` };
+      admin = await prisma.user.findUniqueOrThrow({ where: { email: 'secours@iris.test' }, select: { id: true, name: true } });
+    });
+
+    // Lectures écartées : déclencheur absent, posé sur l'autre table seulement, ou AFTER (la date envoyée par l'appelant
+    // resterait, et Prisma la relirait) ; conversion de fuseau retirée (sous le fuseau de Paris, l'heure locale, une ou
+    // deux heures d'avance, sortirait de l'encadrement) ; `WHEN` restreint à certaines actions. Chaque écriture est
+    // posée avec la mutation qu'elle trace, dans la même transaction, comme le font les routes (preuve différée du
+    // journal des règles, contrôle différé de la modification d'un compte).
+    test('une écriture posée par Prisma, antidatée ou postdatée, au journal des comptes (désactivation, réactivation, modification) et au journal des règles (création, remappage et retrait d’une règle et d’un taux de TVA), reçoit l’instant de son insertion, en UTC même sous le fuseau de Paris ; Prisma relit la ligne écrite par la base', async () => {
+      const compte = await creerCompte('6061', 'Compte journalisé par Prisma', 'CHARGE');
+      const [produitA, produitB] = [await creerCompte('7061', 'Prestations A', 'PRODUIT'), await creerCompte('7062', 'Prestations B', 'PRODUIT')];
+      const [tvaA, tvaB] = [await creerCompte('4457', 'TVA collectée A', 'TVA'), await creerCompte('4458', 'TVA collectée B', 'TVA')];
+      // Écrit en base dans une transaction au fuseau de Paris : la mutation, puis l'écriture du journal datée par
+      // l'appelant, encadrée par deux instants de la base ; rend la valeur rendue par la création et celle relue.
+      const sousFuseauDeParis = (corps) => prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE 'Europe/Paris'`);
+        assert.equal((await tx.$queryRaw`SELECT current_setting('TimeZone') AS fuseau`)[0].fuseau, 'Europe/Paris');
+        return corps(tx);
+      });
+      const verifier = async (modele, { cree, relu, bornes }, contexte) => {
+        encadre(cree.createdAt, bornes, `${contexte} (valeur rendue par la création)`);
+        assert.equal(relu.createdAt.toISOString(), cree.createdAt.toISOString(), `${contexte} : la création rend l’horodatage écrit en base`);
+        // Hors de la transaction, la ligne gardée est la même.
+        assert.equal((await prisma[modele].findUniqueOrThrow({ where: { id: cree.id } })).createdAt.toISOString(), cree.createdAt.toISOString(), `${contexte} : relue après la validation`);
+      };
+      let libelle = compte.libelle;
+      for (const [nom, date] of [['antidatée', ANTIDATEE], ['postdatée', POSTDATEE]]) {
+        const actionsCompte = [
+          ['DESACTIVATION', { actif: false }, () => ({ avant: true, apres: false })],
+          ['REACTIVATION', { actif: true }, () => ({ avant: false, apres: true })],
+          ['MODIFICATION', null, () => {
+            const ancien = libelle;
+            libelle = ancien.endsWith(' (modifié)') ? ancien.slice(0, -' (modifié)'.length) : `${ancien} (modifié)`;
+            return { avantLibelle: ancien, apresLibelle: libelle, avantNature: 'CHARGE', apresNature: 'CHARGE' };
+          }],
+        ];
+        for (const [action, etat, champs] of actionsCompte) {
+          const trace = champs();
+          const resultat = await sousFuseauDeParis(async (tx) => {
+            await tx.compteComptable.update({ where: { id: compte.id }, data: etat ?? { libelle: trace.apresLibelle } });
+            const debut = await instantBase(tx);
+            const cree = await tx.journalCompteComptable.create({ data: { compteId: compte.id, auteurId: admin.id, auteurNom: admin.name, action, ...trace, motif: `TEST ${action} ${nom} par Prisma 615`, createdAt: new Date(date) } });
+            const fin = await instantBase(tx);
+            return { cree, relu: await tx.journalCompteComptable.findUniqueOrThrow({ where: { id: cree.id } }), bornes: { debut, fin } };
+          });
+          await verifier('journalCompteComptable', resultat, `journal des comptes, ${action}, ${nom}`);
+        }
+      }
+      await avecReglesLibres(async () => {
+        for (const [nom, date] of [['antidatée', ANTIDATEE], ['postdatée', POSTDATEE]]) {
+          const transitions = [
+            ['REGLE', CLE, 'CREATION', null, produitA.id, (tx) => tx.regleComptable.create({ data: { cle: CLE, compteId: produitA.id } })],
+            ['REGLE', CLE, 'REMAPPAGE', produitA.id, produitB.id, (tx) => tx.regleComptable.update({ where: { cle: CLE }, data: { compteId: produitB.id } })],
+            ['REGLE', CLE, 'RETRAIT', produitB.id, null, (tx) => tx.regleComptable.delete({ where: { cle: CLE } })],
+            ['TVA', TAUX, 'CREATION', null, tvaA.id, (tx) => tx.regleTvaComptable.create({ data: { taux: Number(TAUX), compteId: tvaA.id } })],
+            ['TVA', TAUX, 'REMAPPAGE', tvaA.id, tvaB.id, (tx) => tx.regleTvaComptable.update({ where: { taux: Number(TAUX) }, data: { compteId: tvaB.id } })],
+            ['TVA', TAUX, 'RETRAIT', tvaB.id, null, (tx) => tx.regleTvaComptable.delete({ where: { taux: Number(TAUX) } })],
+          ];
+          for (const [type, cible, action, avant, apres, muter] of transitions) {
+            const resultat = await sousFuseauDeParis(async (tx) => {
+              await muter(tx);
+              const debut = await instantBase(tx);
+              const cree = await tx.journalRegleComptable.create({ data: { type, cible, action, avant, apres, motif: `TEST ${action} ${nom} par Prisma 615`, auteurId: admin.id, auteurNom: admin.name, createdAt: new Date(date) } });
+              const fin = await instantBase(tx);
+              return { cree, relu: await tx.journalRegleComptable.findUniqueOrThrow({ where: { id: cree.id } }), bornes: { debut, fin } };
+            });
+            await verifier('journalRegleComptable', resultat, `journal des règles, ${type} ${cible} ${action}, ${nom}`);
+          }
+        }
+      });
+    });
+
+    test('les routes d’un compte écrivent toujours son journal, horodaté par la base : désactivation, réactivation et modification (libellé et nature) ; lecture par la route comparée comme un ensemble', async () => {
+      const compte = await creerCompte('6062', 'Compte des routes', 'CHARGE');
+      const nouveauLibelle = `TEST Compte des routes modifié 615 ${suffixe}`;
+      const versionAvantModification = async () => (await prisma.compteComptable.findUniqueOrThrow({ where: { id: compte.id } })).updatedAt.toISOString();
+      const etapes = [
+        ['désactivation', async () => ({ chemin: `/api/comptabilite/comptes/${compte.id}/activation`, corps: { actif: false, motif: 'TEST Désactivation par la route 615' } }),
+          { action: 'DESACTIVATION', avant: true, apres: false, avantLibelle: null, apresLibelle: null, avantNature: null, apresNature: null, motif: 'TEST Désactivation par la route 615' }, { actif: false }],
+        ['réactivation', async () => ({ chemin: `/api/comptabilite/comptes/${compte.id}/activation`, corps: { actif: true, motif: 'TEST Réactivation par la route 615' } }),
+          { action: 'REACTIVATION', avant: false, apres: true, avantLibelle: null, apresLibelle: null, avantNature: null, apresNature: null, motif: 'TEST Réactivation par la route 615' }, { actif: true }],
+        ['modification', async () => ({ chemin: `/api/comptabilite/comptes/${compte.id}`, corps: { libelle: nouveauLibelle, nature: 'PASSIF', motif: 'TEST Modification par la route 615', expectedUpdatedAt: await versionAvantModification() } }),
+          { action: 'MODIFICATION', avant: null, apres: null, avantLibelle: compte.libelle, apresLibelle: nouveauLibelle, avantNature: 'CHARGE', apresNature: 'PASSIF', motif: 'TEST Modification par la route 615' }, { libelle: nouveauLibelle, nature: 'PASSIF', actif: true }],
+      ];
+      const champs = ['action', 'avant', 'apres', 'avantLibelle', 'apresLibelle', 'avantNature', 'apresNature', 'motif', 'auteurId', 'auteurNom'];
+      const ecrites = [];
+      for (const [nom, requete, attendue, etat] of etapes) {
+        const { chemin, corps } = await requete();
+        const idsAvant = (await prisma.journalCompteComptable.findMany({ where: { compteId: compte.id }, select: { id: true } })).map((e) => e.id);
+        const { resultat, bornes } = await sousVerrou('JournalCompteComptable', () => request(app).patch(chemin).set(auth).send(corps));
+        assert.equal(resultat.status, 200, `${nom} : ${JSON.stringify(resultat.body)}`);
+        const enBase = await prisma.compteComptable.findUniqueOrThrow({ where: { id: compte.id } });
+        assert.deepEqual(Object.fromEntries(Object.keys(etat).map((cle) => [cle, enBase[cle]])), etat, `${nom} : compte relu en base`);
+        const nouvelles = await prisma.journalCompteComptable.findMany({ where: { compteId: compte.id, id: { notIn: idsAvant } } });
+        assert.equal(nouvelles.length, 1, `${nom} : une écriture au journal du compte`);
+        assert.deepEqual(Object.fromEntries(champs.map((cle) => [cle, nouvelles[0][cle]])), { ...attendue, auteurId: admin.id, auteurNom: admin.name }, `${nom} : écriture de la route`);
+        encadre(nouvelles[0].createdAt, bornes, `${nom} : ${attendue.action}`);
+        ecrites.push(nouvelles[0]);
+      }
+      // Trois écritures d'instants distincts (chacune après la libération d'un verrou, au moins 50 ms plus tard) : la
+      // route les rend dans l'ordre où elles ont été écrites.
+      const lu = await verifierLecture(`/api/comptabilite/comptes/${compte.id}/journal`, await prisma.journalCompteComptable.findMany({ where: { compteId: compte.id } }), 'journal du compte');
+      assert.deepEqual(lu.map((e) => e.id), ecrites.map((e) => e.id), 'journal du compte : désactivation, réactivation, puis modification');
+    });
+
+    test('l’import du plan en mode « mettre à jour », phase « confirmer », écrit une entrée par compte modifié dans la même transaction, chacune horodatée par la base, la seconde au même instant ou après la première ; lectures par la route comparées comme un ensemble', async () => {
+      const premier = await creerCompte('6063', 'Import premier', 'CHARGE');
+      const second = await creerCompte('6064', 'Import second', 'CHARGE');
+      const lignes = [
+        { code: premier.code, libelle: `TEST Import premier modifié 615 ${suffixe}`, nature: 'CHARGE' },
+        { code: second.code, libelle: `TEST Import second modifié 615 ${suffixe}`, nature: 'PASSIF' },
+      ];
+      const motif = 'TEST Mise à jour du plan par import 615';
+      const apercu = await request(app).post('/api/comptabilite/importer').set(auth).send({ lignes, mode: 'mettre_a_jour', phase: 'apercu' });
+      assert.equal(apercu.status, 200, JSON.stringify(apercu.body));
+      assert.deepEqual(apercu.body.actions.map((a) => [a.code, a.action]), [[premier.code, 'modifier'], [second.code, 'modifier']]);
+      assert.equal(await prisma.journalCompteComptable.count({ where: { compteId: { in: [premier.id, second.id] } } }), 0, 'l’aperçu n’écrit rien');
+      const { resultat, bornes } = await sousVerrou('JournalCompteComptable', () => request(app).post('/api/comptabilite/importer').set(auth)
+        .send({ lignes, mode: 'mettre_a_jour', phase: 'confirmer', motif, apercuId: apercu.body.apercuId }));
+      assert.equal(resultat.status, 200, JSON.stringify(resultat.body));
+      assert.deepEqual(resultat.body, { crees: 0, modifies: 2, ignores: 0 });
+      const champs = ['compteId', 'action', 'avant', 'apres', 'avantLibelle', 'apresLibelle', 'avantNature', 'apresNature', 'motif', 'auteurId', 'auteurNom'];
+      const ecrites = [];
+      for (const [compte, ligne] of [[premier, lignes[0]], [second, lignes[1]]]) {
+        const entrees = await prisma.journalCompteComptable.findMany({ where: { compteId: compte.id } });
+        assert.equal(entrees.length, 1, `${compte.code} : une écriture au journal du compte`);
+        assert.deepEqual(Object.fromEntries(champs.map((cle) => [cle, entrees[0][cle]])),
+          { compteId: compte.id, action: 'MODIFICATION', avant: null, apres: null, avantLibelle: compte.libelle, apresLibelle: ligne.libelle, avantNature: 'CHARGE', apresNature: ligne.nature, motif, auteurId: admin.id, auteurNom: admin.name },
+          `${compte.code} : écriture de l’import`);
+        assert.deepEqual(await prisma.compteComptable.findUniqueOrThrow({ where: { id: compte.id }, select: { libelle: true, nature: true } }), { libelle: ligne.libelle, nature: ligne.nature }, `${compte.code} : compte relu en base`);
+        encadre(entrees[0].createdAt, bornes, `import, ${compte.code}`);
+        ecrites.push(entrees[0]);
+        await verifierLecture(`/api/comptabilite/comptes/${compte.id}/journal`, entrees, `journal du compte ${compte.code}`);
+      }
+      // Deux entrées de la même transaction, écrites dans l'ordre des lignes du fichier : la seconde au même instant ou
+      // après la première (même milliseconde possible : aucun ordre strict n'est promis).
+      const [premiere, seconde] = ecrites;
+      assert.ok(seconde.createdAt.getTime() >= premiere.createdAt.getTime(),
+        `import : seconde entrée (${seconde.createdAt.toISOString()}) au même instant ou après la première (${premiere.createdAt.toISOString()})`);
+    });
+
+    test('la création, le remappage et le retrait d’une règle, et d’un taux de TVA, par les routes, écrivent toujours le journal des règles, horodaté par la base ; lecture par la route comparée comme un ensemble', async () => {
+      const [produitA, produitB] = [await creerCompte('7063', 'Articles A', 'PRODUIT'), await creerCompte('7064', 'Articles B', 'PRODUIT')];
+      const [tvaA, tvaB] = [await creerCompte('4459', 'TVA déductible A', 'TVA'), await creerCompte('4456', 'TVA déductible B', 'TVA')];
+      const motif = (etape) => `TEST ${etape} par la route 615`;
+      const ecrites = [];
+      const verifierEtape = async (nom, appel, statut, [type, cible, action, avant, apres]) => {
+        const idsAvant = (await prisma.journalRegleComptable.findMany({ select: { id: true } })).map((e) => e.id);
+        const { resultat, bornes } = await sousVerrou('JournalRegleComptable', appel);
+        assert.equal(resultat.status, statut, `${nom} : ${JSON.stringify(resultat.body)}`);
+        const nouvelles = await prisma.journalRegleComptable.findMany({ where: { id: { notIn: idsAvant } } });
+        assert.deepEqual(nouvelles.map((e) => [e.type, e.cible, e.action, e.avant, e.apres, e.motif, e.auteurId, e.auteurNom]), [[type, cible, action, avant, apres, motif(nom), admin.id, admin.name]], `${nom} : une écriture au journal des règles`);
+        encadre(nouvelles[0].createdAt, bornes, `${nom} : ${type} ${cible} ${action}`);
+        ecrites.push(nouvelles[0]);
+      };
+      await avecReglesLibres(async () => {
+        await verifierEtape('Création de la règle', () => request(app).put(`/api/comptabilite/regles/${CLE}`).set(auth).send({ compteId: produitA.id, motif: motif('Création de la règle') }), 200,
+          ['REGLE', CLE, 'CREATION', null, produitA.id]);
+        const creee = await prisma.regleComptable.findUniqueOrThrow({ where: { cle: CLE } });
+        assert.equal(creee.compteId, produitA.id);
+        await verifierEtape('Remappage de la règle', () => request(app).put(`/api/comptabilite/regles/${CLE}`).set(auth)
+          .send({ compteId: produitB.id, expectedValeur: produitA.id, expectedUpdatedAt: creee.updatedAt.toISOString(), motif: motif('Remappage de la règle') }), 200,
+        ['REGLE', CLE, 'REMAPPAGE', produitA.id, produitB.id]);
+        const remappee = await prisma.regleComptable.findUniqueOrThrow({ where: { cle: CLE } });
+        assert.equal(remappee.compteId, produitB.id);
+        await verifierEtape('Retrait de la règle', () => request(app).delete(`/api/comptabilite/regles/${CLE}`).set(auth)
+          .send({ expectedValeur: produitB.id, expectedUpdatedAt: remappee.updatedAt.toISOString(), motif: motif('Retrait de la règle') }), 204,
+        ['REGLE', CLE, 'RETRAIT', produitB.id, null]);
+        assert.equal(await prisma.regleComptable.findUnique({ where: { cle: CLE } }), null);
+        await verifierEtape('Création du taux', () => request(app).put(`/api/comptabilite/tva/${TAUX}`).set(auth).send({ compteId: tvaA.id, motif: motif('Création du taux') }), 200,
+          ['TVA', TAUX, 'CREATION', null, tvaA.id]);
+        const tauxCree = await prisma.regleTvaComptable.findUniqueOrThrow({ where: { taux: Number(TAUX) } });
+        assert.equal(tauxCree.compteId, tvaA.id);
+        await verifierEtape('Remappage du taux', () => request(app).put(`/api/comptabilite/tva/${TAUX}`).set(auth)
+          .send({ compteId: tvaB.id, expectedCompteId: tvaA.id, expectedUpdatedAt: tauxCree.updatedAt.toISOString(), motif: motif('Remappage du taux') }), 200,
+        ['TVA', TAUX, 'REMAPPAGE', tvaA.id, tvaB.id]);
+        const tauxRemappe = await prisma.regleTvaComptable.findUniqueOrThrow({ where: { taux: Number(TAUX) } });
+        assert.equal(tauxRemappe.compteId, tvaB.id);
+        await verifierEtape('Retrait du taux', () => request(app).delete(`/api/comptabilite/tva/${TAUX}`).set(auth)
+          .send({ confirmation: TAUX, expectedCompteId: tvaB.id, expectedUpdatedAt: tauxRemappe.updatedAt.toISOString(), motif: motif('Retrait du taux') }), 204,
+        ['TVA', TAUX, 'RETRAIT', tvaB.id, null]);
+        assert.equal(await prisma.regleTvaComptable.findUnique({ where: { taux: Number(TAUX) } }), null);
+      });
+      // Lecture de tout le journal des règles : mêmes écritures qu'en base, comparées comme un ensemble ; les six écritures
+      // de ce test, d'instants distincts (chacune après la libération d'un verrou), dans l'ordre où elles ont été écrites.
+      const lu = await verifierLecture('/api/comptabilite/regles/journal', await prisma.journalRegleComptable.findMany(), 'journal des règles');
+      const ids = ecrites.map((e) => e.id);
+      assert.deepEqual(lu.filter((e) => ids.includes(e.id)).map((e) => e.id), ids, 'journal des règles : les six écritures dans l’ordre où elles ont été écrites');
     });
   });
 }
