@@ -51,14 +51,13 @@ export const BREAK_GLASS_MAX_ADRESSES = 10_000;
 export const essaisSecours = new Map<string, { count: number; depuis: number }>();
 
 // Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes, ou si elle est datée
-// dans le futur, ce qui n'arrive qu'après un recul de l'horloge du système (correction NTP) : un essai, ou la purge, fait
-// avant que l'horloge ait rattrapé son début la retire, au lieu d'attendre qu'elle s'achève, prolongée de la durée du recul
-// (#607). Limite : une fenêtre que le recul ne date pas dans le futur, ou que l'horloge rattrape avant qu'un essai l'ait
-// retirée, garde son compte jusqu'à son terme (seule une horloge monotone l'éviterait, #614). Une fenêtre ainsi passée
-// repart de zéro, comme à son terme :
-// un recul rend au plus cinq essais à une adresse, sur un secret d'au moins 32 caractères, et qui ferait reculer
-// l'horloge du serveur ranimerait déjà les sessions expirées. Même règle que la borne de lecture des clés Microsoft
-// (sso.ts). Choix par défaut, à confirmer.
+// dans le futur, ce qui n'arrive qu'après un recul de l'horloge du système (correction NTP) : un essai, ou la purge qui
+// l'atteint, fait avant que l'horloge ait rattrapé son début la retire, au lieu d'attendre qu'elle s'achève, prolongée de
+// la durée du recul (#607). Une fenêtre ainsi passée repart de zéro, comme à son terme : un recul rend au plus cinq essais
+// à une adresse, sur un secret d'au moins 32 caractères, et qui ferait reculer l'horloge du serveur ranimerait déjà les
+// sessions expirées. Même règle que la borne de lecture des clés Microsoft (sso.ts). Choix par défaut, à confirmer.
+// Limite : une fenêtre que le recul ne date pas dans le futur, ou que l'horloge rattrape avant qu'un essai l'ait retirée,
+// garde son compte jusqu'à son terme (seule une horloge monotone l'éviterait, #614).
 const fenetrePassee = (depuis: number, maintenant: number) =>
   maintenant < depuis || maintenant - depuis > BREAK_GLASS_FENETRE_MS;
 

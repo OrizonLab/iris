@@ -45,8 +45,10 @@ type CompteConnexion = Prisma.UserGetPayload<{ select: typeof CHAMPS_COMPTE_CONN
 //     N2 : option la plus restrictive, règle 5, et comportement actuel, règle permanente 1), ni après un recul de
 //     l'horloge du système : l'heure du cache se compte aussi sur l'horloge monotone du processus (#607).
 // Les deux durées sont des protections techniques (C-26 du paramétrage cible, gardées dans le code), et non des
-// règles de l'entreprise. Valeurs, et refus d'un cache daté dans le futur (avec son effet : après un recul de l'horloge,
-// connexions refusées tant que Microsoft est injoignable) : choix par défaut, à confirmer.
+// règles de l'entreprise. Valeurs, et refus d'un cache daté dans le futur (avec son effet : après un recul de l'horloge
+// plus long que l'âge du cache, connexions refusées tant que le cache reste daté dans le futur et que Microsoft est
+// injoignable ; il sert de nouveau quand l'horloge a rattrapé sa lecture, dans l'heure de temps réel qui la suit) :
+// choix par défaut, à confirmer.
 const MS_JWKS_DUREE_CACHE_MS = 3600_000;
 const MS_JWKS_INTERVALLE_LECTURES_MS = 60_000;
 const MS_JWKS_DELAI_LECTURE_MS = 10_000;

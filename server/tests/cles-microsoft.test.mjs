@@ -433,13 +433,16 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
 
   // Même règle, relecture en échec : N6 (« daté dans le futur, il est expiré et relu »), combiné à la règle retenue après
   // l'audit des droits de #606 (N2 : un cache expiré ne sert plus, avant comme après une tentative de lecture). Le cache
-  // daté dans le futur est relu ; la relecture échoue ; tant qu'il reste daté dans le futur (ici, la minute qui suit le
-  // recul), il ne sert pas, et la clé connue est refusée jusqu'à la lecture réussie suivante. Effet écrit dans `sso.ts`
-  // et `docs/CONFIGURATION-ENVIRONNEMENT.md` : après un recul de l'horloge, les connexions Microsoft sont refusées tant
-  // que Microsoft est injoignable (choix par défaut, à confirmer). Ce test ne va pas au-delà : quand l'horloge du système
-  // rattrape la lecture du cache sans relecture réussie, c'est l'heure comptée sur l'horloge monotone qui l'écarte
-  // (premier test de l'audit des droits de #612, plus bas). Lecture écartée : un cache daté dans le futur tenu pour frais
-  // (`âge >= 0` retiré), sous lequel la clé A serait acceptée sans lecture ni trace dès le recul.
+  // daté dans le futur est relu ; la relecture échoue ; tant qu'il reste daté dans le futur (ici, une heure après le
+  // recul, dont le test observe la première minute), il ne sert pas, et la clé connue est refusée jusqu'à la lecture
+  // réussie suivante. Effet écrit dans `sso.ts` (et, pour les clés datées dans le futur, « ne servent pas tant qu'elles
+  // le restent », dans `docs/CONFIGURATION-ENVIRONNEMENT.md`) : après un recul de l'horloge plus long que l'âge du cache,
+  // les connexions Microsoft sont refusées tant que le cache reste daté dans le futur et que Microsoft est injoignable
+  // (choix par défaut, à confirmer). Ce test ne va pas au-delà : quand l'horloge du système rattrape la lecture du cache
+  // sans relecture réussie, le cache sert de nouveau, mais seulement dans l'heure de temps réel qui suit sa lecture,
+  // comptée sur l'horloge monotone (test du contrôle de #612, plus bas, où le rattrapage survient dans cette heure ;
+  // premier test de l'audit des droits de #612, où il survient au-delà). Lecture écartée : un cache daté dans le futur
+  // tenu pour frais (`âge >= 0` retiré), sous lequel la clé A serait acceptée sans lecture ni trace dès le recul.
   test('#607, N6 : après un recul d’une heure et une relecture en échec, le cache, encore daté dans le futur, ne sert pas : la clé connue est refusée, une trace ; la lecture permise suivante, réussie, la rétablit', async () => {
     assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture à t0');
     assert.equal(lectures(), 1);
@@ -530,6 +533,39 @@ describe('#589 : clés Microsoft relues au plus une fois par minute, lecture par
     assert.deepEqual(await verifier(jetonA()), IDENTITE, 'la clé A est servie par le cache relu');
     assert.equal(lectures(), 2);
     aucuneLigne(0, 'aucune trace');
+  });
+
+  // Contrôle de cohérence de #612 (passage de vérification, T) : effet du refus d'un cache daté dans le futur, écrit dans
+  // `sso.ts` (choix par défaut, à confirmer). Sortie coupée, recul plus long que l'âge du cache mais plus court que
+  // l'heure : refus tant qu'il reste daté dans le futur, puis il sert de nouveau, sans lecture ni trace, jusqu'à une heure
+  // de temps réel après sa lecture. Lectures écartées : refus maintenu tant que Microsoft est injoignable ; cache servi
+  // au-delà de l'heure de temps réel.
+  test('#607, contrôle de #612 : sortie coupée et recul de vingt minutes, dix minutes après la lecture : refus tant que le cache est daté dans le futur, puis il sert de nouveau, sans lecture, jusqu’à une heure de temps réel après sa lecture', async () => {
+    let monotone = 5 * HEURE;
+    mock.method(performance, 'now', () => monotone);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture à t0');
+    repondre = () => new Response('Indisponible', { status: 503 }); // la sortie est coupée
+    monotone += 10 * MIN;
+    aller(T0 - 10 * MIN); // l'horloge recule de vingt minutes, dix minutes après la lecture
+    const j1 = jetonA();
+    assert.equal(await verifier(j1), null, 'cache daté dans le futur, relecture en échec : refusée');
+    assert.equal(lectures(), 2);
+    uneTraceDEchec(0, [j1], 'relecture pendant le recul', 'statut HTTP 503');
+    monotone += 10 * MIN;
+    aller(T0); // l'horloge a rattrapé la lecture, vingt minutes de temps réel après elle
+    const depuis = lignes.length;
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'le cache sert de nouveau, sans lecture');
+    monotone += 40 * MIN - 1;
+    aller(T0 + 40 * MIN - 1);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'une milliseconde avant l’heure de temps réel : encore servie');
+    assert.equal(lectures(), 2);
+    aucuneLigne(depuis, 'aucune trace tant que le cache sert');
+    monotone += 1;
+    aller(T0 + 40 * MIN);
+    const j2 = jetonA();
+    assert.equal(await verifier(j2), null, 'à une heure de temps réel pile : le cache ne sert plus, la relecture échoue');
+    assert.equal(lectures(), 3);
+    uneTraceDEchec(depuis, [j2], 'relecture à l’heure de temps réel', 'statut HTTP 503');
   });
 
   // Lectures en échec. Cadrage v2, N3 : « Échec » : statut hors 2xx, exception (réseau, délai), JSON invalide, `keys`
