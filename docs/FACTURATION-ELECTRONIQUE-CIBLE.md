@@ -420,7 +420,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Périmètre.**
   - **PR a, juste après FE-0**, car le contrat avec une PA doit précéder la recette : `docs/FACTURATION-ELECTRONIQUE-CONNEXION-PA.md`, partie « critères de choix d'une PA » (inscrite sur la liste officielle de la DGFiP, S10 ; version de XP Z12-013 ; flux couverts ; formats ; bac à sable ; notifications ; archivage ; réversibilité) ; `docs/FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md`, première version de la liste de contrôle.
   - **PR b, avec FE-4 et FE-5, avant la recette** : la connexion pas à pas (identifiants, variables, activation, `npm run efacture:verifier`, bouton « Tester la connexion ») et la liste de contrôle complète.
-- **Liste de contrôle** (cadrage de Nelson) : identité fiscale de la société (SIREN, TVA, option débits, catégorie et date d'obligation) ; PA choisie et contrat signé ; inscription à l'annuaire vérifiée ; identifiants configurés ; SIREN et type de chaque client professionnel ; catégorie d'opération par article, validée par le cabinet ; contrôle de compatibilité au vert ; première facture réelle suivie jusqu'au statut attendu ; e-reporting paramétré ; conservation (durée et lieu, à valider par le cabinet) ; personnes chargées des rejets et des refus ; validation du cabinet et feu vert de Nelson.
+- **Liste de contrôle** (cadrage de Nelson, mot pour mot) : « identité fiscale de la société (SIREN, TVA, option débits, catégorie et date d'obligation) ; PA choisie et contrat signé ; inscription à l'annuaire vérifiée ; identifiants configurés ; SIREN et type de chaque client professionnel ; catégorie d'opération par article, validée par le cabinet ; contrôle de compatibilité au vert ; première facture réelle suivie jusqu'au statut attendu ; e-reporting paramétré ; conservation des factures (durée et lieu, à valider par le cabinet) ; personnes chargées des rejets et des refus ; validation du cabinet et mon feu vert ».
 - **Hors périmètre** : le choix de la PA, qui revient à Nelson (N-02).
 - **Critères** : un administrateur suit la liste sans autre document ; chaque point renvoie à l'écran ou à la variable concernés.
 - **Documents de la PR a** : [connexion à une PA](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md) (critères de choix ; connexion pas à pas prévue) et [liste de contrôle du déploiement](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md) (première version).
@@ -626,7 +626,7 @@ Nelson a cité quatre paquets, vérifiés le 19-11-2026. Revérification du 19-1
 
 ### 11.1 Pour Nelson
 
-Métier, périmètre, modèle de données et montants. Chaque question cite sa source et son enjeu.
+Métier, périmètre, modèle de données et montants. Chaque question cite sa source et son enjeu. N-PA-1, née de FE-DOC (PR a, #624), est reportée à la suite de N-17 avec son identifiant, numéroté à part ; une question de plus pour Nelson, sans identifiant, attend le cadrage de FE-2 : une catégorie d'opération portée par chaque fiche du catalogue changerait le modèle de données (section 6 du document de connexion).
 
 | N | Question | Source | Enjeu |
 |---|---|---|---|
@@ -647,10 +647,11 @@ Métier, périmètre, modèle de données et montants. Chaque question cite sa s
 | N-15 | Validation hors CI : un service de validation en conteneur, déployé avec Iris (choix proposé), saxon-js dans le processus, ou autre ? Iris refuse-t-il d'émettre si le service ne répond pas ? | Cadrage (« plutôt que saxon-js ») ; EX-07 | Architecture du déploiement |
 | N-16 | Lieu de conservation des fichiers : base, stockage de l'instance, PA ? Sauvegarde ? | Cadrage (« durée et lieu ») ; EX-46 | Architecture ; FE-10 |
 | N-17 | Montant et répartition par taux d'Encaissée, aucune règle n'étant inventée (à valider avec le cabinet, Q-08) : règlement partiel d'une facture à plusieurs taux, ou qui porte des avoirs partiels (S3 §2.6 : « Encaissée » sur la facture pour sa totalité et sur l'avoir en négatif, « Fortement Recommandé », ou « Encaissée » partiel de la facture seule ; même alternative pour l'e-reporting des encaissements, S3 cas n°43) ; part d'un règlement au-delà du reste dû, qui devient un trop-perçu (règles de montants du 17-10-2026 ; #156) ; avoir émis après un règlement, qui crée un trop-perçu ; facture de cadre M, les données de paiement ne visant que les prestations de services (S3 cas n°31 ; Q-05). | S2 BR-FR-CDV-14, G7.45 ; S3 §2.1, §2.6, cas n°31, 43 | Montants |
+| N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) ; [connexion à une PA, section 6](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) (née de #624) | Contrat ; changement de PA |
 
 ### 11.2 Pour le cabinet
 
-Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les questions de cabinet restées dans le [paramétrage cible](PARAMETRAGE-CIBLE.md) (section 3.4) et celles nées de l'audit. Les doublons sont fusionnés : les mentions de la facturation électronique relèvent de Q-04 et Q-14, la conservation et la piste d'audit de Q-11 et Q-12.
+Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les questions de cabinet restées dans le [paramétrage cible](PARAMETRAGE-CIBLE.md) (section 3.4) et celles nées de l'audit. Les doublons sont fusionnés : les mentions de la facturation électronique relèvent de Q-04 et Q-14, la conservation et la piste d'audit de Q-11 et Q-12. Q-PA-1 à Q-PA-3, nées de FE-DOC (PR a, #624), sont reportées à la suite de Q-25 avec leur identifiant, numéroté à part.
 
 | Q | Question | Source | Enjeu |
 |---|---|---|---|
@@ -679,6 +680,9 @@ Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les q
 | Q-23 | Contenu des notes `PMT` (indemnité forfaitaire), `PMD` (pénalités), `AAB` (escompte ou son absence) | S2 BR-FR-05, 06 ; [paramétrage cible](PARAMETRAGE-CIBLE.md), section 3.4 | FE-2 |
 | Q-24 | Le site d'une prestation est-il une « adresse de livraison » ? (« Ces données ne sont pas à transmettre pour les prestations de service ») | S2 BR-FR-14 | FE-2 |
 | Q-25 | Une facture émise à 0,00 € se transmet-elle par la PA ? Faut-il l'annuler si elle est refusée ? | S3 §2.5 ; décision du 16-11-2026 (#568) | FE-5, FE-6 ; N-05 |
+| Q-PA-1 | Une PA immatriculée sous réserve des tests d'interopérabilité (seconde liste de S10) peut-elle transmettre en production pour la société ? Que doit faire la société si cette réserve n'est pas levée ? | S10 (non vérifiée) ; [connexion à une PA, section 6](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) | Critère 1 du choix d'une PA |
+| Q-PA-2 | La PA reçoit des données personnelles, notamment celles des clients particuliers. Quel est son rôle au regard du RGPD ? Faut-il un accord écrit sur ces données ? Des exigences de localisation et de sous-traitance ? | Aucune source du registre ; [connexion à une PA, section 6](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) | Points contractuels |
+| Q-PA-3 | Si la PA est indisponible, perd son immatriculation ou se trompe (rejet à tort, statut non transmis), quelles clauses exiger ? Quelles obligations pèsent sur la société dans l'intervalle ? | S3 §1.4.5 ; Q-17 ; [connexion à une PA, section 6](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) | Engagement de service ; continuité |
 
 ## 12. Points documentaires
 
