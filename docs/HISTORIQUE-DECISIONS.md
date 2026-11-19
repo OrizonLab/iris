@@ -5949,6 +5949,7 @@ PR documentaire qui consigne la réponse de Nelson sur la règle de consommation
 > - **Facturation électronique (A2)** : taille de l'entreprise pilote et plateforme agréée retenue, et confirmation que la réception des factures électroniques est assurée hors d'Iris, avec le cabinet.
 
   La réception n'est plus « assurée hors d'Iris » : la réception légale reste assurée par la plateforme agréée de la société, et Iris récupère les factures par son API, sans agrément.
+  Elle remplace aussi, dans l'ordre de travail de la section 2 de la passation, la phrase « Après le pilote, ordre indicatif, à revoir selon les vrais utilisateurs : la facturation électronique (A2) suit l'échéance légale, à confirmer par le cabinet ; puis banque et rapprochement, abonnements et locations (lot (k)), financeurs et télécom, plan commercial (lot (i)), astreintes (lot (j)). » (texte de `c57c45c`) : le lot 0 vient tout de suite, et les lots de code après les lots pilotes en cours.
 - **Suite** : le lot 0 (audit de conformité, avant tout code) est lancé le 19-11-2026. Son livrable est la proposition `docs/FACTURATION-ELECTRONIQUE-CIBLE.md`, en PR documentaire, avec la matrice exigence → source → code actuel → test, le classement des écarts, le découpage en lots et les questions. Les lots de code viennent après les lots pilotes en cours, avec une recette sur le bac à sable d'une plateforme agréée avant le 01-06-2027. Une exigence obligatoire non respectée sera une remarque bloquante (R).
 
 ## En-tête de la passation au 30-10-2026
