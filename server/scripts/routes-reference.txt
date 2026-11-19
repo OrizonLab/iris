@@ -213,8 +213,8 @@ GET /api/catalogue/:family requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab 
 GET /api/v1/catalogue/:family <anonymous>{scope="catalogue:read"}#4aeb6d464b38 > listerCatalogue#667a729a3954
 POST /api/catalogue/:family requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > creerFicheCatalogue#efe4121d1bdc
 POST /api/v1/catalogue/:family <anonymous>{scope="catalogue:write"}#4aeb6d464b38 > creerFicheCatalogue#efe4121d1bdc
-PUT /api/catalogue/:family/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > modifierFicheCatalogue#6bed41e242c5
-PUT /api/v1/catalogue/:family/:id <anonymous>{scope="catalogue:write"}#4aeb6d464b38 > modifierFicheCatalogue#6bed41e242c5
+PUT /api/catalogue/:family/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > modifierFicheCatalogue#3e03eec404e8
+PUT /api/v1/catalogue/:family/:id <anonymous>{scope="catalogue:write"}#4aeb6d464b38 > modifierFicheCatalogue#3e03eec404e8
 DELETE /api/catalogue/:family/:id requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > desactiverFicheCatalogue#775098fdc77c
 DELETE /api/v1/catalogue/:family/:id <anonymous>{scope="catalogue:write"}#4aeb6d464b38 > desactiverFicheCatalogue#775098fdc77c
 GET /api/devis/catalogue requireAuth#07b983da0ce5 > <anonymous>{permission="devis:write"}#c4dc4769916b > <anonymous>#eb08907e9f54

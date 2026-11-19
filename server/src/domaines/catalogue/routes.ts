@@ -4,7 +4,7 @@ import { prisma } from '../../db';
 import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { decimalToNumber } from '../../commun/montants';
-import { catalogueModels, catalogueFamily, cataloguePayload, catalogueExtraPayload, ficheCataloguePourLecteur } from './metier';
+import { catalogueModels, catalogueFamily, cataloguePayload, catalogueExtraPayload, ficheCataloguePourLecteur, drapeauCatalogue } from './metier';
 import { RefusCatalogue, creerPrestation, desactiverPrestation, modifierPrestation } from './main-oeuvre';
 
 // Erreur catalogue : refus métier avec son statut (main d'œuvre : clé d'intégration 403, fiche
@@ -87,7 +87,9 @@ const modifierFicheCatalogue: express.RequestHandler = async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (body.estMainOeuvre !== undefined && body.estMainOeuvre !== null && body.estMainOeuvre !== false) throw new Error('Seule une prestation peut être une main d’œuvre.');
     const data: Record<string, unknown> = { ...cataloguePayload(body), ...catalogueExtraPayload(family, body) };
-    if (body.actif !== undefined) data.actif = !!body.actif;
+    // Activité : clé absente, valeur gardée ; autre que true ou false, 400 avant la lecture de la fiche (#587).
+    const actif = drapeauCatalogue(body, 'actif');
+    if (actif !== undefined) data.actif = actif;
     res.json(ficheCataloguePourLecteur(req, decimalToNumber(await catalogueModels[family].update({
       where: { id: paramId(req) },
       data: data as never,
