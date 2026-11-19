@@ -626,7 +626,7 @@ Nelson a cité quatre paquets, vérifiés le 19-11-2026. Revérification du 19-1
 
 ### 11.1 Pour Nelson
 
-Métier, périmètre, modèle de données et montants. Chaque question cite sa source et son enjeu. N-PA-1, née de FE-DOC (PR a, #624), est reportée à la suite de N-17 avec son identifiant, numéroté à part ; une question de plus pour Nelson, sans identifiant, attend le cadrage de FE-2 : une catégorie d'opération portée par chaque fiche du catalogue changerait le modèle de données (section 6 du document de connexion).
+Métier, périmètre, modèle de données et montants. Chaque question cite sa source et son enjeu. N-PA-1, née de FE-DOC (PR a, #624), est reportée à la suite de N-17 avec son identifiant, numéroté à part ; une question de plus pour Nelson, sans identifiant, attend le cadrage de FE-2 : une catégorie d'opération portée par chaque fiche du catalogue changerait le modèle de données ([liste de contrôle du déploiement, section 4.6](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#46-catégorie-dopération-par-article)).
 
 | N | Question | Source | Enjeu |
 |---|---|---|---|

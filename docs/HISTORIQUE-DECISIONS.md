@@ -6063,7 +6063,7 @@ Constats publiés en commentaires de la PR ; le corps de la PR en tient le déta
 
 ## FE-DOC, PR a, 19-11-2026 (#624)
 
-*Rédigé le 19-11-2026, `main` à `142d038`.* Une PR documentaire fusionnée par Claude Code, par commit de fusion, après la CI verte sur la tête exacte : [#624](https://github.com/OrizonLab/iris/pull/624) (`142d038`, 19-11-2026 à 21:56 UTC ; tête `df96a23`). L'historique date en UTC. C'est la PR a du lot FE-DOC, selon sa fiche (section 8.3 de la [proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#fe-doc--connexion-à-une-pa-et-déploiement)) et l'ordre de sa section 8.4 (« FE-0, puis tout de suite la PR a de FE-DOC »), choix par défaut de la proposition, à confirmer. Le contrat avec une plateforme agréée (PA) doit précéder la recette sur bac à sable, que Nelson demande « avant le 01-06-2027 ». **Statut : documentaire, fusionnée. Les deux documents sont utilisables pour le choix d'une PA. Leur section « Connexion pas à pas » reste prévue (PR b de FE-DOC, avec FE-4 et FE-5). Leurs choix par défaut sont à confirmer, et ce qui dépend d'un texte non lu est non vérifié. Aucun code, aucune variable d'environnement lue, aucune dépendance, aucun montant ; rien n'est validé pour mise en service.**
+*Rédigé le 19-11-2026, `main` à `142d038`.* Une PR documentaire fusionnée par Claude Code, par commit de fusion, après la CI verte sur la tête exacte : [#624](https://github.com/OrizonLab/iris/pull/624) (`142d038`, 19-11-2026 à 21:56 UTC ; tête `df96a23`). L'historique date en UTC. C'est la PR a du lot FE-DOC, selon sa fiche (section 8.3 de la [proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#fe-doc--connexion-à-une-pa-et-déploiement)) et l'ordre de sa section 8.4 (« FE-0, puis tout de suite la PR a de FE-DOC »), choix par défaut de la proposition, à confirmer. Le contrat avec une plateforme agréée (PA) doit précéder la recette sur bac à sable, que Nelson demande « avant le 01-06-2027 ». **Statut : documentaire, fusionnée. Le document de connexion est utilisable pour le choix d'une PA (sections 1 à 6) et la liste de contrôle l'est en première version. La connexion pas à pas (section 7 du document de connexion) et la liste de contrôle complète restent prévues (PR b de FE-DOC, avec FE-4 et FE-5). Leurs choix par défaut sont à confirmer, et ce qui dépend d'un texte non lu est non vérifié. Aucun code, aucune variable d'environnement lue, aucune dépendance, aucun montant ; rien n'est validé pour mise en service.**
 
 Cadrage de Nelson du 19-11-2026 ([historique](#décision-du-19-11-2026-sur-la-facturation-électronique)), rubrique « DOCUMENTATION À LIVRER », cité par le corps de la PR, mot pour mot : « docs/FACTURATION-ELECTRONIQUE-CONNEXION-PA.md : critères de choix d'une PA (inscrite sur la liste officielle DGFiP, version de XP Z12-013, flux couverts, formats, bac à sable, notifications, archivage, réversibilité), puis la connexion pas à pas. »
 
@@ -6084,7 +6084,7 @@ Cadrage de Nelson du 19-11-2026 ([historique](#décision-du-19-11-2026-sur-la-fa
 
 ### Choix par défaut (à confirmer)
 
-Les douze choix du corps de la PR (la section 8 du document de connexion les reprend) :
+Les douze choix du corps de la PR (la section 8 du document de connexion reprend les onze premiers ; le douzième, le statut attendu de la première facture réelle, est en section 6 de la liste de contrôle) :
 
 1. Le classement éliminatoire ou souhaitable de chaque critère.
 2. Une PA de la seconde liste de la DGFiP, « sous réserve des tests d'interopérabilité », est admise pour le contrat et le bac à sable ; elle est revérifiée sur la première liste avant la production (Q-PA-1).
@@ -6101,7 +6101,7 @@ Les douze choix du corps de la PR (la section 8 du document de connexion les rep
 
 ### Questions nouvelles
 
-Numérotées à part ; reportées en [section 11 de la proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#11-questions) par la PR documentaire qui consigne #624, et détaillées en [section 6 du document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles).
+Q-PA-1 à Q-PA-3 et N-PA-1 sont numérotées à part, reportées en [section 11 de la proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#11-questions) par la PR documentaire qui consigne #624, et détaillées en [section 6 du document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) ; la question sans identifiant l'est en [section 4.6 de la liste de contrôle](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#46-catégorie-dopération-par-article).
 
 - **Q-PA-1** (cabinet) : une PA de la seconde liste peut-elle transmettre en production ?
 - **Q-PA-2** (cabinet) : quel est le rôle de la PA au regard du RGPD (localisation et sous-traitance des données) ?
@@ -6117,7 +6117,7 @@ Constats publiés en commentaires de la PR ; le corps de la PR en tient le déta
   - C1 : le contrôle de compatibilité était relancé en production sans garde d'écriture (statuts, e-reporting, abonnement à un webhook, numérotation et journal de l'installation réelle), alors que le cadrage le limite au bac à sable : « Sur le bac à sable de la PA, ils vérifient l'authentification, l'annuaire, le dépôt jusqu'au statut Déposée, la réception d'une facture test, l'envoi de statuts et un e-reporting test. »
   - N1 à N6 : webhook sans garde-fous écrits ; `signingKey` renvoyée aussi par `GET /v1/webhooks` ; sécurité de la PA absente de la grille et du questionnaire ; variables manquantes ; clés d'intégration ; droits `factures.emettre` et `factures.consulter`, du modèle cible et non du code.
 - **`controleur-coherence`**, sur `9d6d554` ([commentaire 7022963583](https://github.com/OrizonLab/iris/pull/624#issuecomment-7022963583)) : non fusionnable, **C1, C2** et notes N1 à N13.
-  - C1 : la grille éliminait d'office ce que le texte réserve à Nelson (flux offert dans l'interface de la PA mais pas par son API ; consultation de l'annuaire).
+  - C1 : la grille éliminait d'office ce que le texte réserve à Nelson (flux offert dans l'interface de la PA mais pas par son API) ; la ligne de l'annuaire rendait aussi la consultation éliminatoire, alors que la liste du texte ne citait que l'inscription.
   - C2 : une question de modèle de données (catégorie par fiche du catalogue) était confiée à FE-2 ; elle revient à Nelson (règle 5 de la méthode).
 - **Traitement** : commit `d409bf7`, qui reprend les quatre patchs des auditeurs (C1 des droits, N1 à N6, C1 et C2 de la cohérence, N3 à N9 et N13) et complète les choix par défaut ; N1 et N12 corrigées dans le corps de la PR ; N2 sans changement ; N10 et N11 reportées à la PR documentaire qui suit (cette mise à jour).
 - **Vérifications sur `d409bf7`** ([commentaire 7023222880](https://github.com/OrizonLab/iris/pull/624#issuecomment-7023222880)) :
@@ -6133,12 +6133,14 @@ Les sites officiels étant bloqués dans la session, plusieurs points ne sont **
 
 ### Suivi (19-11-2026, #624)
 
-- **N-v3-1** (facultative, `controleur-coherence`) : la section 7.3 et le corps de la PR ne répètent pas « modèle de données de FE-5, à confirmer par Nelson », que seul le point 11 de la section 8 précise. **À reprendre par la PR b de FE-DOC**, qui réécrit la section 7. Aucune issue n'est citée par les sources lues.
+- **N-v3-1** (facultative, `controleur-coherence`) : la section 7.3 et le corps de la PR ne répètent pas « modèle de données de FE-5, à confirmer par Nelson », que seul le point 11 de la section 8 précise. **À reprendre par la PR b de FE-DOC**, qui réécrit la section 7, et au cadrage de FE-5 ; versée à [#622](https://github.com/OrizonLab/iris/issues/622) (`suivi-audit`).
 
 ### Dans la passation et les autres documents (19-11-2026, #624)
 
 - **Passation** : point de reprise (états « État » et « PR ouvertes », paragraphe d'en-tête, liste des PR ouvertes, ligne « Prochaine action », question prioritaire 7), section 1 (puce « Absent : facturation électronique »), section 2 (bloc « Facturation électronique (A2) »), section 3 (renvoi vers les questions nouvelles, sans les recopier). Les textes remplacés de l'en-tête sont archivés : [en-tête de la passation au 19-11-2026 (commit `f1d3ef3`)](#en-tête-de-la-passation-au-19-11-2026-commit-f1d3ef3).
 - **Notes de la vérification de #623** ([commentaire 7022807699](https://github.com/OrizonLab/iris/pull/623#issuecomment-7022807699)) : N-a (PR ouvertes du point de reprise), N-b (puce « Passation » de la section [Lot 0 de la facturation électronique, 19-11-2026 (#620)](#lot-0-de-la-facturation-électronique-19-11-2026-620), complétée par le point (3) et le point 7), N-c (puce « Proposition » de la même section, reformulée) et N-d (le point (3) vient de la section 12 de la proposition, et non de l'ordre de sa section 8.4) sont faites.
+- **README** : phase 8, renvoi aux deux documents de #624.
+- **Document de connexion** : sa section 6 renvoie désormais à la section 11 de la proposition, où ses questions sont reportées.
 - **Proposition** : Q-PA-1 à Q-PA-3 et N-PA-1 reportées en section 11, avec leurs identifiants (note N11 du contrôle de #624) ; la liste de contrôle de la fiche FE-DOC rendue mot pour mot (note N10).
 
 ## En-tête de la passation au 30-10-2026
