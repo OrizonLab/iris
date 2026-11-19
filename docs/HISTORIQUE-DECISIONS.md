@@ -5857,7 +5857,7 @@ PR documentaire qui consigne la réponse de Nelson sur la règle de consommation
 - **Cache des clés Microsoft** (`sso.ts`) : un cache n'est valable que si son âge sur l'horloge du système est compris entre 0 et une heure, si son âge sur l'horloge monotone du processus (`performance.now()`, noté à la lecture) est inférieur à une heure, et s'il n'est pas daté dans le futur ; daté dans le futur, il est relu (la borne des lectures laisse passer une tentative datée dans le futur). Une clé retirée par Microsoft n'est donc jamais acceptée plus d'une heure de temps réel après la dernière lecture réussie, même si l'horloge recule.
 - **Choix par défaut, à confirmer** : les textes des deux lignes ; la remise à zéro d'une fenêtre datée dans le futur ; le refus d'un cache des clés daté dans le futur, avec son effet exact : après un recul de l'horloge plus long que l'âge du cache, les connexions Microsoft sont refusées tant que le cache reste daté dans le futur et que Microsoft est injoignable ; il sert de nouveau quand l'horloge a rattrapé sa lecture, dans l'heure de temps réel qui la suit.
 - **Documentation modifiée par la PR** : `docs/ACCES-SANS-MICROSOFT.md` (lignes tracées, recul de l'horloge et sa limite) et `docs/CONFIGURATION-ENVIRONNEMENT.md` (refus au plus une heure après la dernière lecture réussie, même si l'horloge recule), ainsi que les commentaires de `secours.ts` et de `sso.ts` et `server/tests/README.md`. Référence des routes : seule l'empreinte de `POST /api/auth/secours` change.
-- **Tests** : `secours-essais.test.mjs` (18 tests : test R1 de #591 réécrit ; quatre tests de #607 ; deux tests qui épinglent les limites) ; `secours-trace.test.mjs` (7 tests, sans base : cinq bons jetons avec la base injoignable, ligne exacte sans détail, essai compté, sixième bloqué ; erreur d'une autre adresse ; nouvelle ligne au premier blocage de la fenêtre rouverte) ; `cles-microsoft.test.mjs` (34 tests : deux tests N6, trois tests de l'audit des droits à horloge monotone simulée, un test du contrôle sur le retour en service du cache, titre du `describe` corrigé, commentaire 6998759218 de #608) ; `api.test.mjs` (`LIGNE_COMPTE_ABSENT` exige « , depuis <adresse locale>. »). Cinq fichiers ciblés : 99/99 sur deux passages d'une même base (code de `ecd8dce`), aucun test ignoré ; `api.test.mjs` 909/909 ; suite backend complète 1 658/1 658 sur `1d2e1a5` puis 1 663/1 663 sur `c1bae0a`, deux fois chacune (audit des droits). Les tests nouveaux échouent sur le code de `main` ; le test R1 réécrit passe (non-régression).
+- **Tests** : `secours-essais.test.mjs` (18 tests : test R1 de #591 réécrit ; trois tests de #607 ; deux tests qui épinglent les limites) ; `secours-trace.test.mjs` (7 tests, sans base : cinq bons jetons avec la base injoignable, ligne exacte sans détail, essai compté, sixième bloqué ; erreur d'une autre adresse ; nouvelle ligne au premier blocage de la fenêtre rouverte) ; `cles-microsoft.test.mjs` (34 tests : deux tests N6, trois tests de l'audit des droits à horloge monotone simulée, un test du contrôle sur le retour en service du cache, titre du `describe` corrigé, commentaire 6998759218 de #608) ; `api.test.mjs` (`LIGNE_COMPTE_ABSENT` exige « , depuis <adresse locale>. »). Cinq fichiers ciblés : 99/99 sur deux passages d'une même base (code de `ecd8dce`), aucun test ignoré ; `api.test.mjs` 909/909 ; suite backend complète 1 658/1 658 sur `1d2e1a5` puis 1 663/1 663 sur `c1bae0a`, deux fois chacune (audit des droits). Les tests nouveaux échouent sur le code de `main`, hors les deux qui épinglent les limites, qui y passent aussi (comportement inchangé, comme avant) ; le test R1 réécrit passe (non-régression).
 - **Mutants** : tous tués (traces : adresse retirée du compte absent, trace du `catch` supprimée, sans adresse ou par `console.error`, message d'erreur recopié sous trois formes ; fenêtre : `maintenant < depuis` retiré, `<=`, condition inversée, contrôle par entrée retiré, compteur remis à zéro sur un 500 ; cache : `age >= 0` retiré, `age > 0`, horloge monotone retirée ou comparée largement, `lueMonotone` non notée, absente, notée une seule fois ou lue sur l'horloge du système, cache vidé sur un échec).
 - **Audits** (constat 7010267544, fusionnable sur `ecd8dce`). `controleur-coherence`, mode 1 (cadrage) : lot dans le périmètre du pilote, sans contradiction ni doublon ; C1 et C2 reprises en v2, N1 et N6 retenues. Trois passages de chaque côté, sur `1d2e1a5`, `c1bae0a` puis `ecd8dce` :
   - premier passage, `auditeur-droits-securite` non fusionnable : **R1** (le correctif du cache était incomplet : un cache daté dans le futur redevenait valable quand l'horloge rattrapait sa lecture, et une clé retirée restait acceptée), **C1** (la documentation du blocage de secours après un recul promettait plus que le code), T1, N1 (horloge monotone du compteur, versée à #614) et N2 ; `controleur-coherence` (mode 2) non fusionnable : **C1** (la même limite, pour le blocage et pour le cache), **C2** (le refus d'un cache daté dans le futur n'était pas déclaré choix par défaut), T1, N1 à N4 ;
@@ -5876,6 +5876,80 @@ PR documentaire qui consigne la réponse de Nelson sur la règle de consommation
 - **Passation** : point de reprise (état, « PR ouvertes », « Prochaine action »), en-tête, section 1 (puces de #606, #603 et nouvelle puce de #612, avec la mention de #611), « Défauts connus » (sécurité de la connexion), section 4 (bloc « Sécurité de la connexion (#562) » : choix par défaut de #612, et la phrase sur une clé retirée par Microsoft, exacte depuis #612 même après un recul de l'horloge). Section 3 : rien de nouveau, aucune décision de Nelson n'est attendue au-delà des choix par défaut à confirmer. Les textes remplacés de l'en-tête et des lignes « État » et « PR ouvertes » sont archivés : [en-tête de la passation au 19-11-2026 (commit `08ed6d6`)](#en-tête-de-la-passation-au-19-11-2026-commit-08ed6d6).
 - **N3 de #613** : les numéros de ligne de `catalogue/metier.ts` et de `catalogue/routes.ts` cités par la section 3 (bloc « Catalogue dans les devis ») et par la section 4 (bloc « Matrice des droits des clés d'intégration (lot D1a-2, #431) », puce sur l'écriture du prix d'achat) sont remis à jour sur `main` à `c57c45c` : `metier.ts:38-40` devient `:39-41`, `:86` (prestation ordinaire) devient `:97`, `:92` (article) `:103`, `:97` (modèle d'équipement) `:111`, `:103-111` (lecture par une clé) `:117-125`, et `routes.ts:130` devient `:132`. Chaque numéro a été vérifié sur le code de `main` ; ils sont tous ceux du patch préparé par l'auditeur, sans écart. Les numéros de ce relevé sont ceux de `c57c45c` ; les citations d'autres sections de cet historique, datées, ne sont pas modifiées.
 - **Autres documents** : `ACCES-SANS-MICROSOFT.md` et `CONFIGURATION-ENVIRONNEMENT.md`, modifiés par #612, sont cohérents avec la passation ; ils ne sont pas réécrits ici.
+
+## Décision du 19-11-2026 sur la facturation électronique
+
+*Rédigé le 19-11-2026, `main` à `c57c45c`.*
+
+- **Décision de Nelson du 19-11-2026, à consigner mot pour mot** : « Iris doit être entièrement conforme à la facturation électronique : émission, réception, statuts et e-reporting, sans que nous soyons plateforme agréée. Si un choix existant (choix par défaut, simplification, cas ignoré comme le statut Refusée) pose un vrai problème réglementaire, il doit être corrigé. Documente la connexion à une plateforme agréée et tout ce qu'il faut faire au déploiement pour qu'Iris soit prêt à l'emploi. »
+- **Cadrage joint par Nelson, mot pour mot** :
+
+> Ce message remplace mon précédent cadrage sur le sujet.
+>
+> PRINCIPES
+> - Iris reste une solution compatible : il produit, valide, reçoit et suit les factures ; la plateforme agréée (PA) de chaque installation les transmet. Aucune immatriculation pour nous.
+> - La conformité réglementaire prime sur tout choix antérieur. Une exigence obligatoire non respectée est une remarque bloquante (R), jamais une issue suivi-audit reportée.
+> - Chaque exigence cite sa source officielle (document, section, version). En cas d'ambiguïté, pose-moi la question : je la porte au cabinet. Une règle légale reste dans le code avec sa source ; ce qui varie d'une société à l'autre devient un paramètre.
+>
+> RÉFÉRENCES (vérifie la dernière version avant de coder)
+> Spécifications externes DGFiP (v3.2 du 30-04-2026 ou plus récente), guide pratique DGFiP, AFNOR XP Z12-012/013/014, Factur-X 1.09, schematrons FNFE-MPE (github.com/fnfempe/France_RFE) et EN16931, article 242 nonies A de l'annexe II au CGI, décret 2026-677 et arrêté du 27-07-2026.
+>
+> LOT 0 — AUDIT DE CONFORMITÉ, AVANT TOUT CODE
+> - Matrice exigence → source → code actuel → test, sur tout le dépôt : modèles Facture, Avoir et Client, numérotation, règlements, envoi par Mail.Send, documentation. Relis aussi les décisions et les issues suivi-audit qui touchent la facturation.
+> - Classe chaque écart : obligatoire, recommandé ou confort. Écart déjà connu : le statut Refusée manque dans docs/INTEGRATIONS-M365-COMPTABILITE-FACTURATION-FR.md.
+> - Livrable : proposition docs/FACTURATION-ELECTRONIQUE-CIBLE.md (PR documentaire), avec le découpage en lots et les questions.
+>
+> ÉMISSION
+> - Modèle canonique EN16931, indépendant du PDF ; sorties Factur-X profil EN16931 et UBL/CII ; EXTENDED-CTC-FR seulement si un cas d'usage l'exige.
+> - Données : SIREN du client assujetti en France, catégorie d'opération, option TVA sur les débits, adresse de livraison, type de client (B2B FR, B2B étranger, B2C), les 34 données cibles 2027.
+> - Validation complète (données obligatoires et schematrons) avant l'attribution du numéro et le figement, pour éviter les rejets.
+> - B2B domestique : la facture part par la PA. Dès la date d'obligation de la société, l'e-mail n'est plus qu'une copie d'information.
+>
+> STATUTS
+> - Les quatre statuts obligatoires (Déposée, Rejetée, Refusée, Encaissée) gérés dans les deux sens, plus les statuts recommandés utiles. Journal horodaté et immuable, avec la preuve renvoyée par la PA.
+> - Rejetée et Refusée n'ont pas le même effet : applique la règle officielle de chacun (numérotation, avoir, nouvelle facture). Si elle heurte nos invariants de numérotation ou d'immutabilité, ne tranche pas : pose-moi la question avec la source.
+> - Statut Encaissée et données de paiement alimentés par les règlements, prélèvements des contrats compris.
+> - Alerte visible sur toute facture rejetée ou refusée, avec son motif.
+>
+> RÉCEPTION
+> - La réception légale est assurée par la PA de la société. Iris récupère les factures par l'API de la PA, sans agrément.
+> - Factures fournisseurs : récupération, dédoublonnage, conservation du fichier original et d'une représentation lisible, rattachement au fournisseur par SIREN.
+> - Statuts acheteur depuis Iris : Prise en charge, Approuvée, En litige, Refusée avec un motif de la liste officielle. Qui peut approuver ou refuser relève des droits et des paramètres.
+> - Si Iris n'a pas de module achats, propose une boîte de réception minimale et pose-moi la question du périmètre.
+>
+> E-REPORTING
+> - Ventes B2C, ventes B2B internationales et paiements, à la périodicité réglementaire du régime de TVA de la société (paramètre).
+>
+> CONNEXION À UNE PA
+> - Adaptateur ElectronicInvoicingProvider sur l'API XP Z12-013 (factures, statuts, e-reporting, annuaire). Un adaptateur propriétaire seulement si la PA retenue n'implémente pas la norme, et sur ma décision.
+> - Une PA par installation, activée par SUPERADMIN dans l'écran Connecteurs. Secrets en variables d'environnement documentées (.env.example, CONFIGURATION-ENVIRONNEMENT.md). Un webhook éventuel est authentifié, filtré et testé ; sinon, interrogation périodique.
+> - Contrôle de compatibilité : une commande (par exemple npm run efacture:verifier) et un bouton « Tester la connexion ». Sur le bac à sable de la PA, ils vérifient l'authentification, l'annuaire, le dépôt jusqu'au statut Déposée, la réception d'une facture test, l'envoi de statuts et un e-reporting test. Le rapport dit « conforme » ou liste précisément les manques.
+>
+> DOCUMENTATION À LIVRER
+> - docs/FACTURATION-ELECTRONIQUE-CONNEXION-PA.md : critères de choix d'une PA (inscrite sur la liste officielle DGFiP, version de XP Z12-013, flux couverts, formats, bac à sable, notifications, archivage, réversibilité), puis la connexion pas à pas.
+> - docs/FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md : liste de contrôle par installation :
+>   identité fiscale de la société (SIREN, TVA, option débits, catégorie et date d'obligation) ; PA choisie et contrat signé ; inscription à l'annuaire vérifiée ; identifiants configurés ; SIREN et type de chaque client professionnel ; catégorie d'opération par article, validée par le cabinet ; contrôle de compatibilité au vert ; première facture réelle suivie jusqu'au statut attendu ; e-reporting paramétré ; conservation des factures (durée et lieu, à valider par le cabinet) ; personnes chargées des rejets et des refus ; validation du cabinet et mon feu vert.
+> - Mise à jour de docs/INTEGRATIONS-M365-COMPTABILITE-FACTURATION-FR.md, de la passation et de l'historique.
+>
+> TECHNIQUE
+> - TypeScript, comme le reste d'Iris. Paquets vérifiés le 19-11-2026 (npm audit : 0 vulnérabilité), à revérifier à l'installation : @e-invoice-eu/core 3.4.4 (à comparer à un générateur maison), @cantoo/pdf-lib 2.11.1 (pas pdf-lib, abandonné), fast-xml-parser 5.12.1, xmllint-wasm 5.3.0. Pour les schematrons, validateurs officiels dans un conteneur de CI plutôt que saxon-js.
+> - Tests : chaque facture et chaque avoir générés passent les schematrons. Les parcours rejet, refus, encaissement et réception sont testés sur PostgreSQL et dans le navigateur. Job CI dédié, lancé seulement quand la facturation change.
+> - auditeur-montants et auditeur-droits-securite sur chaque lot concerné.
+>
+> PRIORITÉ
+> Le lot 0 tout de suite ; les lots de code après les lots pilotes en cours, avec une recette sur le bac à sable d'une PA avant le 01-06-2027.
+
+- **Ce qu'elle remplace** : le cadrage « Facturation électronique (A2) » de la passation (section 2) et la question du même nom (section 3), ici archivés tels qu'ils étaient sur `c57c45c` :
+
+> **Facturation électronique (A2).**
+> - Si l'entreprise pilote est une PME, le pilote fonctionne en PDF avec l'export comptable. Le lot Factur-X avec plateforme agréée est cadré pour l'échéance d'émission des PME (calendrier à faire confirmer par le cabinet).
+> - Reste à connaître la taille de l'entreprise pilote et la plateforme retenue.
+> - La réception des factures électroniques, obligatoire pour toutes les entreprises depuis le 01-09-2026 selon notre lecture du calendrier, est assurée hors d'Iris (plateforme de l'entreprise) : à faire confirmer par le cabinet.
+
+> - **Facturation électronique (A2)** : taille de l'entreprise pilote et plateforme agréée retenue, et confirmation que la réception des factures électroniques est assurée hors d'Iris, avec le cabinet.
+
+  La réception n'est plus « assurée hors d'Iris » : la réception légale reste assurée par la plateforme agréée de la société, et Iris récupère les factures par son API, sans agrément.
+- **Suite** : le lot 0 (audit de conformité, avant tout code) est lancé le 19-11-2026. Son livrable est la proposition `docs/FACTURATION-ELECTRONIQUE-CIBLE.md`, en PR documentaire, avec la matrice exigence → source → code actuel → test, le classement des écarts, le découpage en lots et les questions. Les lots de code viennent après les lots pilotes en cours, avec une recette sur le bac à sable d'une plateforme agréée avant le 01-06-2027. Une exigence obligatoire non respectée sera une remarque bloquante (R).
 
 ## En-tête de la passation au 30-10-2026
 
