@@ -423,6 +423,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Liste de contrôle** (cadrage de Nelson) : identité fiscale de la société (SIREN, TVA, option débits, catégorie et date d'obligation) ; PA choisie et contrat signé ; inscription à l'annuaire vérifiée ; identifiants configurés ; SIREN et type de chaque client professionnel ; catégorie d'opération par article, validée par le cabinet ; contrôle de compatibilité au vert ; première facture réelle suivie jusqu'au statut attendu ; e-reporting paramétré ; conservation (durée et lieu, à valider par le cabinet) ; personnes chargées des rejets et des refus ; validation du cabinet et feu vert de Nelson.
 - **Hors périmètre** : le choix de la PA, qui revient à Nelson (N-02).
 - **Critères** : un administrateur suit la liste sans autre document ; chaque point renvoie à l'écran ou à la variable concernés.
+- **Documents de la PR a** : [connexion à une PA](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md) (critères de choix ; connexion pas à pas prévue) et [liste de contrôle du déploiement](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md) (première version).
 
 #### FE-1 : identité fiscale de la société et des clients
 
