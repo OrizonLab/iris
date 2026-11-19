@@ -6,7 +6,7 @@ import { permissionsEffectives } from '../../droits/permissions';
 import { type AuthRequest, JWT_SECRET, requireAuth } from '../../http/auth';
 import { AZURE_TENANT_ID, AZURE_CLIENT_ID, SSO_CONFIGURED, autoriserConnexionMicrosoft, tracerRefusSso, verifyMicrosoftIdentity } from './sso';
 import {
-  BREAK_GLASS_EMAIL, BREAK_GLASS_TOKEN, BREAK_GLASS_MIN_LONGUEUR, BREAK_GLASS_ACTIF, BREAK_GLASS_ADRESSE_RESERVEE, secretIdentique, essaisSecours, tropDEssaisSecours,
+  BREAK_GLASS_EMAIL, BREAK_GLASS_TOKEN, BREAK_GLASS_MIN_LONGUEUR, BREAK_GLASS_ACTIF, BREAK_GLASS_ADRESSE_RESERVEE, secretIdentique, essaisSecours, tropDEssaisSecours, premierEssaiBloqueSecours,
 } from './secours';
 
 export function enregistrerRoutesAuthentification(app: Express): void {
@@ -82,7 +82,7 @@ export function enregistrerRoutesAuthentification(app: Express): void {
       return res.status(503).json({ code: 'SECOURS_INACTIF', error: "L'accès de secours n'est pas configuré sur cette instance." });
     }
     if (tropDEssaisSecours(ip)) {
-      console.warn(`[SECOURS] Trop de tentatives depuis ${ip} — blocage temporaire.`);
+      if (premierEssaiBloqueSecours(ip)) console.warn(`[SECOURS] Trop de tentatives depuis ${ip} — blocage temporaire.`);
       return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans quinze minutes.' });
     }
     const token = String(req.body?.token || '');

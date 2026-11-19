@@ -1,0 +1,561 @@
+// Lot #589, « clés Microsoft relues au plus une fois par minute » (cadrage v1, complété des v2 et v3 du
+// controleur-coherence, `main` à 890d384 ; issue `suivi-audit` #589, note N4 du contrôle de cohérence du cadrage de
+// #563 ; messages de Nelson des 16, 17 et 18-11-2026, « continu avec les issu. », « Ok continu », « Reprend […] »).
+// Parcours de sécurité de la connexion (règle 2 de la méthode).
+//
+// Avant ce lot, un jeton dont le `kid` manquait au cache des clés de signature Microsoft (JWKS) faisait relire
+// MS_JWKS_URI à chaque fois, sans limite ; une lecture en échec ne notait rien ; des demandes simultanées lançaient
+// chacune la leur ; un cache expiré avec un `kid` inconnu faisait deux lectures dans la même requête (N10). Un client
+// non authentifié faisait donc lancer au serveur autant d'appels sortants qu'il envoyait de jetons forgés à
+// POST /api/auth/sso. Le cadrage fixe :
+//   - toute lecture note l'instant de sa tentative, réussie ou non ; un `kid` inconnu ne relance une lecture que si la
+//     dernière tentative date de plus de 60 secondes, sinon le jeton est refusé sans appel sortant (point 1) ;
+//   - la dernière tentative vaut « jamais » au départ (null), et non 0 (v2, N6 ; v3, N-a) ;
+//   - une tentative datée dans le futur, après un recul de l'horloge, n'empêche pas la lecture (v2, C3) ;
+//   - le cache expiré (une heure) suit la même borne ; en cas d'échec, le cache précédent reste utilisé s'il existe, et
+//     une trace `[SSO] Lecture des clés Microsoft impossible : <motif>.` est écrite, sans jeton ni identifiant ;
+//     « échec » : statut hors 2xx, exception (réseau, délai), JSON invalide, `keys` absent ou qui n'est pas un tableau
+//     (v2, N3) ;
+//   - des demandes simultanées partagent une seule lecture en cours ; une demande dont le `kid` est dans le cache frais
+//     n'attend jamais une lecture en cours (point 1 ; v2, N4) ;
+//   - une lecture dure au plus 10 s (`AbortSignal.timeout(10_000)`), et un dépassement compte comme une tentative en
+//     échec (v2, point 4 ; v3, T1).
+// Valeurs (60 s, 10 s) et cache gardé sur un échec : choix par défaut, à confirmer.
+//
+// Tests sans base (v2, point 11) : `verifyMicrosoftIdentity(req)` ne lit que `req.body.idToken` et `req.ip`. Microsoft
+// est simulé dans le processus, comme dans sso-identifiant.test.mjs : AZURE_TENANT_ID et AZURE_CLIENT_ID sont posés
+// avant le chargement de sso.js (qui les lit à son chargement), `globalThis.fetch` est remplacé et compte les appels à
+// la seule adresse des clés du locataire (toute autre adresse est relevée et refusée), et les jetons sont signés en
+// RS256 par des clés tirées par ce fichier, avec l'audience et l'émetteur attendus. Un jeton « forgé » est signé par
+// une autre clé, sous un `kid` encore jamais vu.
+//
+// Horloge : `mock.timers` sur `Date` seulement (Node 20.11 au moins) ; les minuteries restent réelles. Or `mock.timers`
+// ne pilote pas `AbortSignal.timeout` (v3, T1) : il est remplacé, dans chaque test, par un signal piloté à la main, qui
+// relève le délai demandé ; le test du délai abandonne lui-même la lecture suspendue, avec l'erreur `TimeoutError` que
+// rendrait le signal du délai.
+//
+// Remise à zéro entre deux tests : le module compilé sso.js est rechargé avant chaque test (son entrée est retirée de
+// `require.cache`). Son cache, sa dernière tentative et sa lecture en cours repartent ainsi de leur valeur initiale, sans
+// export réservé aux tests ; les modules dont il dépend (base, journal) restent ceux du premier chargement. Le test HTTP,
+// en fin de fichier, passe par l'application chargée au début du fichier : elle garde l'instance de sso.js chargée
+// avec elle, que lui seul utilise. Une base injoignable lui est donnée : un 401 y prouve qu'aucune lecture ni écriture
+// en base n'a été tentée (elle aurait répondu 500).
+import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
+import { createRequire } from 'node:module';
+import test, { afterEach, beforeEach, describe, mock } from 'node:test';
+import { setTimeout as attendre } from 'node:timers/promises';
+import { format } from 'node:util';
+import jwt from 'jsonwebtoken';
+
+// --- Microsoft simulé ---
+const LOCATAIRE = '00000000-0000-4000-8000-0000000a5890';
+const APPLICATION = '00000000-0000-4000-8000-0000000b5890';
+const EMETTEUR = `https://login.microsoftonline.com/${LOCATAIRE}/v2.0`;
+const ADRESSE_CLES = `https://login.microsoftonline.com/${LOCATAIRE}/discovery/v2.0/keys`;
+
+// Posées avant le chargement de l'application et de sso.js : connexion Microsoft active, base injoignable, accès de
+// secours inactif, aucun proxy de confiance. Posées même vides, elles ne sont pas remplacées par un server/.env du poste
+// (dotenv ne remplace pas une variable déjà posée).
+process.env.AZURE_TENANT_ID = LOCATAIRE;
+process.env.AZURE_CLIENT_ID = APPLICATION;
+process.env.DATABASE_URL = 'postgresql://iris:iris@127.0.0.1:1/iris_injoignable?schema=public&connect_timeout=5';
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'secret-de-test-cles-microsoft-589';
+process.env.BREAK_GLASS_EMAIL = '';
+process.env.BREAK_GLASS_TOKEN = '';
+process.env.TRUST_PROXY = '';
+process.env.SUPERADMIN_EMAILS = '';
+delete process.env.MICROSOFT_GRAPH_URL;
+
+const require = createRequire(import.meta.url);
+const request = require('supertest');
+const { app } = require('../dist/index.js');
+const CHEMIN_SSO = require.resolve('../dist/src/domaines/authentification/sso.js');
+// Nouvelle instance de sso.js : cache vide, dernière tentative « jamais », aucune lecture en cours.
+const chargerSso = () => {
+  delete require.cache[CHEMIN_SSO];
+  return require(CHEMIN_SSO);
+};
+
+const KID_A = 'cle-589-a';
+const KID_B = 'cle-589-b'; // clé publiée par Microsoft après coup (rotation)
+const paireA = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const paireB = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const paireForge = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const privee = (paire) => paire.privateKey.export({ type: 'pkcs8', format: 'pem' });
+const publique = (paire, kid) => ({ ...paire.publicKey.export({ format: 'jwk' }), kid, use: 'sig', alg: 'RS256' });
+const CLE_A = privee(paireA);
+const CLE_B = privee(paireB);
+const CLE_FORGE = privee(paireForge);
+const JWK_A = publique(paireA, KID_A);
+const JWK_B = publique(paireB, KID_B);
+
+const OID = '00000000-0000-4000-8000-00000000c589';
+const ADRESSE = 'personne.589@iris.test';
+const IP = '198.51.100.89';
+const IDENTITE = { email: ADRESSE, oid: OID, tid: LOCATAIRE };
+const REFUS_GENERIQUE = { code: 'SSO_TOKEN_INVALID', error: 'Jeton Microsoft invalide ou non vérifié.' };
+
+// Jetons signés à l'instant simulé, valables dix minutes : chaque test les tire au moment de les présenter.
+const signer = (cle, kid) => jwt.sign(
+  { oid: OID, tid: LOCATAIRE, preferred_username: ADRESSE, email: ADRESSE, name: 'TEST Personne 589' },
+  cle,
+  { algorithm: 'RS256', keyid: kid, audience: APPLICATION, issuer: EMETTEUR, expiresIn: '10m' },
+);
+const jetonA = () => signer(CLE_A, KID_A);
+const jetonB = () => signer(CLE_B, KID_B);
+let rangForge = 0;
+const kidsForges = [];
+const jetonForge = () => {
+  const kid = `cle-forgee-589-${(rangForge += 1)}`;
+  kidsForges.push(kid);
+  return signer(CLE_FORGE, kid);
+};
+
+// --- Temps ---
+const S = 1000;
+const MIN = 60 * S;
+const HEURE = 60 * MIN;
+const INTERVALLE = 60 * S; // cadrage, point 1 : 60 s entre deux lectures
+const DELAI = 10 * S; // cadrage v2, point 4 : 10 s au plus par lecture
+const DUREE_CACHE = HEURE; // cache des clés, inchangé
+const T0 = Date.UTC(2026, 10, 19, 8); // 19-11-2026, 8 h UTC
+const aller = (instant) => mock.timers.setTime(instant);
+
+// --- Réponses de Microsoft ---
+const json = (corps, status = 200) => new Response(JSON.stringify(corps), { status, headers: { 'content-type': 'application/json' } });
+const jwks = (...cles) => () => json({ keys: cles });
+const differee = () => {
+  let resoudre;
+  const promesse = new Promise((r) => { resoudre = r; });
+  return { promesse, resoudre };
+};
+// Lecture suspendue jusqu'à l'abandon par son signal, comme le `fetch` de Node : elle rejette alors avec la raison du
+// signal. Sans signal (mutant « délai retiré »), elle ne se termine jamais.
+const suspendue = ({ signal } = {}) => new Promise((_, rejeter) => {
+  if (!signal) return;
+  if (signal.aborted) { rejeter(signal.reason); return; }
+  signal.addEventListener('abort', () => rejeter(signal.reason), { once: true });
+});
+
+// État simulé, remis à zéro avant chaque test.
+const fetchOrigine = globalThis.fetch;
+let repondre = jwks(JWK_A);
+let appels = []; // lectures de l'adresse des clés : { signal }
+let autresAppels = [];
+let delais = []; // délais demandés à AbortSignal.timeout
+let controleurs = []; // un contrôleur par signal rendu, pour abandonner à la main
+let lignes = []; // sortie console de l'application
+
+function simulerMicrosoft() {
+  repondre = jwks(JWK_A);
+  appels = [];
+  autresAppels = [];
+  delais = [];
+  controleurs = [];
+  lignes = [];
+  globalThis.fetch = async (entree, options = {}) => {
+    const adresse = typeof entree === 'string' ? entree : entree instanceof URL ? entree.href : entree.url;
+    if (adresse !== ADRESSE_CLES) {
+      autresAppels.push(adresse);
+      throw new Error(`adresse inattendue : ${adresse}`);
+    }
+    appels.push({ signal: options.signal });
+    return repondre(options);
+  };
+  mock.method(AbortSignal, 'timeout', (ms) => {
+    const controleur = new AbortController();
+    delais.push(ms);
+    controleurs.push(controleur);
+    return controleur.signal;
+  });
+  for (const methode of ['log', 'info', 'warn', 'error', 'debug']) {
+    mock.method(console, methode, (...args) => {
+      const texte = format(...args);
+      // Avertissement de Node (« ExperimentalWarning » de mock.timers), écrit une fois par processus : il n'est pas de
+      // l'application.
+      if (!/^\(node:\d+\) [A-Za-z]*Warning: /.test(texte)) lignes.push({ methode, texte });
+    });
+  }
+}
+function retablir() {
+  mock.timers.reset();
+  mock.restoreAll();
+  globalThis.fetch = fetchOrigine;
+}
+
+const lectures = () => appels.length;
+const textes = () => lignes.map((l) => `${l.methode} ${l.texte}`);
+
+// Cadrage v2, N3 : « Une trace `[SSO] Lecture des clés Microsoft impossible : <motif>.` est écrite à chaque lecture en
+// échec […], sans jeton ni identifiant. » Le texte du motif n'est pas fixé par le cadrage : seule la forme est vérifiée.
+const TRACE_ECHEC = /^\[SSO\] Lecture des clés Microsoft impossible : \S.*\.$/;
+function uneTraceDEchec(depuis, jetons, quoi) {
+  const nouvelles = lignes.slice(depuis);
+  assert.equal(nouvelles.length, 1, `${quoi} : une seule ligne attendue, reçu :\n${textes().slice(depuis).join('\n')}`);
+  assert.equal(nouvelles[0].methode, 'warn', quoi);
+  assert.match(nouvelles[0].texte, TRACE_ECHEC, quoi);
+  const texte = nouvelles[0].texte.toLowerCase();
+  const secrets = { oid: OID, locataire: LOCATAIRE, application: APPLICATION, adresse: ADRESSE, ip: IP, kidA: KID_A, kidB: KID_B, ...Object.fromEntries(kidsForges.map((k, i) => [`kidForge${i}`, k])) };
+  for (const jeton of jetons) {
+    secrets[`jeton ${jeton.slice(0, 12)}`] = jeton;
+    secrets[`signature ${jeton.slice(0, 12)}`] = jeton.split('.')[2];
+  }
+  for (const [nom, valeur] of Object.entries(secrets)) {
+    assert.ok(!texte.includes(String(valeur).toLowerCase()), `${quoi} : ${nom} recopié dans la trace : ${nouvelles[0].texte}`);
+  }
+}
+const aucuneLigne = (depuis, quoi) => assert.deepEqual(textes().slice(depuis), [], quoi);
+
+describe('#589 : clés Microsoft relues au plus une fois par minute, lecture partagée, limitée à 10 s, cache gardé sur un échec', () => {
+  let verifier;
+  beforeEach(() => {
+    const sso = chargerSso();
+    verifier = (idToken) => sso.verifyMicrosoftIdentity({ body: { idToken }, ip: IP });
+    simulerMicrosoft();
+    mock.timers.enable({ apis: ['Date'], now: T0 });
+  });
+  afterEach(() => {
+    retablir();
+    assert.deepEqual(autresAppels, [], 'aucune autre adresse n’est appelée');
+  });
+
+  // Cadrage v2, N6 : « la dernière tentative vaut « jamais » au départ (`null`), et non 0 (avec `mock.timers`,
+  // l'horloge part de 0) » ; v3, N-a : « sous `mock.timers`, horloge à 0 : la toute première lecture doit avoir lieu ».
+  // Lecture écartée : une dernière tentative initialisée à 0, sous laquelle, à l'instant 0, l'écart nul ne dépasse pas
+  // 60 s : aucune lecture, et le jeton serait refusé.
+  test('première lecture à l’instant 0 de l’horloge : elle a lieu (dernière tentative « jamais », et non 0), le jeton est accepté, puis la clé connue l’est sans nouvel appel', async () => {
+    aller(0);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'première connexion à l’instant 0');
+    assert.equal(lectures(), 1, 'une lecture, la toute première');
+    aller(30 * S);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.equal(lectures(), 1, 'clé connue : aucun appel');
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage, « Tests attendus » : « non-régression : `kid` connu accepté sans appel ; cache expiré relu une fois » ; v2,
+  // N10 : « aujourd'hui, un cache expiré avec un `kid` inconnu fait deux lectures dans une même requête ». Lectures
+  // écartées : une relecture d'un `kid` connu avant l'heure ; deux lectures pour un cache expiré et un `kid` inconnu
+  // (comportement d'avant ce lot) ; un cache expiré servi sans relecture.
+  test('non-régression : une clé connue est acceptée sans appel pendant une heure ; le cache expiré est relu une seule fois, même pour un kid inconnu (avant ce lot : deux lectures dans la même requête)', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.equal(lectures(), 1);
+    for (const instant of [T0 + 30 * S, T0 + INTERVALLE + 1, T0 + 30 * MIN, T0 + DUREE_CACHE - 1]) {
+      aller(instant);
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, `clé connue à T0 + ${instant - T0} ms`);
+    }
+    assert.equal(lectures(), 1, 'clé connue du cache frais : aucun appel pendant une heure');
+    aller(T0 + DUREE_CACHE + 1);
+    assert.equal(await verifier(jetonForge()), null, 'cache expiré, kid inconnu : refusé');
+    assert.equal(lectures(), 2, 'cache expiré et kid inconnu : une seule lecture');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache relu : la clé connue est acceptée');
+    assert.equal(lectures(), 2, 'cache relu à l’instant : aucun appel de plus');
+    aller(T0 + 2 * DUREE_CACHE + 2);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache de nouveau expiré, clé connue');
+    assert.equal(lectures(), 3, 'cache expiré et clé connue : une lecture');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.equal(lectures(), 3);
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage v2, N5 : « lecture à t0 ; à t0 + 61 s, N jetons forgés donnent exactement 1 lecture ; jusqu'à t0 + 121 s,
+  // aucune autre » ; point 1 : « un `kid` inconnu ne déclenche une nouvelle lecture que si la dernière tentative date de
+  // plus de 60 secondes ; sinon le jeton est refusé […], sans appel sortant ». Lectures écartées : aucune borne (une
+  // lecture par jeton forgé, comportement d'avant ce lot : 81 lectures) ; une borne large (`>=`), sous laquelle 60 s pile
+  // relancerait une lecture ; une borne comptée depuis la dernière lecture réussie avec la clé du jeton, ou depuis t0
+  // seulement, sous laquelle t0 + 121 s relancerait une lecture.
+  test('au plus une lecture par minute : lecture à t0 ; rien à t0 + 60 s pile ; à t0 + 61 s, vingt jetons forgés en donnent exactement une ; aucune autre jusqu’à t0 + 121 s ; une milliseconde après, vingt jetons simultanés en donnent une seule', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture à t0');
+    assert.equal(lectures(), 1);
+    const forges = async (n, quoi) => {
+      for (let i = 1; i <= n; i += 1) assert.equal(await verifier(jetonForge()), null, `${quoi}, jeton forgé ${i}`);
+    };
+    aller(T0 + 30 * S);
+    await forges(20, 't0 + 30 s');
+    aller(T0 + INTERVALLE);
+    await forges(20, 't0 + 60 s pile');
+    assert.equal(lectures(), 1, 'dans les 60 s de la lecture de t0 : aucun appel sortant');
+    aller(T0 + 61 * S);
+    await forges(20, 't0 + 61 s');
+    assert.equal(lectures(), 2, 'à t0 + 61 s, vingt jetons forgés : exactement une lecture');
+    aller(T0 + 90 * S);
+    await forges(20, 't0 + 90 s');
+    aller(T0 + 121 * S);
+    await forges(20, 't0 + 121 s');
+    assert.equal(lectures(), 2, 'jusqu’à t0 + 121 s : aucune autre lecture');
+    aller(T0 + 121 * S + 1);
+    const ensemble = await Promise.all(Array.from({ length: 20 }, () => verifier(jetonForge())));
+    assert.deepEqual(ensemble, Array(20).fill(null), 'vingt jetons forgés simultanés : tous refusés');
+    assert.equal(lectures(), 3, 'une milliseconde après : une seule lecture pour vingt jetons simultanés');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'la clé connue reste acceptée');
+    assert.equal(lectures(), 3);
+    // Chaque lecture a demandé le délai de 10 s et l'a transmis à `fetch`.
+    assert.deepEqual(delais, [DELAI, DELAI, DELAI]);
+    appels.forEach((appel, i) => assert.equal(appel.signal, controleurs[i].signal, `lecture ${i + 1} : signal du délai transmis`));
+    // Cadrage v2, N6 (N2 du contrôle) : aucune ligne `[SSO]` de refus pour un jeton forgé.
+    aucuneLigne(0, 'aucune trace pour des jetons forgés');
+  });
+
+  // Cadrage, « Tests attendus » : « après l'intervalle […], un `kid` inconnu relance une lecture ; un `kid` apparu
+  // entre-temps (rotation) est alors accepté » ; point 1, effet accepté : « un jeton signé par la nouvelle clé peut être
+  // refusé pendant au plus 60 s si une lecture vient d'avoir lieu ». Lecture écartée : une clé publiée après la lecture
+  // qui resterait refusée jusqu'à l'expiration du cache (une heure).
+  test('rotation des clés : une clé publiée par Microsoft après la dernière lecture est refusée dans la minute qui suit celle-ci (effet accepté), puis acceptée par la lecture suivante, sans relecture pour les clés connues', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.equal(lectures(), 1);
+    repondre = jwks(JWK_A, JWK_B); // Microsoft publie la clé B
+    aller(T0 + 30 * S);
+    assert.equal(await verifier(jetonB()), null, 'clé B, 30 s après la lecture : refusée, sans appel');
+    assert.equal(lectures(), 1);
+    aller(T0 + INTERVALLE + 1);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE, 'clé B, 60 s et 1 ms après la lecture : relue et acceptée');
+    assert.equal(lectures(), 2);
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE);
+    assert.equal(lectures(), 2, 'clés connues : aucun appel de plus');
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage, point 1 : « des demandes simultanées partagent une seule lecture en cours (une seule promesse) ». Lectures
+  // écartées : une lecture par demande (vingt appels) ; une borne sans partage, sous laquelle la première demande lirait
+  // et les dix-neuf autres, bornées, seraient refusées sans attendre la lecture en cours.
+  test('demandes simultanées : vingt jetons de deux clés présentés ensemble avant toute lecture n’en lancent qu’une, et tous sont acceptés à son retour', async () => {
+    const reponse = differee();
+    repondre = () => reponse.promesse;
+    const enCours = Array.from({ length: 20 }, (_, i) => verifier(i % 2 ? jetonA() : jetonB()));
+    assert.equal(lectures(), 1, 'une seule lecture lancée pour vingt demandes');
+    reponse.resoudre(json({ keys: [JWK_A, JWK_B] }));
+    assert.deepEqual(await Promise.all(enCours), Array(20).fill(IDENTITE), 'toutes servies par la lecture partagée');
+    assert.equal(lectures(), 1);
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage v2, N4 (point 8) : « une requête dont le `kid` est dans le cache frais n'attend jamais une lecture en
+  // cours. Test : `fetch` suspendu, clé connue acceptée tout de suite. » Lecture écartée : toute demande qui attend la
+  // lecture en cours, sous laquelle une lecture suspendue retarderait toutes les connexions (jusqu'à 10 s, ou bien plus
+  // sans délai).
+  test('une clé connue du cache frais n’attend pas une lecture en cours : pendant une lecture suspendue, lancée par un jeton forgé, la clé connue est acceptée tout de suite', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    aller(T0 + 61 * S);
+    const reponse = differee();
+    repondre = () => reponse.promesse;
+    const forge = verifier(jetonForge());
+    const minuterie = new AbortController();
+    try {
+      assert.equal(lectures(), 2, 'le jeton forgé a lancé une lecture, suspendue');
+      const issues = await Promise.race([
+        Promise.all([verifier(jetonA()), verifier(jetonA()), verifier(jetonA())]),
+        attendre(2000, 'en attente de la lecture en cours', { signal: minuterie.signal }),
+      ]);
+      assert.deepEqual(issues, [IDENTITE, IDENTITE, IDENTITE], 'clé connue acceptée sans attendre la lecture');
+      assert.equal(lectures(), 2);
+    } finally {
+      minuterie.abort();
+      reponse.resoudre(json({ keys: [JWK_A] }));
+    }
+    assert.equal(await forge, null, 'le jeton forgé reste refusé au retour de la lecture');
+    assert.equal(lectures(), 2);
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage v2, C3 (point 3) : « une dernière tentative datée dans le futur n'empêche pas la lecture : lire si
+  // `écart < 0 || écart > 60 s` ». Lecture écartée : `écart > 60 s` seul, sous lequel, après un recul d'une heure, aucune
+  // lecture n'aurait lieu avant que l'horloge ait rattrapé t0 + 60 s (une heure et une minute), si bien que la clé B
+  // publiée entre-temps resterait refusée.
+  test('horloge qui recule d’une heure : la dernière tentative, datée dans le futur, n’empêche pas la lecture ; la borne repart de la nouvelle tentative', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.equal(lectures(), 1);
+    repondre = jwks(JWK_A, JWK_B);
+    const recul = T0 - HEURE;
+    aller(recul);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE, 'après le recul, la clé B est lue et acceptée');
+    assert.equal(lectures(), 2, 'une lecture, malgré la dernière tentative datée dans le futur');
+    aller(recul + 30 * S);
+    assert.equal(await verifier(jetonForge()), null);
+    assert.equal(lectures(), 2, '30 s après la nouvelle tentative : aucune lecture');
+    aller(recul + INTERVALLE + 1);
+    assert.equal(await verifier(jetonForge()), null);
+    assert.equal(lectures(), 3, 'plus de 60 s après la nouvelle tentative : une lecture');
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Lectures en échec. Cadrage v2, N3 : « Échec » : statut hors 2xx, exception (réseau, délai), JSON invalide, `keys`
+  // absent ou qui n'est pas un tableau. Le statut 503 porte une liste de clés valide (avec la clé B) : elle ne doit pas
+  // servir (lecture écartée : un statut ignoré). Le corps `null` est un JSON valide sans `keys`.
+  const ECHECS = [
+    ['statut HTTP 500', () => new Response('Erreur interne', { status: 500 })],
+    ['statut HTTP 503 avec une liste de clés', () => json({ keys: [JWK_A, JWK_B] }, 503)],
+    ['exception de fetch (réseau)', () => { throw new TypeError('fetch failed'); }],
+    ['JSON invalide', () => new Response('<html>Service indisponible</html>', { status: 200, headers: { 'content-type': 'text/html' } })],
+    ['keys absent', () => json({ autre: [JWK_B] })],
+    ['corps JSON null', () => json(null)],
+    ['keys qui est un objet', () => json({ keys: JWK_B })],
+    ['keys qui est un texte', () => json({ keys: KID_B })],
+  ];
+
+  for (const [quoi, echec] of ECHECS) {
+    // Cadrage, point 1 : « toute lecture […] note l'instant de la tentative, réussie ou non » ; « le cache expiré […] suit
+    // la même borne […] ; en cas d'échec de la lecture, le cache précédent reste utilisé s'il existe » ; v2, N3 : le
+    // cache gardé change le comportement d'avant (un cache expiré dont la relecture échouait refusait la connexion), avec
+    // une trace « au plus une par minute grâce à la borne ». Lectures écartées : instant noté seulement en cas de succès
+    // (le jeton suivant relancerait une lecture) ; cache vidé ou ignoré sur un échec (la clé A serait refusée une fois
+    // le cache expiré) ; cache expiré relu sans borne après un échec (une lecture par jeton) ; échec sans trace, ou trace
+    // à chaque jeton.
+    test(`lecture en échec (${quoi}) avec un cache précédent : tentative notée, une trace sans jeton ni identifiant, aucune relecture dans les 60 s, cache précédent gardé, même expiré`, async () => {
+      assert.deepEqual(await verifier(jetonA()), IDENTITE);
+      assert.equal(lectures(), 1);
+      aller(T0 + 61 * S);
+      repondre = echec;
+      let depuis = lignes.length;
+      const jeton = jetonB();
+      assert.equal(await verifier(jeton), null, 'kid inconnu, lecture en échec : refusé');
+      assert.equal(lectures(), 2, 'la lecture a eu lieu');
+      uneTraceDEchec(depuis, [jeton], 'lecture en échec');
+      depuis = lignes.length;
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'clé du cache frais : acceptée');
+      aller(T0 + 91 * S);
+      assert.equal(await verifier(jetonB()), null);
+      assert.equal(await verifier(jetonForge()), null);
+      aller(T0 + 121 * S);
+      assert.equal(await verifier(jetonForge()), null);
+      assert.equal(lectures(), 2, 'la tentative en échec est notée : aucune relecture dans les 60 s');
+      aucuneLigne(depuis, 'aucune autre trace dans la minute');
+
+      aller(T0 + DUREE_CACHE + 1); // cache lu à t0 : expiré
+      depuis = lignes.length;
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache expiré, relecture en échec : la clé connue du cache précédent reste acceptée');
+      assert.equal(lectures(), 3, 'cache expiré : une lecture');
+      uneTraceDEchec(depuis, [], 'relecture du cache expiré en échec');
+      depuis = lignes.length;
+      aller(T0 + DUREE_CACHE + 30 * S);
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache expiré, dans la minute : la clé connue reste acceptée');
+      assert.equal(await verifier(jetonB()), null);
+      assert.equal(lectures(), 3, 'cache expiré : même borne, aucune relecture dans les 60 s');
+      aucuneLigne(depuis, 'aucune autre trace dans la minute');
+
+      aller(T0 + DUREE_CACHE + INTERVALLE + 2);
+      repondre = jwks(JWK_A, JWK_B); // Microsoft répond de nouveau
+      assert.deepEqual(await verifier(jetonB()), IDENTITE, 'lecture suivante réussie : la clé B est acceptée');
+      assert.deepEqual(await verifier(jetonA()), IDENTITE);
+      assert.equal(lectures(), 4);
+      aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
+    });
+
+    // Cadrage, point 1 : le cache précédent n'est gardé « que s'il existe » ; la tentative est notée même sans cache.
+    // Lectures écartées : instant noté seulement en cas de succès (une lecture par jeton pendant toute la panne) ; une
+    // réponse en échec mise en cache (la clé B du statut 503 serait acceptée, ou le cache vide empêcherait la lecture
+    // suivante).
+    test(`lecture en échec (${quoi}) sans cache précédent : jeton refusé, une trace, aucune relecture dans les 60 s ; la lecture suivante rétablit la connexion`, async () => {
+      repondre = echec;
+      const jeton = jetonB();
+      assert.equal(await verifier(jeton), null, 'première lecture en échec : refusé');
+      assert.equal(lectures(), 1);
+      uneTraceDEchec(0, [jeton], 'première lecture en échec');
+      const depuis = lignes.length;
+      for (const instant of [T0 + 1, T0 + 30 * S, T0 + INTERVALLE]) {
+        aller(instant);
+        assert.equal(await verifier(jetonB()), null, `T0 + ${instant - T0} ms`);
+        assert.equal(await verifier(jetonA()), null, `T0 + ${instant - T0} ms`);
+      }
+      assert.equal(lectures(), 1, 'aucune relecture dans les 60 s de la tentative en échec');
+      aucuneLigne(depuis, 'aucune autre trace');
+      aller(T0 + INTERVALLE + 1);
+      repondre = jwks(JWK_A);
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, 'lecture suivante réussie : connexion rétablie');
+      assert.equal(lectures(), 2);
+      aucuneLigne(depuis, 'une lecture réussie ne laisse aucune trace');
+    });
+  }
+
+  // Ajout de Claude Code après la note 5 du rédacteur des tests (règle retenue sur la même branche) : une lecture réussie
+  // ne garde que les éléments de `keys` qui sont des objets (ni nul, ni tableau, ni valeur simple). Sans ce filtre, un
+  // élément nul faisait échouer la recherche d'un `kid` dans le cache frais, avant toute relecture, et refusait toutes les
+  // connexions pendant une heure. L'élément nul est placé en tête, pour que la recherche le rencontre avant la clé
+  // valide. Lectures écartées : la liste gardée telle quelle (filtre retiré), sous laquelle le jeton signé par la clé
+  // valide serait refusé à chaque présentation ; une réponse avec des éléments invalides lue comme un échec (trace, cache
+  // non mis à jour) ; une relecture pour un `kid` connu.
+  test('réponse dont la liste mêle des éléments invalides (nul, nombre, texte, tableau) et une clé valide : lecture réussie, sans trace ; la clé valide est gardée et son jeton accepté, sans relecture pour ce kid connu', async () => {
+    repondre = () => json({ keys: [null, 7, 'x', [], JWK_A] });
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'jeton signé par la clé valide : accepté');
+    assert.equal(lectures(), 1);
+    aucuneLigne(0, 'lecture réussie : aucune trace d’échec');
+    for (const instant of [T0 + 30 * S, T0 + INTERVALLE + 1, T0 + 30 * MIN]) {
+      aller(instant);
+      assert.deepEqual(await verifier(jetonA()), IDENTITE, `T0 + ${instant - T0} ms : toujours accepté`);
+    }
+    assert.equal(lectures(), 1, 'kid connu du cache frais : aucune relecture');
+    aucuneLigne(0, 'aucune trace');
+  });
+
+  // Cadrage v2, point 4 : « `fetch(MS_JWKS_URI, { signal: AbortSignal.timeout(10_000) })` : au-delà de 10 s, la lecture
+  // échoue (et compte comme une tentative) » ; v3, T1 : « remplacer `AbortSignal.timeout` par un signal piloté à la
+  // main ; le double de `fetch` rejette sur l'abandon (`TimeoutError`). Vérifier : lecture notée en échec, cache
+  // précédent gardé, trace écrite, aucune relecture dans les 60 s. Mutant à tuer : « délai retiré ». » Lectures écartées :
+  // aucun délai (la lecture ne finit jamais : ni signal demandé, ni signal transmis) ; un autre délai que 10 s ; un
+  // signal demandé mais non transmis à `fetch` ; un abandon qui ne compte pas comme une tentative en échec.
+  test('délai de 10 s : chaque lecture demande un signal de 10 s et le transmet à fetch ; une lecture suspendue, abandonnée par ce signal, est notée en échec, cache précédent gardé, une trace, aucune relecture dans les 60 s', async () => {
+    assert.deepEqual(await verifier(jetonA()), IDENTITE);
+    assert.deepEqual(delais, [DELAI], 'la lecture demande un délai de 10 s');
+    assert.equal(appels[0].signal, controleurs[0].signal, 'le signal du délai est transmis à fetch');
+    aller(T0 + 61 * S);
+    repondre = suspendue;
+    const jeton = jetonB();
+    const enCours = verifier(jeton);
+    assert.equal(lectures(), 2);
+    assert.deepEqual(delais, [DELAI, DELAI], 'la lecture suspendue a demandé un délai de 10 s');
+    assert.equal(appels[1].signal, controleurs[1].signal, 'le signal du délai est transmis à la lecture suspendue');
+    assert.equal(await Promise.race([enCours, attendre(50).then(() => 'en cours')]), 'en cours', 'la lecture reste suspendue tant que le délai ne l’abandonne pas');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'pendant la lecture suspendue, la clé connue est acceptée');
+    const depuis = lignes.length;
+    aller(T0 + 71 * S);
+    controleurs[1].abort(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+    assert.equal(await enCours, null, 'lecture abandonnée au bout de 10 s : jeton refusé');
+    uneTraceDEchec(depuis, [jeton], 'lecture abandonnée');
+    assert.deepEqual(await verifier(jetonA()), IDENTITE, 'cache précédent gardé');
+    aller(T0 + 101 * S); // 40 s après la tentative, 30 s après son abandon
+    assert.equal(await verifier(jetonB()), null);
+    assert.equal(await verifier(jetonForge()), null);
+    assert.equal(lectures(), 2, 'la lecture abandonnée compte comme une tentative : aucune relecture dans les 60 s');
+    aller(T0 + 131 * S + 1); // plus de 60 s après la tentative comme après son abandon
+    repondre = jwks(JWK_A, JWK_B);
+    assert.deepEqual(await verifier(jetonB()), IDENTITE, 'lecture suivante réussie');
+    assert.equal(lectures(), 3);
+    assert.deepEqual(delais, [DELAI, DELAI, DELAI]);
+    assert.equal(lignes.length, depuis + 1, 'une seule trace en tout');
+  });
+});
+
+describe('#589 : POST /api/auth/sso, jetons forgés refusés sans multiplier les lectures des clés', () => {
+  beforeEach(() => {
+    simulerMicrosoft();
+    mock.timers.enable({ apis: ['Date'], now: T0 });
+  });
+  afterEach(() => {
+    retablir();
+    assert.deepEqual(autresAppels, [], 'aucune autre adresse n’est appelée');
+  });
+
+  // Cadrage, « Tests attendus » : « N jetons forgés à `kid` inconnu dans l'intervalle : un seul appel sortant (après la
+  // première lecture), tous refusés 401, sans liaison ni écriture » ; constat : « Un client non authentifié peut donc
+  // faire lancer au serveur autant d'appels sortants qu'il envoie de jetons forgés (`POST /api/auth/sso`) » ; v2, N6 : « Aucune ligne
+  // `[SSO]` de refus pour un jeton forgé ». La base est injoignable : une lecture ou une écriture aurait répondu 500. Cette
+  // instance de sso.js, chargée avec l'application, ne sert qu'à ce test. Lecture écartée : une lecture par jeton forgé
+  // (comportement d'avant ce lot : soixante lectures).
+  test('quarante jetons forgés (vingt ensemble, puis vingt à la suite) répondent tous 401 sans toucher à la base, pour une seule lecture des clés ; une minute après, vingt de plus n’en font qu’une', async () => {
+    const connecter = (idToken) => request(app).post('/api/auth/sso').send({ idToken });
+    const ensemble = await Promise.all(Array.from({ length: 20 }, () => connecter(jetonForge())));
+    ensemble.forEach((res, i) => assert.deepEqual([res.status, res.body], [401, REFUS_GENERIQUE], `jeton forgé simultané ${i + 1}`));
+    for (let i = 1; i <= 20; i += 1) {
+      const res = await connecter(jetonForge());
+      assert.deepEqual([res.status, res.body], [401, REFUS_GENERIQUE], `jeton forgé à la suite ${i}`);
+    }
+    assert.equal(lectures(), 1, 'quarante jetons forgés dans la minute : une seule lecture');
+    aller(T0 + 61 * S);
+    const apres = await Promise.all(Array.from({ length: 20 }, () => connecter(jetonForge())));
+    apres.forEach((res, i) => assert.deepEqual([res.status, res.body], [401, REFUS_GENERIQUE], `une minute après, jeton forgé ${i + 1}`));
+    assert.equal(lectures(), 2, 'une minute après : une seule lecture de plus');
+    assert.deepEqual(textes(), [], 'aucune trace pour des jetons forgés');
+  });
+});

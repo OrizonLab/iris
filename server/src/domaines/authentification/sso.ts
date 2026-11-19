@@ -26,26 +26,81 @@ export function normalizeEmail(email: unknown): string {
 const CHAMPS_COMPTE_CONNEXION = { id: true, name: true, email: true, role: true, theme: true, accesFinance: true, permissions: true } as const;
 type CompteConnexion = Prisma.UserGetPayload<{ select: typeof CHAMPS_COMPTE_CONNEXION }>;
 
-// Récupère la clé publique de signature Microsoft correspondant au `kid` du jeton.
-// Les clés (JWKS) sont mises en cache 1 h ; en cas de `kid` inconnu on rafraîchit une fois
-// (rotation de clés). Utilise le support natif des JWK de Node (crypto.createPublicKey).
+// Récupère la clé publique de signature Microsoft correspondant au `kid` du jeton. Les clés (JWKS) sont gardées
+// en cache une heure ; un cache expiré ou un `kid` inconnu (rotation des clés) demande une lecture. Utilise le
+// support natif des JWK de Node (crypto.createPublicKey).
+//
+// Lecture bornée (#589) : un jeton forgé, présenté sans authentification, ne doit pas faire lancer au serveur
+// autant d'appels sortants qu'il y a de jetons.
+//   - Au plus une lecture par intervalle de 60 s, réussie ou non (toute tentative est notée) ; une tentative datée
+//     dans le futur, après un recul de l'horloge, n'empêche pas la lecture (même principe que le compteur de
+//     l'accès de secours, #591).
+//   - Des demandes simultanées partagent la même lecture ; une demande dont le `kid` est dans le cache frais
+//     n'attend jamais une lecture en cours.
+//   - Une lecture dure au plus 10 s : sans délai, une lecture suspendue pourrait durer cinq minutes ou plus (délais
+//     par défaut du `fetch` de Node), et, puisqu'elle est partagée, retarderait d'autant toute relecture.
+//   - En cas d'échec (statut hors 2xx, erreur réseau ou délai dépassé, réponse illisible ou sans liste de clés),
+//     le cache précédent reste utilisé s'il existe, et une trace serveur est écrite (au plus une par minute, par
+//     la borne) : une panne passagère de Microsoft ne coupe pas les connexions dont la clé est connue.
+// Les deux durées sont des protections techniques (C-26 du paramétrage cible, gardées dans le code), et non des
+// règles de l'entreprise. Valeurs et cache gardé sur un échec : choix par défaut, à confirmer.
+const MS_JWKS_DUREE_CACHE_MS = 3600_000;
+const MS_JWKS_INTERVALLE_LECTURES_MS = 60_000;
+const MS_JWKS_DELAI_LECTURE_MS = 10_000;
 let msJwksCache: { keys: Array<Record<string, unknown>>; fetchedAt: number } | null = null;
+// Instant de la dernière tentative de lecture ; null : aucune encore (et non 0, qu'une horloge simulée peut valoir).
+let msJwksDerniereTentative: number | null = null;
+let msJwksLectureEnCours: Promise<void> | null = null;
+
+class EchecLectureCles extends Error {}
+
+function lectureClesPermise(maintenant: number): boolean {
+  if (msJwksDerniereTentative === null) return true;
+  const ecart = maintenant - msJwksDerniereTentative;
+  return ecart < 0 || ecart > MS_JWKS_INTERVALLE_LECTURES_MS;
+}
+
+function motifEchecLecture(erreur: unknown): string {
+  if (erreur instanceof EchecLectureCles) return erreur.message;
+  const nom = (erreur as { name?: unknown } | null)?.name;
+  if (nom === 'TimeoutError' || nom === 'AbortError') return `délai de ${MS_JWKS_DELAI_LECTURE_MS / 1000} s dépassé`;
+  if (erreur instanceof SyntaxError) return 'réponse illisible';
+  return 'erreur réseau';
+}
+
+// Lance une lecture des clés et note la tentative ; la promesse rendue ne rejette jamais.
+function lireClesMicrosoft(): Promise<void> {
+  msJwksDerniereTentative = Date.now();
+  const lecture = (async () => {
+    try {
+      const res = await fetch(MS_JWKS_URI, { signal: AbortSignal.timeout(MS_JWKS_DELAI_LECTURE_MS) });
+      if (!res.ok) throw new EchecLectureCles(`statut HTTP ${res.status}`);
+      const data = (await res.json()) as { keys?: unknown } | null;
+      if (!data || !Array.isArray(data.keys)) throw new EchecLectureCles('réponse sans liste de clés');
+      // Seuls les objets sont gardés : un élément nul ou d'un autre type ferait échouer la recherche d'un `kid`
+      // dans le cache, et refuser toutes les connexions jusqu'à son expiration.
+      const cles = (data.keys as unknown[]).filter((k): k is Record<string, unknown> => !!k && typeof k === 'object' && !Array.isArray(k));
+      msJwksCache = { keys: cles, fetchedAt: Date.now() };
+    } catch (erreur) {
+      console.warn(`[SSO] Lecture des clés Microsoft impossible : ${motifEchecLecture(erreur)}.`);
+    } finally {
+      msJwksLectureEnCours = null;
+    }
+  })();
+  msJwksLectureEnCours = lecture;
+  return lecture;
+}
+
 async function getMicrosoftSigningKey(kid: string): Promise<crypto.KeyObject | null> {
-  const fresh = msJwksCache && Date.now() - msJwksCache.fetchedAt < 3600_000;
-  if (!fresh) {
-    const res = await fetch(MS_JWKS_URI);
-    if (!res.ok) return null;
-    const data = (await res.json()) as { keys?: Array<Record<string, unknown>> };
-    msJwksCache = { keys: data.keys || [], fetchedAt: Date.now() };
-  }
-  let jwk = msJwksCache!.keys.find((k) => k.kid === kid);
+  const chercher = () => msJwksCache?.keys.find((k) => k.kid === kid);
+  const maintenant = Date.now();
+  const frais = !!msJwksCache && maintenant - msJwksCache.fetchedAt < MS_JWKS_DUREE_CACHE_MS;
+  let jwk = frais ? chercher() : undefined;
   if (!jwk) {
-    // kid absent du cache : forcer un rafraîchissement (rotation possible).
-    const res = await fetch(MS_JWKS_URI);
-    if (!res.ok) return null;
-    const data = (await res.json()) as { keys?: Array<Record<string, unknown>> };
-    msJwksCache = { keys: data.keys || [], fetchedAt: Date.now() };
-    jwk = msJwksCache.keys.find((k) => k.kid === kid);
+    if (msJwksLectureEnCours) await msJwksLectureEnCours;
+    else if (lectureClesPermise(maintenant)) await lireClesMicrosoft();
+    // Après la lecture, ou sans elle (borne), le cache, même expiré, sert encore s'il porte ce `kid`.
+    jwk = chercher();
   }
   if (!jwk) return null;
   return crypto.createPublicKey({ key: jwk as crypto.webcrypto.JsonWebKey, format: 'jwk' });
