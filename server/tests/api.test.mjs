@@ -30448,9 +30448,9 @@ if (!TEST_DATABASE_URL) {
   // journaux d'audit (règle 2 ; C-15 de PARAMETRAGE-CIBLE.md). Point 2 du périmètre : « rien ne change pour
   // l'application : Prisma lit la ligne après le déclencheur (RETURNING) ». Tests attendus de la v2 : non-régression par
   // les routes, dont un coût d'intervention (`COUT_INTERVENTION_*`) et une écriture au nom du compte système (génération
-  // des visites, T1) ; « la seconde écriture d'une même transaction porte un instant supérieur ou égal à la première, et
-  // la lecture se compare comme un ensemble » (C1 : deux écritures d'une même milliseconde peuvent porter le même instant,
-  // et l'ordre à instant égal n'est pas garanti, N4).
+  // des visites, T1) ; pour deux écritures d'une même transaction, « la seconde écriture porte un instant supérieur ou
+  // égal à la première, et la lecture se compare comme un ensemble » (C1 : deux écritures d'une même milliseconde peuvent
+  // porter le même instant, et l'ordre à instant égal n'est pas garanti, N4).
   // Par une route, l'instant que Prisma calcule et envoie (C1) et celui de la base ne différeraient que de quelques
   // microsecondes. Chaque appel se fait donc sous un verrou de partage du journal, pris par une autre connexion : la
   // route avance jusqu'à son insertion au journal, qui attend ; le verrou n'est relâché qu'une fois cette attente
