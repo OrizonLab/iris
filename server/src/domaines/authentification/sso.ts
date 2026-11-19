@@ -42,13 +42,18 @@ type CompteConnexion = Prisma.UserGetPayload<{ select: typeof CHAMPS_COMPTE_CONN
 //     une trace serveur est écrite (au plus une par minute, par la borne) et le cache reste tel quel : encore
 //     valable, il sert ; expiré, il ne sert plus, comme avant #589. Une clé retirée par Microsoft n'est donc pas
 //     acceptée au-delà de l'heure du cache, même si la sortie vers Microsoft est coupée (audit des droits de #606,
-//     N2 : option la plus restrictive, règle 5, et comportement actuel, règle permanente 1).
+//     N2 : option la plus restrictive, règle 5, et comportement actuel, règle permanente 1), ni après un recul de
+//     l'horloge du système : l'heure du cache se compte aussi sur l'horloge monotone du processus (#607).
 // Les deux durées sont des protections techniques (C-26 du paramétrage cible, gardées dans le code), et non des
-// règles de l'entreprise. Valeurs : choix par défaut, à confirmer.
+// règles de l'entreprise. Valeurs, et refus d'un cache daté dans le futur (avec son effet : après un recul de l'horloge,
+// connexions refusées tant que Microsoft est injoignable) : choix par défaut, à confirmer.
 const MS_JWKS_DUREE_CACHE_MS = 3600_000;
 const MS_JWKS_INTERVALLE_LECTURES_MS = 60_000;
 const MS_JWKS_DELAI_LECTURE_MS = 10_000;
-let msJwksCache: { keys: Array<Record<string, unknown>>; fetchedAt: number } | null = null;
+// `fetchedAt` suit l'horloge du système (`Date.now()`), qui peut reculer ou avancer (correction NTP) ; `lueMonotone` est
+// l'instant de la même lecture sur l'horloge monotone du processus (`performance.now()`), que ne déplace aucun réglage
+// de l'horloge du système : l'heure du cache se compte sur les deux (#607).
+let msJwksCache: { keys: Array<Record<string, unknown>>; fetchedAt: number; lueMonotone: number } | null = null;
 // Instant de la dernière tentative de lecture ; null : aucune encore (et non 0, qu'une horloge simulée peut valoir).
 let msJwksDerniereTentative: number | null = null;
 let msJwksLectureEnCours: Promise<void> | null = null;
@@ -83,7 +88,7 @@ function lireClesMicrosoft(): Promise<void> {
       // Seuls les objets sont gardés : un élément nul ou d'un autre type ferait échouer la recherche d'un `kid`
       // dans le cache, et refuser toutes les connexions jusqu'à son expiration.
       const cles = (data.keys as unknown[]).filter((k): k is Record<string, unknown> => !!k && typeof k === 'object' && !Array.isArray(k));
-      msJwksCache = { keys: cles, fetchedAt: Date.now() };
+      msJwksCache = { keys: cles, fetchedAt: Date.now(), lueMonotone: performance.now() };
     } catch (erreur) {
       console.warn(`[SSO] Lecture des clés Microsoft impossible : ${motifEchecLecture(erreur)}.`);
     }
@@ -96,13 +101,15 @@ function lireClesMicrosoft(): Promise<void> {
 
 async function getMicrosoftSigningKey(kid: string): Promise<crypto.KeyObject | null> {
   // Seul un cache encore valable sert, avant comme après une tentative de lecture. Un cache daté dans le futur (horloge
-  // reculée depuis sa lecture) n'est pas valable : sans cela, une clé retirée par Microsoft serait acceptée au-delà de
-  // l'heure du cache, de toute la durée du recul (#607, N6 du contrôle de cohérence). Il est alors relu, la borne des
-  // lectures laissant passer une tentative datée dans le futur.
+  // reculée depuis sa lecture) n'est pas valable : il est relu, la borne des lectures laissant passer une tentative
+  // datée dans le futur (#607, N6 du contrôle de cohérence). L'âge est aussi compté sur l'horloge monotone : sans elle,
+  // un recul plus court que l'âge du cache, ou un cache resté daté dans le futur jusqu'à ce que l'horloge rattrape sa
+  // lecture (aucune connexion, ou relecture en échec), ferait accepter une clé retirée par Microsoft au-delà de l'heure
+  // du cache, de toute la durée du recul (audit des droits de #612).
   const valable = (instant: number) => {
     if (!msJwksCache) return false;
     const age = instant - msJwksCache.fetchedAt;
-    return age >= 0 && age < MS_JWKS_DUREE_CACHE_MS;
+    return age >= 0 && age < MS_JWKS_DUREE_CACHE_MS && performance.now() - msJwksCache.lueMonotone < MS_JWKS_DUREE_CACHE_MS;
   };
   const chercher = (instant: number) => (valable(instant) ? msJwksCache!.keys.find((k) => k.kid === kid) : undefined);
   const maintenant = Date.now();

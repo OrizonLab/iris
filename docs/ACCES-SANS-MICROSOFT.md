@@ -86,7 +86,11 @@ l'efface de la barre d'adresse dès qu'elle l'a lu.
   que le blocage est commun à tous (#261). La fenêtre de quinze minutes court depuis le premier
   essai ; les fenêtres passées sont retirées du compteur au fil des essais (#563). Après un recul
   de l'horloge du serveur (correction NTP), une fenêtre datée dans le futur est tenue pour passée :
-  le blocage n'est pas prolongé de la durée du recul (#607 ; choix par défaut, à confirmer).
+  un essai fait avant que l'horloge ait rattrapé son début en ouvre une nouvelle, au lieu d'attendre
+  qu'elle s'achève, prolongée de la durée du recul (#607 ; choix par défaut, à confirmer). Une
+  fenêtre que le recul ne date pas dans le futur (recul plus court que son âge), ou que l'horloge
+  rattrape avant qu'un essai l'ait retirée, garde son compte jusqu'à son terme : le blocage dure
+  alors jusqu'à la durée du recul de plus.
 - Le compteur des essais garde au plus 10 000 adresses. Au-delà, la fenêtre la plus ancienne
   sort et l'adresse nouvelle est comptée : une rafale d'adresses ne peut ni saturer la mémoire
   du serveur, ni bloquer l'accès pour tous (#563 ; valeur et règle de sortie : choix par défaut,

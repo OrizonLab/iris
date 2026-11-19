@@ -188,6 +188,33 @@ describe('#563 : compteur des essais de l’accès de secours, purgé au fil des
     assert.deepEqual(table(), [[D, 1, T0 - 60 * MIN]]);
   });
 
+  // Audit des droits de #612 (C2 et T1) : limites de la règle de #607, écrites dans docs/ACCES-SANS-MICROSOFT.md. Une
+  // fenêtre n'est tenue pour passée que tant qu'elle est datée dans le futur : (1) un recul plus court que son âge ne la
+  // date pas dans le futur, et la prolonge de toute sa durée ; (2) une fenêtre datée dans le futur que l'horloge rattrape
+  // sans qu'aucun essai l'ait retirée reprend son compte jusqu'à son terme. Dans les deux cas, le blocage dure jusqu'à la
+  // durée du recul de plus, ce qui est conservateur (aucun essai de plus n'est admis).
+  test('#607, audit de #612 : un recul de cinq minutes plus court que l’âge de la fenêtre la prolonge de cinq minutes de temps réel', () => {
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    aller(T0 + 10 * MIN);
+    aller(T0 + 5 * MIN); // recul de cinq minutes, dix minutes après le premier essai
+    assert.equal(tropDEssaisSecours(A), true, 'fenêtre non datée dans le futur : toujours bloquée');
+    aller(T0 + FENETRE);
+    assert.equal(tropDEssaisSecours(A), true, 'vingt minutes de temps réel après le premier essai : encore bloquée');
+    aller(T0 + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(A), false, 'libérée au terme de la fenêtre lu sur l’horloge');
+  });
+
+  test('#607, audit de #612 : une fenêtre datée dans le futur que l’horloge rattrape sans essai reprend son compte jusqu’à son terme', () => {
+    assert.deepEqual(essais(A, 6), [false, false, false, false, false, true]);
+    aller(T0 + MIN);
+    aller(T0 - 59 * MIN); // recul d'une heure ; aucun essai pendant l'heure qui suit
+    aller(T0 + MIN);
+    assert.equal(tropDEssaisSecours(A), true, 'l’horloge a rattrapé le début de la fenêtre : bloquée');
+    assert.deepEqual(suivi(A), { count: 7, depuis: T0 });
+    aller(T0 + FENETRE + 1);
+    assert.equal(tropDEssaisSecours(A), false, 'libérée au terme de la fenêtre');
+  });
+
   // --- Purge au fil des essais ---
 
   // Critère : « Une adresse dont le premier essai date de plus de 15 minutes n'est plus dans la table dès l'essai
