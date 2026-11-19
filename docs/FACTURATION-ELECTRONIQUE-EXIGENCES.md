@@ -529,6 +529,7 @@ L'essentiel du socle technique est donc **vérifié**, et le socle légal ne l'e
 #### EX-20 : Facture d'acompte et facture définitive
 
 - **Énoncé.**
+  - **Obligation de facturer l'acompte** : « Tout assujetti est tenu de délivrer une facture pour les acomptes qui lui sont versés (article 289-I.1.c du CGI) avant que l'une des opérations visées aux a et b du 1 du I du même article ne soit effectuée (sauf exception expressément prévue). » (S3 §3.2.19, qui cite le CGI : texte du CGI non lu, S14.)
   - **Facture d'acompte.**
     - Type 386 ; avoir d'acompte : type 503.
     - Cadre B1, S1 ou M1 ; B2, S2 ou M2 si l'acompte est déjà payé.
@@ -603,7 +604,7 @@ L'essentiel du socle technique est donc **vérifié**, et le socle légal ne l'e
   |---|---|---|---|---|---|---|
   | 200 | Déposée | Transmission | PA-E | Émetteur ; PPF | **Oui** | 10 |
   | 201 | Émise par la plateforme | Transmission | PA-E | Émetteur | Non | 51 |
-  | 202 | Reçue par la plateforme | Transmission | PA-R | Émetteur (via la PA-E) ; destinataire | Non | 43 |
+  | 202 | Reçue de la plateforme | Transmission | PA-R | Émetteur (via la PA-E) ; destinataire | Non | 43 |
   | 203 | Mise à disposition | Transmission | PA-R | Émetteur ; destinataire | Non | 48 |
   | 204 | Prise en charge | Traitement | Acheteur ou son agent | Vendeur (via la PA-R puis la PA-E) | Non | 45 |
   | 205 | Approuvée | Traitement | Acheteur | Vendeur | Non | 1 |
@@ -1167,7 +1168,8 @@ Cette exigence est critique pour les invariants d'Iris : numérotation continue 
 
 Précisions :
 - Quatre exigences obligatoires ne s'appliquent que dans un cas précis : EX-04 (clients publics), EX-06 (émission en Factur-X), EX-22 (facture déjà payée) et EX-34 (statuts produits par Iris).
-- Exigences marquées « non vérifiée », en tout ou pour leur base légale : EX-37, EX-41, EX-46 et EX-47 entièrement ; EX-12 et EX-19 en partie (texte légal ou liste des 34 données).
+- Exigences marquées « non vérifiée » : EX-37 et EX-41 ; EX-46 pour ses durées et son format légal ; EX-47 pour son obligation légale.
+- Exigences vérifiées sur les normes, mais non vérifiées pour une autre de leurs sources (texte légal, liste des 34 données, spécification Factur-X ou guide DGFiP) : EX-01, 02, 05, 06, 12, 19, 26, 30, 35, 38, 40, 45, 49 et 50.
 
 ## 5. Questions pour le cabinet
 

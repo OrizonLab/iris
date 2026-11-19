@@ -41,7 +41,7 @@ Ce que montre l'audit :
 | S3 | XP Z12-014, **annexe A** (normative) : cas d'usage | V1.4 du 30-06-2026, 194 pages (dans S1) | V |
 | S4 | XP Z12-013, **annexe A** « AFNOR Flow Service » et **annexe B** « AFNOR Directory Service », OpenAPI 3.0.3 | 1.3.0 (dans S1 ; date absente des fichiers) | V |
 | S5 | FNFE-MPE, note explicative « Schematrons en application des règles de gestion de la norme XP Z12-012 » | V1.4.0 du 30-06-2026 (dans S1) | V |
-| S6 | Artefacts de validation EN16931 (CEN/TC 434, dépôt ConnectingEurope/eInvoicing-EN16931) | Étiquette `validation-1.3.17`, commit `6e35e0a` du 12-10-2026 ; S5 déclare la 1.3.16 « applicable au 15 mai 2026 » | V |
+| S6 | Artefacts de validation EN16931 (CEN/TC 434, dépôt ConnectingEurope/eInvoicing-EN16931) | Étiquette `validation-1.3.17`, commit `6e35e0a` du 12-10-2026 ; les schematrons EN16931 joints dans S1 sont en version 1.3.16 ; S5 déclare la version jointe « applicable au 15 mai 2026 » | V |
 | S7 | DGFiP, spécifications externes de la facturation électronique | v3.2 du 30-04-2026 ; annexes 2, 6 et 7 lues dans leur reproduction par S2 | NV |
 | S8 | DGFiP, « Facturation électronique : guide pratique de démarrage au 1er septembre 2026 » | Juillet 2026 selon une source secondaire | NV |
 | S9 | DGFiP, FAQ « J'approfondis la facturation électronique » | V2 du 23-09-2025 repérée | NV |
@@ -61,7 +61,7 @@ S2 à S5 sont dans le dépôt S1, dossier `FNFE_RFE_INVOICE/Z.notes_&_docs`. S6 
 
 ### 2.2 Limite réseau de l'audit du 19-11-2026
 
-Les sites `www.impots.gouv.fr`, `bofip.impots.gouv.fr`, `www.legifrance.gouv.fr`, `www.economie.gouv.fr` et `fnfe-mpe.org` étaient bloqués par la politique réseau de l'environnement de travail de l'audit. Les textes de loi, le guide pratique, la FAQ, la liste des PA et la spécification Factur-X n'ont donc pas été lus.
+Les sites `www.impots.gouv.fr`, `www.legifrance.gouv.fr`, `www.economie.gouv.fr` et `fnfe-mpe.org` étaient bloqués par la politique réseau de l'environnement de travail de l'audit ; `bofip.impots.gouv.fr`, du même domaine, n'a pas été essayé. Les textes de loi, le guide pratique, la FAQ, la liste des PA et la spécification Factur-X n'ont donc pas été lus.
 
 Le socle technique est vérifié sur les annexes AFNOR V1.4 et l'OpenAPI XP Z12-013 1.3.0 publiées par le FNFE-MPE (S1). Le socle légal (CGI, décret 2026-677, arrêté du 27-07-2026, documents DGFiP) n'est **pas vérifié**.
 
@@ -197,7 +197,7 @@ Conservation des fichiers émis et reçus, statuts et preuves                (FE
 |---|---|---|---|---|---|---|---|---|
 | EX-05 | UBL 2.1, CII D22B ou Factur-X ; profil EN16931 ou EXTENDED-CTC-FR ; un PDF seul n'est pas une facture électronique | S16 art. 1 ; S3 §1.1 ; S5 §1, §2.1 | P | PDF seul, par `pdfkit` (`documents/gabarit.ts:1`) ; aucune bibliothèque XML | `production-pdf.test.mjs` | Total | Obl. | FE-3 |
 | EX-06 | Factur-X 1.09 et correctif 1.09.2, XSD du profil | S5 §1 ; S1 (1.4.0.03) ; S12 | P | Absent ; polices non incorporées, texte ramené à WinAnsi (`documents/gabarit.ts:66-82`) | aucun | Total | Obl. | FE-3 |
-| EX-07 | Pré-validation avec les artefacts officiels : XSD, EN16931, BR-FR en mode FATAL | S3 §2.1, §2.2, §2.4 ; S5 « Application » ; S6 | V | Avant le numéro : mentions, identités, écritures seulement (`factures/routes.ts:394-403`) | aucun | Total | Rec. (fort) | FE-3 |
+| EX-07 | Pré-validation avec les artefacts officiels : XSD, EN16931, BR-FR en mode FATAL | S3 §2.1, §2.2, §2.4 ; S5 « Application » ; S6 | V | Avant le numéro : origine non annulée, chronologie, mentions, identités et écritures (`factures/routes.ts:390-403`), sans aucun contrôle de format | aucun | Total | Rec. (fort) | FE-3 |
 | EX-08 | Lisible complet, un seul `LISIBLE`, 100 Mo au plus | S2 BR-FR-17 à 19 ; S5 ; S4 `FlowPostRequest` | V | PDF incomplet (`factures/pdf.ts:54-109`) et recalculé à chaque demande (`factures/pdf.ts:47-53, 96-101`) | `production-pdf.test.mjs` | Total | Obl. | FE-3, FE-5 |
 
 ### 5.3 C. Émission : données de la facture
@@ -212,12 +212,12 @@ Conservation des fichiers émis et reçus, statuts et preuves                (FE
 | EX-14 | Adresse électronique de l'acheteur (BT-49, schéma `0225`) et du vendeur (BT-34) | S2 BR-FR-12, 13, 21 à 25 ; S3 §1.4.2 | V | Absentes ; `Client.email` (`schema.prisma:519`) est une boîte de courriel | aucun | Total | Obl. | FE-1, FE-4 |
 | EX-15 | Option pour les débits : BT-8 sur les factures de services | S2 BR-FR-MAP-03, MAP-29 ; G1.43, P1.11 | V | Ni champ ni paramètre | aucun | Total | Obl. (si option) | FE-1, FE-2 |
 | EX-16 | Adresse de livraison (BG-15) si elle diffère, au 01-09-2027 | S2 BR-FR-14 ; G6.12 | V | Absente de la facture ; les sites d'intervention existent (`schema.prisma:1325`) | aucun | Total | Obl. | FE-2 (Q-04, Q-24) |
-| EX-17 | Notes `PMT`, `PMD`, `AAB`, une fois chacune ; date de livraison ou période | S2 BR-FR-05 à 07, CO-17 ; G1.38, G1.39 | V | Pénalités obligatoires et escompte facultatif, en texte libre (`schema.prisma:938-949` ; `factures/pdf.ts:105-106`) ; ni indemnité forfaitaire, ni date de livraison | aucun | Partiel | Obl. | FE-2 (Q-23) |
+| EX-17 | Notes `PMT`, `PMD`, `AAB`, une fois chacune ; date de livraison ou période | S2 BR-FR-05 à 07, CO-17 ; G1.38, G1.39 | V | Pénalités obligatoires et escompte facultatif, en texte libre (`schema.prisma:938-949` ; `factures/pdf.ts:106-107`) ; ni indemnité forfaitaire, ni date de livraison | aucun | Partiel | Obl. | FE-2 (Q-23) |
 | EX-18 | TVA : catégories BR-FR-15, taux BR-FR-16, motif hors `S` et `Z`, décimales, devise | S2 BR-FR-15, 16, CO-12, CO-16, DEC-01 à 04 | V | Taux 0, 5,5, 10, 20 % (`commun/tva.ts:8`), tous admis ; 0 % sans catégorie ni motif (`commun/tva.ts:1-7`) ; décimales compatibles (`schema.prisma:916-918`) ; euro implicite | `tva-francaise.spec.ts` ; `api.test.mjs` | Partiel | Obl. | FE-2 (Q-06, Q-22) |
 | EX-19 | Socle EN16931 et règles françaises ; données « Démarrage » puis « Cible » ; « 26 puis 34 données » | S2 « FE EN16931 + EXTENDED », G6.11, G6.12 ; S9, S16, S20 | P | Manquent notamment l'unité (`FactureLigne`, `schema.prisma:909-923`), les pays codés (BT-40, BT-55), l'adresse structurée (`schema.prisma:720`) | aucun | Partiel | Obl. | FE-1, FE-2 (Q-19) |
-| EX-20 | Facture d'acompte 386, avoir d'acompte 503, facture définitive de cadre 4 | S3 cas n°20, 21 (§3.2.19) ; S2 BR-FR-04, CO-06 à 08 | V | Acompte constaté sur le devis, sans facture (`schema.prisma:561-566`) | aucun | Total | Obl. | FE-12, selon N-12 et Q-21 |
+| EX-20 | Facture d'acompte 386, avoir d'acompte 503, facture définitive de cadre 4 | S3 cas n°20, 21 (§3.2.19) ; S2 BR-FR-04, CO-06 à 08 | V | Acompte constaté sur le devis, sans facture (`schema.prisma:561-566`), exigé par défaut à 40 % (décisions du 17-11-2026) ; la facture définitive ne le déduit pas | aucun | Total | Obl. | FE-12, selon Q-21 (place : N-12) |
 | EX-21 | Avoir qui référence sa facture (BT-25, BT-26) ; rectificative 384 | S2 BR-FR-CO-03 à 05 ; S3 §1.3, §2.6, §2.7 | V | Avoir lié à sa facture (`schema.prisma:726`), référence imprimée (`factures/pdf.ts:66`) ; pas de rectificative | `api.test.mjs:12847`, `avoir-partiel-decimal.test.mjs` | Partiel | Obl. | FE-2, FE-6 |
-| EX-22 | Facture déjà payée : cadre 2, BT-113 = BT-112 | S2 BR-FR-CO-07, CO-09 ; S3 cas n°2 | V | Un règlement ne précède jamais l'émission (`reglements/routes.ts:91`) | aucun | Sans objet aujourd'hui | Obl. (cas précis) | FE-12 si acompte |
+| EX-22 | Facture déjà payée : cadre 2, BT-113 = BT-112 | S2 BR-FR-CO-07, CO-09 ; S3 cas n°2 | V | Aucun règlement ne précède l'émission (`reglements/routes.ts:91`), mais l'acompte constaté sur le devis, d'un montant libre (`devis/routes.ts:578`), est un paiement reçu avant la facture, qui ne le déduit pas (aucun BT-113) | aucun | Total, si un acompte est constaté | Obl. (cas précis) | FE-12 (Q-21) |
 | EX-23 | Sous-traitance et cotraitance : cadres S5, S6 ; statut 224 | S2 BR-FR-08 ; S3 cas n°13, 14 | V | Absent | aucun | Total | Conf. | sans lot (Q-06) |
 
 ### 5.4 D. Cycle de vie
@@ -288,12 +288,12 @@ Conservation des fichiers émis et reçus, statuts et preuves                (FE
 
 | Classement | Exigences | Écart total | Partiel | Aucun ou sans objet |
 |---|---|---|---|---|
-| Obligatoire | 39 | 28 (dont EX-04 et EX-34, selon le cas) | 10 : EX-02, 09, 10, 12, 13, 17, 18, 19, 21, 47 | 1 : EX-22, sans objet aujourd'hui |
+| Obligatoire | 39 | 29 (dont EX-04, EX-22 et EX-34, selon le cas) | 10 : EX-02, 09, 10, 12, 13, 17, 18, 19, 21, 47 | 0 |
 | Recommandé | 10 | 10 | 0 | 0 |
 | Confort | 3 | 2 : EX-23, 33 | 0 | 1 : EX-48 |
-| **Total** | **52** | **40** | **10** | **2** |
+| **Total** | **52** | **41** | **10** | **1** |
 
-Exigences non vérifiées, en tout ou pour leur base légale : EX-37, EX-41, EX-46 et EX-47 entièrement ; EX-12 et EX-19 en partie.
+Exigences non vérifiées (NV) : EX-37 et EX-41 ; EX-46 pour ses durées ; EX-47 pour son obligation. Exigences partiellement vérifiées (P), dont une source, le plus souvent le texte légal, n'a pas été lue : EX-01, 02, 05, 06, 12, 19, 26, 30, 35, 38, 40, 45, 49 et 50.
 
 ## 6. Choix existants qui posent un problème réglementaire
 
@@ -301,10 +301,10 @@ Ces choix par défaut, simplifications ou cas ignorés heurtent une exigence obl
 
 | # | Choix actuel | Constat | Source | Correction |
 |---|---|---|---|---|
-| 1 | Statuts de la cible : « déposée, transmise, reçue, rejetée, encaissée » | « Refusée » manque ; « transmise » et « reçue » ne sont pas des libellés officiels | EX-25 (S3 §2.1) | Cette PR (documentation d'intégration) ; FE-5 |
+| 1 | Statuts de la cible : « déposée, transmise, reçue, rejetée, encaissée » | « Refusée » manque ; « transmise » n'est pas un libellé officiel (le statut 201 est « Emise par la plateforme ») ; « reçue » est le statut facultatif 202, « Reçue de la plateforme » (S2), « Reçue » dans S3 §2.1 | EX-24, EX-25 (S3 §2.1 ; S2 « Acteurs CDV ») | Cette PR (documentation d'intégration) ; FE-5 |
 | 2 | Courriel comme seul canal des factures, B2B compris (lot 6) | Une facture B2B domestique part par la PA ; « Dès la date d'obligation de la société, l'e-mail n'est plus qu'une copie d'information » (Nelson) | EX-01 (S3 §1.1) | FE-5 (N-14) |
 | 3 | PDF d'une facture émise recalculé : mention de statut, bloc « Règlements et avoirs » (#534) ; aucun fichier conservé | La pièce transmise doit rester celle de l'émission et être conservée dans son format | EX-08, EX-46, EX-47 | FE-5 ; affichage de la situation : N-08 |
-| 4 | Facture « réglée » par ses seuls avoirs (#524, `reglements/metier.ts:64`) | Un avoir n'est pas un encaissement ; « Encaissée » et les données de paiement ne viennent que des règlements | EX-30, EX-40 | FE-7 |
+| 4 | Facture « réglée » par ses seuls avoirs (#524, `reglements/metier.ts:64`), selon la réponse de Nelson du 09-11-2026, lecture retenue ([historique](HISTORIQUE-DECISIONS.md#décisions-du-09-11-2026-sur-at-4)) : « La facture n’est pas annulé si payer par sob avoir, soit elle est regle entierement dans ce cas la facture est regler ou si seul une partie est couverte pas un ou plusieurs avoir, elle sera partiellement reglé. » | Le statut Iris « réglée » n'est pas un statut de la réforme. Le problème serait d'en déduire le statut 212 « Encaissée » : un avoir n'est pas un encaissement ; « Encaissée » et les données de paiement ne viennent que des règlements | EX-30, EX-40 | FE-7 : « Encaissée » tiré des seuls règlements, sans toucher au statut Iris ; tout autre changement serait une question à Nelson |
 | 5 | 0 % sans catégorie, sans motif, sans mention (décision du 29-10-2026, « Pas de mention pour l'instant (Recommandé) » ; `commun/tva.ts:1-7`) | Une ligne à 0 % exige une catégorie (`AE`, `E`, `K`, `G`, `O`, `Z`) et, hors `Z`, un motif | EX-18 (S2 BR-FR-15) | FE-2 (Q-06, Q-22) |
 | 6 | SIREN du client exigé mais ni copié ni imprimé ; TVA du client libre, ni copiée ni imprimée | Mention obligatoire et donnée BT-47 | EX-12, EX-13 | FE-1, FE-2 |
 | 7 | Case « Pas de SIRET (particulier) » | Confond particulier et client sans SIREN ; ni étranger ni public | EX-02 | FE-1 (N-09) |
@@ -316,7 +316,7 @@ Ces choix par défaut, simplifications ou cas ignorés heurtent une exigence obl
 | 13 | Identité de la société : SIRET sans contrôle, pas de SIREN distinct, TVA libre | SIREN du vendeur obligatoire et actif | EX-13 | FE-1 |
 | 14 | Pas d'avoir à 0,00 € (réponse du 10-11-2026) ; facture à 0,00 € ni annulable ni créditable | Une facture rejetée ou refusée s'annule en comptabilité | EX-26 | N-05, puis FE-6 |
 | 15 | Annulation totale refusée après un règlement ou un avoir partiel (`factures/routes.ts:449-455`) | Même exigence d'annulation | EX-26 | N-06, puis FE-6 |
-| 16 | Acompte constaté sur le devis, sans facture | Facture d'acompte 386 et « Encaissée » | EX-20 | N-12, Q-21 ; FE-12 |
+| 16 | Acompte constaté sur le devis, sans facture ni déduction sur la facture définitive ; exigé par défaut à 40 % (décisions du 17-11-2026) | « Tout assujetti est tenu de délivrer une facture pour les acomptes qui lui sont versés (article 289-I.1.c du CGI) » ; TVA exigible à l’encaissement de l’acompte, « même avec option sur les débits » ; facture définitive de cadre 4 qui reprend l'acompte | EX-20, EX-22, EX-30 (S3 §3.2.19) | Q-21, puis FE-12 (place : N-12) |
 | 17 | Statut Iris « Annulée » (par l'avoir total) | Ne pas le confondre avec le statut 220 « Annulée », posé après une rectificative | EX-21, EX-24 | FE-5 : libellés distincts |
 | 18 | Factures fournisseurs : numéro libre, hors taxe seul ; fournisseur sans SIREN | Réception, rattachement par SIREN | EX-35, EX-36 | FE-9 (N-11) |
 | 19 | Polices non incorporées, texte WinAnsi (`documents/gabarit.ts:66-82`) | Un PDF/A-3 incorpore ses polices (S12, non lue) | EX-06 | FE-3 |
@@ -327,11 +327,12 @@ Ces choix par défaut, simplifications ou cas ignorés heurtent une exigence obl
 |---|---|---|
 | #35 | Export comptable sans période ni journal ; journal des factures sans avant ni après | FE-10 pour la piste d'audit ; l'export reste à #35 |
 | #243 | Cohérence interne des pièces émises non garantie en base | Préalable utile à FE-2 : le modèle canonique suppose des totaux cohérents |
-| #247 | Double clic sur « Créer l'avoir partiel » | FE-5 : idempotence par `trackingId` |
+| #247 | Double clic sur « Créer l'avoir partiel » : deux avoirs émis et numérotés | Correctif propre à Iris, au plus tard avec FE-5 : garde du formulaire et clé d'idempotence côté serveur (correctif proposé par l'issue). Le `trackingId` de FE-5 ne dédoublonne qu'un même dépôt : deux avoirs distincts seraient déposés tous deux |
 | #352 | Brouillon bloqué par la chronologie | FE-6 (date de la nouvelle facture) |
 | #536 | N3 : preuve d'envoi non reproductible | FE-5 |
 | #540 | N7 : devis `A26-0001` et avoir `A2026-0001` | FE-1 (préfixes ; Q-20) |
 | #154 | Double saisie probable d'un règlement | FE-7 : un doublon fausserait « Encaissée » |
+| #156 | Règle du surplus (trop-perçu) connue du formulaire | FE-7 : montant d'Encaissée d'un trop-perçu (N-17, Q-08) |
 
 ## 7. Rejet et refus
 
@@ -366,8 +367,11 @@ Invariants : continuité et chronologie de la numérotation, immutabilité des d
 | 7. Irrecevable | Correction et nouvel envoi | Pièce figée, numéro consommé | Compatible si le même fichier est renvoyé ; **conflit** si la correction change le contenu (N-07, Q-02) |
 | 8. Date de la nouvelle facture | Non précisée par les sources lues | Date au moins égale à celle de la dernière facture numérotée (`factures/routes.ts:392-393`) | Compatible avec la date du jour ; une reprise de la date d'origine serait refusée (Q-03) |
 | 9. Reste dû | Facture rejetée ou refusée sans créance | Reste dû compté jusqu'à l'avoir | Compatible après l'avoir interne ; alerte d'ici là (FE-5) |
+| 10. Facture au temps passé rejetée ou refusée | Nouvelle facture sous un nouveau numéro | Une seule facture au temps passé vivante par intervention (`factures/repere.ts:20-24` ; index `Facture_temps_passe_unique`, `mig 20261116200000_facture_zero_temps_passe:8-10`) : la nouvelle facture attend l'avoir total, refusé après un règlement ou un avoir partiel (`factures/routes.ts:449-455`) | **Conflit** si la facture porte un règlement ou un avoir partiel : ses heures ne se refacturent pas (N-06) |
+| 11. Règlement reçu sur une facture rejetée ou refusée | Aucun statut obligatoire, donc aucune Encaissée, ne suit « Rejetée » ou « Refusée » (S3 §2.5) | Parts de règlement immuables, retirées par contre-passation seule (`reglements/routes.ts:131-163`) ; un règlement ne précède pas l'émission de la facture qu'il règle (`reglements/routes.ts:91`) | **Conflit** : l'encaissement ne se reporte pas sur la nouvelle facture à sa date réelle, et le contre-passer pour permettre l'annulation fausserait l'encaissé (N-06, Q-08) |
+| 12. Avoirs partiels déjà transmis d'une facture ensuite refusée | Flux 1 de la facture refusée ignoré pour le pré-remplissage (S3 §2.5) | Avoirs partiels émis et figés, chacun déposé avec son flux 1 (FE-5) | **Question** : leur flux 1 compte-t-il encore pour le pré-remplissage de TVA ? (N-06, Q-03) |
 
-Questions posées : N-03 à N-07 pour Nelson ; Q-01 à Q-03, Q-20 et Q-25 pour le cabinet.
+Questions posées : N-03 à N-07 pour Nelson ; Q-01 à Q-03, Q-08, Q-20 et Q-25 pour le cabinet.
 
 ## 8. Découpage en lots
 
@@ -375,20 +379,20 @@ Questions posées : N-03 à N-07 pour Nelson ; Q-01 à Q-03, Q-20 et Q-25 pour l
 
 | Lot | Objet | Dépend de | Auditeurs |
 |---|---|---|---|
-| FE-0 | Cette proposition | — | `controleur-coherence` |
+| FE-0 | Cette proposition | — | `controleur-coherence`, `auditeur-montants` |
 | FE-DOC | Connexion à une PA et déploiement (deux PR) | FE-0 ; FE-4 et FE-5 pour la seconde | `controleur-coherence` |
-| FE-1 | Identité fiscale de la société et des clients | FE-0 ; N-01, N-09 | `auditeur-droits-securite` |
+| FE-1 | Identité fiscale de la société et des clients | FE-0 ; N-01, N-09 | `auditeur-montants` (préfixes et numérotation), `auditeur-droits-securite` |
 | FE-2 | Données de la facture et modèle canonique | FE-1 ; Q-05, Q-22, Q-23 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-3 | Formats, validation et job de CI | FE-2 ; N-15 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-4 | Connecteur PA, annuaire, contrôle de compatibilité | FE-1 ; N-02 | `auditeur-droits-securite` |
 | FE-5 | Transmission et journal des statuts (ventes) | FE-3, FE-4 ; N-08, N-14 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-6 | Correction après rejet ou refus | FE-5 ; N-03 à N-07 ; Q-01 à Q-03 | `auditeur-montants`, `auditeur-droits-securite` |
-| FE-7 | Encaissée et données de paiement | FE-5 ; N-13, N-17 ; Q-06 à Q-08 | `auditeur-montants`, `auditeur-droits-securite` |
-| FE-8 | E-reporting | FE-7 ; Q-09, Q-10 | `auditeur-montants`, `auditeur-droits-securite` |
+| FE-7 | Encaissée et données de paiement | FE-5 ; N-06, N-13, N-17 ; Q-05 à Q-08 | `auditeur-montants`, `auditeur-droits-securite` |
+| FE-8 | E-reporting | FE-7 ; Q-05, Q-09, Q-10 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-9 | Boîte de réception et statuts acheteur | FE-1, FE-4 ; N-11 | `auditeur-droits-securite` |
-| FE-10 | Conservation et restitution | FE-5, FE-9 ; Q-11, Q-12 ; N-16 | `auditeur-droits-securite` |
+| FE-10 | Conservation et restitution | FE-5, FE-9 ; Q-11, Q-12 ; N-16 | `auditeur-montants` (factures et avoirs figés), `auditeur-droits-securite` |
 | FE-11 | Clients publics, si N-10 le demande | FE-5 | `auditeur-droits-securite` |
-| FE-12 | Facture d'acompte, si N-12 le demande | FE-7 ; Q-21 | `auditeur-montants`, `auditeur-droits-securite` |
+| FE-12 | Facture d'acompte et facture définitive après acompte, obligatoire si Q-21 le confirme | FE-7 ; Q-07, Q-21 ; N-12 | `auditeur-montants`, `auditeur-droits-securite` |
 
 Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon le circuit de `CLAUDE.md`.
 
@@ -399,6 +403,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Job de CI dédié.** « Job CI dédié, lancé seulement quand la facturation change » : le script de périmètre (`.github/scripts/perimetre-ci.mjs`) le déclenche sur les chemins de la facturation. La « CI — synthèse » en tient compte.
 - **Validateurs officiels.** « Pour les schematrons, validateurs officiels dans un conteneur de CI plutôt que saxon-js » : une image de conteneur porte les artefacts aux versions de S1 et S6.
 - **Audits.** « auditeur-montants et auditeur-droits-securite sur chaque lot concerné » (section 8.1).
+- **Dernières versions.** « vérifie la dernière version avant de coder » (cadrage, rubrique « RÉFÉRENCES ») : chaque lot de code vérifie, avant de coder, la dernière version des sources qu'il applique (section 2.1) et cite dans sa PR la version retenue.
 - **Règle R.** Une exigence obligatoire de la matrice que le lot devait couvrir et laisse non respectée est une remarque R.
 - **Règle 4 de la méthode.** Aucune donnée réelle n'existe : aucun lot ne migre de données existantes. Les colonnes nouvelles sont vides ou prennent la valeur du comportement actuel.
 
@@ -435,7 +440,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Variables d'environnement** : aucune.
 - **Critères** : une société sans SIREN ne peut pas activer le connecteur ; un préfixe trop long ou identique pour les factures et les avoirs est refusé avec un message clair ; chaque changement est journalisé.
 - **Tests** : API sur PostgreSQL (formats, refus, journal, droits du `SUPERADMIN`) ; Playwright sur les écrans Société et Client.
-- **Auditeur** : `auditeur-droits-securite` (IBAN, données de la société).
+- **Auditeurs** : `auditeur-montants` (préfixes et numérotation, EX-09), `auditeur-droits-securite` (IBAN, données de la société).
 
 #### FE-2 : données de la facture et modèle canonique
 
@@ -483,7 +488,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Hors périmètre** : le dépôt des factures (FE-5) ; un adaptateur propriétaire, sur décision de Nelson.
 - **Exigences** : EX-13, 14, 43, 45, 49, 50, 51, 52.
 - **Paramètres** : connecteur actif, inactif par défaut (comportement actuel) ; changement journalisé.
-- **Variables d'environnement** (noms proposés, à documenter dans ce lot dans `server/.env.example` et [la configuration](CONFIGURATION-ENVIRONNEMENT.md)) : `EFACTURE_PA_URL_FLOW`, `EFACTURE_PA_URL_ANNUAIRE`, `EFACTURE_PA_URL_JETON`, `EFACTURE_PA_CLIENT_ID`, `EFACTURE_PA_CLIENT_SECRET` (secret), `EFACTURE_PA_ORGANIZATION_ID` (facultative), `EFACTURE_PA_ENVIRONNEMENT` (`bac-a-sable` ou `production`), `EFACTURE_WEBHOOK_SECRET` (seulement avec un webhook).
+- **Variables d'environnement** (noms proposés, à documenter dans ce lot dans `server/.env.example`, dans la liste de rappel en tête de `.env.example` et dans [la configuration](CONFIGURATION-ENVIRONNEMENT.md), selon la règle permanente 3) : `EFACTURE_PA_URL_FLOW`, `EFACTURE_PA_URL_ANNUAIRE`, `EFACTURE_PA_URL_JETON`, `EFACTURE_PA_CLIENT_ID`, `EFACTURE_PA_CLIENT_SECRET` (secret), `EFACTURE_PA_ORGANIZATION_ID` (facultative), `EFACTURE_PA_ENVIRONNEMENT` (`bac-a-sable` ou `production`), `EFACTURE_WEBHOOK_SECRET` (seulement avec un webhook).
 - **Critères** : sans variables, le connecteur ne s'active pas et Iris fonctionne comme avant ; le contrôle dit « conforme » ou liste les manques ; aucun secret n'apparaît dans un journal, une réponse ou l'écran.
 - **Tests** : faux serveur XP Z12-013 ; API sur PostgreSQL (droits, journal, secrets absents des réponses) ; Playwright de l'écran Connecteurs.
 - **Auditeur** : `auditeur-droits-securite`.
@@ -526,7 +531,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Hors périmètre** : la banque et le rapprochement.
 - **Exigences** : EX-25, 30, 31, 34, 40.
 - **Paramètres** : aucun ; la règle d'exigibilité reste dans le code, avec sa source (Q-06 à Q-08).
-- **Critères** : un règlement partiel puis total produisent les statuts attendus ; une contre-passation produit un statut négatif ; une facture soldée par avoirs ne produit aucun statut Encaissée.
+- **Critères** : un règlement partiel puis total produisent les statuts attendus ; une contre-passation produit un statut négatif ; une facture soldée par avoirs ne produit aucun statut Encaissée ; trop-perçu, avoir après règlement, facture de cadre M et règlement d'une facture refusée suivent les réponses à N-06, N-17 et Q-08, sans règle inventée.
 - **Tests** : parcours encaissement sur PostgreSQL et dans le navigateur.
 - **Auditeurs** : `auditeur-montants`, `auditeur-droits-securite`.
 
@@ -557,19 +562,19 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Paramètres** : durée : aucune valeur par défaut ; d'ici la réponse du cabinet, rien n'est supprimé (comportement actuel).
 - **Variables d'environnement** : selon N-16 (stockage des fichiers), à documenter dans ce lot.
 - **Tests** : API sur PostgreSQL (suppression refusée, empreinte contrôlée).
-- **Auditeur** : `auditeur-droits-securite`.
+- **Auditeurs** : `auditeur-montants` (factures et avoirs figés), `auditeur-droits-securite`.
 
 #### FE-11 et FE-12 : lots conditionnels
 
 - **FE-11, clients publics** (si N-10) : Chorus Pro ou PA, règles BR-FR-CPRO, engagement juridique et code service (EX-04).
-- **FE-12, facture d'acompte** (si N-12) : types 386 et 503, facture définitive de cadre 4 qui reprend l'acompte, Encaissée de l'acompte (EX-20, EX-22 ; Q-07, Q-21).
+- **FE-12, facture d'acompte** (obligatoire si le cabinet confirme qu'une facture d'acompte est due, Q-21 ; sa place relève de N-12) : types 386 et 503, facture définitive de cadre 4 qui reprend l'acompte (ligne de reprise ou montant déjà payé BT-113, selon N-12), Encaissée de l'acompte, due « même avec option sur les débits » (S3 §3.2.19) (EX-20, EX-22, EX-30 ; Q-07, Q-21).
 
 ### 8.4 Ordre et faisabilité de la recette
 
 - **Ordre proposé.** FE-0, puis tout de suite la PR a de FE-DOC. Les lots de code viennent après les lots pilotes en cours (cadrage de Nelson) :
   - chemin critique : FE-1, FE-2, FE-3, FE-5, FE-7, FE-8 ;
   - en parallèle, domaines indépendants : FE-4 après FE-1 ; FE-9 après FE-4 ; la PR b de FE-DOC avec FE-4 et FE-5 ;
-  - après les réponses : FE-6 ; FE-10 ; FE-11 et FE-12 si décidés.
+  - après les réponses : FE-6 ; FE-10 ; FE-11 si N-10 le demande ; FE-12 si Q-21 le confirme, à la place fixée par N-12.
 - **Recette sur le bac à sable.** Elle couvre ce que vérifie le contrôle de compatibilité : authentification et annuaire (FE-4), dépôt jusqu'à Déposée (FE-5), facture test reçue (FE-9), statuts envoyés (FE-7, FE-9), e-reporting test (FE-8).
 - **Faisabilité avant le 01-06-2027.** Elle tient à trois conditions, sans date promise ici :
   - la place libérée par les lots pilotes en cours ;
@@ -628,19 +633,19 @@ Métier, périmètre, modèle de données et montants. Chaque question cite sa s
 | N-02 | Quelle PA, et quand le contrat de bac à sable ? Offre-t-elle XP Z12-013 1.3.0 (Flow et Directory) ? Accepte-t-elle les statuts par son API ou en CDAR ? | Cadrage ; EX-34, EX-50 | Chemin critique de la recette ; adaptateur propriétaire sur décision |
 | N-03 | Facture rejetée : la lecture des sources vérifiées (numéro gardé, avoir interne `ARCHIVEONLY` dans la série des avoirs, nouvelle facture au numéro suivant) vous convient-elle, sous réserve du cabinet ? L'avoir interne est-il proposé à l'utilisateur ou créé automatiquement ? | S3 §2.2, §2.4 ; S2 BR-FR-CO-02, BR-FR-20 ; section 7 | Numérotation et immutabilité |
 | N-04 | Facture refusée : même question. Iris doit-il permettre de contester le refus (facture maintenue, sans avoir) ? Qui en décide ? | S3 §2.5 et NOTE ; Q-03 | Cycle de correction ; droits |
-| N-05 | Facture à 0,00 € rejetée ou refusée : Iris n'émet pas d'avoir à 0,00 € (« 5. si 0€ pas d'avoir, on ne fais pas d'avoir a 0€ », 10-11-2026). Faut-il une exception pour l'avoir interne, ou le statut suffit-il ? | S3 §2.2, §2.5 ; [historique](HISTORIQUE-DECISIONS.md#décisions-du-10-11-2026-sur-les-avoirs) ; Q-25 | Montants ; décision antérieure |
-| N-06 | Facture rejetée ou refusée après un règlement ou un avoir partiel : avoir interne du reste, ou exception à la garde d'annulation totale ? Avec #524, un avoir du reste la rendrait « réglée ». | S3 §2.5 ; `factures/routes.ts:449-455` | Montants ; statut affiché |
+| N-05 | Facture à 0,00 € rejetée ou refusée : Iris n'émet pas d'avoir à 0,00 € (« 5. si 0€ pas d'avoir, on ne fais pas d'avoir a 0€ », 10-11-2026, réponse à une question sur une ligne d'avoir) et refuse d'annuler une facture à 0,00 €, option choisie par Nelson le 10-11-2026 : « Refuser l'annulation (Recommandé) », décrite par Claude Code : « La facture à 0,00 € reste émise, sans rien à payer ; aucun avoir n'est créé. Le plus simple et le plus prudent. » Faut-il une exception pour l'avoir interne, ou le statut suffit-il ? | S3 §2.2, §2.5 ; [historique](HISTORIQUE-DECISIONS.md#décisions-du-10-11-2026-sur-les-avoirs) ; Q-25 | Montants ; deux décisions antérieures |
+| N-06 | Facture rejetée ou refusée après un règlement ou un avoir partiel : avoir interne du reste, ou exception à la garde d'annulation totale ? La garde applique une règle de montants validée par Nelson le 17-10-2026 : « une facture qui a reçu un règlement ne s'annule plus en totalité ». Avec #524 (réponse de Nelson du 09-11-2026, citée en section 6, choix 4), un avoir du reste la rendrait « réglée ». Que devient le règlement reçu, qui ne peut plus donner d'Encaissée sur cette facture (S3 §2.5) et ne se reporte pas sur la nouvelle facture à sa date réelle (`reglements/routes.ts:91`) ? Et une facture au temps passé, dont la nouvelle facture attend l'avoir total (`factures/repere.ts:20-24`) ? Les avoirs partiels déjà transmis comptent-ils encore pour le pré-remplissage de TVA ? | S3 §2.5 ; `factures/routes.ts:449-455` ; section 7.2, points 5 et 10 à 12 ; [historique](HISTORIQUE-DECISIONS.md#lots-pilotes-livrés-état-dorigine) ; [historique](HISTORIQUE-DECISIONS.md#décisions-du-09-11-2026-sur-at-4) | Montants ; statut affiché ; décisions antérieures |
 | N-07 | Fichier irrecevable : renvoyer le même fichier sous le même numéro si le défaut est technique ? Et si le défaut touche le contenu ? | S3 §2.1 ; Q-02 | Immutabilité |
-| N-08 | La pièce transmise est figée. Le bloc « Règlements et avoirs », « Facture réglée par avoir(s) » et « FACTURE ANNULÉE » (#534) ne peuvent plus modifier ce fichier. Où les afficher : document de situation distinct, ou écran seul ? | EX-08, EX-46, EX-47 ; passation, section 4, bloc #534 ; [historique](HISTORIQUE-DECISIONS.md#décisions-du-10-11-2026-sur-le-détail-des-avoirs) | Montants affichés ; décisions du 10-11-2026 |
+| N-08 | La pièce transmise est figée. Le bloc « Règlements et avoirs » et la mention « Facture réglée par avoir(s) » (#534), comme la mention « FACTURE ANNULÉE », antérieure, ne peuvent plus modifier ce fichier. Le bloc et la mention de #534 appliquent les options choisies par Nelson le 10-11-2026 : « « Facture réglée par avoir(s) » (Recommandé) », « Dès qu'un avoir existe (Recommandé) » et « Oui, paiements et avoirs », décrite par Claude Code : « Le PDF liste tout ce qui a réglé la facture : paiements (date, moyen, montant) et avoirs. » Où les afficher : document de situation distinct, ou écran seul ? | EX-08, EX-46, EX-47 ; passation, section 4, bloc #534 ; [historique](HISTORIQUE-DECISIONS.md#décisions-du-10-11-2026-sur-le-détail-des-avoirs) | Montants affichés ; décisions du 10-11-2026 |
 | N-09 | Type de client : remplacer la case « Pas de SIRET (particulier) » par une liste (B2B France, B2B UE, B2B hors UE, particulier, entité publique) ? Quel type pour une association à SIREN non assujettie ? | EX-02 ; S3 §1.1, §1.4.3 | Modèle de données ; circuit e-invoicing ou e-reporting |
 | N-10 | La société facture-t-elle des entités publiques (Chorus Pro) ? | EX-04 ; S3 §1.1 | Lot FE-11 |
 | N-11 | Réception : la boîte minimale de la section 10 suffit-elle ? Faut-il un lien avec les coûts des chantiers, une comptabilisation, un circuit d'approbation ? | Cadrage (« pose-moi la question du périmètre ») ; EX-35 | Périmètre de FE-9 |
-| N-12 | Faut-il un lot de facture d'acompte (FE-12) ? L'acompte d'un devis est constaté sans facture. | EX-20 ; S3 cas n°20, 21 ; Q-21 | Périmètre ; montants |
-| N-13 | « prélèvements des contrats compris » : Iris n'a ni mandat, ni échéancier, ni facturation de contrat (`schema.prisma:1123`). Lot à créer, ou prélèvement saisi comme règlement (moyen `PRELEVEMENT`, `reglements/metier.ts:7`) ? | Cadrage ; EX-30 | Périmètre de FE-7 |
+| N-12 | L'acompte d'un devis est constaté sans facture (`schema.prisma:561-566`), exigé par défaut à 40 % (décisions du 17-11-2026), et n'est pas déduit de la facture définitive (passation, section 3, « Acompte et encaissé »). Selon S3 §3.2.19, « Tout assujetti est tenu de délivrer une facture pour les acomptes qui lui sont versés (article 289-I.1.c du CGI) », obligation antérieure à la réforme. Si le cabinet le confirme (Q-21), FE-12 est obligatoire : à quelle place le mener, avant ou après la recette ? La facture définitive reprend-elle l'acompte par une ligne de reprise ou par le montant déjà payé (BT-113), qui fausse le pré-remplissage de TVA selon S3 ? | EX-20, EX-22, EX-30 ; S3 §3.2.19, cas n°20, 21 ; Q-07, Q-21 | Montants ; place de FE-12 |
+| N-13 | « prélèvements des contrats compris » : Iris n'a ni mandat, ni échéancier de facturation : un contrat ne porte « aucun prix, taux ou mécanisme de facturation » (`schema.prisma:1135`) ; une facture peut seulement lui être rattachée (origine contrat). Lot à créer, ou prélèvement saisi comme règlement (moyen `PRELEVEMENT`, `reglements/metier.ts:7`) ? | Cadrage ; EX-30 | Périmètre de FE-7 |
 | N-14 | Canal B2B France : la PA dès l'activation du connecteur, ou le courriel jusqu'à la date d'obligation ? Après cette date, refuser d'émettre une facture B2B France sans connecteur actif ? | Cadrage ; EX-01 | Conformité de l'émission ; blocage possible |
 | N-15 | Validation hors CI : un service de validation en conteneur, déployé avec Iris (choix proposé), saxon-js dans le processus, ou autre ? Iris refuse-t-il d'émettre si le service ne répond pas ? | Cadrage (« plutôt que saxon-js ») ; EX-07 | Architecture du déploiement |
 | N-16 | Lieu de conservation des fichiers : base, stockage de l'instance, PA ? Sauvegarde ? | Cadrage (« durée et lieu ») ; EX-46 | Architecture ; FE-10 |
-| N-17 | Règlement partiel d'une facture à plusieurs taux : comment le répartir par taux pour Encaissée ? Aucune règle n'est inventée ; à valider avec le cabinet (Q-08). | S2 BR-FR-CDV-14, G7.45 ; S3 §2.1 | Montants |
+| N-17 | Montant et répartition par taux d'Encaissée, aucune règle n'étant inventée (à valider avec le cabinet, Q-08) : règlement partiel d'une facture à plusieurs taux, ou qui porte des avoirs partiels ; part d'un règlement au-delà du reste dû, qui devient un trop-perçu (règles de montants du 17-10-2026 ; #156) ; avoir émis après un règlement, qui crée un trop-perçu ; facture de cadre M, les données de paiement ne visant que les prestations de services (S3 cas n°31 ; Q-05). | S2 BR-FR-CDV-14, G7.45 ; S3 §2.1, cas n°31 | Montants |
 
 ### 11.2 Pour le cabinet
 
@@ -655,7 +660,7 @@ Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les q
 | Q-05 | Catégorie d'opération (B, S, M) des interventions SAV et de maintenance (pièces et main-d'œuvre, forfait, dépannage) et des travaux immobiliers ; opération principale et accessoire | S3 cas n°31 ; S2 BR-FR-08 | BT-23 ; FE-2 |
 | Q-06 | Travaux immobiliers et sous-traitance du BTP : TVA à l'encaissement, Encaissée à chaque règlement, retenue de garantie ; option pour les débits ; autoliquidation (`AE`, mention, cadre S5) | S3 §2.1, cas n°13, 14, 34 ; S2 BR-FR-08, 15 | FE-2, FE-7 |
 | Q-07 | Acomptes sur livraisons de biens : statut Encaissée obligatoire ? | S3 §2.1 et §3.2.19 ; S18 | FE-7, FE-12 |
-| Q-08 | Montant d'Encaissée : TTC (`MEN`) ou net (P1.15) ? Escompte, frais bancaires, répartition par taux (N-17) | S2 « CDV FE - CDAR » ; S3 §2.1 | Montants ; FE-7 |
+| Q-08 | Montant d'Encaissée : TTC (`MEN`) ou net (P1.15) ? Escompte, frais bancaires, répartition par taux, trop-perçu, avoir après règlement, facture de cadre M, règlement d'une facture ensuite refusée (N-06, N-17) | S2 « CDV FE - CDAR » ; S3 §2.1, §2.5, cas n°31 | Montants ; FE-7 |
 | Q-09 | Catégorie et régime de TVA de la société pilote : date d'émission et périodicité de l'e-reporting | S14, S17 | Calendrier |
 | Q-10 | Périodicité et délais de l'e-reporting par régime ; données de paiement ; régime simplifié | S17, S18 | FE-8 |
 | Q-11 | Conservation : durée, point de départ, détenteur (PA ou société), format, intégrité | S19, S14 | FE-10 |
