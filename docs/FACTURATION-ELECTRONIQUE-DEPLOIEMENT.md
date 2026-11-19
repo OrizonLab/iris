@@ -60,7 +60,7 @@
 
 - **Qui.** Nelson donne les faits de la société pilote (N-01). Le cabinet confirme la catégorie, le régime de TVA et l'option pour les débits (Q-09). L'administrateur de l'installation saisit.
 - **Où dans Iris.**
-  - Écran Société : raison sociale, SIRET et TVA intracommunautaire : **implémentés** ; SIRET et TVA sans contrôle de format.
+  - Écran Société : raison sociale, SIRET et TVA intracommunautaire : **implémentés** ; SIRET et TVA sans contrôle de format. Préremplissage depuis le registre national des entreprises (raison sociale, SIRET du siège, adresse ; le SIREN lu n'est pas conservé) : **implémenté**.
   - SIREN distinct, SIRET et TVA contrôlés, option pour les débits, catégorie d'entreprise, date d'obligation, régime de TVA, adresses électroniques de réception, IBAN : **prévus** (FE-1), sans valeur par défaut.
   - Écran « Prêt à facturer » : **implémenté** ; le signalement de ces nouvelles données manquantes est **prévu** (FE-1).
 - **Preuve.** Réponse écrite du cabinet à Q-09 ; écran Société complet, sans manque signalé par « Prêt à facturer » ; journal des changements (FE-1).
@@ -108,7 +108,7 @@
 
 > « SIREN et type de chaque client professionnel »
 
-- **Qui.** L'administrateur de l'installation, avec les comptes qui gèrent les clients. Nelson tranche le type des cas ambigus (N-09).
+- **Qui.** L'administrateur de l'installation, avec les comptes qui gèrent les clients. Le type des cas ambigus suit la réponse de Nelson à N-09.
 - **Où dans Iris.**
   - Fiche client : SIREN de 9 chiffres, exigé pour émettre une facture sauf si la case « Pas de SIRET (particulier) » est cochée : **implémenté**.
   - Type de client (selon N-09), SIRET facultatif, TVA contrôlée, code pays, adresse électronique de facturation : **prévus** (FE-1).
@@ -125,7 +125,7 @@
 - **Où dans Iris.**
   - Écran Factures : nature de chaque ligne, `PRESTATION` ou `ARTICLE` (`PRESTATION` par défaut), utilisée par la comptabilité : **implémentée**.
   - Catégorie d'opération (BT-23) déduite de cette nature, `PRESTATION` vers service et `ARTICLE` vers bien : **prévue** (FE-2), à valider par le cabinet.
-  - **Point pour FE-2.** Le cadrage dit « par article » ; la proposition déduit la catégorie de la nature des lignes. Une catégorie portée par chaque fiche du catalogue n'est pas prévue : à trancher par FE-2, après Q-05.
+  - **Question pour Nelson, à poser au cadrage de FE-2.** Le cadrage dit « par article » ; la proposition déduit la catégorie de la nature des lignes. Une catégorie portée par chaque fiche du catalogue n'est pas prévue. L'ajouter changerait le modèle de données : la décision revient à Nelson (règle 5 de la méthode), après la réponse du cabinet à Q-05.
 - **Preuve.** Réponse écrite du cabinet à Q-05, pour le SAV, la maintenance, le dépannage, le forfait, les pièces et la main-d'œuvre, les travaux ; une facture de chaque cas contrôlée sur le bac à sable.
 - **Questions liées.** Q-05, Q-06, Q-14.
 - **État.** À faire (réponse du cabinet) ; prévu dans Iris (lot FE-2).
@@ -136,7 +136,7 @@
 
 - **Qui.** L'administrateur de l'installation le lance. La PA fournit le bac à sable.
 - **Où dans Iris.** Commande `npm run efacture:verifier` et bouton « Tester la connexion » de l'écran Connecteurs : **prévus** (FE-4). Ils vérifient l'authentification et l'annuaire (FE-4), le dépôt jusqu'au statut Déposée (FE-5), la réception d'une facture test (FE-9), l'envoi de statuts (FE-7, FE-9) et un e-reporting test (FE-8).
-- **Preuve.** Rapport daté qui dit « conforme » sur le bac à sable. Ce que le contrôle peut vérifier en production sans créer de vraie facture est à fixer par FE-4.
+- **Preuve.** Rapport daté qui dit « conforme » sur le bac à sable, sans secret ni donnée personnelle. En production, le contrôle se limite aux lectures (authentification, état des services, annuaire) : il ne dépose ni facture, ni statut, ni e-reporting ([document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#75-contrôle-de-compatibilité), section 7.5).
 - **Questions liées.** N-02.
 - **État.** Prévu dans Iris (lots FE-4, FE-5, FE-7, FE-8, FE-9).
 
@@ -187,6 +187,7 @@
   - Alerte visible sur toute facture rejetée ou refusée, avec son motif : **prévue** (FE-5).
   - Correction après un rejet ou un refus : **prévue** (FE-6), après les réponses.
   - Droits par défaut de la proposition (section 13, choix 8, à confirmer) : la transmission suit l'émission (`factures.emettre`), la lecture des statuts suit la consultation (`factures.consulter`). Selon FE-9, l'approbation et le refus d'une facture reçue sont réservés à l'administration (choix par défaut, à confirmer).
+  - Aujourd'hui, l'accès aux factures tient au type de compte : l'administration (`SUPERADMIN`, `ADMIN`, `DIRECTEUR`) et l'assistante technique pour les factures de son poste ; le comptable est refusé (403). Les permissions `factures.*` sont celles du [modèle de droits cible](MODELE-DROITS-CIBLE.md), prévues par les lots D1 à D3 : d'ici là, les comptes se désignent par leur type.
 - **Preuve.** Comptes désignés, avec les droits voulus ; parcours de rejet et de refus éprouvés sur le bac à sable (critère de FE-5).
 - **Questions liées.** N-03 à N-07 ; Q-01 à Q-03 ; EX-28 pour les trois cas où une facture reçue peut être refusée.
 - **État.** À faire (désignation) ; prévu dans Iris (lots FE-5, FE-6, FE-9).
@@ -213,3 +214,4 @@
 1. Preuves et liste remplie conservées hors du dépôt (section 2).
 2. Statut attendu de la première facture réelle : au moins Déposée, ni Rejetée ni Refusée (section 4.8).
 3. PA de réception déjà en place, évaluée la première (section 1).
+4. Contrôle de compatibilité limité aux lectures en production (section 4.7).

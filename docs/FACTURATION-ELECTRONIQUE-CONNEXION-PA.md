@@ -15,14 +15,14 @@ Les identifiants S1 à S20 (sources), EX-01 à EX-52 (exigences), N-01 à N-17 e
 
 - Cadrage de Nelson : « Iris reste une solution compatible : il produit, valide, reçoit et suit les factures ; la plateforme agréée (PA) de chaque installation les transmet. Aucune immatriculation pour nous. »
 - La PA de la société transmet ses factures et avoirs, reçoit ses factures fournisseurs, transmet à l'administration le flux 1, les statuts obligatoires et l'e-reporting, et inscrit ses adresses de réception à l'annuaire (EX-01, EX-44).
-- Iris lui parle par l'API XP Z12-013 (S4), au moyen de l'adaptateur `ElectronicInvoicingProvider` (FE-4). Nelson : « Un adaptateur propriétaire seulement si la PA retenue n'implémente pas la norme, et sur ma décision. »
+- Iris lui parlera par l'API XP Z12-013 (S4), au moyen de l'adaptateur `ElectronicInvoicingProvider` (prévu, FE-4). Nelson : « Un adaptateur propriétaire seulement si la PA retenue n'implémente pas la norme, et sur ma décision. »
 - Nelson : « Une PA par installation, activée par SUPERADMIN dans l'écran Connecteurs. »
 - La réception par une PA est déjà obligatoire (texte légal non vérifié) : voir [« Avant même Iris »](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#1-avant-même-iris) dans la liste de contrôle du déploiement.
 - **PA déjà en place** (choix par défaut, à confirmer) : si la société a déjà une PA de réception (N-01), cette PA est évaluée la première avec la grille de la section 3. Une installation n'a qu'une PA : écarter celle-ci imposerait un changement de PA (critère 8).
 
 ## 2. Critères de choix
 
-Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, comment le vérifier, puis ce qui est éliminatoire et ce qui est souhaitable. **Le classement éliminatoire ou souhaitable est un choix par défaut, à confirmer par Nelson** (N-02) ; il suit le classement des exigences de la proposition (obligatoire, recommandé).
+Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, comment le vérifier, puis ce qui est éliminatoire et ce qui est souhaitable. **Le classement éliminatoire ou souhaitable est un choix par défaut, à confirmer par Nelson** (N-02) ; il s'appuie sur le classement des exigences de la proposition (obligatoire, recommandé) et sur ce dont les lots FE-4 à FE-10 et la recette ont besoin ; il peut donc être plus strict qu'une exigence recommandée (critères 5, 6 et 8).
 
 ### 2.1 Critère 1 : inscription sur la liste officielle de la DGFiP
 
@@ -64,14 +64,14 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
 
 - **Pourquoi.** Cadrage de Nelson : « Adaptateur ElectronicInvoicingProvider sur l'API XP Z12-013 (factures, statuts, e-reporting, annuaire). »
 - **Comment.** Demander la liste des types de flux (`FlowType`) acceptés en dépôt et livrés en lecture. Sur le bac à sable, faire passer un flux de chaque type de bout en bout (section 7.5).
-- **Éliminatoire.** L'un de ces flux absent de l'offre de la PA : émission, réception, statuts obligatoires (Déposée 200, Rejetée 213, Refusée 210, Encaissée 212), e-reporting, inscription à l'annuaire.
+- **Éliminatoire.** L'un de ces flux absent de l'offre de la PA : émission, réception, statuts obligatoires (Déposée 200, Rejetée 213, Refusée 210, Encaissée 212), e-reporting, consultation et inscription à l'annuaire.
 - **À arbitrer.** Un flux offert dans l'interface de la PA mais pas par son API : Iris ne peut pas l'automatiser. Nelson tranche (N-02).
 - **Souhaitable.** Les statuts facultatifs utiles (202, 203, 204, 205, 207, 211) ; Chorus Pro, si N-10 le demande. Qui construit l'e-reporting, Iris ou la PA, est à préciser par le questionnaire (section 4).
 
 ### 2.4 Critère 4 : formats
 
 - **À vérifier.**
-  - En émission : Factur-X profil EN16931 (PDF/A-3 qui embarque le CII), UBL 2.1 (Invoice et CreditNote), CII D22B. EXTENDED-CTC-FR « seulement si un cas d'usage l'exige » (cadrage). Factur-X est le format transmis par défaut (proposition, section 13, choix 5).
+  - En émission : Factur-X profil EN16931 (PDF/A-3 qui embarque le CII), UBL 2.1 (Invoice et CreditNote), CII D22B. EXTENDED-CTC-FR « seulement si un cas d'usage l'exige » (cadrage). Factur-X est le format transmis par défaut (proposition, section 13, choix 5, à confirmer).
   - En réception : tous les formats et profils du socle, EXTENDED-CTC-FR et BASIC WL compris (EX-36), avec l'original et une vue lisible (`docType` `Original` et `ReadableView`).
   - Validation par la PA : XSD, schematron EN16931, schematron BR-FR en mode FATAL (EX-07), et les versions de ces artefacts.
   - Retour des rejets : `ackStatus` `Error` avec son détail (`item`, `reasonCode`, `reasonMessage`) ; statut Irrecevable (501) ou Rejetée (213) avec un motif de la liste officielle (EX-27).
@@ -92,16 +92,17 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
   - La date d'ouverture de l'accès, sa durée et son coût.
 - **Pourquoi.** La recette se fait sur ce bac à sable (proposition, section 8.4). Les critères de FE-4, FE-8 et FE-9 s'y vérifient. La variable proposée `EFACTURE_PA_ENVIRONNEMENT` distingue `bac-a-sable` et `production` (section 7.3).
 - **Comment.** Demander la documentation du bac à sable et une date d'accès. Premier essai : un jeton, puis `GET /v1/healthcheck`.
-- **Éliminatoire.** Pas de bac à sable ; un accès impossible avant la fin de FE-4 (proposition, section 8.4) ; l'une des six vérifications impossible.
+- **Éliminatoire.** Pas de bac à sable ; un accès impossible avant la fin de FE-4 (proposition, section 8.4) ; l'une des six vérifications impossible, sauf pour un flux que la PA n'offre que dans son interface, soumis à Nelson (critère 3, « À arbitrer »).
 - **Souhaitable.** Une facture fournisseur de test déposable à la demande ; des statuts acheteur simulables ; un accès maintenu après la recette, pour les tests de non-régression.
 
 ### 2.6 Critère 6 : notifications
 
 - **À vérifier.**
-  - **Interrogation périodique** : `POST /v1/flows/search` avec le filtre `updatedAfter`, et les limites d'appel de la PA.
+  - **Interrogation périodique** : `POST /v1/flows/search` avec le filtre `updatedAfter`, la pagination par curseur de la version 1.3.0 (`cursor`, `nextCursor`), et les limites d'appel de la PA.
   - **Webhook** : abonnement par `POST /v1/webhooks`, dont la réponse porte une clé de signature (`signingKey`, de 256 ou 512 bits selon la description de l'opération). Chaque rappel en POST porte l'en-tête `Afnor-Signature` (HMAC-SHA-256 en Base64, facultatif dans la spécification) et l'en-tête `Afnor-Signature-Timestamp` (obligatoire).
-- **Pourquoi.** Iris suit les statuts (FE-5) et les factures reçues (FE-9). Cadrage : « Un webhook éventuel est authentifié, filtré et testé ; sinon, interrogation périodique. » L'interrogation périodique est le mode par défaut (proposition, section 13, choix 6).
-- **Comment.** Demander les limites d'appel, si la PA renvoie la clé et signe chaque rappel, comment la renouveler, et la politique de nouvel essai des rappels. Sur le bac à sable : interroger avec `updatedAfter` après un dépôt ; pour un webhook, vérifier un rappel signé, puis le refus d'un rappel mal signé.
+- **Pourquoi.** Iris suit les statuts (FE-5) et les factures reçues (FE-9). Cadrage : « Un webhook éventuel est authentifié, filtré et testé ; sinon, interrogation périodique. » L'interrogation périodique est le mode par défaut (proposition, section 13, choix 6, à confirmer). Un webhook ouvre dans Iris une route joignable depuis Internet, sans session ; l'interrogation périodique n'en ouvre aucune.
+- **Comment.** Demander les limites d'appel, si la PA renvoie la clé et signe chaque rappel, comment la renouveler, et la politique de nouvel essai des rappels. Sur le bac à sable : interroger avec `updatedAfter` après un dépôt ; pour un webhook, vérifier un rappel signé, puis le refus d'un rappel mal signé, non signé, ou rejoué avec un horodatage trop ancien : la signature porte sur la charge utile et sur l'horodatage `Afnor-Signature-Timestamp`.
+- **Pour FE-4, si un webhook est retenu** (choix par défaut, à confirmer) : signature exigée, vérifiée en temps constant sur le corps brut ; horodatage hors d'une fenêtre courte refusé ; rappel traité comme un simple avis, l'état du flux étant relu par `GET /v1/flows/{flowId}` avec le jeton d'Iris ; traitement idempotent ; corps borné ; refus sans détail ; route inscrite dans la référence des routes avec sa garde.
 - **Éliminatoire.** Ni recherche par `updatedAfter`, ni webhook signé.
 - **Souhaitable.** Un webhook signé, à la clé renouvelable ; des limites d'appel publiées.
 
@@ -143,19 +144,19 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
 | 2.2 | Directory Service 1.3.0 | Souhaitable ; sans API : décision de Nelson | | | | OpenAPI de la PA |
 | 2.3 | OAuth2 « client credentials » | Souhaitable | | | | Documentation |
 | 2.4 | `trackingId` et `sha256` gardés et renvoyés | Souhaitable | | | | Essai sur bac à sable |
-| 3.1 | Émission par l'API | Éliminatoire | | | | |
-| 3.2 | Réception par l'API | Éliminatoire | | | | |
-| 3.3 | Statuts obligatoires dans les deux sens | Éliminatoire | | | | |
+| 3.1 | Émission par l'API | Éliminatoire si absent de l'offre ; interface seule : décision de Nelson | | | | |
+| 3.2 | Réception par l'API | Éliminatoire si absent de l'offre ; interface seule : décision de Nelson | | | | |
+| 3.3 | Statuts obligatoires dans les deux sens | Éliminatoire si absent de l'offre ; interface seule : décision de Nelson | | | | |
 | 3.4 | Statuts facultatifs utiles | Souhaitable | | | | |
-| 3.5 | E-reporting des transactions et des paiements | Éliminatoire | | | | |
-| 3.6 | Annuaire : consultation et inscription | Éliminatoire | | | | |
+| 3.5 | E-reporting des transactions et des paiements | Éliminatoire si absent de l'offre ; interface seule : décision de Nelson | | | | |
+| 3.6 | Annuaire : consultation et inscription | Éliminatoire si absent de l'offre ; interface seule : décision de Nelson | | | | |
 | 3.7 | Chorus Pro | Selon N-10 | | | | |
 | 4.1 | Factur-X EN16931, UBL 2.1 ou CII D22B en émission | Éliminatoire si aucun | | | | |
 | 4.2 | Tous les formats du socle en réception | Éliminatoire | | | | |
 | 4.3 | Versions des artefacts de validation publiées | Souhaitable | | | | |
 | 4.4 | Rejet avec motif officiel et règle en échec | Éliminatoire sans motif | | | | Essai sur bac à sable |
 | 5.1 | Bac à sable ouvert avant la fin de FE-4 | Éliminatoire | | | | Date d'accès écrite |
-| 5.2 | Six vérifications du contrôle possibles | Éliminatoire | | | | Essai sur bac à sable |
+| 5.2 | Six vérifications du contrôle possibles | Éliminatoire, sauf flux soumis à Nelson (critère 3) | | | | Essai sur bac à sable |
 | 5.3 | Statuts acheteur et rejets simulables | Souhaitable | | | | |
 | 6.1 | Recherche par `updatedAfter` | Éliminatoire s'il n'y a pas de webhook signé | | | | |
 | 6.2 | Webhook signé, clé renouvelable | Souhaitable | | | | |
@@ -165,6 +166,7 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
 | 8.2 | Export complet en fin de contrat | Éliminatoire | | | | Clause du contrat |
 | 8.3 | Pas de frais de sortie | Souhaitable | | | | |
 | 9 | Points contractuels (section 5) | Décision de Nelson | | | | Projet de contrat |
+| 10 | Sécurité (questions 35 à 39) | Décision de Nelson ; Q-PA-2 | | | | Réponses écrites |
 
 ## 4. Questionnaire aux PA candidates
 
@@ -206,7 +208,7 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
 
 **Notifications**
 25. Quelles limites d'appel s'appliquent à `POST /v1/flows/search` ?
-26. Renvoyez-vous la clé `signingKey` à l'abonnement, et signez-vous chaque rappel de webhook (`Afnor-Signature`) ? Comment renouvelle-t-on la clé ? Quelle politique de nouvel essai appliquez-vous ?
+26. Renvoyez-vous la clé `signingKey` à l'abonnement, et signez-vous chaque rappel de webhook (`Afnor-Signature`) ? Comment renouvelle-t-on la clé ? Quelle politique de nouvel essai appliquez-vous ? Depuis quelles adresses vos rappels partent-ils ?
 
 **Archivage**
 27. Que conservez-vous, combien de temps, dans quel format, avec quelle preuve d'intégrité ?
@@ -215,12 +217,19 @@ Chaque critère donne ce qu'il faut vérifier, pourquoi Iris en a besoin, commen
 **Réversibilité**
 29. Pouvez-vous fournir votre documentation de mobilité, vos clauses de sortie et leurs frais ?
 30. Quel export complet fournissez-vous en fin de contrat, sous quel délai et dans quels formats ?
-31. Comment assurez-vous le service minimal après le départ d'un client (S3 §1.4.5.1) ?
+31. Comment assurez-vous le service minimal après le départ d'un client (XP Z12-014, annexe A, §1.4.5.1) ?
 
 **Contrat**
 32. Quels sont vos tarifs : abonnement, facture émise ou reçue, flux d'e-reporting, bac à sable, mise en service, sortie ?
 33. Quel engagement de service prenez-vous : disponibilité, support, délais en cas d'incident, maintenances annoncées ?
 34. Quels sont vos sous-traitants et vos hébergeurs ? Où sont stockées les données et leurs sauvegardes ?
+
+**Sécurité**
+35. Quelle version minimale de TLS imposez-vous sur l'API ? Proposez-vous une authentification mutuelle ou un filtrage des adresses d'appel ?
+36. Un identifiant client peut-il être limité à une seule société et à certaines opérations ? Comment révoque-t-on un identifiant compromis, et sous quel délai ?
+37. L'accès à votre interface web exige-t-il une double authentification ? Qui, chez vous, peut lire nos factures ? Ces accès sont-ils journalisés et consultables par nous ?
+38. Comment et sous quel délai nous prévenez-vous d'un incident de sécurité ou d'une violation de données personnelles ?
+39. Les données sont-elles chiffrées au repos ? Disposez-vous d'une certification de sécurité, et sur quel périmètre ?
 
 ## 5. Points contractuels
 
@@ -270,7 +279,7 @@ Pour le bac à sable, puis pour la production : URL du Flow Service, URL du Dire
 
 ### 7.3 Variables d'environnement
 
-- **Noms proposés** par la proposition (fiche FE-4 ; section 13, choix 9). Aucune n'est lue par le code au 19-11-2026.
+- **Noms proposés** par la proposition (fiches FE-3 et FE-4 ; section 13, choix 9). Aucune n'est lue par le code au 19-11-2026.
 - Le lot qui les lira les documente dans la même PR, selon la règle permanente 3 : dans `server/.env.example`, dans la liste de rappel en tête de `.env.example` et dans [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md). `server/tests/environnement.test.mjs` le vérifie alors en CI.
 - Cette PR n'ajoute ni ne modifie aucune variable.
 
@@ -286,11 +295,16 @@ Pour le bac à sable, puis pour la production : URL du Flow Service, URL du Dire
 | `EFACTURE_WEBHOOK_SECRET` | Vérification de la signature des rappels | Secret ; seulement avec un webhook | FE-4 |
 | `EFACTURE_VALIDATEUR_URL` | Adresse du service de validation | Selon N-15 | FE-3 |
 
-Avec la norme, la clé de signature d'un webhook est renvoyée à l'abonnement (`signingKey`, critère 6) : FE-4 dira si `EFACTURE_WEBHOOK_SECRET` reste utile. Le stockage des fichiers conservés pourra demander d'autres variables, selon N-16 (FE-10). Critère de FE-4 : « sans variables, le connecteur ne s'active pas et Iris fonctionne comme avant ».
+Avec la norme, la clé de signature d'un webhook est renvoyée à l'abonnement (`signingKey`, critère 6), et le schéma `Webhook` de la liste des abonnements (`GET /v1/webhooks`) la reprend : FE-4 dira si `EFACTURE_WEBHOOK_SECRET` reste utile. Dans tous les cas, la clé suit le cadrage (« Secrets en variables d'environnement documentées ») : jamais écrite en base, dans un journal ni dans le dépôt ; sans variable, elle est relue au démarrage et gardée en mémoire seule. Le stockage des fichiers conservés pourra demander d'autres variables, selon N-16 (FE-10). Critère de FE-4 : « sans variables, le connecteur ne s'active pas et Iris fonctionne comme avant ».
+
+Pour FE-4 (choix par défaut, à confirmer) :
+- Les adresses `EFACTURE_PA_URL_*` reçoivent le secret client et le jeton : `https` seulement, sans identifiants dans l'adresse, redirections refusées, adresse locale admise pour le faux serveur des tests, valeur refusée au démarrage, comme `MICROSOFT_GRAPH_URL` ([configuration](CONFIGURATION-ENVIRONNEMENT.md#envoi-des-documents-par-microsoft-365)).
+- `EFACTURE_PA_ENVIRONNEMENT` n'a pas de valeur par défaut : absente, ou autre que `bac-a-sable` ou `production`, le connecteur ne s'active pas. Chaque transmission et chaque statut gardent l'environnement où ils ont eu lieu.
+- Le secret client se reçoit de la PA par un canal sûr et se garde dans `server/.env` et dans un gestionnaire de mots de passe, comme le jeton de secours. Il se renouvelle selon la procédure de la PA (question 6) ; après une fuite, il est révoqué chez la PA, puis remplacé, et le conteneur du backend recréé.
 
 ### 7.4 Activation dans l'écran Connecteurs
 
-Prévu (FE-4) : le `SUPERADMIN` active le connecteur ; l'écran affiche l'environnement ; le changement est journalisé ; aucun secret n'apparaît dans un journal, une réponse ou l'écran (critère de FE-4).
+Prévu (FE-4) : le `SUPERADMIN` active le connecteur ; l'écran affiche l'environnement ; le changement est journalisé ; aucun secret n'apparaît dans un journal, une réponse ou l'écran (critère de FE-4). Aucune clé d'intégration n'active le connecteur, ne lit sa configuration ni ne lance le contrôle (choix par défaut, à confirmer).
 
 ### 7.5 Contrôle de compatibilité
 
@@ -305,13 +319,18 @@ Prévu (FE-4) : la commande `npm run efacture:verifier` et le bouton « Tester l
 | Envoi de statuts | FE-7, FE-9 |
 | E-reporting test | FE-8 |
 
-Le rapport dit « conforme » ou liste précisément les manques (cadrage). Ce que le contrôle peut vérifier en production sans créer de vraie facture est à fixer par FE-4.
+Le rapport dit « conforme » ou liste précisément les manques (cadrage). Il ne contient ni secret, ni jeton, ni clé de signature, ni donnée personnelle.
+
+Garde-fous à reprendre par FE-4 (choix par défaut, à confirmer, le plus restrictif) :
+- Les vérifications qui écrivent chez la PA (dépôt, envoi de statuts, e-reporting test, abonnement à un webhook) ne s'exécutent que si `EFACTURE_PA_ENVIRONNEMENT` vaut `bac-a-sable`, avec les identifiants d'entreprise de test fournis par la PA (question 24). En production, elles sont refusées : un dépôt, un statut ou un e-reporting y seraient de vraies transmissions, jusqu'à l'administration.
+- Le document de test n'est pas une facture d'Iris : il ne prend aucun numéro de la séquence, n'est pas enregistré comme facture et n'entre pas dans le journal des statuts des factures réelles.
+- En production, le contrôle se limite aux lectures : authentification, `GET /v1/healthcheck` de chaque service, consultation de l'annuaire. Toute autre vérification en production est à décider par FE-4, sans écriture chez la PA.
 
 ### 7.6 Passage en production
 
 - Remplacer les identifiants du bac à sable par ceux de la production, et donner à `EFACTURE_PA_ENVIRONNEMENT` la valeur `production`.
 - Sur un serveur Docker, recréer le conteneur du backend, car `docker compose restart` ne relit pas `server/.env` ([configuration](CONFIGURATION-ENVIRONNEMENT.md#fichiers-à-créer)).
-- Relancer le contrôle, puis suivre la première facture réelle ([liste de contrôle](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#48-première-facture-réelle-suivie-jusquau-statut-attendu), point 8).
+- Relancer le contrôle, réduit en production aux lectures (section 7.5), puis suivre la première facture réelle ([liste de contrôle](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#48-première-facture-réelle-suivie-jusquau-statut-attendu), point 8).
 
 ### 7.7 Changement de PA
 
@@ -330,3 +349,6 @@ Selon le critère 8 et la documentation de mobilité de la PA. Iris garde la PA 
 5. La PA de réception déjà en place, évaluée la première (section 1).
 6. La grille remplie et ses preuves conservées hors du dépôt (section 3).
 7. Les questions nouvelles numérotées à part (section 6).
+8. Le contrôle de compatibilité sans écriture chez la PA en production, et sans facture d'Iris pour son document de test (section 7.5).
+9. Les garde-fous d'un webhook, s'il est retenu par FE-4 (critère 6).
+10. Aucune clé d'intégration n'active le connecteur, ne lit sa configuration ni ne lance le contrôle (section 7.4).
