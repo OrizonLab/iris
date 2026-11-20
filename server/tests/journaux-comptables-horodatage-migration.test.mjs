@@ -44,9 +44,10 @@
 // Mutants que ce test tue (cadrage, « Mutants ») : déclencheur retiré, sur chaque table ou les deux ; `CURRENT_TIMESTAMP`,
 // `now()`, `statement_timestamp()` au lieu de `clock_timestamp()` ; conversion de fuseau retirée ; `AFTER` au lieu de
 // `BEFORE` ; `BEFORE INSERT OR UPDATE` ; `ENABLE ALWAYS` ; reprise des lignes existantes ; déclencheur posé sur une
-// seule des deux tables ; `WHEN` restreint à certaines actions ou à un type de règle ; depuis #629, sur chacune des deux
-// fonctions, `SECURITY DEFINER`, `SET search_path` sans `SECURITY DEFINER` et SQL dynamique (`EXECUTE`) au lieu de
-// l'affectation, ainsi qu'un déclencheur qui appelle une copie `SECURITY DEFINER` dans un autre schéma.
+// seule des deux tables ; `WHEN` restreint à certaines actions ou à un type de règle ; un déclencheur qui appelle une
+// copie `SECURITY DEFINER` dans un autre schéma (dès le lot : assertion « déclencheur du lot », la définition du
+// déclencheur nommant alors la copie qualifiée de son schéma) ; depuis #629, sur chacune des deux fonctions,
+// `SECURITY DEFINER`, `SET search_path` sans `SECURITY DEFINER` et SQL dynamique (`EXECUTE`) au lieu de l'affectation.
 // Sans TEST_DATABASE_URL, le test s'annonce ignoré, comme les autres tests de migration : un SKIP n'est pas une réussite.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

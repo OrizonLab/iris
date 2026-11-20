@@ -22,7 +22,7 @@
 //    cible REGLEE si resteDu ≤ 0 et (montantRegle > 0 ou montantAvoirs > 0), sommes jamais négatives ; entrée REGLEMENT ou RETOUR_EMISE au nom de
 //    l'auteur, détail « Transition A → B (cause) : réglé X €[, avoirs Y €], reste dû Z € » (ou « trop-perçu Z € ») ; depuis le lot
 //    « Pas d'avoir à 0,00 € », la seconde condition n'est plus atteinte par aucun chemin de l'API (mutant équivalent : voir le test
-//    « avoir partiel de 0,00 € par l'API ») ;
+//    « avoir partiel de 0,00 € par l’API ») ;
 //  - refus de la saisie d'un règlement sur une facture réglée par ses avoirs : 409 « Seule une facture émise non soldée reçoit
 //    un règlement : la facture <numéro> ne le peut pas. » ; le refus « déjà soldée » n'est plus atteint que par une facture émise
 //    à 0,00 € TTC ;
@@ -627,7 +627,7 @@ if (!TEST_DATABASE_URL) {
     // n'a plus d'objet ici ; sur une base qui portait un tel avoir avant la migration, elle est éprouvée par
     // avoir-non-nul-migration.test.mjs. La facture reste « émise » et garde le refus « déjà soldée ». Lecture écartée (avant le lot) :
     // avoir de 0,00 € émis en base sans refus au COMMIT. La seconde condition des gardes en base (somme positive) reste éprouvée par
-    // le test « gardes en base : l'avoir d'annulation ne compte pas… » (facture à 0,00 € sans règlement ni avoir émis, passée
+    // le test « gardes en base : l’avoir d’annulation ne compte pas… » (facture à 0,00 € sans règlement ni avoir émis, passée
     // « réglée » : refusée ; avoir brouillon non compté).
     test('avoir partiel de 0,00 € sur une facture à 0,00 € : refusé par l’API (400, ligne au prix nul) et refusé au COMMIT s’il est écrit en base (garde de l’avoir à 0,00 €, message exact), sans écriture ; la facture reste « émise », ne passe pas « réglée », et garde le refus « déjà soldée »', async () => {
       const facture = await factureEmise(par('AD'), 'avoir à zéro', LIGNES_ZERO);
@@ -650,9 +650,9 @@ if (!TEST_DATABASE_URL) {
     // Conséquence déclarée : la seconde condition de synchroniserStatutReglement (reglements/metier.ts : montantRegle > 0 ou
     // montantAvoirs > 0) n'est plus atteinte par aucun chemin de l'API. Elle reste dans le code comme défense, alignée sur les gardes
     // en base facture_statut_reglements et facture_statut_reglement_differe, dont la seconde condition reste éprouvée en base (test
-    // « gardes en base : l'avoir d'annulation ne compte pas… »). Le mutant qui la retire côté API est donc équivalent, et non un test
-    // manquant : seule une facture à 0,00 € a un reste dû nul sans rien de réglé ni de crédité, et aucun des quatre chemins qui
-    // appellent synchroniserStatutReglement ne l'atteint plus :
+    // « gardes en base : l’avoir d’annulation ne compte pas… »). Le mutant qui la retire côté API est donc équivalent, et non un test
+    // manquant : seule une facture à 0,00 € a un reste dû nul sans rien de réglé ni de crédité, et aucun des quatre cas suivants,
+    // répartis sur les trois appels de synchroniserStatutReglement (avoir partiel, règlement, contre-passation), ne l'atteint plus :
     //  - un règlement : refusé « déjà soldée » (409) avant la synchronisation (test « facture à 0,00 € » plus haut, et ce test) ;
     //  - un avoir partiel positif : refusé par le plafond (409 ; avoir-non-nul.test.mjs, critère 4) ;
     //  - un avoir partiel d'une ligne à 0,00 € : refusé (400, ce test) ;
