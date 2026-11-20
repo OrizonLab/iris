@@ -72,7 +72,7 @@
 
 > « PA choisie et contrat signé »
 
-- **Qui.** Nelson choisit (N-02, ouverte : aucune PA n'est choisie au 20-11-2026), avec la société. La PA fournit le contrat et l'accès au bac à sable. Le cabinet répond aux points juridiques. **Qui signe : la société** (N-PA-1, réponse de Nelson du 20-11-2026, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique) ; lecture retenue, à corriger par Nelson si besoin ; le point juridique reste au cabinet, Q-PA-3).
+- **Qui.** Nelson choisit (N-02, ouverte : aucune PA n'est choisie au 20-11-2026), avec la société. La PA fournit le contrat et l'accès au bac à sable. Le cabinet répond aux points juridiques. **Qui signe : la société** (N-PA-1, réponse de Nelson du 20-11-2026, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique) ; lecture retenue, à corriger par Nelson si besoin ; le point juridique reste non vérifié, EX-49).
 - **Où dans Iris.** Hors d'Iris. Critères, grille, questionnaire et points contractuels : [document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md).
 - **Preuve.** Copie datée de la liste officielle (S10) ; grille remplie et datée ; réponses écrites de la PA au questionnaire ; contrat signé ; date d'accès au bac à sable.
 - **Questions liées.** N-01, N-02, N-PA-1 ; Q-16, Q-PA-1 à Q-PA-3.

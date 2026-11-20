@@ -262,7 +262,7 @@ Numérotées à part, pour ne pas heurter la numérotation de la proposition. El
 
 | N | Question | Source | Enjeu |
 |---|---|---|---|
-| N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? **Répondue le 20-11-2026** : « la société normalement » (réponse de Nelson, citée dans l'[historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)). Lecture retenue, à corriger par Nelson si besoin : la société signe le contrat avec sa PA, c'est l'usage, l'obligation pesant sur l'assujetti ; le point juridique reste au cabinet (Q-PA-3). | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) | Contrat ; changement de PA |
+| N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? **Répondue le 20-11-2026** : « la societé normalement » (réponse de Nelson, citée dans l'[historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)). Lecture retenue, à corriger par Nelson si besoin : la société signe le contrat avec sa PA, c'est l'usage (non vérifié), l'obligation pesant sur l'assujetti ; le point juridique reste non vérifié (EX-49 : accord signé par l'assujetti ou son mandataire). | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) | Contrat ; changement de PA |
 
 ## 7. Connexion pas à pas
 
