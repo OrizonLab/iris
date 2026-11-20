@@ -44,7 +44,9 @@
 // Mutants que ce test tue (cadrage, « Mutants ») : déclencheur retiré, sur chaque table ou les deux ; `CURRENT_TIMESTAMP`,
 // `now()`, `statement_timestamp()` au lieu de `clock_timestamp()` ; conversion de fuseau retirée ; `AFTER` au lieu de
 // `BEFORE` ; `BEFORE INSERT OR UPDATE` ; `ENABLE ALWAYS` ; reprise des lignes existantes ; déclencheur posé sur une
-// seule des deux tables ; `WHEN` restreint à certaines actions ou à un type de règle.
+// seule des deux tables ; `WHEN` restreint à certaines actions ou à un type de règle ; depuis #629, sur chacune des deux
+// fonctions, `SECURITY DEFINER`, `SET search_path` sans `SECURITY DEFINER` et SQL dynamique (`EXECUTE`) au lieu de
+// l'affectation, ainsi qu'un déclencheur qui appelle une copie `SECURITY DEFINER` dans un autre schéma.
 // Sans TEST_DATABASE_URL, le test s'annonce ignoré, comme les autres tests de migration : un SKIP n'est pas une réussite.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -464,6 +466,18 @@ test('migration des journaux comptables horodatés par la base : aucune ligne de
       assert.deepEqual(apres.filter((t) => t.nom !== DECLENCHEURS_DU_LOT[table].nom), catalogueAvant[table], `${table} : gardes existantes intactes (déclencheur, état, définition et fonction)`);
       assert.deepEqual(sansFonction(apres), [...GARDES_CATALOGUE[table], DECLENCHEURS_DU_LOT[table]].sort((a, b) => a.nom.localeCompare(b.nom)), `${table} : catalogue complet`);
     }
+    // #629 (T1 de l'audit des droits de #628) : fonctions du lot, corps exact, en plpgsql, ni SECURITY DEFINER ni réglage
+    // propre (search_path). Lectures écartées : une fonction exécutée avec les droits de son propriétaire, dont un appel
+    // non qualifié pourrait être détourné par le search_path de la session ; un search_path propre posé sans SECURITY
+    // DEFINER ; du SQL dynamique (EXECUTE) à la place de l'affectation. Lues par leur nom dans public : la boucle
+    // ci-dessus relie déjà chaque déclencheur à `public.horodater_journal_…` (définition exacte du déclencheur, puis de
+    // la fonction qu'il exécute), si bien qu'une copie appelée dans un autre schéma y échoue.
+    const CORPS_DU_LOT = `\nBEGIN\n  NEW."createdAt" := clock_timestamp() AT TIME ZONE 'UTC';\n  RETURN NEW;\nEND;\n`;
+    const fonctionsDuLot = (await db.query(`SELECT p.proname AS nom, l.lanname AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages, p.prosrc AS corps
+      FROM pg_proc p JOIN pg_language l ON l.oid = p.prolang JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname IN ('horodater_journal_compte_comptable', 'horodater_journal_regle_comptable') ORDER BY p.proname`)).rows;
+    assert.deepEqual(fonctionsDuLot, ['horodater_journal_compte_comptable', 'horodater_journal_regle_comptable'].map((nom) => ({ nom, langage: 'plpgsql', securityDefiner: false, reglages: null, corps: CORPS_DU_LOT })),
+      'fonctions du lot : corps exact, plpgsql, ni SECURITY DEFINER ni réglage propre');
 
     // 9. L'ajout seul reste actif, sur une écriture d'avant la migration comme d'après : ni l'horodatage ni une autre
     //    colonne ne se modifient, aucune écriture ne se supprime, la table ne se vide pas.

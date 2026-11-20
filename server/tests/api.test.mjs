@@ -7,7 +7,7 @@
 // sans avoir rien vérifié.
 import assert from 'node:assert/strict';
 import { createHash, createHmac, randomInt, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import test, { after, afterEach, before, describe, mock } from 'node:test';
 import { PDFParse } from 'pdf-parse';
@@ -30955,6 +30955,61 @@ if (!TEST_DATABASE_URL) {
       const lu = await verifierLecture('/api/comptabilite/regles/journal', await prisma.journalRegleComptable.findMany(), 'journal des règles');
       const ids = ecrites.map((e) => e.id);
       assert.deepEqual(lu.filter((e) => ids.includes(e.id)).map((e) => e.id), ids, 'journal des règles : les six écritures dans l’ordre où elles ont été écrites');
+    });
+  });
+
+  // #629 (cadrage v2, T2 du contrôle de cohérence ; issue `suivi-audit` #629, T1 de l'audit des droits de #628 ; lecture
+  // retenue de la décision de Nelson du 23-10-2026 : un test manquant seul est versé par une PR de suivi). Les tests de
+  // migration de #617 et #628 lisent leurs fonctions au sortir de leur propre migration : une migration ultérieure qui
+  // ferait `ALTER FUNCTION … SECURITY DEFINER` ou `ALTER FUNCTION … SET search_path` sur l'une des fonctions
+  // d'horodatage des journaux d'audit, ou qui reposerait un déclencheur sur une autre fonction, leur échapperait. Ici,
+  // sur la base de TEST_DATABASE_URL entièrement migrée (témoin : chaque migration du dépôt y est appliquée), chacune des
+  // huit fonctions est lue par son déclencheur (`pg_trigger.tgfoid`, et non par son nom) : schéma public, langage
+  // plpgsql, sans SECURITY DEFINER (`prosecdef`) ni réglage propre (`proconfig`, dont search_path). Lectures écartées :
+  // une fonction exécutée avec les droits de son propriétaire, dont un appel non qualifié pourrait être détourné par le
+  // search_path de la session ; un search_path propre posé sans SECURITY DEFINER ; une copie dans un autre schéma,
+  // appelée par le déclencheur. Le corps n'est pas comparé (cadrage, T2) : il diffère d'une fonction à l'autre
+  // (`horodater_envoi_document` ne convertit pas le fuseau, `horodater_signature_intervention` date aussi
+  // l'acceptation), et les tests de #617 et #628 comparent celui de leurs fonctions.
+  describe('Fonctions d’horodatage des journaux d’audit sur la base entièrement migrée (#629) : chaque déclencheur exécute sa fonction du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre', () => {
+    // Table, déclencheur et fonction, relevés dans les migrations qui les créent (aucune migration ultérieure ne les
+    // modifie à ce jour).
+    const HORODATAGES = [
+      // 20261023120000_journal_envois_documents
+      { table: 'EnvoiDocument', declencheur: 'envoi_document_horodatage', fonction: 'horodater_envoi_document' },
+      // 20261020140000_signature_tracee_compte_rendu
+      { table: 'InterventionRapport', declencheur: 'intervention_rapport_horodatage', fonction: 'horodater_compte_rendu_intervention' },
+      { table: 'InterventionSignature', declencheur: 'intervention_signature_horodatage', fonction: 'horodater_signature_intervention' },
+      // 20261015120000_journal_administration
+      { table: 'JournalAdministration', declencheur: 'journal_administration_horodatage', fonction: 'horodater_journal_administration' },
+      // 20261119220000_journaux_comptables_horodates (#628)
+      { table: 'JournalCompteComptable', declencheur: 'journal_compte_comptable_horodatage', fonction: 'horodater_journal_compte_comptable' },
+      // 20261018120000_factures_emises_figees
+      { table: 'JournalFacture', declencheur: 'journal_facture_horodatage', fonction: 'horodater_journal_facture' },
+      // 20261119220000_journaux_comptables_horodates (#628)
+      { table: 'JournalRegleComptable', declencheur: 'journal_regle_comptable_horodatage', fonction: 'horodater_journal_regle_comptable' },
+      // 20261119140000_journal_saisie_horodate (#617)
+      { table: 'JournalSaisieChantier', declencheur: 'journal_saisie_chantier_horodatage', fonction: 'horodater_journal_saisie_chantier' },
+    ];
+
+    test('les huit fonctions d’horodatage, lues par leur déclencheur sur la base où chaque migration du dépôt est appliquée, sont celles du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre (search_path)', async () => {
+      // Témoin : la base lue est bien migrée jusqu'à la dernière migration du dépôt ; sans cela, une migration ultérieure
+      // non appliquée passerait inaperçue.
+      const duDepot = readdirSync(new URL('../prisma/migrations/', import.meta.url), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+      const appliquees = new Set((await prisma.$queryRaw`SELECT "migration_name" AS nom FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`).map((m) => m.nom));
+      assert.ok(duDepot.length > 100, `migrations du dépôt relevées : ${duDepot.length}`);
+      assert.deepEqual(duDepot.filter((nom) => !appliquees.has(nom)), [], 'chaque migration du dépôt est appliquée à la base de test');
+
+      const lues = await prisma.$queryRaw`SELECT c.relname::text AS "table", t.tgname::text AS declencheur, n.nspname::text AS schema, p.proname::text AS fonction,
+          l.lanname::text AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages
+        FROM pg_trigger t
+        JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace nc ON nc.oid = c.relnamespace
+        JOIN pg_proc p ON p.oid = t.tgfoid JOIN pg_language l ON l.oid = p.prolang JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE nc.nspname = 'public' AND NOT t.tgisinternal AND t.tgname::text = ANY(${HORODATAGES.map((h) => h.declencheur)}::text[])`;
+      const parTable = (a, b) => (a.table < b.table ? -1 : a.table > b.table ? 1 : 0);
+      assert.deepEqual([...lues].sort(parTable),
+        HORODATAGES.map((h) => ({ ...h, schema: 'public', langage: 'plpgsql', securityDefiner: false, reglages: null })),
+        'chaque déclencheur d’horodatage exécute sa fonction du schéma public, en plpgsql, ni SECURITY DEFINER ni réglage propre');
     });
   });
 }

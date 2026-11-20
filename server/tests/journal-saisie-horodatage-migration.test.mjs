@@ -27,7 +27,9 @@
 // Mutants que ce test tue (cadrage, « Mutants ») : déclencheur retiré ; `CURRENT_TIMESTAMP` au lieu de
 // `clock_timestamp()` ; conversion de fuseau retirée ; déclencheur `AFTER` au lieu de `BEFORE` ; et, au-delà, `now()`,
 // `statement_timestamp()`, déclencheur sur UPDATE au lieu d'INSERT, `ENABLE ALWAYS`, une migration qui réécrirait une
-// ligne existante du journal ou toucherait une autre table.
+// ligne existante du journal ou toucherait une autre table ; depuis #629 (fonction lue par son déclencheur), fonction
+// `SECURITY DEFINER`, `SET search_path` sans `SECURITY DEFINER`, SQL dynamique (`EXECUTE`) au lieu de l'affectation, et
+// déclencheur qui appelle une copie `SECURITY DEFINER` dans un autre schéma.
 // Sans TEST_DATABASE_URL, le test s'annonce ignoré, comme les autres tests de migration : un SKIP n'est pas une réussite.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -229,6 +231,17 @@ test('migration du journal des chantiers, interventions et contrats horodaté pa
       { tgname: 'journal_saisie_chantier_horodatage', tgtype: 7, tgenabled: 'O', proname: 'horodater_journal_saisie_chantier' });
     assert.deepEqual(declencheurs.filter((t) => t.tgname !== 'journal_saisie_chantier_horodatage').map((t) => [t.tgname, t.tgenabled]),
       [['journal_saisie_chantier_ajout_seul', 'O'], ['journal_saisie_chantier_sans_vidage', 'O']], 'les gardes d’ajout seul de #583 restent en place');
+    // #629 (T1 de l'audit des droits de #628 ; T1 du contrôle de cohérence de son cadrage) : la fonction qu'exécute
+    // réellement le déclencheur, lue par `pg_trigger.tgfoid` et non par son nom, est celle du schéma public, en plpgsql,
+    // au corps exact, ni SECURITY DEFINER ni réglage propre (search_path). Lectures écartées : une fonction exécutée avec
+    // les droits de son propriétaire, dont un appel non qualifié pourrait être détourné par le search_path de la session ;
+    // un search_path propre posé sans SECURITY DEFINER ; du SQL dynamique (EXECUTE) à la place de l'affectation ; une
+    // copie SECURITY DEFINER dans un autre schéma, appelée par le déclencheur, la fonction exacte restant dans public.
+    const CORPS_DU_LOT =`\nBEGIN\n  NEW."createdAt" := clock_timestamp() AT TIME ZONE 'UTC';\n  RETURN NEW;\nEND;\n`;
+    const fonctionDuLot = (await db.query(`SELECT n.nspname AS schema, p.proname AS nom, l.lanname AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages, p.prosrc AS corps
+      FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid JOIN pg_language l ON l.oid = p.prolang JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE t.tgrelid = '"JournalSaisieChantier"'::regclass AND t.tgname = 'journal_saisie_chantier_horodatage'`)).rows;
+    assert.deepEqual(fonctionDuLot, [{ schema: 'public', nom: 'horodater_journal_saisie_chantier', langage: 'plpgsql', securityDefiner: false, reglages: null, corps: CORPS_DU_LOT }], 'fonction du déclencheur : public, corps exact, plpgsql, ni SECURITY DEFINER ni réglage propre');
 
     // 5. Insertions SQL ordinaires, session au fuseau de Paris : la date antidatée, postdatée ou absente est remplacée par
     //    l'instant de l'insertion, en UTC. Lectures écartées : déclencheur absent ou AFTER (la date choisie resterait) ;
