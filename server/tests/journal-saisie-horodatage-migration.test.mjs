@@ -237,7 +237,7 @@ test('migration du journal des chantiers, interventions et contrats horodaté pa
     // les droits de son propriétaire, dont un appel non qualifié pourrait être détourné par le search_path de la session ;
     // un search_path propre posé sans SECURITY DEFINER ; du SQL dynamique (EXECUTE) à la place de l'affectation ; une
     // copie SECURITY DEFINER dans un autre schéma, appelée par le déclencheur, la fonction exacte restant dans public.
-    const CORPS_DU_LOT =`\nBEGIN\n  NEW."createdAt" := clock_timestamp() AT TIME ZONE 'UTC';\n  RETURN NEW;\nEND;\n`;
+    const CORPS_DU_LOT = `\nBEGIN\n  NEW."createdAt" := clock_timestamp() AT TIME ZONE 'UTC';\n  RETURN NEW;\nEND;\n`;
     const fonctionDuLot = (await db.query(`SELECT n.nspname AS schema, p.proname AS nom, l.lanname AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages, p.prosrc AS corps
       FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid JOIN pg_language l ON l.oid = p.prolang JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE t.tgrelid = '"JournalSaisieChantier"'::regclass AND t.tgname = 'journal_saisie_chantier_horodatage'`)).rows;

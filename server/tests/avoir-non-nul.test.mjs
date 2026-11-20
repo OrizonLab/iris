@@ -538,10 +538,11 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
-    // Audit des montants de #530, T1 : ordre de l'annulation, la facture à 0,00 € après les avoirs qu'elle porte (cadrage v2, § 2 :
-    // « après le 404 (périmètre), le statut, les avoirs partiels et le règlement reçu »). Un avoir resté brouillon sur une facture à
-    // 0,00 € s'écrit en SQL (la garde ne vérifie pas un brouillon) : l'annulation reçoit le refus des avoirs, et non celui de la facture
-    // à 0,00 €. Lecture écartée : refus de la facture à 0,00 € placé avant celui des avoirs partiels.
+    // Audit des montants de #530, T1 : ordre de l'annulation, la facture à 0,00 € après les avoirs qu'elle porte (corps de #530,
+    // « Ordre des contrôles » de l'annulation : « après le 404 (périmètre), le statut, les avoirs partiels et le règlement reçu »).
+    // Un avoir resté brouillon sur une facture à 0,00 € s'écrit en SQL (la garde ne vérifie pas un brouillon) : l'annulation reçoit
+    // le refus des avoirs, et non celui de la facture à 0,00 €. Lecture écartée : refus de la facture à 0,00 € placé avant celui des
+    // avoirs partiels.
     test('ordre des refus de l’annulation : une facture à 0,00 € qui porte un avoir brouillon (écrit en SQL) reçoit le refus des avoirs partiels, avant celui de la facture à 0,00 € ; sans écriture ni numéro', async () => {
       const zero = await factureEmise(par('AD'), 'ordre avoirs partiels', LIGNES_ZERO);
       await transaction((tx) => pieceSql(tx, { factureOrigineId: zero.id, statut: 'BROUILLON', taux: [[20, 1, 0.2]] }));
@@ -628,7 +629,7 @@ if (!TEST_DATABASE_URL) {
     // corps de la PR : « dont le TTC est exactement 0,00 € », « dont le TTC est 0,00 € »). Une pièce de TVA seule (0,00 € HT, 0,01 €
     // de TVA, 0,01 € TTC) ne se crée pas par l'API, mais s'écrit en SQL : la cohérence de la TVA avec sa base n'est pas gardée en base
     // (#243), et la garde des avoirs la tient pour cohérente (TTC = HT + TVA, ventilation égale aux totaux). Elle crédite ou doit
-    // 0,01 € : ni « avoir à 0,00 € », ni « facture à 0,00 € ». Lectures écartées : HT nul, ou lignes toutes à 0,00 € HT (« une facture
+    // 0,01 € : ni « avoir à 0,00 € », ni « facture à 0,00 € ». Lectures écartées : HT nul, ou lignes toutes à 0,00 € HT (« Une facture
     // dont toutes les lignes sont gratuites », texte de la question posée à Nelson) : avoir refusé au COMMIT, annulation refusée (409).
     // Même preuve par l'écriture SQL que le mutant « ≤ 0 », mais en sens inverse : ici, les deux lectures diffèrent. Si #243 garde un
     // jour la TVA par sa base, ces pièces seront refusées à leur écriture, pour une autre raison que l'avoir à 0,00 € : le test changera.

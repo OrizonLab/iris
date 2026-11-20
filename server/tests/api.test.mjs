@@ -30968,28 +30968,34 @@ if (!TEST_DATABASE_URL) {
   // plpgsql, sans SECURITY DEFINER (`prosecdef`) ni réglage propre (`proconfig`, dont search_path). Lectures écartées :
   // une fonction exécutée avec les droits de son propriétaire, dont un appel non qualifié pourrait être détourné par le
   // search_path de la session ; un search_path propre posé sans SECURITY DEFINER ; une copie dans un autre schéma,
-  // appelée par le déclencheur. Le corps n'est pas comparé (cadrage, T2) : il diffère d'une fonction à l'autre
-  // (`horodater_envoi_document` ne convertit pas le fuseau, `horodater_signature_intervention` date aussi
-  // l'acceptation), et les tests de #617 et #628 comparent celui de leurs fonctions.
+  // appelée par le déclencheur. Le corps est aussi comparé, fonction par fonction (`prosrc`, texte écrit entre les $$
+  // de la migration qui la crée ; audit des droits de #631, T1) : il diffère d'une fonction à l'autre
+  // (`horodater_envoi_document` ne convertit pas le fuseau, sa colonne étant TIMESTAMPTZ ;
+  // `horodater_signature_intervention` date aussi l'acceptation), et une migration ultérieure qui le réécrirait
+  // (appel non qualifié d'une fonction SECURITY DEFINER, SQL dynamique) échapperait sinon aux quatre contrôles
+  // ci-dessus pour les cinq fonctions que les tests de #617 et #628 ne lisent pas.
   describe('Fonctions d’horodatage des journaux d’audit sur la base entièrement migrée (#629) : chaque déclencheur exécute sa fonction du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre', () => {
-    // Table, déclencheur et fonction, relevés dans les migrations qui les créent (aucune migration ultérieure ne les
-    // modifie à ce jour).
+    // Table, déclencheur, fonction et corps, relevés dans les migrations qui les créent (aucune migration ultérieure ne
+    // les modifie à ce jour). Corps : lignes entre BEGIN et RETURN NEW, puis la fin telle que la migration l'écrit
+    // (« END $$ » ou « END;\n$$ »).
+    const UTC = `NEW."createdAt" := clock_timestamp() AT TIME ZONE 'UTC';`;
+    const corps = (fin, ...lignes) => `\nBEGIN\n${lignes.map((l) => `  ${l}\n`).join('')}  RETURN NEW;\nEND${fin}`;
     const HORODATAGES = [
       // 20261023120000_journal_envois_documents
-      { table: 'EnvoiDocument', declencheur: 'envoi_document_horodatage', fonction: 'horodater_envoi_document' },
+      { table: 'EnvoiDocument', declencheur: 'envoi_document_horodatage', fonction: 'horodater_envoi_document', corps: corps(' ', 'NEW."createdAt" := clock_timestamp();') },
       // 20261020140000_signature_tracee_compte_rendu
-      { table: 'InterventionRapport', declencheur: 'intervention_rapport_horodatage', fonction: 'horodater_compte_rendu_intervention' },
-      { table: 'InterventionSignature', declencheur: 'intervention_signature_horodatage', fonction: 'horodater_signature_intervention' },
+      { table: 'InterventionRapport', declencheur: 'intervention_rapport_horodatage', fonction: 'horodater_compte_rendu_intervention', corps: corps(' ', UTC) },
+      { table: 'InterventionSignature', declencheur: 'intervention_signature_horodatage', fonction: 'horodater_signature_intervention', corps: corps(' ', UTC, 'NEW."accepteLe" := NEW."createdAt";') },
       // 20261015120000_journal_administration
-      { table: 'JournalAdministration', declencheur: 'journal_administration_horodatage', fonction: 'horodater_journal_administration' },
+      { table: 'JournalAdministration', declencheur: 'journal_administration_horodatage', fonction: 'horodater_journal_administration', corps: corps(';\n', UTC) },
       // 20261119220000_journaux_comptables_horodates (#628)
-      { table: 'JournalCompteComptable', declencheur: 'journal_compte_comptable_horodatage', fonction: 'horodater_journal_compte_comptable' },
+      { table: 'JournalCompteComptable', declencheur: 'journal_compte_comptable_horodatage', fonction: 'horodater_journal_compte_comptable', corps: corps(';\n', UTC) },
       // 20261018120000_factures_emises_figees
-      { table: 'JournalFacture', declencheur: 'journal_facture_horodatage', fonction: 'horodater_journal_facture' },
+      { table: 'JournalFacture', declencheur: 'journal_facture_horodatage', fonction: 'horodater_journal_facture', corps: corps(' ', UTC) },
       // 20261119220000_journaux_comptables_horodates (#628)
-      { table: 'JournalRegleComptable', declencheur: 'journal_regle_comptable_horodatage', fonction: 'horodater_journal_regle_comptable' },
+      { table: 'JournalRegleComptable', declencheur: 'journal_regle_comptable_horodatage', fonction: 'horodater_journal_regle_comptable', corps: corps(';\n', UTC) },
       // 20261119140000_journal_saisie_horodate (#617)
-      { table: 'JournalSaisieChantier', declencheur: 'journal_saisie_chantier_horodatage', fonction: 'horodater_journal_saisie_chantier' },
+      { table: 'JournalSaisieChantier', declencheur: 'journal_saisie_chantier_horodatage', fonction: 'horodater_journal_saisie_chantier', corps: corps(';\n', UTC) },
     ];
 
     test('les huit fonctions d’horodatage, lues par leur déclencheur sur la base où chaque migration du dépôt est appliquée, sont celles du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre (search_path)', async () => {
@@ -31001,7 +31007,7 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(duDepot.filter((nom) => !appliquees.has(nom)), [], 'chaque migration du dépôt est appliquée à la base de test');
 
       const lues = await prisma.$queryRaw`SELECT c.relname::text AS "table", t.tgname::text AS declencheur, n.nspname::text AS schema, p.proname::text AS fonction,
-          l.lanname::text AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages
+          l.lanname::text AS langage, p.prosecdef AS "securityDefiner", p.proconfig AS reglages, p.prosrc AS corps
         FROM pg_trigger t
         JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace nc ON nc.oid = c.relnamespace
         JOIN pg_proc p ON p.oid = t.tgfoid JOIN pg_language l ON l.oid = p.prolang JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -31009,7 +31015,54 @@ if (!TEST_DATABASE_URL) {
       const parTable = (a, b) => (a.table < b.table ? -1 : a.table > b.table ? 1 : 0);
       assert.deepEqual([...lues].sort(parTable),
         HORODATAGES.map((h) => ({ ...h, schema: 'public', langage: 'plpgsql', securityDefiner: false, reglages: null })),
-        'chaque déclencheur d’horodatage exécute sa fonction du schéma public, en plpgsql, ni SECURITY DEFINER ni réglage propre');
+        'chaque déclencheur d’horodatage exécute sa fonction du schéma public, en plpgsql, ni SECURITY DEFINER ni réglage propre, au corps exact');
+    });
+  });
+
+  // #632, N4 de l'audit des droits de #631, et #531, « Droits N2 » des audits de #530 (cadrage du lot de suivi, v2 : C3,
+  // C4, N1 à N3 ; lecture retenue de la décision de Nelson du 23-10-2026 : un test manquant seul est versé par une PR de
+  // suivi). Une fonction SECURITY DEFINER s'exécute avec les droits de son propriétaire : sans search_path propre, un appel
+  // non qualifié qu'elle fait pourrait être détourné par le search_path de la session. Sur la base de TEST_DATABASE_URL
+  // entièrement migrée (même témoin que le bloc #629), l'ensemble des fonctions SECURITY DEFINER (`pg_proc.prosecdef`,
+  // sans filtre sur `prokind` : fonctions, procédures et agrégats ; fonctions d'extension comprises) de tous les schémas
+  // sauf pg_catalog et information_schema est exactement celui des quatre fonctions de
+  // 20261009120000_journal_regles_comptables, chacune dans public avec un seul réglage, `search_path=public, pg_temp`
+  // (texte relu dans `proconfig`). Cette liste fermée est un invariant de sécurité, gardé dans le code (règle permanente
+  // 1), et non une règle nouvelle : une fonction SECURITY DEFINER ajoutée s'y inscrit avec son search_path, et la PR qui
+  // l'ajoute relève de l'auditeur-droits-securite (CLAUDE.md, circuit d'une PR). Lectures écartées : une nouvelle fonction
+  // SECURITY DEFINER, dans quelque schéma que ce soit (second déclencheur sur un journal, copie dans un autre schéma,
+  // procédure) ; une fonction de garde (`verifier_plafond_avoirs`…) passée SECURITY DEFINER, avec ou sans search_path ;
+  // l'une des quatre repassée SECURITY INVOKER, son search_path retiré ou changé (public seul, ordre inversé). Ni le
+  // propriétaire (il dépend de l'environnement), ni les droits d'exécution (`proacl`, vide pour ces fonctions de
+  // déclencheur), ni LEAKPROOF (aucune politique de lignes) ne sont lus (v2, N2). La signature (`regprocedure`) est lue
+  // sous `search_path = pg_catalog`, le temps d'une transaction : chaque fonction y est qualifiée de son schéma, quel que
+  // soit le search_path de la connexion (`?schema=public` en CI, `"$user", public` par défaut).
+  describe('Fonctions SECURITY DEFINER sur la base entièrement migrée (#632, #531) : liste fermée des quatre fonctions du journal des règles comptables, chacune avec son search_path', () => {
+    // 20261009120000_journal_regles_comptables, l. 99, 134, 144 et 156 : seules fonctions SECURITY DEFINER du dépôt, toutes
+    // avec `SET search_path = public, pg_temp` ; aucune migration ultérieure ne les modifie à ce jour (v2, N1).
+    const SECURITY_DEFINER = ['capturer_creation_regle()', 'capturer_creation_tva()', 'capturer_transition_regle()', 'verifier_journal_regle()']
+      .map((signature) => ({ schema: 'public', signature: `public.${signature}`, reglages: ['search_path=public, pg_temp'] }));
+
+    test('les fonctions SECURITY DEFINER de tous les schémas non système, sur la base où chaque migration du dépôt est appliquée, sont exactement les quatre fonctions du journal des règles comptables, dans public, chacune avec le seul réglage search_path=public, pg_temp', async () => {
+      // Témoin repris du bloc #629 : la base lue est migrée jusqu'à la dernière migration du dépôt ; sans cela, une
+      // migration ultérieure non appliquée passerait inaperçue.
+      const duDepot = readdirSync(new URL('../prisma/migrations/', import.meta.url), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+      const appliquees = new Set((await prisma.$queryRaw`SELECT "migration_name" AS nom FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`).map((m) => m.nom));
+      assert.ok(duDepot.length > 100, `migrations du dépôt relevées : ${duDepot.length}`);
+      assert.deepEqual(duDepot.filter((nom) => !appliquees.has(nom)), [], 'chaque migration du dépôt est appliquée à la base de test');
+
+      const lues = await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL search_path TO pg_catalog');
+        return tx.$queryRaw`SELECT n.nspname::text AS schema, p.oid::regprocedure::text AS signature, p.proconfig AS reglages
+          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')`;
+      });
+      const parSignature = (a, b) => (a.signature < b.signature ? -1 : a.signature > b.signature ? 1 : 0);
+      const triees = [...lues].sort(parSignature);
+      assert.deepEqual(triees, SECURITY_DEFINER,
+        'fonctions SECURITY DEFINER : exactement les quatre fonctions de 20261009120000_journal_regles_comptables, dans public, chacune avec le seul réglage search_path=public, pg_temp ; '
+        + 'une fonction SECURITY DEFINER ajoutée ou modifiée s’inscrit dans cette liste avec son search_path, et la PR qui l’ajoute relève de l’auditeur-droits-securite. '
+        + `Lues : ${JSON.stringify(triees)}`);
     });
   });
 }
