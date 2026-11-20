@@ -30974,7 +30974,7 @@ if (!TEST_DATABASE_URL) {
   // `horodater_signature_intervention` date aussi l'acceptation), et une migration ultérieure qui le réécrirait
   // (appel non qualifié d'une fonction SECURITY DEFINER, SQL dynamique) échapperait sinon aux quatre contrôles
   // ci-dessus pour les cinq fonctions que les tests de #617 et #628 ne lisent pas.
-  describe('Fonctions d’horodatage des journaux d’audit sur la base entièrement migrée (#629) : chaque déclencheur exécute sa fonction du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre', () => {
+  describe('Fonctions d’horodatage des journaux d’audit sur la base entièrement migrée (#629) : chaque déclencheur exécute sa fonction du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre, au corps exact', () => {
     // Table, déclencheur, fonction et corps, relevés dans les migrations qui les créent (aucune migration ultérieure ne
     // les modifie à ce jour). Corps : lignes entre BEGIN et RETURN NEW, puis la fin telle que la migration l'écrit
     // (« END $$ » ou « END;\n$$ »).
@@ -30998,7 +30998,7 @@ if (!TEST_DATABASE_URL) {
       { table: 'JournalSaisieChantier', declencheur: 'journal_saisie_chantier_horodatage', fonction: 'horodater_journal_saisie_chantier', corps: corps(';\n', UTC) },
     ];
 
-    test('les huit fonctions d’horodatage, lues par leur déclencheur sur la base où chaque migration du dépôt est appliquée, sont celles du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre (search_path)', async () => {
+    test('les huit fonctions d’horodatage, lues par leur déclencheur sur la base où chaque migration du dépôt est appliquée, sont celles du schéma public, en plpgsql, sans SECURITY DEFINER ni réglage propre (search_path), au corps exact', async () => {
       // Témoin : la base lue est bien migrée jusqu'à la dernière migration du dépôt ; sans cela, une migration ultérieure
       // non appliquée passerait inaperçue.
       const duDepot = readdirSync(new URL('../prisma/migrations/', import.meta.url), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
@@ -31024,26 +31024,28 @@ if (!TEST_DATABASE_URL) {
   // suivi). Une fonction SECURITY DEFINER s'exécute avec les droits de son propriétaire : sans search_path propre, un appel
   // non qualifié qu'elle fait pourrait être détourné par le search_path de la session. Sur la base de TEST_DATABASE_URL
   // entièrement migrée (même témoin que le bloc #629), l'ensemble des fonctions SECURITY DEFINER (`pg_proc.prosecdef`,
-  // sans filtre sur `prokind` : fonctions, procédures et agrégats ; fonctions d'extension comprises) de tous les schémas
-  // sauf pg_catalog et information_schema est exactement celui des quatre fonctions de
-  // 20261009120000_journal_regles_comptables, chacune dans public avec un seul réglage, `search_path=public, pg_temp`
-  // (texte relu dans `proconfig`). Cette liste fermée est un invariant de sécurité, gardé dans le code (règle permanente
-  // 1), et non une règle nouvelle : une fonction SECURITY DEFINER ajoutée s'y inscrit avec son search_path, et la PR qui
-  // l'ajoute relève de l'auditeur-droits-securite (CLAUDE.md, circuit d'une PR). Lectures écartées : une nouvelle fonction
-  // SECURITY DEFINER, dans quelque schéma que ce soit (second déclencheur sur un journal, copie dans un autre schéma,
-  // procédure) ; une fonction de garde (`verifier_plafond_avoirs`…) passée SECURITY DEFINER, avec ou sans search_path ;
-  // l'une des quatre repassée SECURITY INVOKER, son search_path retiré ou changé (public seul, ordre inversé). Ni le
-  // propriétaire (il dépend de l'environnement), ni les droits d'exécution (`proacl`, vide pour ces fonctions de
-  // déclencheur), ni LEAKPROOF (aucune politique de lignes) ne sont lus (v2, N2). La signature (`regprocedure`) est lue
-  // sous `search_path = pg_catalog`, le temps d'une transaction : chaque fonction y est qualifiée de son schéma, quel que
-  // soit le search_path de la connexion (`?schema=public` en CI, `"$user", public` par défaut).
-  describe('Fonctions SECURITY DEFINER sur la base entièrement migrée (#632, #531) : liste fermée des quatre fonctions du journal des règles comptables, chacune avec son search_path', () => {
+  // sans filtre sur `prokind` : fonctions et procédures, un agrégat ne pouvant être SECURITY DEFINER ; fonctions
+  // d'extension comprises) de tous les schémas, pg_catalog et information_schema compris (PostgreSQL 16 n'y déclare
+  // aucune fonction SECURITY DEFINER ; seul un superutilisateur pourrait en créer une : #637, N1), est exactement celui
+  // des quatre fonctions de 20261009120000_journal_regles_comptables, chacune dans public avec un seul réglage,
+  // `search_path=public, pg_temp` (texte relu dans `proconfig`). Cette liste fermée est un invariant de sécurité, gardé
+  // dans le code (règle permanente 1), et non une règle nouvelle : une fonction SECURITY DEFINER ajoutée s'y inscrit
+  // avec son search_path, et la PR qui l'ajoute relève de l'auditeur-droits-securite (CLAUDE.md, circuit d'une PR).
+  // Lectures écartées : une nouvelle fonction SECURITY DEFINER, dans quelque schéma que ce soit (second déclencheur sur
+  // un journal, copie dans un autre schéma, procédure) ; une fonction de garde (`verifier_plafond_avoirs`…) passée
+  // SECURITY DEFINER, avec ou sans search_path ; l'une des quatre repassée SECURITY INVOKER, son search_path retiré ou
+  // changé (public seul, ordre inversé). Ni le propriétaire (il dépend de l'environnement), ni les droits d'exécution
+  // (`proacl`, vide pour ces fonctions de déclencheur), ni LEAKPROOF (aucune politique de lignes) ne sont lus (v2, N2).
+  // La signature (`regprocedure`) est lue sous `search_path = pg_catalog`, le temps d'une transaction : chaque fonction
+  // y est qualifiée de son schéma, quel que soit le search_path de la connexion (`?schema=public` en CI,
+  // `"$user", public` par défaut).
+  describe('Fonctions SECURITY DEFINER sur la base entièrement migrée (#632, #531) : liste fermée des quatre fonctions du journal des règles comptables, chacune avec son search_path et le corps écrit par sa migration', () => {
     // 20261009120000_journal_regles_comptables, l. 99, 134, 144 et 156 : seules fonctions SECURITY DEFINER du dépôt, toutes
     // avec `SET search_path = public, pg_temp` ; aucune migration ultérieure ne les modifie à ce jour (v2, N1).
     const SECURITY_DEFINER = ['capturer_creation_regle()', 'capturer_creation_tva()', 'capturer_transition_regle()', 'verifier_journal_regle()']
       .map((signature) => ({ schema: 'public', signature: `public.${signature}`, reglages: ['search_path=public, pg_temp'] }));
 
-    test('les fonctions SECURITY DEFINER de tous les schémas non système, sur la base où chaque migration du dépôt est appliquée, sont exactement les quatre fonctions du journal des règles comptables, dans public, chacune avec le seul réglage search_path=public, pg_temp', async () => {
+    test('les fonctions SECURITY DEFINER de tous les schémas, système compris, sur la base où chaque migration du dépôt est appliquée, sont exactement les quatre fonctions du journal des règles comptables, dans public, chacune avec le seul réglage search_path=public, pg_temp', async () => {
       // Témoin repris du bloc #629 : la base lue est migrée jusqu'à la dernière migration du dépôt ; sans cela, une
       // migration ultérieure non appliquée passerait inaperçue.
       const duDepot = readdirSync(new URL('../prisma/migrations/', import.meta.url), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
@@ -31055,7 +31057,7 @@ if (!TEST_DATABASE_URL) {
         await tx.$executeRawUnsafe('SET LOCAL search_path TO pg_catalog');
         return tx.$queryRaw`SELECT n.nspname::text AS schema, p.oid::regprocedure::text AS signature, p.proconfig AS reglages
           FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-          WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')`;
+          WHERE p.prosecdef`;
       });
       const parSignature = (a, b) => (a.signature < b.signature ? -1 : a.signature > b.signature ? 1 : 0);
       const triees = [...lues].sort(parSignature);
@@ -31063,6 +31065,23 @@ if (!TEST_DATABASE_URL) {
         'fonctions SECURITY DEFINER : exactement les quatre fonctions de 20261009120000_journal_regles_comptables, dans public, chacune avec le seul réglage search_path=public, pg_temp ; '
         + 'une fonction SECURITY DEFINER ajoutée ou modifiée s’inscrit dans cette liste avec son search_path, et la PR qui l’ajoute relève de l’auditeur-droits-securite. '
         + `Lues : ${JSON.stringify(triees)}`);
+    });
+
+    // Audit des droits de #636, T1 : le test ci-dessus lit l'attribut et le réglage des quatre fonctions, pas leur corps.
+    // Une migration ultérieure qui réécrirait le corps de l'une d'elles (`CREATE OR REPLACE`, SECURITY DEFINER et
+    // search_path restitués à l'identique : SQL dynamique, appel d'une autre fonction) passerait donc inaperçue, alors
+    // qu'elles s'exécutent avec les droits de leur propriétaire. Corps attendu : texte écrit entre les $$ de la migration
+    // qui les crée, relu dans le fichier (aucune migration ultérieure ne les modifie à ce jour).
+    test('les quatre fonctions SECURITY DEFINER gardent, sur la base entièrement migrée, le corps exact écrit par 20261009120000_journal_regles_comptables (prosrc)', async () => {
+      const migration = readFileSync(new URL('../prisma/migrations/20261009120000_journal_regles_comptables/migration.sql', import.meta.url), 'utf8');
+      const attendus = Object.fromEntries([...migration.matchAll(/CREATE FUNCTION "(\w+)"\(\) RETURNS trigger AS \$\$((?:(?!\$\$)[\s\S])*)\$\$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;/g)]
+        .map(([, nom, corps]) => [nom, corps]));
+      assert.deepEqual(Object.keys(attendus).sort(), ['capturer_creation_regle', 'capturer_creation_tva', 'capturer_transition_regle', 'verifier_journal_regle'],
+        'migration 20261009120000_journal_regles_comptables : les quatre fonctions SECURITY DEFINER relevées');
+      const lues = await prisma.$queryRaw`SELECT p.proname::text AS nom, p.prosrc AS corps FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.prosecdef AND p.proname = ANY(${Object.keys(attendus)}::text[])`;
+      assert.deepEqual(Object.fromEntries(lues.map((l) => [l.nom, l.corps])), attendus,
+        'fonctions SECURITY DEFINER : corps exact, tel que l’écrit 20261009120000_journal_regles_comptables');
     });
   });
 }
