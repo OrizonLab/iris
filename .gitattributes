@@ -1,0 +1,3 @@
+# Migrations SQL en fins de ligne LF (#637, N2) : les tests comparent le corps des fonctions en base (prosrc) au texte
+# des migrations, et Prisma vérifie leurs sommes de contrôle ; un clone avec core.autocrlf=true les ferait échouer.
+*.sql text eol=lf
