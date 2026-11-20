@@ -1,0 +1,4 @@
+# Migrations SQL en fins de ligne LF (#637, N2) : des tests comparent le corps des fonctions en base (prosrc), écrit
+# par les migrations, à un texte en fins de ligne LF ; un clone avec core.autocrlf=true migrerait sa base en CRLF et
+# les ferait échouer. Prisma, lui, admet un fichier en CRLF comme en LF face à la somme de contrôle enregistrée.
+*.sql text eol=lf

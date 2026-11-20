@@ -551,11 +551,13 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
-    // Gardes existantes, inchangées, avant le 400 des drapeaux (règle 2 : droits et périmètres) : 401 sans session ou d'un
-    // compte désactivé, 403 de requireAdmin pour chaque type de compte hors administration, 401 sans clé et 403 d'une clé
-    // sans catalogue:write sur /api/v1, puis 404 d'une famille inconnue, testée avant le corps. Tue « contrôle placé avant
-    // les gardes ».
-    test('ordre : 401 sans session ou d’un compte désactivé, 403 de chaque type de compte hors administration, 401 sans clé, 403 d’une clé sans catalogue:write et 404 d’une famille inconnue passent avant le 400 des drapeaux ; rien n’est écrit', async () => {
+    // Gardes existantes, inchangées, avant le 400 des drapeaux et d'estMainOeuvre (règle 2 : droits et périmètres) : 401
+    // sans session ou d'un compte désactivé, 403 de requireAdmin pour chaque type de compte hors administration, 401 sans
+    // clé et 403 d'une clé sans catalogue:write sur /api/v1, puis 404 d'une famille inconnue, testée avant le corps.
+    // estMainOeuvre: null (#602 ; audit des droits de #639, T2), à la création d'un article et d'une prestation et à la
+    // modification d'un équipement et d'une main d'œuvre. Tue « contrôle placé avant les gardes », dont « 400
+    // d'estMainOeuvre avant le 404 d'une famille inconnue, à la création » (mutant D11b de l'audit des droits de #639).
+    test('ordre : 401 sans session ou d’un compte désactivé, 403 de chaque type de compte hors administration, 401 sans clé, 403 d’une clé sans catalogue:write et 404 d’une famille inconnue passent avant le 400 des drapeaux et d’estMainOeuvre ; rien n’est écrit', async () => {
       const article = await fabriquer('articles');
       const equipement = await fabriquer('equipements');
       const prestation = await fabriquer('prestations');
@@ -567,6 +569,11 @@ if (!TEST_DATABASE_URL) {
         ['équipement, actif « true »', 'put', `/equipements/${equipement.id}`, corpsFiche('equipements', equipement, { actif: 'true' }), () => ficheEnBase('equipements', equipement.id)],
         ['prestation, actif {}', 'put', `/prestations/${prestation.id}`, corpsFiche('prestations', prestation, { actif: {} }), () => ficheEnBase('prestations', prestation.id)],
         ['main d’œuvre, actif « false »', 'put', `/prestations/${mo.id}`, { ...mo.corps, actif: 'false' }, () => ficheEnBase('prestations', mo.id)],
+        // #602 (audit des droits de #639, T2) : estMainOeuvre: null, à la création et à la modification des trois familles.
+        ['création d’un article, estMainOeuvre null', 'post', '/articles', corpsNouvelArticle({ estMainOeuvre: null }), null],
+        ['création d’une prestation, estMainOeuvre null', 'post', '/prestations', corpsFiche('prestations', { reference: reference('GARDE') }, { estMainOeuvre: null }), null],
+        ['équipement, estMainOeuvre null', 'put', `/equipements/${equipement.id}`, corpsFiche('equipements', equipement, { estMainOeuvre: null }), () => ficheEnBase('equipements', equipement.id)],
+        ['main d’œuvre, estMainOeuvre null', 'put', `/prestations/${mo.id}`, { ...mo.corps, estMainOeuvre: null }, () => ficheEnBase('prestations', mo.id)],
       ];
       for (const [quoi, methode, chemin, corps, relire] of cas) {
         await refuse(() => appeler(methode, `/api/catalogue${chemin}`, null, corps), 401, MESSAGES.authentification, `sans session, ${quoi}`, relire);
@@ -834,13 +841,13 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Cadrage #602, périmètre 1 ; v2, T1 : « Main d'œuvre existante en session avec estMainOeuvre: null et un prix changé
-    // → 400, prix et journal MAIN_OEUVRE intacts » ; « Tests attendus », témoins : « clé absente → nature gardée (main
-    // d'œuvre) ; false sur une main d'œuvre → retour en prestation ordinaire (journal) ; true → passage en main d'œuvre
-    // (journal) ». En session seulement : une clé reçoit 403 sur un corps de main d'œuvre (test suivant) et sur une main
-    // d'œuvre existante (section 3). Avant #602, la création d'une main d'œuvre avec null répondait 400 « Ces prix […] ne
-    // concernent qu'une main d'œuvre » (corps lu comme celui d'une prestation ordinaire) et la modification écrivait les
-    // prix (200, entrée MODIFICATION). Tue « lecture null = absent rétablie » (message exact, prix et journal) et
-    // « estMainOeuvre lu après actif ».
+    // → 400, prix et journal MAIN_OEUVRE intacts » ; « Tests attendus », témoins : « clé absente → nature gardée
+    // (prestation ordinaire et main d'œuvre) ; false sur une main d'œuvre → retour en prestation ordinaire (journal) ; true
+    // → passage en main d'œuvre (journal) » (prestation ordinaire : test précédent). En session seulement : une clé reçoit
+    // 403 sur un corps de main d'œuvre (test suivant) et sur une main d'œuvre existante (section 3). Avant #602, la
+    // création d'une main d'œuvre avec null répondait 400 « Ces prix […] ne concernent qu’une main d’œuvre » (corps lu
+    // comme celui d'une prestation ordinaire) et la modification écrivait les prix (200, entrée MODIFICATION). Tue
+    // « lecture null = absent rétablie » (message exact, prix et journal) et « estMainOeuvre lu après actif ».
     test('main d’œuvre, en session : estMainOeuvre: null répond 400 à la création d’une main d’œuvre et à la modification d’une main d’œuvre active ou désactivée, prix changés ou actif envoyé, par le super administrateur, l’administrateur et le directeur ; ni la fiche, ni ses prix, ni le journal ne changent ; témoins : sans la clé, la nature est gardée, false la rend ordinaire et true la refait main d’œuvre, chaque fois journalisé', async () => {
       for (const { qui, auth } of SESSION()) {
         const creation = corpsMainOeuvre(reference('MO-NULL'), { estMainOeuvre: null });
@@ -919,6 +926,40 @@ if (!TEST_DATABASE_URL) {
         }
         if (quoi === 'création') assert.equal(await prisma.cataloguePrestation.count({ where: { reference: ref } }), 0, 'aucune prestation créée');
       }
+    });
+
+    // Audit des droits et de la sécurité de #639, T1 : pour une prestation, en session, la lecture stricte d'estMainOeuvre
+    // n'était éprouvée que par null (ci-dessus) et « oui » (section 3 ; api.test.mjs). Chaque autre valeur non booléenne
+    // (« true », « false », « 0 », chaîne vide, 0, 1, {}, [], [true]) répond aussi 400 au message exact, à la création (corps
+    // ordinaire ou de main d'œuvre) et à la modification d'une prestation ordinaire et d'une main d'œuvre non rattachée,
+    // sans rien écrire ni journaliser. Par clé, ces valeurs visent une main d'œuvre et reçoivent le 403 du corps (test
+    // précédent). Tue « estMainOeuvreDemande admet les chaînes « true » et « false » » : « false » rendrait ordinaire une
+    // main d'œuvre (entrée RETRAIT_MAIN_OEUVRE), « true » ferait passer une prestation en main d'œuvre.
+    test('prestations, en session : chaque valeur non booléenne d’estMainOeuvre autre que null répond 400 « « estMainOeuvre » doit valoir true ou false. » à la création et à la modification d’une prestation ordinaire ou d’une main d’œuvre, par le super administrateur, l’administrateur et le directeur ; rien n’est écrit', async () => {
+      const prestation = await fabriquer('prestations');
+      const mo = await creerMainOeuvre();
+      const prestationAvant = await ficheEnBase('prestations', prestation.id);
+      const moAvant = await ficheEnBase('prestations', mo.id);
+      const NON_BOOLEENNES = VALEURS_REFUSEES.filter(([, valeur]) => valeur !== null);
+      for (const { qui, auth } of SESSION()) {
+        for (const [nom, valeur] of NON_BOOLEENNES) {
+          const creations = [
+            ['corps ordinaire', { reference: reference('NB'), ...ENVOI, ...ENVOI_PROPRES.prestations, estMainOeuvre: valeur }],
+            ['corps de main d’œuvre', corpsMainOeuvre(reference('NB-MO'), { estMainOeuvre: valeur })],
+          ];
+          for (const [corpsNom, corps] of creations) {
+            await refuse(() => appeler('post', '/api/catalogue/prestations', auth, corps), 400, MESSAGES.estMainOeuvre, `${qui}, création, ${corpsNom}, ${nom}`);
+            assert.equal(await prisma.cataloguePrestation.count({ where: { reference: corps.reference } }), 0, `${qui}, création, ${corpsNom}, ${nom} : aucune prestation créée`);
+          }
+          const ordinaire = corpsFiche('prestations', prestation, { estMainOeuvre: valeur });
+          await refuse(() => appeler('put', `/api/catalogue/prestations/${prestation.id}`, auth, ordinaire), 400, MESSAGES.estMainOeuvre, `${qui}, prestation ordinaire, ${nom}`, () => ficheEnBase('prestations', prestation.id));
+          for (const [corpsNom, corps] of [['corps de main d’œuvre', { ...mo.corps, estMainOeuvre: valeur }], ['corps ordinaire', corpsFiche('prestations', mo, { estMainOeuvre: valeur })]]) {
+            await refuse(() => appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, corps), 400, MESSAGES.estMainOeuvre, `${qui}, main d’œuvre, ${corpsNom}, ${nom}`, () => ficheEnBase('prestations', mo.id));
+          }
+        }
+      }
+      assert.deepEqual(await ficheEnBase('prestations', prestation.id), prestationAvant, 'prestation ordinaire intacte');
+      assert.deepEqual(await ficheEnBase('prestations', mo.id), moAvant, 'main d’œuvre intacte');
     });
 
     // Cadrage #602, périmètre 3 ; v2, N1 et T1 (traite le T1 de l'audit 9 de #324, mutant R02) : articles et équipements,
