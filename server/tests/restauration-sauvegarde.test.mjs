@@ -9,7 +9,7 @@
 // jetable ; `sauvegarde_AAAA-MM-JJ.sql` par un fichier du dossier temporaire du test. Correspondance :
 //  - sauvegarde (sous-section précédente) : `pg_dump <base> > fichier` ;
 //  - étape 1 : `grep -c -- '-- PostgreSQL database dump complete' fichier`, qui doit afficher 1 ;
-//  - étape 4 : `pg_dump <base> > avant_restauration.sql` ;
+//  - étape 4 : `pg_dump <base> > avant_restauration.sql`, code 0 et contrôle de l'étape 1 sur ce fichier (« 1 ») ;
 //  - étape 5 : `dropdb --force <base>`, puis `createdb <base>` ;
 //  - étape 6 : `psql -d <base> -v ON_ERROR_STOP=1 --single-transaction < fichier` (entrée standard, T3), code 0 attendu ;
 //  - étape 7 : `psql -d <base> -tAc 'SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal'` égal à
@@ -189,6 +189,26 @@ const guide = {
   declencheursDuFichier: (fichier) => executer('grep', ['-cE', MOTIF_DECLENCHEURS, fichier]),
   journaux: (base, fuseau) => executer('psql', ['-d', base, '-tA', '-c', requeteJournauxDuGuide()], { env: environnementPg(fuseau) }),
 };
+
+// Commandes de la sous-section, dans l'ordre où le guide les donne : la transposition de `guide` les suit.
+const COMMANDES_DU_GUIDE = [
+  `grep -c -- '${MARQUE_FIN}' sauvegarde_AAAA-MM-JJ.sql`,
+  'docker exec iris_db pg_dump -U iris iris > avant_restauration_$(date +%F_%H%M).sql',
+  'docker exec iris_db dropdb -U iris --force iris',
+  'docker exec iris_db createdb -U iris iris',
+  `docker exec -i iris_db psql -U iris -d iris ${OPTIONS_RETENUES.join(' ')} < sauvegarde_AAAA-MM-JJ.sql`,
+  `docker exec iris_db psql -U iris -d iris -tAc '${REQUETE_DECLENCHEURS}'`,
+  `grep -cE '${MOTIF_DECLENCHEURS}' sauvegarde_AAAA-MM-JJ.sql`,
+];
+function commandesDuGuide() {
+  const texte = readFileSync(GUIDE, 'utf8');
+  const debut = texte.indexOf('### Restauration d\'une sauvegarde');
+  assert.ok(debut >= 0, 'deploy_guide.md : sous-section « Restauration d’une sauvegarde » introuvable');
+  const reste = texte.slice(debut + 4);
+  const fin = reste.search(/^#{2,3} /m);
+  const section = fin >= 0 ? reste.slice(0, fin) : reste;
+  return [...section.matchAll(/^[ \t]*```bash\n([\s\S]*?)^[ \t]*```/gm)].flatMap(([, bloc]) => bloc.split('\n').map((l) => l.trim()).filter(Boolean));
+}
 
 // Résultat de la requête des journaux : une ligne par journal, nombre, plus ancienne et plus récente date (UTC).
 function lireJournaux(r) {
@@ -487,14 +507,16 @@ function verifierJeu(lignes, contexte) {
 
 // Suit les étapes du guide dans leur ordre et s'arrête au premier contrôle qui échoue : `arret` donne l'étape, ou null
 // si la procédure va à son terme. `copie` : fichier de la copie de sécurité (étape 4).
-async function procedureDuGuide({ fichier, base, copie }) {
+async function procedureDuGuide({ fichier, base, copie, copier = guide.sauvegarder }) {
   const etapes = {};
   // 1. Fichier complet.
   etapes.controle = guide.controlerFichier(fichier);
   if (etapes.controle.sortie.trim() !== '1') return { arret: 1, etapes };
   // 4. Copie de sécurité de la base actuelle.
-  etapes.copie = guide.sauvegarder(base, copie);
+  etapes.copie = copier(base, copie);
   if (etapes.copie.code !== 0) return { arret: 4, etapes };
+  etapes.controleCopie = guide.controlerFichier(copie);
+  if (etapes.controleCopie.sortie.trim() !== '1') return { arret: 4, etapes };
   // 5. Base recréée vide.
   etapes.suppression = guide.supprimerBase(base);
   if (etapes.suppression.code !== 0) return { arret: 5, etapes };
@@ -536,6 +558,35 @@ if (!TEST_DATABASE_URL) {
     test('prérequis : rôle PostgreSQL qui crée des bases et pose session_replication_role, pg_dump, psql, createdb et dropdb au moins de la version du serveur ; sinon échec explicite, jamais un SKIP', async () => {
       prerequisManquants = await verifierPrerequis();
       assert.deepEqual(prerequisManquants, [], `Prérequis manquants pour restauration-sauvegarde.test.mjs :\n- ${prerequisManquants.join('\n- ')}\nCe fichier échoue au lieu de s’ignorer : un SKIP serait confondu avec une réussite.`);
+    });
+
+    test('commandes du guide : chaque commande des blocs bash de la sous-section est celle que ce fichier transpose, dans le même ordre', () => {
+      assert.deepEqual(commandesDuGuide(), COMMANDES_DU_GUIDE);
+    });
+
+    test('étape 4 : une copie de sécurité en échec (code non nul) ou incomplète (sans marque de fin) arrête la procédure avant dropdb ; la base en service reste intacte', async () => {
+      const etat = await etatPrepare();
+      const enService = nouvelleBase('copie_ko');
+      creerMigree(enService);
+      const avant = await empreinteDe(enService);
+      // Copie impossible : pg_dump ne joint pas le serveur (port fermé), code non nul.
+      const enEchec = await procedureDuGuide({ fichier: etat.sauvegarde, base: enService, copie: join(dossier, 'avant_restauration_ko.sql'),
+        copier: (base, fichier) => executer('pg_dump', [base], { env: { ...environnementPg(), PGPORT: '1' }, sortie: fichier }) });
+      assert.equal(enEchec.arret, 4, `copie en échec : arrêt attendu à l’étape 4 : ${JSON.stringify(enEchec.etapes, null, 1).slice(0, 2000)}`);
+      assert.notEqual(enEchec.etapes.copie.code, 0);
+      // Copie coupée mais code 0 (fichier tronqué après coup) : seul le contrôle du fichier l'arrête.
+      const coupee = await procedureDuGuide({ fichier: etat.sauvegarde, base: enService, copie: join(dossier, 'avant_restauration_coupee.sql'),
+        copier: (base, fichier) => {
+          const r = guide.sauvegarder(base, fichier);
+          const texte = readFileSync(fichier, 'utf8');
+          writeFileSync(fichier, texte.slice(0, Math.floor(texte.length / 2)));
+          return r;
+        } });
+      assert.equal(coupee.etapes.copie.code, 0, 'copie coupée : code 0');
+      assert.equal(coupee.arret, 4, `copie coupée : arrêt attendu à l’étape 4 : ${JSON.stringify(coupee.etapes, null, 1).slice(0, 2000)}`);
+      assert.equal(coupee.etapes.controleCopie.sortie.trim(), '0');
+      assert.equal(await baseExiste(enService), true, 'base en service toujours là');
+      memeEmpreinte(await empreinteDe(enService), avant, 'base en service inchangée');
     });
 
     test('procédure retenue : sauvegarde complète vérifiée puis restaurée par l’entrée standard dans une base recréée vide, avec -v ON_ERROR_STOP=1 --single-transaction ; chaque ligne des huit journaux, `_prisma_migrations` et toute la base identiques à la base sauvegardée, copies figées gardées, déclencheurs, contraintes, index et droits identiques ; la copie de sécurité de la base remplacée se restaure', async () => {

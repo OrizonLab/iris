@@ -136,17 +136,17 @@ Pourquoi : dans une base déjà migrée, les déclencheurs existent avant les do
 - Le compte système et les paramètres de rémunération entreraient en conflit avec ceux de la sauvegarde, et l'historique des migrations serait doublé.
 - Sans `-v ON_ERROR_STOP=1`, `psql` poursuit malgré les erreurs et rend 0 sur une base partielle. Avec cette option, il s'arrête à la première erreur.
 
-Dans une base vide, les déclencheurs et les contraintes sont créés après les données : ils ne rejouent rien. `--single-transaction` évite qu'une erreur en cours de route laisse une base chargée sans ses déclencheurs, que le backend démarrerait ensuite sans rien migrer.
+Dans une base vide, les déclencheurs, les clés étrangères et les contraintes différées sont créés après les données : ils ne rejouent rien. Les contraintes de vérification, créées avec les tables, jouent au chargement, sans effet sur des données déjà valides. `--single-transaction` évite qu'une erreur en cours de route laisse une base chargée sans ses déclencheurs, que le backend démarrerait ensuite sans rien migrer.
 
 Étapes (commandes pour l'utilisateur et la base `iris` de la sous-section précédente) :
 
-1. **Vérifier que le fichier est complet.** La commande doit afficher `1`. Un fichier coupé (sauvegarde interrompue, copie incomplète) se restaurerait sans erreur, mais sans ses déclencheurs ni ses contraintes.
+1. **Vérifier que le fichier est complet.** La commande doit afficher `1`. Un fichier coupé (sauvegarde interrompue, copie incomplète) pourrait se restaurer sans erreur, mais sans ses déclencheurs ni ses contraintes.
    ```bash
    grep -c -- '-- PostgreSQL database dump complete' sauvegarde_AAAA-MM-JJ.sql
    ```
 2. **Image d'Iris.** Restaurer avec une image d'Iris au moins aussi récente que la sauvegarde. Au redémarrage, le backend n'applique que les migrations plus récentes que celles de la sauvegarde ; une image plus ancienne n'en verrait aucune à appliquer, sans le signaler.
-3. **Arrêter le backend** : `docker compose stop backend`. Le frontend et la base restent démarrés. Pendant la restauration, ne lancer ni `docker compose up` ni un redémarrage de Docker : avec `restart: always`, le backend redémarrerait et migrerait la base vide. La restauration échouerait alors en entier, sans rien écrire, et il faudrait recommencer à l'étape 5.
-4. **Sauvegarder d'abord la base actuelle**, sous un autre nom de fichier. Si la sauvegarde à restaurer se révèle mauvaise, rien n'est perdu.
+3. **Arrêter le backend** : `docker compose stop backend`. Le frontend et la base restent démarrés. Pendant la restauration, ne lancer ni `docker compose up` ni un redémarrage de Docker : avec `restart: always`, le backend redémarrerait et migrerait la base vide. La restauration échouerait alors en entier, sans rien écrire, et il faudrait reprendre à l'étape 3 : arrêter de nouveau le backend, puis recréer la base vide.
+4. **Sauvegarder d'abord la base actuelle**, sous un autre nom de fichier. La commande doit rendre 0 (`echo $?`), et le contrôle de l'étape 1, appliqué à ce fichier, doit afficher `1`. Sinon, la copie est incomplète : ne pas aller plus loin, la base actuelle n'étant pas encore touchée. Avec une copie complète, rien n'est perdu si la sauvegarde à restaurer se révèle mauvaise.
    ```bash
    docker exec iris_db pg_dump -U iris iris > avant_restauration_$(date +%F_%H%M).sql
    ```
@@ -155,23 +155,23 @@ Dans une base vide, les déclencheurs et les contraintes sont créés après les
    docker exec iris_db dropdb -U iris --force iris
    docker exec iris_db createdb -U iris iris
    ```
-6. **Restaurer**, avec le `psql` du même conteneur, de même version que le `pg_dump` qui a fait la sauvegarde.
+6. **Restaurer**, avec le `psql` du même conteneur, qui doit être au moins aussi récent que le `pg_dump` qui a fait la sauvegarde. Noter juste avant l'heure UTC (`date -u`), pour la vérification.
    ```bash
    docker exec -i iris_db psql -U iris -d iris -v ON_ERROR_STOP=1 --single-transaction < sauvegarde_AAAA-MM-JJ.sql
    ```
-   La commande doit rendre 0 (`echo $?`). Sinon, rien n'est écrit : corriger la cause, puis reprendre à l'étape 5.
+   La commande doit rendre 0 (`echo $?`). Sinon, rien n'est écrit : corriger la cause, puis reprendre à l'étape 5 (à l'étape 3 si le backend a redémarré).
 7. **Vérifier** (ci-dessous), avant de redémarrer.
 8. **Redémarrer le backend** : `docker compose start backend`. Il n'applique que les migrations plus récentes que la sauvegarde.
 
 Sur un nouveau serveur, démarrer la base seule (`docker compose up -d db`), puis suivre les étapes 1, 2, 5, 6 et 7, et démarrer ensuite toute la pile (`docker compose up -d`).
 
 **Vérification après la restauration.**
-- **Déclencheurs** : leur nombre dans la base doit égaler celui du fichier. Ce contrôle signale une restauration faite sans les options de l'étape 6 ; il ne remplace pas l'étape 1, seule à détecter un fichier coupé, qui ne contient alors pas ses déclencheurs.
+- **Déclencheurs** : leur nombre dans la base doit égaler celui du fichier. Ce contrôle signale une restauration arrêtée avant ses déclencheurs, faite sans `--single-transaction` par exemple. Il ne signale ni une restauration dans une base déjà migrée, ni une restauration sans `-v ON_ERROR_STOP=1` qui a poursuivi après une erreur et rendu 0 : la requête des journaux ci-dessous peut alors montrer des horodatages remplacés ou, comparée à la base d'origine, des lignes manquantes. Il ne remplace pas non plus l'étape 1, seule à détecter un fichier coupé, qui ne contient alors pas ses déclencheurs.
   ```bash
   docker exec iris_db psql -U iris -d iris -tAc 'SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal'
   grep -cE '^CREATE (CONSTRAINT )?TRIGGER ' sauvegarde_AAAA-MM-JJ.sql
   ```
-- **Journaux** : pour chacun, la requête ci-dessous donne le nombre de lignes et la plus ancienne et la plus récente date. La plus récente doit précéder le début de la restauration. Si la base d'origine est encore lisible, la même requête, lancée sur elle avant la sauvegarde, doit donner le même résultat.
+- **Journaux** : pour chacun, la requête ci-dessous donne le nombre de lignes et la plus ancienne et la plus récente date. La plus récente doit précéder le début de la restauration, noté en UTC à l'étape 6 (les dates de la requête sont en UTC). Si la base d'origine est encore lisible, la même requête, lancée sur elle avant la sauvegarde, doit donner le même résultat.
   ```sql
   SELECT 'JournalAdministration' AS journal, count(*), min("createdAt"), max("createdAt") FROM "JournalAdministration"
   UNION ALL SELECT 'JournalFacture', count(*), min("createdAt"), max("createdAt") FROM "JournalFacture"
