@@ -16,8 +16,12 @@
 // le chargement de l'application (BREAK_GLASS_EMAIL et BREAK_GLASS_TOKEN sont lus à son chargement), avec une base
 // injoignable : un 401 ou un 429 y prouve qu'aucune lecture en base n'a été tentée (le bon jeton, bloqué, aurait sinon
 // répondu 500). TRUST_PROXY=1 fait retenir, pour chaque requête, l'adresse que porte X-Forwarded-For (la connexion,
-// 127.0.0.1, tient le rôle du proxy) : le test choisit ainsi l'adresse de chaque essai. L'horloge est simulée par
-// `mock.timers` (`Date` seulement) pour la fenêtre suivante ; la table des essais est vidée avant et après chaque test.
+// 127.0.0.1, tient le rôle du proxy) : le test choisit ainsi l'adresse de chaque essai. Deux horloges sont simulées pour
+// la fenêtre suivante (lot #614, cadrage v2, C1) : celle du système par `mock.timers` (`Date` seulement), et l'horloge
+// monotone du processus, sur laquelle se compte la fenêtre, par `mock.method(performance, 'now', …)`, d'une autre origine
+// (cinq heures, comme cles-microsoft.test.mjs), restaurée après chaque test ; `aller` fait s'écouler le temps (les deux
+// horloges avancent du même écart), `regler` déplace l'horloge du système seule. La table des essais est vidée avant et
+// après chaque test.
 // Le succès et le compte absent, qui lisent la base, sont prouvés dans api.test.mjs (bloc « Trace de l’accès de secours
 // (#589) ») ; la preuve HTTP en processus séparé, derrière deux proxys, est dans trust-proxy.test.mjs.
 //
@@ -29,8 +33,12 @@
 //     message ni la pile de l'erreur (point 2 ; v2, N1 et N2 ; texte de la ligne : choix par défaut, à confirmer). La base
 //     injoignable de ce fichier fournit l'erreur : la lecture du compte de secours échoue, après le contrôle du secret ;
 //   - l'essai suivi d'une erreur reste compté (v2, T1) ;
-//   - une fenêtre datée dans le futur, après un recul de l'horloge, est passée : l'adresse repart de zéro, et le premier
-//     blocage de la fenêtre rouverte a sa ligne (point 3 ; v2, T1, option ; choix par défaut, à confirmer).
+//   - une fenêtre datée dans le futur, après un recul de l'horloge, était passée : l'adresse repartait de zéro, et le
+//     premier blocage de la fenêtre rouverte avait sa ligne (point 3 ; v2, T1, option). Le lot #614 (cadrage v2 du
+//     controleur-coherence, `main` à 6b98e34 ; issue `suivi-audit` #614 ; choix par défaut, à confirmer) remplace cette
+//     règle : la fenêtre se compte sur l'horloge monotone du processus, que ne déplace aucun réglage de l'horloge du
+//     système. Après un recul d'une heure, l'adresse bloquée le reste, sans nouvelle ligne, jusqu'à quinze minutes de
+//     temps écoulé depuis son premier essai ; la fenêtre suivante a sa ligne au premier blocage (test réécrit, C1).
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test, { afterEach, beforeEach, describe, mock } from 'node:test';
@@ -76,11 +84,23 @@ const SEUIL = 5; // essais admis par adresse et par fenêtre (#563)
 const MIN = 60_000;
 const HEURE = 60 * MIN;
 const FENETRE = 15 * MIN;
-const T0 = Date.UTC(2026, 10, 19, 9); // 19-11-2026, 9 h UTC
+const T0 = Date.UTC(2026, 10, 19, 9); // horloge du système au début de chaque test : 19-11-2026, 9 h UTC
+// Horloge monotone au début de chaque test (lot #614) : une autre origine que l'horloge du système.
+const M0 = 5 * HEURE;
+let monotone = M0;
 const A = '198.51.100.11';
 const B = '198.51.100.22';
 const C = '198.51.100.33';
-const aller = (instant) => mock.timers.setTime(instant);
+// Le temps s'écoule jusqu'à l'instant `instant` de l'horloge du système : les deux horloges avancent du même écart. Le
+// temps écoulé ne recule jamais : un réglage de l'horloge du système passe par `regler`.
+const aller = (instant) => {
+  const ecart = instant - Date.now();
+  assert.ok(ecart >= 0, `aller : le temps écoulé ne recule pas (écart de ${ecart} ms) ; un réglage de l’horloge passe par regler`);
+  monotone += ecart;
+  mock.timers.setTime(instant);
+};
+// Réglage de l'horloge du système seule (correction NTP), sans temps écoulé : l'horloge monotone ne bouge pas.
+const regler = (instant) => mock.timers.setTime(instant);
 
 // Réponses et lignes exactes (routes d'authentification ; texte de la ligne de blocage inchangé, v2, N1).
 const REFUS = { error: 'Jeton de secours invalide.' };
@@ -122,7 +142,9 @@ describe('#589 : trace de l’accès de secours, une ligne « Trop de tentatives
         if (!AVERTISSEMENT_NODE.test(texte)) lignes.push(`${methode} ${texte}`);
       });
     }
+    monotone = M0;
     mock.timers.enable({ apis: ['Date'], now: T0 });
+    mock.method(performance, 'now', () => monotone);
   });
   afterEach(() => {
     mock.timers.reset();
@@ -199,7 +221,7 @@ describe('#589 : trace de l’accès de secours, une ligne « Trop de tentatives
   });
 });
 
-describe('#608 et #607 : erreur après un bon jeton tracée avec l’adresse, sans son détail ; fenêtre rouverte par un recul de l’horloge', () => {
+describe('#608 et #614 : erreur après un bon jeton tracée avec l’adresse, sans son détail ; fenêtre comptée sur l’horloge monotone après un recul de l’horloge du système', () => {
   beforeEach(() => {
     essaisSecours.clear();
     lignes = [];
@@ -209,7 +231,9 @@ describe('#608 et #607 : erreur après un bon jeton tracée avec l’adresse, sa
         if (!AVERTISSEMENT_NODE.test(texte)) lignes.push(`${methode} ${texte}`);
       });
     }
+    monotone = M0;
     mock.timers.enable({ apis: ['Date'], now: T0 });
+    mock.method(performance, 'now', () => monotone);
   });
   afterEach(() => {
     mock.timers.reset();
@@ -232,7 +256,7 @@ describe('#608 et #607 : erreur après un bon jeton tracée avec l’adresse, sa
     for (let i = 1; i <= SEUIL; i += 1) {
       const r = await essai(A, { token: JETON_SECOURS });
       assert.deepEqual(r, { statut: 500, corps: ERREUR, lignes: [ligneErreur(A)], compte: i }, `bon jeton ${i} : 500, une ligne, essai compté`);
-      assert.equal(essaisSecours.get(A).depuis, T0, `bon jeton ${i} : la fenêtre reste celle du premier essai`);
+      assert.equal(essaisSecours.get(A).depuis, M0, `bon jeton ${i} : la fenêtre reste celle du premier essai`);
     }
     await bloque(A, SEUIL + 1, true, 'sixième essai, bon jeton : bloqué, tracé', { token: JETON_SECOURS });
     assert.deepEqual(lignes, [...Array(SEUIL).fill(ligneErreur(A)), ligneBlocage(A)], 'cinq erreurs et un blocage tracés, rien d’autre');
@@ -256,19 +280,29 @@ describe('#608 et #607 : erreur après un bon jeton tracée avec l’adresse, sa
     assert.equal(essaisSecours.get(B).count, 1, 'B garde son compte');
   });
 
-  // Cadrage, point 3 (#607) : « l'adresse n'est plus bloquée au-delà de la fenêtre après un recul : sa fenêtre repart de
-  // zéro, en fin de table » ; v2, T1 (option) : « une nouvelle ligne « Trop de tentatives » au premier blocage de la
-  // fenêtre rouverte par un recul ». Lecture écartée : la règle d'avant #607, sous laquelle A resterait bloquée (429, sans
-  // ligne) jusqu'au terme de sa fenêtre, une heure et quart de temps réel après le recul.
-  test('#607 : après un recul d’une heure, une adresse bloquée repart de zéro : cinq refus tracés, puis une nouvelle ligne « Trop de tentatives » au premier blocage de la fenêtre rouverte', async () => {
+  // Lot #614 (cadrage v2, C1 : test de #607 réécrit, attendu inversé ; choix par défaut, à confirmer) : la fenêtre se
+  // compte sur l'horloge monotone, qu'un recul de l'horloge du système ne déplace pas. Après un recul d'une heure,
+  // l'adresse bloquée le reste (429), sans nouvelle ligne, jusqu'à quinze minutes de temps écoulé depuis son premier
+  // essai ; une milliseconde après, la fenêtre suivante s'ouvre : cinq refus tracés, puis une nouvelle ligne « Trop de
+  // tentatives » à son premier blocage. Lectures écartées : la règle de #607 (code de `main`, ou variante de l'issue :
+  // passée si l'horloge du système la date dans le futur), sous laquelle A repartirait de zéro dès le premier essai après
+  // le recul (401 tracé au lieu de 429) ; fenêtre comptée sur l'horloge du système seule (`Date.now()`), sous laquelle A
+  // resterait bloquée une heure et quart de temps écoulé ; une ligne de blocage reprise après le recul, dans la même
+  // fenêtre.
+  test('#614 : après un recul d’une heure de l’horloge du système, une adresse bloquée le reste, sans nouvelle ligne, jusqu’à quinze minutes de l’horloge monotone depuis son premier essai ; la fenêtre suivante a cinq refus tracés, puis une nouvelle ligne « Trop de tentatives » au premier blocage', async () => {
     for (let i = 1; i <= SEUIL; i += 1) await refuse(A, i, `fenêtre 1, essai ${i}`);
     await bloque(A, SEUIL + 1, true, 'fenêtre 1, essai 6 : tracé');
     await bloque(A, SEUIL + 2, false, 'fenêtre 1, essai 7 : non tracé');
-    aller(T0 - HEURE); // l'horloge recule d'une heure
-    for (let i = 1; i <= SEUIL; i += 1) await refuse(A, i, `après le recul, essai ${i} : fenêtre rouverte`);
-    assert.equal(essaisSecours.get(A).depuis, T0 - HEURE, 'la fenêtre rouverte court depuis le premier essai après le recul');
-    await bloque(A, SEUIL + 1, true, 'après le recul, essai 6 : premier blocage de la fenêtre rouverte, tracé');
-    await bloque(A, SEUIL + 2, false, 'après le recul, essai 7 : non tracé');
+    const recul = T0 - HEURE;
+    regler(recul); // l'horloge du système recule d'une heure, sans temps écoulé
+    await bloque(A, SEUIL + 3, false, 'après le recul : toujours bloquée, non tracé');
+    aller(recul + FENETRE);
+    await bloque(A, SEUIL + 4, false, 'à quinze minutes pile de temps écoulé : encore bloquée, non tracé');
+    aller(recul + FENETRE + 1);
+    for (let i = 1; i <= SEUIL; i += 1) await refuse(A, i, `fenêtre 2, essai ${i}`);
+    assert.equal(essaisSecours.get(A).depuis, M0 + FENETRE + 1, 'la fenêtre 2 court depuis son premier essai, sur l’horloge monotone');
+    await bloque(A, SEUIL + 1, true, 'fenêtre 2, essai 6 : premier blocage de la fenêtre, tracé');
+    await bloque(A, SEUIL + 2, false, 'fenêtre 2, essai 7 : non tracé');
     assert.deepEqual(lignes.filter((l) => l.includes('Trop de tentatives')), [ligneBlocage(A), ligneBlocage(A)], 'une ligne par fenêtre');
     assert.equal(lignes.filter((l) => l.includes('REFUSÉE')).length, 2 * SEUIL, 'tous les refus sont tracés');
   });
