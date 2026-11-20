@@ -124,6 +124,66 @@ Les données vivent dans le volume Docker `postgres_data` de `docker-compose.yml
 docker exec iris_db pg_dump -U iris iris > sauvegarde_$(date +%F).sql
 ```
 
+### Restauration d'une sauvegarde
+
+*Statut : procédure documentée et éprouvée en CI sur des données de synthèse (`server/tests/restauration-sauvegarde.test.mjs`, #618). Elle ne vaut pas « sauvegarde et restauration testées » pour l'instance pilote ([passation](docs/ROADMAP-PASSATION.md), section 5) et n'est pas validée pour mise en service. Elle ne couvre que la sauvegarde complète au format SQL de la sous-section précédente ; une sauvegarde faite par un autre outil (pgBackWeb, par exemple) n'est pas couverte.*
+
+**Règle : une sauvegarde complète se restaure toujours dans une base recréée vide, backend arrêté.** Ne jamais restaurer dans une base déjà migrée, pas même les seules données : elle contient déjà le compte système, les paramètres de rémunération et l'historique des migrations, que la sauvegarde contient aussi.
+
+Pourquoi : dans une base déjà migrée, les déclencheurs existent avant les données, et chaque ligne chargée les rejoue.
+- Les huit journaux horodatés par la base (`JournalAdministration`, `JournalFacture`, `InterventionRapport`, `InterventionSignature`, `EnvoiDocument`, `JournalSaisieChantier`, `JournalCompteComptable`, `JournalRegleComptable`) prendraient l'instant de la restauration au lieu de leur date d'origine, tout comme la date d'acceptation des signatures.
+- Les gardes refuseraient des lignes : pièces émises, lignes de devis signés, règlements, entre autres. La ligne du journal des règles comptables serait refusée elle aussi, car son déclencheur ne trouve pas le plan comptable pendant la restauration.
+- Le compte système et les paramètres de rémunération entreraient en conflit avec ceux de la sauvegarde, et l'historique des migrations serait doublé.
+- Sans `-v ON_ERROR_STOP=1`, `psql` poursuit malgré les erreurs et rend 0 sur une base partielle. Avec cette option, il s'arrête à la première erreur.
+
+Dans une base vide, les déclencheurs, les clés étrangères et les contraintes différées sont créés après les données : ils ne rejouent rien. Les contraintes de vérification, créées avec les tables, jouent au chargement, sans effet sur des données déjà valides. `--single-transaction` évite qu'une erreur en cours de route laisse une base chargée sans ses déclencheurs, que le backend démarrerait ensuite sans rien migrer.
+
+Étapes (commandes pour l'utilisateur et la base `iris` de la sous-section précédente) :
+
+1. **Vérifier que le fichier est complet.** La commande doit afficher `1`. Un fichier coupé (sauvegarde interrompue, copie incomplète) pourrait se restaurer sans erreur, mais sans tout ou partie de ses déclencheurs et de ses clés étrangères.
+   ```bash
+   grep -c -- '-- PostgreSQL database dump complete' sauvegarde_AAAA-MM-JJ.sql
+   ```
+2. **Image d'Iris.** Restaurer avec une image d'Iris au moins aussi récente que la sauvegarde. Au redémarrage, le backend n'applique que les migrations plus récentes que celles de la sauvegarde ; une image plus ancienne n'en verrait aucune à appliquer, sans le signaler.
+3. **Arrêter le backend** : `docker compose stop backend`. Le frontend et la base restent démarrés. Pendant la restauration, ne lancer ni `docker compose up` ni un redémarrage de Docker : avec `restart: always`, le backend redémarrerait et migrerait la base vide. La restauration échouerait alors en entier, sans rien écrire : il faudrait arrêter de nouveau le backend, puis reprendre à l'étape 5, sans refaire l'étape 4. La copie de sécurité est déjà faite, et la base n'est plus celle d'origine : une nouvelle copie ne la contiendrait pas et, faite dans la même minute, écraserait la première, de même nom.
+4. **Sauvegarder d'abord la base actuelle**, sous un autre nom de fichier. La commande doit rendre 0 (`echo $?`), et le contrôle de l'étape 1, appliqué à ce fichier, doit afficher `1`. Sinon, la copie est incomplète : ne pas aller plus loin, la base actuelle n'étant pas encore touchée. Avec une copie complète, rien n'est perdu si la sauvegarde à restaurer se révèle mauvaise.
+   ```bash
+   docker exec iris_db pg_dump -U iris iris > avant_restauration_$(date +%F_%H%M).sql
+   ```
+5. **Recréer la base vide.** `--force` ferme les connexions encore ouvertes, celle de pgBackWeb par exemple.
+   ```bash
+   docker exec iris_db dropdb -U iris --force iris
+   docker exec iris_db createdb -U iris iris
+   ```
+6. **Restaurer**, avec le `psql` du même conteneur, qui doit être au moins aussi récent que le `pg_dump` qui a fait la sauvegarde. Noter juste avant l'heure UTC (`date -u`), pour la vérification.
+   ```bash
+   docker exec -i iris_db psql -U iris -d iris -v ON_ERROR_STOP=1 --single-transaction < sauvegarde_AAAA-MM-JJ.sql
+   ```
+   La commande doit rendre 0 (`echo $?`). Sinon, rien n'est écrit : corriger la cause, puis reprendre à l'étape 5, sans refaire l'étape 4 (si le backend a redémarré, l'arrêter d'abord comme à l'étape 3).
+7. **Vérifier** (ci-dessous), avant de redémarrer.
+8. **Redémarrer le backend** : `docker compose start backend`. Il n'applique que les migrations plus récentes que la sauvegarde.
+
+Sur un nouveau serveur, démarrer la base seule (`docker compose up -d db`), puis suivre les étapes 1, 2, 5, 6 et 7, et démarrer ensuite toute la pile (`docker compose up -d`).
+
+**Vérification après la restauration.**
+- **Déclencheurs** : leur nombre dans la base doit égaler celui du fichier. Ce contrôle signale une restauration arrêtée avant ses déclencheurs, faite sans `--single-transaction` par exemple. Il ne signale ni une restauration dans une base déjà migrée, ni une restauration sans `-v ON_ERROR_STOP=1` qui a poursuivi après une erreur et rendu 0 : la requête des journaux ci-dessous peut alors montrer des horodatages remplacés ou, comparée à la base d'origine, des lignes manquantes. Il ne remplace pas non plus l'étape 1, seule à détecter un fichier coupé : il compte les déclencheurs du fichier lui-même, et un fichier coupé après ses déclencheurs, mais avant ses clés étrangères, le passe.
+  ```bash
+  docker exec iris_db psql -U iris -d iris -tAc 'SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal'
+  grep -cE '^CREATE (CONSTRAINT )?TRIGGER ' sauvegarde_AAAA-MM-JJ.sql
+  ```
+- **Journaux** : pour chacun, la requête ci-dessous (à lancer dans `docker exec -it iris_db psql -U iris -d iris`) donne le nombre de lignes et la plus ancienne et la plus récente date. La plus récente doit précéder le début de la restauration, noté en UTC à l'étape 6 (les dates de la requête sont en UTC). Si la même requête a été lancée sur la base d'origine juste avant la sauvegarde, elle doit donner le même résultat ; lancée plus tard sur une base d'origine restée en service, elle peut donner des nombres et des dates plus grands.
+  ```sql
+  SELECT 'JournalAdministration' AS journal, count(*), min("createdAt"), max("createdAt") FROM "JournalAdministration"
+  UNION ALL SELECT 'JournalFacture', count(*), min("createdAt"), max("createdAt") FROM "JournalFacture"
+  UNION ALL SELECT 'InterventionRapport', count(*), min("createdAt"), max("createdAt") FROM "InterventionRapport"
+  UNION ALL SELECT 'InterventionSignature', count(*), min("createdAt"), max("createdAt") FROM "InterventionSignature"
+  UNION ALL SELECT 'EnvoiDocument', count(*), min("createdAt" AT TIME ZONE 'UTC'), max("createdAt" AT TIME ZONE 'UTC') FROM "EnvoiDocument"
+  UNION ALL SELECT 'JournalSaisieChantier', count(*), min("createdAt"), max("createdAt") FROM "JournalSaisieChantier"
+  UNION ALL SELECT 'JournalCompteComptable', count(*), min("createdAt"), max("createdAt") FROM "JournalCompteComptable"
+  UNION ALL SELECT 'JournalRegleComptable', count(*), min("createdAt"), max("createdAt") FROM "JournalRegleComptable";
+  ```
+  Les dates sont en UTC.
+
 ## 4. Configuration dans Nginx Proxy Manager (NPM)
 
 Rendez-vous sur l'interface web de votre Nginx Proxy Manager pour créer le proxy de votre nom de domaine (ex: `iris.noxia.com`).
@@ -142,4 +202,4 @@ Dans l'onglet **SSL** :
 - Cochez "Force SSL".
 - Acceptez les conditions et enregistrez.
 
-Si le proxy HTTPS est configuré et la stack saine, vérifier l'accès, l'authentification Entra, le secours, les migrations et les parcours métier. Une sauvegarde ponctuelle ne valide pas une stratégie de reprise : tester aussi la restauration sur une base isolée. Le feu vert de production dépend de la [recette de sortie](docs/ROADMAP-PASSATION.md) et de la décision de Nelson.
+Si le proxy HTTPS est configuré et la stack saine, vérifier l'accès, l'authentification Entra, le secours, les migrations et les parcours métier. Une sauvegarde ponctuelle ne valide pas une stratégie de reprise : tester aussi la restauration sur une base isolée, sur un autre serveur par exemple, selon la procédure de la section 3 (« Restauration d'une sauvegarde », cas d'un nouveau serveur). Le feu vert de production dépend de la [recette de sortie](docs/ROADMAP-PASSATION.md) et de la décision de Nelson.
