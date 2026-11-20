@@ -22,7 +22,22 @@
 //    prestations : après le 403 d'une clé qui vise une main d'œuvre par son corps, après estMainOeuvreDemande et les
 //    charges utiles, avant la transaction (donc avant le 404, le 403 d'une clé sur une main d'œuvre existante et le 409
 //    des rattachements) ;
-//  - hors périmètre, gardé (v2, N1 et T5) : `estMainOeuvre: null` reste lu comme une clé absente.
+//  - hors périmètre de #587, gardé alors (v2, N1 et T5) : `estMainOeuvre: null` lu comme une clé absente ; corrigé par
+//    #602 (ci-dessous et section 4).
+//
+// Lot #602 (cadrage « estMainOeuvre lu en booléen strict dans le catalogue », v1 complétée de sa v2, contrôlée par le
+// controleur-coherence ; issue #602, N1 du contrôle de cohérence du cadrage de #603 ; #324, T1 de l'audit 9 ; message de
+// Nelson du 20-11-2026, « Ordre : fait les correctif d'issu d'abord ») : `estMainOeuvre` est lu à son tour en booléen
+// strict (drapeauCatalogue), null compris (choix par défaut, à confirmer, règle 5) :
+//  - prestations : clé absente, nature actuelle gardée ; true et false demandés ; toute autre valeur, null compris, 400
+//    « « estMainOeuvre » doit valoir true ou false. », après le 403 d'une clé dont le corps vise une main d'œuvre
+//    (corpsMainOeuvre inchangé : true, valeur non booléenne autre que null, ou champ propre renseigné ; null ne vise pas
+//    une main d'œuvre), avant les autres 400 de saisie et celui d'actif, et avant toute lecture en base (donc avant le
+//    404 et le 403 d'une clé sur une main d'œuvre existante) ;
+//  - articles et équipements, création et modification : clé absente ou false admis ; toute autre valeur que true ou
+//    false, null compris, 400 « « estMainOeuvre » doit valoir true ou false. » (avant #602 : 400 « Seule une
+//    prestation… » pour une valeur non booléenne, null admis) ; true, 400 « Seule une prestation peut être une main
+//    d’œuvre. » ; avant cataloguePayload, donc avant les contrôles communs, stockSuivi et actif.
 //
 // Ce que prouve ce fichier, par des requêtes HTTP réelles, en session (super administrateur, administrateur, directeur :
 // requireAdmin, catégorie A de la matrice) et par clé d'intégration catalogue:write (/api/v1) : chaque écriture admise
@@ -45,7 +60,7 @@ import test, { after, before, describe } from 'node:test';
 import pg from 'pg';
 import { empreinteBase, tablesChangees, tablesDeLaBase } from './matrice-droits/outils.mjs';
 
-const TITRE = 'Lot #587 (catalogue) : stockSuivi et actif lus en booléen strict';
+const TITRE = 'Lots #587 et #602 (catalogue) : stockSuivi, actif et estMainOeuvre lus en booléen strict';
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const dossierServeur = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -594,15 +609,17 @@ if (!TEST_DATABASE_URL) {
     // de la matrice, « Une clé reçoit 403 sur une main d'œuvre existante […] après la validation du corps », routes.mjs) ;
     // « Tests attendus » : « 400 avant le 403 d'une clé sur une main d'œuvre existante ». Témoins : le même corps, actif
     // valide ou absent, reçoit 403. Avant le lot, « false » ou null répondaient 403. Tue « contrôle placé dans la
-    // transaction de modifierPrestation » (après la lecture de la fiche).
-    test('ordre, clé catalogue:write : sur une main d’œuvre existante, un corps de prestation ordinaire avec une valeur non booléenne de actif reçoit 400, et non 403 ; avec actif valide ou absent, 403 ; rien n’est écrit', async () => {
+    // transaction de modifierPrestation » (après la lecture de la fiche). Depuis #602 (cadrage v2, C2 ; T2, mutant
+    // « lecture placée dans la transaction, après la lecture verrouillée de la fiche ») : avec estMainOeuvre: null, le 400
+    // est celui d'estMainOeuvre, quelle que soit la valeur d'actif, ou sans actif, et non le 403 de la fiche existante
+    // (avant #602, null valait une clé absente : 400 d'actif, ou 403 avec actif valide ou absent).
+    test('ordre, clé catalogue:write : sur une main d’œuvre existante, un corps de prestation ordinaire avec une valeur non booléenne de actif reçoit 400, et non 403 ; avec actif valide ou absent, 403 ; avec estMainOeuvre: null, le 400 d’estMainOeuvre quelle que soit la valeur de actif (#602) ; rien n’est écrit', async () => {
       for (const actifDepart of [true, false]) {
         const mo = await creerMainOeuvre({ actif: actifDepart });
         const relire = () => ficheEnBase('prestations', mo.id);
         const corpsOrdinaires = [
           ['sans drapeau', (extra) => ({ reference: mo.reference, ...ENVOI, ...ENVOI_PROPRES.prestations, ...extra })],
           ['drapeau estMainOeuvre: false', (extra) => ({ reference: mo.reference, ...ENVOI, ...ENVOI_PROPRES.prestations, estMainOeuvre: false, ...extra })],
-          ['drapeau estMainOeuvre: null', (extra) => ({ reference: mo.reference, ...ENVOI, ...ENVOI_PROPRES.prestations, estMainOeuvre: null, ...extra })],
         ];
         for (const [corpsNom, corps] of corpsOrdinaires) {
           for (const [nom, valeur] of VALEURS_REFUSEES) {
@@ -613,6 +630,12 @@ if (!TEST_DATABASE_URL) {
             const envoye = corps(extra);
             await refuse(() => appeler('put', `/api/v1/catalogue/prestations/${mo.id}`, cles.ecriture, envoye), 403, MESSAGES.cleMainOeuvre, `clé, main d’œuvre, ${corpsNom}, témoin ${JSON.stringify(extra)}`, relire);
           }
+        }
+        // #602 : drapeau estMainOeuvre: null, avec chaque valeur refusée d'actif, avec true ou false, ou sans actif.
+        const actifs = [...VALEURS_REFUSEES.map(([nom, valeur]) => [nom, { actif: valeur }]), ['true', { actif: true }], ['false', { actif: false }], ['absent', {}]];
+        for (const [nom, extra] of actifs) {
+          const envoye = { reference: mo.reference, ...ENVOI, ...ENVOI_PROPRES.prestations, estMainOeuvre: null, ...extra };
+          await refuse(() => appeler('put', `/api/v1/catalogue/prestations/${mo.id}`, cles.ecriture, envoye), 400, MESSAGES.estMainOeuvre, `clé, main d’œuvre ${actifDepart ? 'active' : 'désactivée'}, drapeau estMainOeuvre: null, actif ${nom}`, relire);
         }
       }
     });
@@ -745,7 +768,8 @@ if (!TEST_DATABASE_URL) {
       }
       for (const { qui, auth } of SESSION()) {
         // estMainOeuvre (lu par estMainOeuvreDemande) avant actif ; en session seulement : par clé, un drapeau autre
-        // qu'absent ou faux vise une main d'œuvre et reçoit le 403 du corps (test précédent sur l'ordre des clés).
+        // qu'absent, null ou faux vise une main d'œuvre et reçoit le 403 du corps (test précédent sur l'ordre des clés) ;
+        // null, lui, reçoit depuis #602 le 400 du booléen strict, avant actif aussi, en session comme par clé (section 4).
         const drapeau = corpsFiche('prestations', prestation, { estMainOeuvre: 'oui', actif: 'false' });
         await refuse(() => appeler('put', `/api/catalogue/prestations/${prestation.id}`, auth, drapeau), 400, MESSAGES.estMainOeuvre, `${qui}, estMainOeuvre et actif invalides`, () => ficheEnBase('prestations', prestation.id));
         // Main d'œuvre : un prix refusé passe avant actif.
@@ -755,42 +779,308 @@ if (!TEST_DATABASE_URL) {
     });
 
     // ---------------------------------------------------------------------------------------------------------------
-    // 4. estMainOeuvre: null, hors périmètre, gardé (cadrage v2, N1 et T5)
+    // 4. estMainOeuvre lu en booléen strict (#602 ; cadrage v2, C2, C3, N1, N2, T1 et T2)
     // ---------------------------------------------------------------------------------------------------------------
+    //
+    // Avant #602, `estMainOeuvre: null` était lu comme une clé absente et admis (main-oeuvre.ts, estMainOeuvreDemande et
+    // corpsMainOeuvre ; routes.ts, création et modification des articles et des équipements), alors qu'actif: null et
+    // stockSuivi: null répondaient 400 (#602, N1 du contrôle de cohérence du cadrage de #603). Lecture retenue : null refusé
+    // en 400, comme actif, stockSuivi et acompteExige (#570) ; choix par défaut, à confirmer (règle 5). Chaque refus est
+    // prouvé sans écriture (cadrage v2, C3) par `refuse` : empreinte de toute la base hors dernière utilisation d'une clé
+    // (ApiAccessKey.dernierUsageLe, notée par la garde de /api/v1 avant le gestionnaire, exception antérieure au lot), fiche
+    // relue `updatedAt` compris, décompte du journal d'administration. Les tests de main d'œuvre d'api.test.mjs (refus 403
+    // des clés, nature gardée sans la clé, passage et retour journalisés) ne sont pas repris (v2, N6) : seuls des témoins,
+    // dans les boucles ci-dessous, montrent que le même corps, sans null, aboutit ou reçoit le refus attendu.
 
-    // Cadrage v2, N1 : « estMainOeuvre: null, lu comme une clé absente et admis (main-oeuvre.ts:61 et :70, routes.ts:69 et
-    // :88) » reste hors périmètre ; T5 : « non-régression : estMainOeuvre: null reste lu comme une clé absente ». Témoin :
-    // true sur un article reste refusé. Combiné à une valeur non booléenne de actif, le 400 est celui de actif. Tue
-    // « estMainOeuvre lu à son tour en booléen strict (null refusé) ».
-    test('non-régression : estMainOeuvre: null reste lu comme une clé absente, à la création et à la modification des trois familles, main d’œuvre comprise, en session et par clé ; avec une valeur non booléenne de actif, le 400 est celui de actif', async () => {
+    // Cadrage #602, périmètre 1 et 3 ; « Tests attendus » : « Session (administration) et clé d'intégration
+    // (catalogue:write), création et modification d'une prestation : estMainOeuvre: null → 400 au message exact, sans
+    // écriture ni journal » ; v2, C2 : le test de #587 « non-régression : estMainOeuvre: null reste lu comme une clé
+    // absente » est inversé (création et modification des trois familles, en session et par clé ; avec une valeur
+    // d'actif, même non booléenne, le 400 est celui d'estMainOeuvre, v2, N2). Avant #602, null créait ou modifiait la fiche
+    // (201, 200) et, avec actif « false » ou null, le 400 était celui d'actif. Témoins : le même corps sans la clé, ou avec
+    // false, aboutit, et une prestation reste ordinaire. Tue « lecture null = absent rétablie » (main-oeuvre.ts),
+    // « corpsMainOeuvre compte null » (403 au lieu de 400 pour la clé), « garde !== null conservée » (routes.ts, à la
+    // création et à la modification) et « estMainOeuvre lu après actif » (400 d'actif).
+    test('estMainOeuvre: null répond 400 « « estMainOeuvre » doit valoir true ou false. » à la création et à la modification d’un article, d’un équipement et d’une prestation, par le super administrateur, l’administrateur, le directeur et une clé catalogue:write ; rien n’est écrit ; avec une valeur de actif, le 400 reste celui d’estMainOeuvre ; sans la clé ou avec false, le même corps aboutit', async () => {
       for (const { qui, auth, porte } of ECRIVAINS()) {
-        const prestation = await ok(appeler('post', `${porte}/prestations`, auth, { reference: reference('PRE-NULL'), ...ENVOI, ...ENVOI_PROPRES.prestations, estMainOeuvre: null }), 201);
-        assert.equal((await ficheEnBase('prestations', prestation.id)).estMainOeuvre, false, `${qui} : prestation ordinaire créée`);
-        for (const famille of ['articles', 'equipements']) {
-          const creee = await ok(appeler('post', `${porte}/${famille}`, auth, { reference: reference('NULL'), ...ENVOI, ...ENVOI_PROPRES[famille], estMainOeuvre: null }), 201);
-          assert.equal((await ficheEnBase(famille, creee.id)).nom, ENVOI.nom, `${qui}, ${famille} : créée`);
-          const corpsVrai = { reference: reference('VRAI'), ...ENVOI, ...ENVOI_PROPRES[famille], estMainOeuvre: true };
-          await refuse(() => appeler('post', `${porte}/${famille}`, auth, corpsVrai), 400, MESSAGES.seulePrestation, `${qui}, ${famille}, témoin estMainOeuvre: true`);
-        }
         for (const famille of FAMILLES) {
+          const creation = { reference: reference('NULL'), ...ENVOI, ...ENVOI_PROPRES[famille], estMainOeuvre: null };
+          await refuse(() => appeler('post', `${porte}/${famille}`, auth, creation), 400, MESSAGES.estMainOeuvre, `${qui}, création, ${famille}`);
+          assert.equal(await modele(famille).count({ where: { reference: creation.reference } }), 0, `${qui}, ${famille} : aucune fiche créée`);
           const fiche = await fabriquer(famille);
-          await ok(appeler('put', `${porte}/${famille}/${fiche.id}`, auth, corpsFiche(famille, fiche, { estMainOeuvre: null })));
-          const relu = await ficheEnBase(famille, fiche.id);
-          assert.deepEqual([relu.nom, relu.actif], [ENVOI.nom, true], `${qui}, ${famille} : modifiée`);
-          if (famille === 'prestations') assert.equal(relu.estMainOeuvre, false, `${qui} : reste une prestation ordinaire`);
-          const corpsActif = corpsFiche(famille, fiche, { estMainOeuvre: null, actif: 'false' });
-          await refuse(() => appeler('put', `${porte}/${famille}/${fiche.id}`, auth, corpsActif), 400, REFUS_DRAPEAU('actif'), `${qui}, ${famille}, estMainOeuvre null et actif « false »`, () => ficheEnBase(famille, fiche.id));
+          const relire = () => ficheEnBase(famille, fiche.id);
+          for (const [nom, extra] of [['sans actif', {}], ['actif « false »', { actif: 'false' }], ['actif null', { actif: null }], ['actif true', { actif: true }], ['actif false', { actif: false }]]) {
+            const corps = corpsFiche(famille, fiche, { estMainOeuvre: null, ...extra });
+            await refuse(() => appeler('put', `${porte}/${famille}/${fiche.id}`, auth, corps), 400, MESSAGES.estMainOeuvre, `${qui}, modification, ${famille}, ${nom}`, relire);
+          }
+          const intacte = await relire();
+          assert.deepEqual([intacte.nom, intacte.tauxTva, intacte.prixVenteHt, intacte.prixAchatHt, intacte.actif, intacte.updatedAt],
+            [fiche.nom, '5.5', '111.11', '22.22', true, fiche.updatedAt.toISOString()], `${qui}, ${famille} : intacte`);
+          // Témoins : le même corps sans la clé, puis avec false, aboutit (création et modification).
+          for (const [nom, extra] of [['sans la clé', {}], ['false', { estMainOeuvre: false }]]) {
+            const cree = await ok(appeler('post', `${porte}/${famille}`, auth, { reference: reference('TEMOIN'), ...ENVOI, ...ENVOI_PROPRES[famille], ...extra }), 201);
+            const reluCree = await ficheEnBase(famille, cree.id);
+            assert.deepEqual([reluCree.nom, reluCree.prixVenteHt, reluCree.actif], [ENVOI.nom, '987.65', true], `${qui}, ${famille}, création ${nom} : créée`);
+            const nomTemoin = `TEST Témoin ${nom} 602`;
+            const reponse = await ok(appeler('put', `${porte}/${famille}/${fiche.id}`, auth, corpsFiche(famille, fiche, { ...extra, nom: nomTemoin })));
+            const relu = await relire();
+            assert.deepEqual([relu.nom, relu.prixVenteHt, reponse.nom], [nomTemoin, '987.65', nomTemoin], `${qui}, ${famille}, modification ${nom} : écrite`);
+            if (famille === 'prestations') {
+              assert.deepEqual([reluCree.estMainOeuvre, relu.estMainOeuvre, reponse.estMainOeuvre], [false, false, false], `${qui}, ${nom} : prestations ordinaires`);
+            }
+          }
         }
-      }
-      for (const { qui, auth } of SESSION()) {
-        const mo = await creerMainOeuvre();
-        await ok(appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, { ...mo.corps, estMainOeuvre: null, prixVenteHt: '46.75' }));
-        const relu = await ficheEnBase('prestations', mo.id);
-        assert.deepEqual([relu.estMainOeuvre, relu.prixVenteHt, relu.actif], [true, '46.75', true], `${qui} : reste une main d’œuvre, prix écrit`);
-        const corps = { ...mo.corps, estMainOeuvre: null, actif: null };
-        await refuse(() => appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, corps), 400, REFUS_DRAPEAU('actif'), `${qui}, main d’œuvre, estMainOeuvre null et actif null`, () => ficheEnBase('prestations', mo.id));
       }
     });
+
+    // Cadrage #602, périmètre 1 ; v2, T1 : « Main d'œuvre existante en session avec estMainOeuvre: null et un prix changé
+    // → 400, prix et journal MAIN_OEUVRE intacts » ; « Tests attendus », témoins : « clé absente → nature gardée (main
+    // d'œuvre) ; false sur une main d'œuvre → retour en prestation ordinaire (journal) ; true → passage en main d'œuvre
+    // (journal) ». En session seulement : une clé reçoit 403 sur un corps de main d'œuvre (test suivant) et sur une main
+    // d'œuvre existante (section 3). Avant #602, la création d'une main d'œuvre avec null répondait 400 « Ces prix […] ne
+    // concernent qu'une main d'œuvre » (corps lu comme celui d'une prestation ordinaire) et la modification écrivait les
+    // prix (200, entrée MODIFICATION). Tue « lecture null = absent rétablie » (message exact, prix et journal) et
+    // « estMainOeuvre lu après actif ».
+    test('main d’œuvre, en session : estMainOeuvre: null répond 400 à la création d’une main d’œuvre et à la modification d’une main d’œuvre active ou désactivée, prix changés ou actif envoyé, par le super administrateur, l’administrateur et le directeur ; ni la fiche, ni ses prix, ni le journal ne changent ; témoins : sans la clé, la nature est gardée, false la rend ordinaire et true la refait main d’œuvre, chaque fois journalisé', async () => {
+      for (const { qui, auth } of SESSION()) {
+        const creation = corpsMainOeuvre(reference('MO-NULL'), { estMainOeuvre: null });
+        await refuse(() => appeler('post', '/api/catalogue/prestations', auth, creation), 400, MESSAGES.estMainOeuvre, `${qui}, création d’une main d’œuvre`);
+        assert.equal(await prisma.cataloguePrestation.count({ where: { reference: creation.reference } }), 0, `${qui} : aucune main d’œuvre créée`);
+        for (const actif of [true, false]) {
+          const mo = await creerMainOeuvre({ actif });
+          const cas = `${qui}, main d’œuvre ${actif ? 'active' : 'désactivée'}`;
+          const relire = () => ficheEnBase('prestations', mo.id);
+          const ficheAvant = await relire();
+          const journalAvant = await journalMainOeuvre(mo.id);
+          const envois = [['prix à l’heure changé', { prixVenteHt: '46.75' }], ['tous les prix changés', ENVOI_MO], ['actif inversé', { actif: !actif }], ['actif null', { actif: null }], ['actif « false »', { actif: 'false' }]];
+          for (const [nom, extra] of envois) {
+            const corps = { ...mo.corps, ...extra, estMainOeuvre: null };
+            await refuse(() => appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, corps), 400, MESSAGES.estMainOeuvre, `${cas}, ${nom}`, relire);
+          }
+          assert.deepEqual(await journalMainOeuvre(mo.id), journalAvant, `${cas} : journal de la main d’œuvre inchangé`);
+          const relu = await relire();
+          assert.deepEqual(relu, ficheAvant, `${cas} : intacte`);
+          assert.deepEqual([relu.estMainOeuvre, relu.actif, relu.prixVenteHt, relu.prixJourHorsContratHt, relu.prixHeureSousContratHt, relu.prixJourSousContratHt, relu.heuresParJour, relu.prixDemiJourneeHorsContratHt],
+            [true, actif, '45.5', '320', '40', '280.25', '7.5', null], `${cas} : état et prix de départ`);
+          // Témoins : le même corps sans la clé (nature gardée, prix écrit), puis false (retour en prestation ordinaire, la
+          // main d'œuvre n'étant pas rattachée), puis true (passage en main d'œuvre), chacun avec une entrée au journal.
+          const { estMainOeuvre: _drapeau, ...sansCle } = { ...mo.corps, prixVenteHt: '46.75' };
+          const etapes = [
+            ['sans la clé', sansCle, true, 'MODIFICATION'],
+            ['false', { estMainOeuvre: false, reference: mo.reference, nom: mo.corps.nom, tauxTva: '20', unite: 'forfait', prixVenteHt: '46.75' }, false, 'RETRAIT_MAIN_OEUVRE'],
+            ['true', { ...mo.corps, prixVenteHt: '46.75' }, true, 'PASSAGE_MAIN_OEUVRE'],
+          ];
+          for (const [nom, corps, estMainOeuvre, action] of etapes) {
+            const journalTotal = await prisma.journalAdministration.count();
+            const reponse = await ok(appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, corps));
+            const apres = await relire();
+            assert.deepEqual([apres.estMainOeuvre, reponse.estMainOeuvre, apres.prixVenteHt, apres.actif], [estMainOeuvre, estMainOeuvre, '46.75', actif], `${cas}, témoin ${nom}`);
+            assert.equal(await prisma.journalAdministration.count(), journalTotal + 1, `${cas}, témoin ${nom} : une entrée au journal d’administration`);
+            const derniere = (await journalMainOeuvre(mo.id)).at(-1);
+            assert.deepEqual([derniere.action, derniere.auteurId], [action, comptes[qui].id], `${cas}, témoin ${nom} : entrée ${action}`);
+          }
+        }
+      }
+    });
+
+    // Cadrage #602, périmètre 2 : « le 403 d'une clé d'intégration dont le corps vise une main d'œuvre (estMainOeuvre:
+    // true, valeur non booléenne autre que null/false, ou champ propre renseigné) reste le premier refus ; corpsMainOeuvre
+    // ne change pas (null ne vise pas une main d'œuvre) » ; « Tests attendus » : « Clé d'intégration : estMainOeuvre: null
+    // avec un champ propre renseigné → 403 (le 403 reste premier) ; estMainOeuvre: true → 403 ». À la création, sur une
+    // prestation ordinaire, une main d'œuvre existante et une fiche inconnue. Témoins : le même corps ordinaire avec null,
+    // sans champ propre, reçoit le 400 d'estMainOeuvre partout. Tue « estMainOeuvre lu avant le 403 de la clé » (400 au lieu
+    // de 403) et « corpsMainOeuvre compte null » (403 au lieu du 400 des témoins).
+    test('ordre, clé catalogue:write : un corps qui vise une main d’œuvre reçoit 403 avant le 400 d’estMainOeuvre (null avec un champ propre, true, ou une autre valeur non booléenne), à la création, sur une prestation ordinaire, une main d’œuvre ou une fiche inconnue ; null sans champ propre reçoit 400 ; rien n’est écrit', async () => {
+      const prestation = await fabriquer('prestations');
+      const mo = await creerMainOeuvre();
+      const NON_BOOLEENNES = VALEURS_REFUSEES.filter(([, valeur]) => valeur !== null);
+      const cibles = [
+        ['création', 'post', '', reference('CLE'), null],
+        ['prestation ordinaire', 'put', `/${prestation.id}`, prestation.reference, () => ficheEnBase('prestations', prestation.id)],
+        ['main d’œuvre', 'put', `/${mo.id}`, mo.reference, () => ficheEnBase('prestations', mo.id)],
+        ['fiche inconnue', 'put', `/${randomUUID()}`, reference('CLE-INCONNUE'), null],
+      ];
+      for (const [quoi, methode, suite, ref, relire] of cibles) {
+        const ordinaire = (extra) => ({ reference: ref, ...ENVOI, ...ENVOI_PROPRES.prestations, ...extra });
+        const vises = [
+          ['null avec les heures par jour', ordinaire({ estMainOeuvre: null, heuresParJour: '7' })],
+          ['null avec le prix de la demi-journée sous contrat', ordinaire({ estMainOeuvre: null, prixDemiJourneeSousContratHt: '150' })],
+          ['null avec un prix propre et actif « false »', ordinaire({ estMainOeuvre: null, prixJourHorsContratHt: '650', actif: 'false' })],
+          ['null avec le corps entier d’une main d’œuvre', corpsMainOeuvre(ref, { estMainOeuvre: null })],
+          ['true', corpsMainOeuvre(ref)],
+          ...NON_BOOLEENNES.map(([nom, valeur]) => [nom, ordinaire({ estMainOeuvre: valeur })]),
+        ];
+        for (const [nom, corps] of vises) {
+          await refuse(() => appeler(methode, `/api/v1/catalogue/prestations${suite}`, cles.ecriture, corps), 403, MESSAGES.cleMainOeuvre, `clé, ${quoi}, estMainOeuvre ${nom}`, relire);
+        }
+        for (const [nom, extra] of [['sans actif', {}], ['actif « false »', { actif: 'false' }]]) {
+          const corps = ordinaire({ estMainOeuvre: null, ...extra });
+          await refuse(() => appeler(methode, `/api/v1/catalogue/prestations${suite}`, cles.ecriture, corps), 400, MESSAGES.estMainOeuvre, `clé, ${quoi}, témoin null sans champ propre, ${nom}`, relire);
+        }
+        if (quoi === 'création') assert.equal(await prisma.cataloguePrestation.count({ where: { reference: ref } }), 0, 'aucune prestation créée');
+      }
+    });
+
+    // Cadrage #602, périmètre 3 ; v2, N1 et T1 (traite le T1 de l'audit 9 de #324, mutant R02) : articles et équipements,
+    // création et modification, en session et par clé : toute valeur d'estMainOeuvre autre que true ou false répond 400
+    // « « estMainOeuvre » doit valoir true ou false. » (null : premier test de cette section, avec les témoins false et clé
+    // absente) ; true répond 400 « Seule une prestation peut être une main d’œuvre. » ; rien n'est écrit. Avant #602, une
+    // valeur non booléenne autre que null répondait 400 « Seule une prestation… ». Tue « garde !== null conservée »
+    // (création, modification : « Seule une prestation… » au lieu de « doit valoir true ou false ») et « true admis à la
+    // modification d'un article » (R02 : 200 au lieu de 400, le drapeau ignoré sans rien dire, nom et prix écrits).
+    test('articles et équipements : à la création comme à la modification, une valeur non booléenne d’estMainOeuvre répond 400 « « estMainOeuvre » doit valoir true ou false. » et true répond 400 « Seule une prestation peut être une main d’œuvre. », en session et par clé ; rien n’est écrit, pas même le nom, la TVA ou les prix envoyés avec', async () => {
+      const NON_BOOLEENNES = VALEURS_REFUSEES.filter(([, valeur]) => valeur !== null);
+      const envois = [...NON_BOOLEENNES.map(([nom, valeur]) => [nom, valeur, MESSAGES.estMainOeuvre]), ['true', true, MESSAGES.seulePrestation]];
+      for (const famille of ['articles', 'equipements']) {
+        const fiche = await fabriquer(famille);
+        const relire = () => ficheEnBase(famille, fiche.id);
+        for (const { qui, auth, porte } of ECRIVAINS()) {
+          for (const [nom, valeur, message] of envois) {
+            const creation = { reference: reference('DRAPEAU'), ...ENVOI, ...ENVOI_PROPRES[famille], estMainOeuvre: valeur };
+            await refuse(() => appeler('post', `${porte}/${famille}`, auth, creation), 400, message, `${qui}, création, ${famille}, ${nom}`);
+            assert.equal(await modele(famille).count({ where: { reference: creation.reference } }), 0, `${qui}, ${famille}, ${nom} : aucune fiche créée`);
+            const modification = corpsFiche(famille, fiche, { estMainOeuvre: valeur });
+            await refuse(() => appeler('put', `${porte}/${famille}/${fiche.id}`, auth, modification), 400, message, `${qui}, modification, ${famille}, ${nom}`, relire);
+          }
+        }
+        const relu = await relire();
+        assert.deepEqual([relu.nom, relu.tauxTva, relu.prixVenteHt, relu.prixAchatHt, relu.actif, relu.updatedAt],
+          [fiche.nom, '5.5', '111.11', '22.22', true, fiche.updatedAt.toISOString()], `${famille} : intacte`);
+      }
+    });
+
+    // Cadrage #602, périmètre 2 : « le nouveau 400 de null vient ensuite, avant toute lecture en base (avant le 404, le 403
+    // d'une clé sur une main d'œuvre existante et le 409) » ; v2, N2 : « le 400 d'estMainOeuvre précède les 400 des saisies
+    // (champs communs, prix, heures par jour) et celui d'actif ; aux autres familles, il précède cataloguePayload ». Fiche
+    // inconnue des trois familles : null répond 400, et non 404 ; témoin : le même corps sans la clé, 404. Corps qui
+    // portent aussi une saisie refusée (nom ou référence vide, TVA à 7 %, prix de vente négatif ; stockSuivi « oui » pour
+    // un article ; prix, heures par jour ou unité refusés pour une main d'œuvre, en session) : le 400 est celui
+    // d'estMainOeuvre ; témoins : le même corps sans la clé (main d'œuvre : avec true) reçoit le 400 de la saisie ; true
+    // sur un article ou un équipement passe aussi avant les saisies (« Seule une prestation… »). Tue « lecture placée
+    // dans la transaction » (404 au lieu de 400) et « estMainOeuvre lu après les charges utiles » (prestations :
+    // payloadPrestationOrdinaire, payloadMainOeuvre ; autres familles : cataloguePayload, catalogueExtraPayload).
+    test('ordre : estMainOeuvre: null répond 400, et non 404, sur une fiche inconnue des trois familles ; son 400 passe avant ceux de la référence, du nom, de la TVA, du prix de vente, de stockSuivi et des prix d’une main d’œuvre, à la création comme à la modification ; en session et par clé ; rien n’est écrit', async () => {
+      const fiches = { articles: await fabriquer('articles'), equipements: await fabriquer('equipements'), prestations: await fabriquer('prestations') };
+      const mo = await creerMainOeuvre();
+      const saisies = [
+        ['nom vide', { nom: '' }, MESSAGES.referenceNom],
+        ['référence vide', { reference: '' }, MESSAGES.referenceNom],
+        ['TVA à 7 %', { tauxTva: '7' }, MESSAGES.tva],
+        ['prix de vente négatif', { prixVenteHt: '-1' }, MESSAGES.prixVente],
+      ];
+      for (const { qui, auth, porte } of ECRIVAINS()) {
+        for (const famille of FAMILLES) {
+          const fiche = fiches[famille];
+          const relire = () => ficheEnBase(famille, fiche.id);
+          // Fiche inconnue : 400 avant 404 ; témoin sans la clé, 404.
+          const inconnue = randomUUID();
+          const temoinInconnu = corpsFiche(famille, { reference: reference('INCONNUE') });
+          const corpsInconnu = { ...temoinInconnu, estMainOeuvre: null };
+          await refuse(() => appeler('put', `${porte}/${famille}/${inconnue}`, auth, corpsInconnu), 400, MESSAGES.estMainOeuvre, `${qui}, ${famille} inconnue, null`);
+          await refuse(() => appeler('put', `${porte}/${famille}/${inconnue}`, auth, temoinInconnu), 404, MESSAGES.ficheIntrouvable, `${qui}, ${famille} inconnue, témoin sans la clé`);
+          // Saisies refusées : le 400 d'estMainOeuvre d'abord ; sans la clé, celui de la saisie ; true, hors prestations,
+          // « Seule une prestation… ».
+          const ecarts = [...saisies, ...(famille === 'articles' ? [['stockSuivi « oui »', { stockSuivi: 'oui' }, REFUS_DRAPEAU('stockSuivi')]] : [])];
+          const drapeaux = (message) => [['null', { estMainOeuvre: null }, MESSAGES.estMainOeuvre], ['absent', {}, message],
+            ...(famille === 'prestations' ? [] : [['true', { estMainOeuvre: true }, MESSAGES.seulePrestation]])];
+          for (const [quoi, ecart, message] of ecarts) {
+            for (const [nom, drapeau, attendu] of drapeaux(message)) {
+              const cas = `${qui}, ${famille}, ${quoi}, estMainOeuvre ${nom}`;
+              const creation = { reference: reference('ORDRE'), ...ENVOI, ...ENVOI_PROPRES[famille], ...ecart, ...drapeau };
+              await refuse(() => appeler('post', `${porte}/${famille}`, auth, creation), 400, attendu, `${cas}, création`);
+              const modification = corpsFiche(famille, fiche, { ...ecart, ...drapeau });
+              await refuse(() => appeler('put', `${porte}/${famille}/${fiche.id}`, auth, modification), 400, attendu, `${cas}, modification`, relire);
+            }
+          }
+        }
+      }
+      // Main d'œuvre, en session : un prix, les heures par jour ou l'unité refusés ; null d'abord, true en témoin.
+      const prixMainOeuvre = [
+        ['prix à l’heure négatif', { prixVenteHt: '-5' }, MESSAGES.prixHeureHorsContrat],
+        ['heures par jour hors quart d’heure', { heuresParJour: '7.1' }, 'Heures par jour : nombre obligatoire, strictement positif, 24 au plus, au quart d’heure près (par exemple 7, 7,5 ou 7,75).'],
+        ['unité au forfait', { unite: 'forfait' }, 'L’unité d’une main d’œuvre est l’heure.'],
+      ];
+      for (const { qui, auth } of SESSION()) {
+        for (const [quoi, ecart, message] of prixMainOeuvre) {
+          for (const [drapeau, attendu] of [[null, MESSAGES.estMainOeuvre], [true, message]]) {
+            const creation = corpsMainOeuvre(reference('MO-ORDRE'), { ...ecart, estMainOeuvre: drapeau });
+            await refuse(() => appeler('post', '/api/catalogue/prestations', auth, creation), 400, attendu, `${qui}, création d’une main d’œuvre, ${quoi}, estMainOeuvre ${drapeau}`);
+            const modification = { ...mo.corps, ...ecart, estMainOeuvre: drapeau };
+            await refuse(() => appeler('put', `/api/catalogue/prestations/${mo.id}`, auth, modification), 400, attendu, `${qui}, main d’œuvre, ${quoi}, estMainOeuvre ${drapeau}`, () => ficheEnBase('prestations', mo.id));
+          }
+        }
+      }
+    });
+
+    // Cadrage #602, périmètre 2 : « avant toute lecture en base » ; v2, T2 : « lecture placée dans la transaction, après la
+    // lecture verrouillée de la fiche ». Même méthode que le test du verrou de la section 3 : une transaction de test tient
+    // la ligne de la fiche (SELECT … FOR UPDATE) ; estMainOeuvre: null reçoit son 400 sans attendre ce verrou et n'écrit
+    // rien ; témoins : un corps valide (estMainOeuvre false, true ou absent) attend la ligne verrouillée (constaté par
+    // pg_blocking_pids), puis aboutit. Tue une lecture placée dans la transaction juste après la lecture verrouillée, même
+    // avant le 404 et le 403 d'une clé sur une main d'œuvre existante, que les tests d'ordre précédents ne distinguent pas.
+    test('ordre : le 400 d’estMainOeuvre: null est rendu sans attendre la ligne verrouillée de la fiche (main d’œuvre et prestation ordinaire, en session et par clé ; article et équipement) ; un corps valide, lui, attend le verrou', async () => {
+      const mo = await creerMainOeuvre();
+      const prestation = await fabriquer('prestations');
+      const article = await fabriquer('articles');
+      const equipement = await fabriquer('equipements');
+      const TABLES = { prestations: 'CataloguePrestation', articles: 'CatalogueArticle', equipements: 'CatalogueEquipement' };
+      const sousVerrou = async (famille, id, lancer, verifier) => {
+        let enCours = null;
+        try {
+          await prisma.$transaction(async (tx) => {
+            const [{ pid }] = await tx.$queryRaw`SELECT pg_backend_pid() AS pid`;
+            await tx.$queryRawUnsafe(`SELECT "id" FROM "${TABLES[famille]}" WHERE "id" = $1 FOR UPDATE`, id);
+            enCours = lancer().then((r) => r, (erreur) => ({ status: 'erreur', body: String(erreur) }));
+            await verifier(enCours, pid);
+          }, { timeout: 30_000, maxWait: 10_000 });
+        } finally {
+          if (enCours) await enCours;
+        }
+        return enCours;
+      };
+      const casRefuses = [
+        ['main d’œuvre, super administrateur', 'prestations', mo.id, '/api/catalogue', comptes.SA.auth, { ...mo.corps, estMainOeuvre: null }],
+        ['main d’œuvre, clé (corps ordinaire)', 'prestations', mo.id, '/api/v1/catalogue', cles.ecriture, corpsFiche('prestations', mo, { estMainOeuvre: null })],
+        ['prestation ordinaire, administrateur', 'prestations', prestation.id, '/api/catalogue', comptes.AD.auth, corpsFiche('prestations', prestation, { estMainOeuvre: null })],
+        ['prestation ordinaire, clé', 'prestations', prestation.id, '/api/v1/catalogue', cles.ecriture, corpsFiche('prestations', prestation, { estMainOeuvre: null, actif: 'false' })],
+        ['article, directeur', 'articles', article.id, '/api/catalogue', comptes.DIR.auth, corpsFiche('articles', article, { estMainOeuvre: null })],
+        ['équipement, clé', 'equipements', equipement.id, '/api/v1/catalogue', cles.ecriture, corpsFiche('equipements', equipement, { estMainOeuvre: null })],
+      ];
+      for (const [quoi, famille, id, porte, auth, corps] of casRefuses) {
+        const avant = await empreinte();
+        const ficheAvant = await ficheEnBase(famille, id);
+        const journalAvant = await prisma.journalAdministration.count();
+        await sousVerrou(famille, id, () => appeler('put', `${porte}/${famille}/${id}`, auth, corps), async (enCours) => {
+          const res = await Promise.race([enCours, pause(3000).then(() => null)]);
+          assert.ok(res, `${quoi} : la réponse arrive sans attendre la ligne verrouillée`);
+          assert.deepEqual([res.status, res.body], [400, { error: MESSAGES.estMainOeuvre }], quoi);
+        });
+        assert.deepEqual(tablesChangees(avant, await empreinte()), [], `${quoi} : rien ne doit être écrit`);
+        assert.deepEqual(await ficheEnBase(famille, id), ficheAvant, `${quoi} : fiche intacte`);
+        assert.equal(await prisma.journalAdministration.count(), journalAvant, `${quoi} : aucune entrée au journal`);
+      }
+      // Témoins : un corps valide attend la ligne verrouillée, puis aboutit une fois le verrou rendu.
+      const casValides = [
+        ['main d’œuvre, directeur, estMainOeuvre true', 'prestations', mo.id, '/api/catalogue', comptes.DIR.auth, mo.corps],
+        ['prestation ordinaire, clé, estMainOeuvre false', 'prestations', prestation.id, '/api/v1/catalogue', cles.ecriture, corpsFiche('prestations', prestation, { estMainOeuvre: false })],
+        ['équipement, administrateur, estMainOeuvre absent', 'equipements', equipement.id, '/api/catalogue', comptes.AD.auth, corpsFiche('equipements', equipement)],
+      ];
+      for (const [quoi, famille, id, porte, auth, corps] of casValides) {
+        const enCours = await sousVerrou(famille, id, () => appeler('put', `${porte}/${famille}/${id}`, auth, corps), async (requete, pid) => {
+          let attente = false;
+          for (let tour = 0; tour < 150 && !attente; tour += 1) {
+            attente = (await prisma.$queryRaw`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`)[0].n > 0;
+            if (!attente) await pause(20);
+          }
+          assert.equal(attente, true, `témoin ${quoi} : la requête attend la ligne verrouillée`);
+        });
+        assert.equal((await enCours).status, 200, `témoin ${quoi} : aboutit après le verrou`);
+      }
+    });
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // 5. Non-régression de l'écran du catalogue
+    // ---------------------------------------------------------------------------------------------------------------
 
     // Cadrage, « Constat » : « Les écrans envoient toujours des booléens […] Catalogue.tsx:119 : la réactivation renvoie la
     // fiche entière lue (...fiche, dont stockSuivi booléen pour un article) avec actif: true » ; « Aucun écran ne change ».
