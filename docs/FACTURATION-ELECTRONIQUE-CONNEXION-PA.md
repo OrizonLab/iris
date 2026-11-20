@@ -18,6 +18,7 @@ Les identifiants S1 à S20 (sources), EX-01 à EX-52 (exigences), N-01 à N-17 e
 - Iris lui parlera par l'API XP Z12-013 (S4), au moyen de l'adaptateur `ElectronicInvoicingProvider` (prévu, FE-4). Nelson : « Un adaptateur propriétaire seulement si la PA retenue n'implémente pas la norme, et sur ma décision. »
 - Nelson : « Une PA par installation, activée par SUPERADMIN dans l'écran Connecteurs. »
 - La réception par une PA est déjà obligatoire (texte légal non vérifié) : voir [« Avant même Iris »](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#1-avant-même-iris) dans la liste de contrôle du déploiement.
+- **Chaque installation choisit sa PA** (réponse de Nelson du 20-11-2026, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique) ; lecture retenue, à corriger par Nelson si besoin) : aucune PA n'est choisie à cette date, Iris n'en impose aucune et se connecte, comme les produits compatibles, à la plateforme agréée de l'installation. Cela confirme le principe ci-dessus (adaptateur XP Z12-013 ; adaptateur propriétaire sur décision de Nelson).
 - **PA déjà en place** (choix par défaut, à confirmer) : si la société a déjà une PA de réception (N-01), cette PA est évaluée la première avec la grille de la section 3. Une installation n'a qu'une PA : écarter celle-ci imposerait un changement de PA (critère 8).
 
 ## 2. Critères de choix
@@ -243,7 +244,7 @@ Aucun montant ni seuil n'est fixé ici. Le coût et l'arbitrage entre les offres
 | Localisation des données | Pays où sont stockées les données et leurs sauvegardes ; transferts hors de l'Union européenne | Q-PA-2 |
 | Fin de contrat | Export complet (fichiers, statuts, preuves) ; délai de restitution ; durée d'accès après la fin ; suppression et sa preuve ; archives que la PA garde ; service minimal | Q-11, Q-16 |
 | Immatriculation | Information de la société en cas de suspension ou de perte ; ce qui se passe alors | Q-PA-1, Q-PA-3 |
-| Signataire | Qui conclut le contrat, et au nom de qui | N-PA-1 |
+| Signataire | Qui conclut le contrat, et au nom de qui | N-PA-1 (répondue le 20-11-2026 : la société, section 6) |
 
 ## 6. Questions nouvelles
 
@@ -261,7 +262,7 @@ Numérotées à part, pour ne pas heurter la numérotation de la proposition. El
 
 | N | Question | Source | Enjeu |
 |---|---|---|---|
-| N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) | Contrat ; changement de PA |
+| N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? **Répondue le 20-11-2026** : « la société normalement » (réponse de Nelson, citée dans l'[historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)). Lecture retenue, à corriger par Nelson si besoin : la société signe le contrat avec sa PA, c'est l'usage, l'obligation pesant sur l'assujetti ; le point juridique reste au cabinet (Q-PA-3). | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) | Contrat ; changement de PA |
 
 ## 7. Connexion pas à pas
 
@@ -282,6 +283,7 @@ Pour le bac à sable, puis pour la production : URL du Flow Service, URL du Dire
 - **Noms proposés** par la proposition (fiches FE-3 et FE-4 ; section 13, choix 9). Aucune n'est lue par le code au 19-11-2026.
 - Le lot qui les lira les documente dans la même PR, selon la règle permanente 3 : dans `server/.env.example`, dans la liste de rappel en tête de `.env.example` et dans [`CONFIGURATION-ENVIRONNEMENT.md`](CONFIGURATION-ENVIRONNEMENT.md). `server/tests/environnement.test.mjs` le vérifie alors en CI.
 - Cette PR n'ajoute ni ne modifie aucune variable.
+- Réponse de Nelson du 20-11-2026 ([historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)) : chaque installation choisit sa PA. Lecture retenue, à corriger par Nelson si besoin : le nom et les adresses de la PA pourraient devenir des réglages de l'écran Connecteurs, journalisés, plutôt que des variables `EFACTURE_PA_URL_*` ; les identifiants secrets restent en variables. Les noms du tableau ci-dessous sont donc la proposition d'origine, à trancher au cadrage de FE-4 ; le choix par défaut 11 (section 8) n'est pas modifié ici.
 
 | Variable proposée | Rôle | Remarque | Lot |
 |---|---|---|---|

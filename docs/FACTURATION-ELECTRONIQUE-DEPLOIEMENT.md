@@ -58,7 +58,8 @@
 
 > « identité fiscale de la société (SIREN, TVA, option débits, catégorie et date d'obligation) »
 
-- **Qui.** Nelson donne les faits de la société pilote (N-01). Le cabinet confirme la catégorie, le régime de TVA et l'option pour les débits (Q-09). L'administrateur de l'installation saisit.
+- **Activité connue** (réponse de Nelson du 20-11-2026, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)) : sûreté électronique et revente d'accès internet et télécom (lecture retenue, à corriger par Nelson si besoin). Les autres faits restent à fournir : catégorie d'entreprise, régime de TVA, option pour les débits, PA de réception.
+- **Qui.** Nelson donne les faits de la société pilote (N-01, répondue en partie). Le cabinet confirme la catégorie, le régime de TVA et l'option pour les débits (Q-09). L'administrateur de l'installation saisit.
 - **Où dans Iris.**
   - Écran Société : raison sociale, SIRET et TVA intracommunautaire : **implémentés** ; SIRET et TVA sans contrôle de format. Préremplissage depuis le registre national des entreprises (raison sociale, SIRET du siège, adresse ; le SIREN lu n'est pas conservé) : **implémenté**.
   - SIREN distinct, SIRET et TVA contrôlés, option pour les débits, catégorie d'entreprise, date d'obligation, régime de TVA, adresses électroniques de réception, IBAN : **prévus** (FE-1), sans valeur par défaut.
@@ -71,7 +72,7 @@
 
 > « PA choisie et contrat signé »
 
-- **Qui.** Nelson choisit (N-02), avec la société. La PA fournit le contrat et l'accès au bac à sable. Le cabinet répond aux points juridiques. Qui signe : N-PA-1.
+- **Qui.** Nelson choisit (N-02, ouverte : aucune PA n'est choisie au 20-11-2026), avec la société. La PA fournit le contrat et l'accès au bac à sable. Le cabinet répond aux points juridiques. **Qui signe : la société** (N-PA-1, réponse de Nelson du 20-11-2026, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique) ; lecture retenue, à corriger par Nelson si besoin ; le point juridique reste au cabinet, Q-PA-3).
 - **Où dans Iris.** Hors d'Iris. Critères, grille, questionnaire et points contractuels : [document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md).
 - **Preuve.** Copie datée de la liste officielle (S10) ; grille remplie et datée ; réponses écrites de la PA au questionnaire ; contrat signé ; date d'accès au bac à sable.
 - **Questions liées.** N-01, N-02, N-PA-1 ; Q-16, Q-PA-1 à Q-PA-3.
