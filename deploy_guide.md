@@ -133,7 +133,7 @@ docker exec iris_db pg_dump -U iris iris > sauvegarde_$(date +%F).sql
 Pourquoi : dans une base déjà migrée, les déclencheurs existent avant les données, et chaque ligne chargée les rejoue.
 - Les huit journaux horodatés par la base (`JournalAdministration`, `JournalFacture`, `InterventionRapport`, `InterventionSignature`, `EnvoiDocument`, `JournalSaisieChantier`, `JournalCompteComptable`, `JournalRegleComptable`) prendraient l'instant de la restauration au lieu de leur date d'origine, tout comme la date d'acceptation des signatures.
 - Les gardes refuseraient des lignes : pièces émises, lignes de devis signés, règlements, entre autres. La ligne du journal des règles comptables serait refusée elle aussi, car son déclencheur ne trouve pas le plan comptable pendant la restauration.
-- Le compte système, les paramètres de rémunération et l'historique des migrations entreraient en conflit avec ceux de la sauvegarde.
+- Le compte système et les paramètres de rémunération entreraient en conflit avec ceux de la sauvegarde, et l'historique des migrations serait doublé.
 - Sans `-v ON_ERROR_STOP=1`, `psql` poursuit malgré les erreurs et rend 0 sur une base partielle. Avec cette option, il s'arrête à la première erreur.
 
 Dans une base vide, les déclencheurs et les contraintes sont créés après les données : ils ne rejouent rien. `--single-transaction` évite qu'une erreur en cours de route laisse une base chargée sans ses déclencheurs, que le backend démarrerait ensuite sans rien migrer.
@@ -155,7 +155,7 @@ Dans une base vide, les déclencheurs et les contraintes sont créés après les
    docker exec iris_db dropdb -U iris --force iris
    docker exec iris_db createdb -U iris iris
    ```
-6. **Restaurer**, avec le `psql` du même conteneur. Une version plus ancienne de `psql` refuse les sauvegardes récentes, sans rien écrire.
+6. **Restaurer**, avec le `psql` du même conteneur, de même version que le `pg_dump` qui a fait la sauvegarde.
    ```bash
    docker exec -i iris_db psql -U iris -d iris -v ON_ERROR_STOP=1 --single-transaction < sauvegarde_AAAA-MM-JJ.sql
    ```
@@ -166,7 +166,7 @@ Dans une base vide, les déclencheurs et les contraintes sont créés après les
 Sur un nouveau serveur, démarrer la base seule (`docker compose up -d db`), puis suivre les étapes 1, 2, 5, 6 et 7, et démarrer ensuite toute la pile (`docker compose up -d`).
 
 **Vérification après la restauration.**
-- **Déclencheurs** : leur nombre dans la base doit égaler celui du fichier.
+- **Déclencheurs** : leur nombre dans la base doit égaler celui du fichier. Ce contrôle signale une restauration faite sans les options de l'étape 6 ; il ne remplace pas l'étape 1, seule à détecter un fichier coupé, qui ne contient alors pas ses déclencheurs.
   ```bash
   docker exec iris_db psql -U iris -d iris -tAc 'SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal'
   grep -cE '^CREATE (CONSTRAINT )?TRIGGER ' sauvegarde_AAAA-MM-JJ.sql
