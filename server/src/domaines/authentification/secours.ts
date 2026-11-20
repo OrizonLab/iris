@@ -48,18 +48,19 @@ const BREAK_GLASS_MAX_ESSAIS = 5;
 // nouvelle : un refus laisserait un tiers bloquer l'accès de secours pour tous (#261). Valeur et règle de sortie : choix
 // par défaut, à confirmer.
 export const BREAK_GLASS_MAX_ADRESSES = 10_000;
+// `depuis` : ouverture de la fenêtre, en millisecondes de l'horloge monotone du processus (`performance.now()`, depuis
+// son démarrage), et non de l'horloge du système (#614).
 export const essaisSecours = new Map<string, { count: number; depuis: number }>();
 
-// Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes, ou si elle est datée
-// dans le futur, ce qui n'arrive qu'après un recul de l'horloge du système (correction NTP) : un essai, ou la purge qui
-// l'atteint, fait avant que l'horloge ait rattrapé son début la retire, au lieu d'attendre qu'elle s'achève, prolongée de
-// la durée du recul (#607). Une fenêtre ainsi passée repart de zéro, comme à son terme : un recul rend au plus cinq essais
-// à une adresse, sur un secret d'au moins 32 caractères, et qui ferait reculer l'horloge du serveur ranimerait déjà les
-// sessions expirées. Même règle que la borne de lecture des clés Microsoft (sso.ts). Choix par défaut, à confirmer.
-// Limite : une fenêtre que le recul ne date pas dans le futur, ou que l'horloge rattrape avant qu'un essai l'ait retirée,
-// garde son compte jusqu'à son terme (seule une horloge monotone l'éviterait, #614).
-const fenetrePassee = (depuis: number, maintenant: number) =>
-  maintenant < depuis || maintenant - depuis > BREAK_GLASS_FENETRE_MS;
+// Même règle pour le blocage et pour la purge : une fenêtre est passée au-delà de quinze minutes comptées sur l'horloge
+// monotone du processus, que ne déplace aucun réglage de l'horloge du système (#614). Un recul de celle-ci (correction
+// NTP) ne prolonge plus le blocage, et une avance ne le raccourcit plus : la fenêtre dure quinze minutes de cette horloge,
+// quel que soit le réglage. Choix par défaut, à confirmer (règle 5 : la lecture la plus simple, et la plus restrictive) ;
+// il remplace celui de #607, qui tenait pour passée une fenêtre datée dans le futur par l'horloge du système. Les tables
+// ne survivent pas au processus : `depuis` n'est jamais comparé d'un processus à l'autre, ni à `Date.now()`.
+// Asymétrie voulue avec le cache des clés Microsoft (sso.ts) : le cache expire dès que l'une des deux horloges le dit,
+// le plus restrictif pour un cache ; la fenêtre ne passe que sur l'horloge monotone, le plus restrictif pour un blocage.
+const fenetrePassee = (depuis: number, maintenant: number) => maintenant - depuis > BREAK_GLASS_FENETRE_MS;
 
 // Premier essai bloqué de la fenêtre de cette adresse (à lire juste après tropDEssaisSecours, qui l'a compté) : seul
 // celui-ci est tracé (#589), pour qu'une rafale d'essais bloqués ne remplisse pas les journaux du conteneur. Les
@@ -70,18 +71,18 @@ export function premierEssaiBloqueSecours(ip: string): boolean {
 }
 
 export function tropDEssaisSecours(ip: string): boolean {
-  const maintenant = Date.now();
+  const maintenant = performance.now();
   // Purge au fil des essais (#563). La table garde l'ordre d'ouverture des fenêtres : une entrée n'y entre qu'en fin,
-  // à l'ouverture de sa fenêtre, si bien que, tant que l'horloge ne recule pas, les fenêtres passées sont en tête. On
+  // à l'ouverture de sa fenêtre, et l'horloge monotone ne recule jamais (#614) : les fenêtres passées sont en tête. On
   // s'arrête à la première encore ouverte : chaque entrée n'est parcourue qu'une fois, sans parcours complet à chaque essai.
   for (const [cle, suivi] of essaisSecours) {
     if (!fenetrePassee(suivi.depuis, maintenant)) break;
     essaisSecours.delete(cle);
   }
   let suivi = essaisSecours.get(ip);
-  // Le blocage ne dépend pas de l'ordre de la table : `Date.now()` suit l'horloge du système, qui peut reculer
-  // (correction NTP). La purge a pu alors s'arrêter avant la fenêtre passée de cette adresse ; elle repart de zéro, en
-  // fin de table, comme avant #563.
+  // Le blocage ne dépend pas de l'ordre de la table (R1 de #591) : contrôle gardé, redondant tant que l'horloge est
+  // monotone (#614), pour que le blocage ne repose jamais sur la seule purge. Une fenêtre passée repart de zéro, en fin
+  // de table, comme avant #563.
   if (suivi && fenetrePassee(suivi.depuis, maintenant)) {
     essaisSecours.delete(ip);
     suivi = undefined;
