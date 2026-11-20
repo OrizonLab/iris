@@ -66,7 +66,8 @@ const creerFicheCatalogue: express.RequestHandler = async (req, res) => {
     // droits et journal propres dans main-oeuvre.ts.
     if (family === 'prestations') return res.status(201).json(ficheCataloguePourLecteur(req, decimalToNumber(await creerPrestation(req))));
     const body = (req.body ?? {}) as Record<string, unknown>;
-    if (body.estMainOeuvre !== undefined && body.estMainOeuvre !== null && body.estMainOeuvre !== false) throw new Error('Seule une prestation peut être une main d’œuvre.');
+    // Seule une prestation peut être une main d'œuvre ; `estMainOeuvre` est lu en booléen strict (`null` refusé, #602).
+    if (drapeauCatalogue(body, 'estMainOeuvre')) throw new Error('Seule une prestation peut être une main d’œuvre.');
     const data = { ...cataloguePayload(body), ...catalogueExtraPayload(family, body) };
     res.status(201).json(ficheCataloguePourLecteur(req, decimalToNumber(await catalogueModels[family].create({
       data: data as never,
@@ -85,7 +86,8 @@ const modifierFicheCatalogue: express.RequestHandler = async (req, res) => {
   try {
     if (family === 'prestations') return res.json(ficheCataloguePourLecteur(req, decimalToNumber(await modifierPrestation(req, paramId(req)))));
     const body = (req.body ?? {}) as Record<string, unknown>;
-    if (body.estMainOeuvre !== undefined && body.estMainOeuvre !== null && body.estMainOeuvre !== false) throw new Error('Seule une prestation peut être une main d’œuvre.');
+    // Seule une prestation peut être une main d'œuvre ; `estMainOeuvre` est lu en booléen strict (`null` refusé, #602).
+    if (drapeauCatalogue(body, 'estMainOeuvre')) throw new Error('Seule une prestation peut être une main d’œuvre.');
     const data: Record<string, unknown> = { ...cataloguePayload(body), ...catalogueExtraPayload(family, body) };
     // Activité : clé absente, valeur gardée ; autre que true ou false, 400 avant la lecture de la fiche (#587).
     const actif = drapeauCatalogue(body, 'actif');

@@ -54,8 +54,9 @@ export class RefusCatalogue extends Error {
 const renseigne = (valeur: unknown) => valeur !== undefined && valeur !== null && !(typeof valeur === 'string' && valeur.trim() === '');
 const estCleIntegration = (req: express.Request) => !!(req as ApiRequest).apiKey;
 
-// Le corps vise-t-il une main d'œuvre ? Drapeau autre qu'absent ou faux, ou l'un de ses champs propres
-// renseigné. Sert au refus des clés d'intégration, avant toute validation.
+// Le corps vise-t-il une main d'œuvre ? Drapeau autre qu'absent, null ou faux, ou l'un de ses champs propres
+// renseigné. Sert au refus des clés d'intégration, avant toute validation : `null` ne vise pas une main d'œuvre,
+// il reçoit ensuite le 400 du booléen strict (#602).
 function corpsMainOeuvre(body: Record<string, unknown>) {
   const drapeau = body.estMainOeuvre;
   return (drapeau !== undefined && drapeau !== null && drapeau !== false) || champsPropresRenseignes(body);
@@ -64,12 +65,11 @@ function champsPropresRenseignes(body: Record<string, unknown>) {
   return CHAMPS_PROPRES_MAIN_OEUVRE.some((champ) => renseigne(body[champ]));
 }
 
-// Drapeau demandé : absent (garder la nature actuelle), vrai ou faux ; toute autre valeur est refusée.
+// Drapeau demandé : absent (garder la nature actuelle), vrai ou faux ; toute autre valeur, `null` compris, est
+// refusée (400), comme `actif` et `stockSuivi` (#587, #603). Avant #602, `null` valait une clé absente ; choix par
+// défaut, à confirmer : le refus, plus simple et plus restrictif (règle 5 de la méthode).
 function estMainOeuvreDemande(body: Record<string, unknown>): boolean | undefined {
-  const valeur = body.estMainOeuvre;
-  if (valeur === undefined || valeur === null) return undefined;
-  if (typeof valeur !== 'boolean') throw new Error('« estMainOeuvre » doit valoir true ou false.');
-  return valeur;
+  return drapeauCatalogue(body, 'estMainOeuvre');
 }
 
 function prixMainOeuvre(valeur: unknown, champ: ChampPrix): number {
