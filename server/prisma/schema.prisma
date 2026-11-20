@@ -1031,6 +1031,8 @@ model JournalCompteComptable {
   avantNature String?
   apresNature String?
   motif     String
+  // Imposé par la base à l'insertion (déclencheur journal_compte_comptable_horodatage, #615) : la valeur envoyée
+  // par Prisma est remplacée par l'instant de l'insertion, en UTC.
   createdAt DateTime @default(now())
 
   @@index([compteId, createdAt])
@@ -1063,6 +1065,8 @@ model JournalRegleComptable {
   auteurId  String
   auteur    User     @relation(fields: [auteurId], references: [id], onDelete: Restrict)
   auteurNom String
+  // Imposé par la base à l'insertion (déclencheur journal_regle_comptable_horodatage, #615) : la valeur envoyée
+  // par Prisma est remplacée par l'instant de l'insertion, en UTC.
   createdAt DateTime @default(now())
 
   @@index([type, cible, createdAt])
