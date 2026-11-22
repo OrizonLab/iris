@@ -4,7 +4,7 @@ import { apiFetch } from '../api';
 import { decalerReference, jourFrancais } from '../lib/dateFormatting';
 import { useReferencePeriode } from '../lib/referencePeriode';
 import { arrondiEuro } from '../lib/montants';
-import { fmtEuro } from '../lib/formats';
+import { fmtEuro, fmtHeures, fmtPourcentage } from '../lib/formats';
 
 
 // Plage d'heures affichée pour le créneau de saisie habituel (6h -> 19h).
@@ -115,7 +115,7 @@ const Performances = () => {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Marge %</div>
-                  <div className="font-bold text-gray-800 mt-0.5">{p.margePct == null ? '—' : `${p.margePct.toFixed(1)}%`}</div>
+                  <div className="font-bold text-gray-800 mt-0.5">{p.margePct == null ? '—' : fmtPourcentage(p.margePct, 1)}</div>
                 </div>
               </div>
 
@@ -166,7 +166,7 @@ const Performances = () => {
                 ) : (
                   <div className="flex items-center gap-3">
                     <span className={`text-sm font-black ${p.tauxDepassementHeures > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {p.tauxDepassementHeures.toFixed(1)}%
+                      {fmtPourcentage(p.tauxDepassementHeures, 1)}
                     </span>
                     <span className={`text-sm font-black ${arrondiEuro(p.manqueAGagnerMainOeuvre) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       {arrondiEuro(p.manqueAGagnerMainOeuvre) > 0 ? `-${fmtEuro(p.manqueAGagnerMainOeuvre)}` : '0 €'}
@@ -181,7 +181,7 @@ const Performances = () => {
                   <span className="text-sm text-gray-400 italic">Aucun chantier terminé</span>
                 ) : (
                   <span className={`text-sm font-black ${p.tauxObjectifsRespectes >= 50 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {p.nbObjectifsRespectes}/{p.nbChantiersTermines} ({p.tauxObjectifsRespectes.toFixed(0)}%)
+                    {p.nbObjectifsRespectes}/{p.nbChantiersTermines} ({fmtPourcentage(p.tauxObjectifsRespectes, 0)})
                   </span>
                 )}
               </div>
@@ -206,15 +206,15 @@ const Performances = () => {
                         <div key={d.date} className={`rounded-lg px-1 py-2 text-center ${d.nbSaisies > 0 ? 'bg-emerald-50' : 'bg-gray-50'}`}>
                           <div className="text-[10px] font-bold text-gray-500 uppercase">{d.label.slice(0, 3)}</div>
                           <div className={`text-sm font-black mt-0.5 ${d.nbSaisies > 0 ? 'text-emerald-700' : 'text-gray-300'}`}>
-                            {d.nbSaisies > 0 ? `${d.heuresSaisies.toFixed(1)}h` : '—'}
+                            {d.nbSaisies > 0 ? fmtHeures(d.heuresSaisies) : '—'}
                           </div>
                         </div>
                       ))}
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                      <span>{a.heuresTotalesSaisies.toFixed(1)}h saisies · {a.nbSaisiesTotal} saisie{a.nbSaisiesTotal > 1 ? 's' : ''}</span>
-                      <span>{a.moyenneHeuresParJourActif.toFixed(1)}h / jour actif en moyenne</span>
+                      <span>{fmtHeures(a.heuresTotalesSaisies)} saisies · {a.nbSaisiesTotal} saisie{a.nbSaisiesTotal > 1 ? 's' : ''}</span>
+                      <span>{fmtHeures(a.moyenneHeuresParJourActif)} / jour actif en moyenne</span>
                     </div>
 
                     <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">

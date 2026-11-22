@@ -24,6 +24,12 @@ export const fmtNombreHeures = (heures: number, decimalesMax: 2 | 3 = 2) => Numb
 // Le même nombre suivi de « h » : « 18,75 h », « 8 h ».
 export const fmtHeures = (heures: number, decimalesMax: 2 | 3 = 2) => `${fmtNombreHeures(heures, decimalesMax)} h`;
 
+// Pourcentage exprimé en pour cent (12.5 → « 12,5 % »), en français, avec au plus `decimalesMax` décimales, sans zéro
+// inutile, et une espace ordinaire avant « % », comme les pourcentages déjà affichés en français (#499) ; jamais
+// « -0 % ». Chaque usage déclare ses décimales : marges et taux de dépassement 1, avancements et objectifs 0, taux de
+// TVA 2 (choix par défaut, à confirmer).
+export const fmtPourcentage = (valeur: number, decimalesMax: 0 | 1 | 2) => `${Number(valeur).toLocaleString('fr-FR', { maximumFractionDigits: decimalesMax, signDisplay: 'negative' })} %`;
+
 // Jour AAAA-MM-JJ (avec ou sans heure) au format JJ-MM-AAAA ; rien pour un jour absent.
 export const toDateFrancaise = (jour: string | null | undefined) => (jour ? jourFrancais(jour) : '');
 
