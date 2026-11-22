@@ -569,7 +569,8 @@ if (!TEST_DATABASE_URL) {
         ['équipement, actif « true »', 'put', `/equipements/${equipement.id}`, corpsFiche('equipements', equipement, { actif: 'true' }), () => ficheEnBase('equipements', equipement.id)],
         ['prestation, actif {}', 'put', `/prestations/${prestation.id}`, corpsFiche('prestations', prestation, { actif: {} }), () => ficheEnBase('prestations', prestation.id)],
         ['main d’œuvre, actif « false »', 'put', `/prestations/${mo.id}`, { ...mo.corps, actif: 'false' }, () => ficheEnBase('prestations', mo.id)],
-        // #602 (audit des droits de #639, T2) : estMainOeuvre: null, à la création et à la modification des trois familles.
+        // #602 (audit des droits de #639, T2) : estMainOeuvre: null, à la création d'un article et d'une prestation et à
+        // la modification d'un équipement et d'une main d'œuvre.
         ['création d’un article, estMainOeuvre null', 'post', '/articles', corpsNouvelArticle({ estMainOeuvre: null }), null],
         ['création d’une prestation, estMainOeuvre null', 'post', '/prestations', corpsFiche('prestations', { reference: reference('GARDE') }, { estMainOeuvre: null }), null],
         ['équipement, estMainOeuvre null', 'put', `/equipements/${equipement.id}`, corpsFiche('equipements', equipement, { estMainOeuvre: null }), () => ficheEnBase('equipements', equipement.id)],
@@ -929,12 +930,13 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Audit des droits et de la sécurité de #639, T1 : pour une prestation, en session, la lecture stricte d'estMainOeuvre
-    // n'était éprouvée que par null (ci-dessus) et « oui » (section 3 ; api.test.mjs). Chaque autre valeur non booléenne
-    // (« true », « false », « 0 », chaîne vide, 0, 1, {}, [], [true]) répond aussi 400 au message exact, à la création (corps
-    // ordinaire ou de main d'œuvre) et à la modification d'une prestation ordinaire et d'une main d'œuvre non rattachée,
-    // sans rien écrire ni journaliser. Par clé, ces valeurs visent une main d'œuvre et reçoivent le 403 du corps (test
-    // précédent). Tue « estMainOeuvreDemande admet les chaînes « true » et « false » » : « false » rendrait ordinaire une
-    // main d'œuvre (entrée RETRAIT_MAIN_OEUVRE), « true » ferait passer une prestation en main d'œuvre.
+    // n'était éprouvée que par null (ci-dessus) et « oui » (section 3 ; api.test.mjs). Chaque valeur non booléenne autre
+    // que null (« oui », « true », « false », « 0 », chaîne vide, 0, 1, {}, [], [true]) répond aussi 400 au message exact,
+    // à la création (corps ordinaire ou de main d'œuvre) et à la modification d'une prestation ordinaire et d'une main
+    // d'œuvre non rattachée, sans rien écrire ni journaliser. Par clé, ces valeurs visent une main d'œuvre et reçoivent le
+    // 403 du corps (test précédent). Tue « estMainOeuvreDemande admet les chaînes « true » et « false » » : « false »
+    // rendrait ordinaire une main d'œuvre (entrée RETRAIT_MAIN_OEUVRE), « true » ferait passer une prestation en main
+    // d'œuvre.
     test('prestations, en session : chaque valeur non booléenne d’estMainOeuvre autre que null répond 400 « « estMainOeuvre » doit valoir true ou false. » à la création et à la modification d’une prestation ordinaire ou d’une main d’œuvre, par le super administrateur, l’administrateur et le directeur ; rien n’est écrit', async () => {
       const prestation = await fabriquer('prestations');
       const mo = await creerMainOeuvre();

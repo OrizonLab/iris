@@ -28,7 +28,9 @@
 // change ni l'ordre de la table, ni les comptes, ni l'instant de libération ; un test nouveau prouve qu'un saut en avant
 // ne raccourcit pas la fenêtre, et un parcours long mêle des réglages aux essais. Les autres tests gardent leurs
 // attendus. Le contrôle par entrée (R1 de #591) est gardé, redondant tant que l'horloge est monotone (C3) : son retrait,
-// comme le maintien de `maintenant < depuis`, est un mutant équivalent, qu'aucun test ne peut tuer.
+// comme le maintien de `maintenant < depuis`, est un mutant équivalent pour tout parcours des essais. Un test pose à la
+// main une table hors de l'ordre d'ouverture, état que le module ne produit pas, pour éprouver ce contrôle (audit des
+// droits de #644, T1).
 //
 // Tests sans base. Deux horloges sont simulées (lot #614, cadrage v2, C1) : celle du système par `mock.timers` sur
 // `Date` seulement (Node 20.11 au moins, comme api.test.mjs), et l'horloge monotone du processus par
@@ -303,6 +305,21 @@ describe('#563 : compteur des essais de l’accès de secours, purgé au fil des
     assert.deepEqual(adresses(), [B, C, A], 'A repart en fin de table ; B, ouverte une minute après A, reste');
     assert.deepEqual(suivi(A), { count: 1, depuis: M0 + FENETRE + 1 });
     assert.deepEqual(suivi(B), { count: 1, depuis: M0 + MIN });
+  });
+
+  // Audit des droits de #644, T1 : le contrôle par entrée (R1 de #591), gardé par le lot #614 (cadrage v2, C3) pour que
+  // le blocage ne repose jamais sur la seule purge. La table est posée à la main hors de l'ordre d'ouverture, état que
+  // le module ne produit pas tant que l'horloge est monotone : B, ouverte, en tête, arrête la purge ; A, bloquée et
+  // passée, est derrière elle, devant C, ouverte. Au premier essai de A, son contrôle la tient pour passée : elle repart
+  // de zéro, en fin de table. Lectures écartées : contrôle par entrée retiré, sous lequel A, comptée une septième fois,
+  // serait refusée ; fenêtre rouverte sur place, sous laquelle A resterait entre B et C, hors de l'ordre d'ouverture.
+  test('contrôle par entrée : une fenêtre passée que la purge n’atteint pas (table posée à la main hors de l’ordre d’ouverture) repart de zéro au premier essai de son adresse, en fin de table', () => {
+    essaisSecours.set(B, { count: 2, depuis: M0 + 10 * MIN });
+    essaisSecours.set(A, { count: SEUIL + 1, depuis: M0 });
+    essaisSecours.set(C, { count: 1, depuis: M0 + 12 * MIN });
+    aller(T0 + FENETRE + 1); // A passée depuis une milliseconde ; B et C ouvertes
+    assert.equal(tropDEssaisSecours(A), false, 'A, passée, repart de zéro, bien que B ait arrêté la purge');
+    assert.deepEqual(table(), [[B, 2, M0 + 10 * MIN], [C, 1, M0 + 12 * MIN], [A, 1, M0 + FENETRE + 1]]);
   });
 
   // --- Purge au fil des essais ---
