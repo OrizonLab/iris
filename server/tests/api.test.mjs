@@ -31072,12 +31072,19 @@ if (!TEST_DATABASE_URL) {
     // search_path restitués à l'identique : SQL dynamique, appel d'une autre fonction) passerait donc inaperçue, alors
     // qu'elles s'exécutent avec les droits de leur propriétaire. Corps attendu : texte écrit entre les $$ de la migration
     // qui les crée, relu dans le fichier (aucune migration ultérieure ne les modifie à ce jour).
-    test('les quatre fonctions SECURITY DEFINER gardent, sur la base entièrement migrée, le corps exact écrit par 20261009120000_journal_regles_comptables (prosrc)', async () => {
+    test('les quatre fonctions SECURITY DEFINER gardent, sur la base entièrement migrée, le corps exact écrit par 20261009120000_journal_regles_comptables (prosrc), dont la migration d’origine garde l’empreinte écrite dans le test', async () => {
       const migration = readFileSync(new URL('../prisma/migrations/20261009120000_journal_regles_comptables/migration.sql', import.meta.url), 'utf8');
       const attendus = Object.fromEntries([...migration.matchAll(/CREATE FUNCTION "(\w+)"\(\) RETURNS trigger AS \$\$((?:(?!\$\$)[\s\S])*)\$\$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;/g)]
         .map(([, nom, corps]) => [nom, corps]));
       assert.deepEqual(Object.keys(attendus).sort(), ['capturer_creation_regle', 'capturer_creation_tva', 'capturer_transition_regle', 'verifier_journal_regle'],
         'migration 20261009120000_journal_regles_comptables : les quatre fonctions SECURITY DEFINER relevées');
+      // Le texte attendu est relu dans la migration qui crée les quatre fonctions : modifier cette migration elle-même, et
+      // non par une migration ultérieure, changerait les deux côtés de la comparaison (base neuve migrée depuis le fichier
+      // modifié). Une migration appliquée ne se modifie pas : l'empreinte des quatre corps relevés (noms triés, chacun suivi
+      // de son corps) est donc écrite ici.
+      const empreinteCorps = createHash('sha256').update(Object.keys(attendus).sort().map((nom) => `${nom}\n${attendus[nom]}`).join('\n')).digest('hex');
+      assert.equal(empreinteCorps, 'ce77c55515339d1b0d8ec060c7267ebacda8383a355958da200e8118cf044b96',
+        'migration 20261009120000_journal_regles_comptables : corps des quatre fonctions SECURITY DEFINER inchangés (une migration appliquée ne se modifie pas)');
       const lues = await prisma.$queryRaw`SELECT p.proname::text AS nom, p.prosrc AS corps FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public' AND p.prosecdef AND p.proname = ANY(${Object.keys(attendus)}::text[])`;
       assert.deepEqual(Object.fromEntries(lues.map((l) => [l.nom, l.corps])), attendus,
