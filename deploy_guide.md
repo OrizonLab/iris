@@ -144,7 +144,7 @@ Dans une base vide, les déclencheurs, les clés étrangères et les contraintes
 
 Étapes (commandes pour l'utilisateur et la base `iris` de la sous-section précédente) :
 
-1. **Vérifier que le fichier est complet.** La commande doit afficher `1`. Un fichier coupé (sauvegarde interrompue, copie incomplète) pourrait se restaurer sans erreur, mais sans tout ou partie de ses déclencheurs et de ses clés étrangères.
+1. **Vérifier que le fichier est complet.** La commande doit afficher `1` : elle compte la marque de fin écrite par `pg_dump`, sur une ligne entière (option `-x`), qu'une donnée de même texte ne peut donc pas imiter. Un fichier coupé (sauvegarde interrompue, copie incomplète) pourrait se restaurer sans erreur, mais sans tout ou partie de ses déclencheurs et de ses clés étrangères.
    ```bash
    grep -cx -- '-- PostgreSQL database dump complete' sauvegarde_AAAA-MM-JJ.sql
    ```

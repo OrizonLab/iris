@@ -8,7 +8,7 @@
 // refuse `?schema=public`, et aucun mot de passe sur la ligne de commande) ; la base `iris` remplacée par une base
 // jetable ; `sauvegarde_AAAA-MM-JJ.sql` par un fichier du dossier temporaire du test. Correspondance :
 //  - sauvegarde (sous-section précédente) : `pg_dump <base> > fichier` ;
-//  - étape 1 : `grep -c -- '-- PostgreSQL database dump complete' fichier`, qui doit afficher 1 ;
+//  - étape 1 : `grep -cx -- '-- PostgreSQL database dump complete' fichier`, qui doit afficher 1 (ligne entière, N3 de #642) ;
 //  - étape 4 : `pg_dump <base> > avant_restauration.sql`, code 0 et contrôle de l'étape 1 sur ce fichier (« 1 ») ;
 //  - étape 5 : `dropdb --force <base>`, puis `createdb <base>` ;
 //  - étape 6 : `psql -d <base> -v ON_ERROR_STOP=1 --single-transaction < fichier` (entrée standard, T3), code 0 attendu ;
@@ -26,7 +26,8 @@
 // création (le déclencheur les rendrait égales). Copies figées modifiées après coup, toujours en mode réplica : compte
 // cité par le journal des règles renommé (`journal_regle_figer_comptes` rejoué recopierait le nouveau libellé), client
 // renommé (la facture garde l'ancienne raison sociale), politique du contrat changée (l'intervention garde sa
-// couverture).
+// couverture). Depuis #642 (N3), la marque de fin figure aussi dans une donnée (détail du journal des paramètres et des
+// droits) : non ancré, `grep -c` compterait 2 sur la sauvegarde complète et 1 sur la sauvegarde coupée.
 //
 // Cas (cadrage v2) :
 //  - procédure retenue : chaque table identique (toutes colonnes), dont chaque ligne des huit journaux et
@@ -55,7 +56,8 @@
 // Mutants de la procédure tués (rapport du lot) : `--single-transaction` retiré (T1), `ON_ERROR_STOP` retiré (échec
 // franc, T1), restauration dans la base migrée au lieu d'une base recréée vide (procédure retenue), étape 1 omise (R1).
 //
-// Prérequis (C4 de la v2) : rôle de TEST_DATABASE_URL qui peut créer des bases (CREATEDB) et poser
+// Prérequis (C4 de la v2 ; N6 de #642) : PostgreSQL local (TEST_DATABASE_URL sur localhost, 127.0.0.1 ou [::1] : ce
+// fichier crée et supprime des bases) ; rôle de TEST_DATABASE_URL qui peut créer des bases (CREATEDB) et poser
 // session_replication_role (jeu d'essai en mode réplica) ; pg_dump, psql, createdb et dropdb dans le PATH, de version
 // majeure au moins égale à celle du serveur ; grep. S'il en manque un, le premier test échoue avec un message qui dit
 // lequel, et chacun des autres échoue en le citant : jamais un SKIP. Sans TEST_DATABASE_URL, le fichier s'annonce ignoré,
@@ -181,7 +183,7 @@ function requeteJournauxDuGuide() {
 // Commandes du guide, transposées (correspondance en tête du fichier).
 const guide = {
   sauvegarder: (base, fichier, fuseau) => executer('pg_dump', [base], { env: environnementPg(fuseau), sortie: fichier }),
-  controlerFichier: (fichier) => executer('grep', ['-c', '--', MARQUE_FIN, fichier]),
+  controlerFichier: (fichier) => executer('grep', ['-cx', '--', MARQUE_FIN, fichier]),
   supprimerBase: (base) => executer('dropdb', ['--force', base]),
   creerBase: (base) => executer('createdb', [base]),
   restaurer: (base, fichier, { options = OPTIONS_RETENUES, fuseau } = {}) => executer('psql', ['-d', base, ...options], { env: environnementPg(fuseau), entree: fichier }),
@@ -192,7 +194,7 @@ const guide = {
 
 // Commandes de la sous-section, dans l'ordre où le guide les donne : la transposition de `guide` les suit.
 const COMMANDES_DU_GUIDE = [
-  `grep -c -- '${MARQUE_FIN}' sauvegarde_AAAA-MM-JJ.sql`,
+  `grep -cx -- '${MARQUE_FIN}' sauvegarde_AAAA-MM-JJ.sql`,
   'docker exec iris_db pg_dump -U iris iris > avant_restauration_$(date +%F_%H%M).sql',
   'docker exec iris_db dropdb -U iris --force iris',
   'docker exec iris_db createdb -U iris iris',
@@ -375,7 +377,7 @@ INSERT INTO "CompteComptable" ("id", "code", "libelle", "nature", "actif", "upda
   ('${i.comptePrestations}', '706000', '${LIBELLES.prestations}', 'PRODUIT', true, '2021-01-02 03:04:05.006');
 INSERT INTO "RegleComptable" ("id", "cle", "compteId", "updatedAt") VALUES ('${i.regle}', 'VENTE_PRESTATION', '${i.comptePrestations}', ${sql(INSTANTS.JournalRegleComptable)});
 INSERT INTO "JournalAdministration" ("id", "domaine", "type", "action", "detail", "auteurNom", "createdAt")
-  VALUES ('${i.JournalAdministration}', 'REGLAGES', 'PARAMETRES', 'MODIFICATION', 'TEST Réglage modifié 618', '${auteur}', ${sql(INSTANTS.JournalAdministration)});
+  VALUES ('${i.JournalAdministration}', 'REGLAGES', 'PARAMETRES', 'MODIFICATION', '${MARQUE_FIN}', '${auteur}', ${sql(INSTANTS.JournalAdministration)});
 INSERT INTO "JournalFacture" ("id", "factureId", "acteurId", "action", "createdAt") VALUES ('${i.JournalFacture}', '${i.facture}', '${i.auteur}', 'EMISSION', ${sql(INSTANTS.JournalFacture)});
 INSERT INTO "InterventionRapport" ("id", "interventionId", "auteurId", "contenu", "createdAt")
   VALUES ('${i.InterventionRapport}', '${i.intervention}', '${i.auteur}', 'TEST Compte rendu de la visite 618', ${sql(INSTANTS.InterventionRapport)});
@@ -555,7 +557,7 @@ if (!TEST_DATABASE_URL) {
       }
     });
 
-    test('prérequis : rôle PostgreSQL qui crée des bases et pose session_replication_role, pg_dump, psql, createdb et dropdb au moins de la version du serveur ; sinon échec explicite, jamais un SKIP', async () => {
+    test('prérequis : PostgreSQL local, rôle PostgreSQL qui crée des bases et pose session_replication_role, pg_dump, psql, createdb et dropdb au moins de la version du serveur, grep ; sinon échec explicite, jamais un SKIP', async () => {
       prerequisManquants = await verifierPrerequis();
       assert.deepEqual(prerequisManquants, [], `Prérequis manquants pour restauration-sauvegarde.test.mjs :\n- ${prerequisManquants.join('\n- ')}\nCe fichier échoue au lieu de s’ignorer : un SKIP serait confondu avec une réussite.`);
     });
@@ -711,7 +713,8 @@ if (!TEST_DATABASE_URL) {
       const etat = await etatPrepare();
       const coupee = readFileSync(etat.tronquee, 'utf8');
       for (const journal of JOURNAUX) assert.ok(coupee.includes(`COPY public."${journal}" `), `sauvegarde coupée : données de ${journal} présentes`);
-      assert.ok(!coupee.includes(MARQUE_FIN), 'sauvegarde coupée : sans marque de fin');
+      assert.ok(!coupee.split('\n').includes(MARQUE_FIN), 'sauvegarde coupée : sans ligne de fin');
+      assert.ok(coupee.includes(MARQUE_FIN), 'sauvegarde coupée : la marque de fin figure dans une donnée (témoin de N3, #642)');
       assert.ok(!/FOREIGN KEY/.test(coupee), 'sauvegarde coupée : sans clé étrangère');
 
       // Étape 1 : le fichier coupé est refusé (« 0 »), la base en service n'est pas touchée.
@@ -722,6 +725,9 @@ if (!TEST_DATABASE_URL) {
       assert.equal(arret, 1, `procédure : arrêt attendu à l’étape 1 (contrôle du fichier), obtenu ${arret}`);
       assert.equal(etapes.controle.sortie.trim(), '0', `contrôle du fichier : « 0 » attendu : ${decrire(etapes.controle)}`);
       assert.equal(guide.controlerFichier(etat.sauvegarde).sortie.trim(), '1', 'contrôle du fichier complet : « 1 »');
+      // Témoin (N3 de #642) : non ancré, grep -c compte aussi la marque écrite dans une donnée.
+      assert.equal(executer('grep', ['-c', '--', MARQUE_FIN, etat.tronquee]).sortie.trim(), '1', 'témoin : grep -c non ancré, fichier coupé');
+      assert.equal(executer('grep', ['-c', '--', MARQUE_FIN, etat.sauvegarde]).sortie.trim(), '2', 'témoin : grep -c non ancré, fichier complet');
       assert.equal(await baseExiste(enService), true, 'base en service toujours là');
       memeEmpreinte(await empreinteDe(enService), avant, 'base en service inchangée');
 
