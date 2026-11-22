@@ -70,7 +70,12 @@ test('chantier clôturé : le technicien ne peut plus saisir ses heures sur une 
   try {
     const carte = await saisirHeuresRefusees(page, suite);
     await expect(page.getByText(REFUS)).toBeVisible();
-    await expect(carte.getByText(`${dateDuJour()} — 1.5 h`)).toHaveCount(0);
+    // Aucune ligne d'heures sur la carte, quel que soit le format (« 1,5 h » depuis #499, « 1.5 h » avant : une assertion
+    // sur l'ancien texte serait devenue vide de sens), et rien d'écrit en base : la suite n'a aucune heure, archivée ou non.
+    await expect(carte.getByRole('listitem').filter({ hasText: /—\s*1[,.]5\s*h/ })).toHaveCount(0);
+    const couts = await request.get(`${api}/interventions/${suite.id}/couts`, { headers: { Authorization: `Bearer ${session.token}` } });
+    expect(couts.ok(), await couts.text()).toBeTruthy();
+    expect(((await couts.json()) as { heures: unknown[] }).heures).toEqual([]);
   } finally {
     await contexte.close();
   }

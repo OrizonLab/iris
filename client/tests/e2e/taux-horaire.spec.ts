@@ -69,7 +69,8 @@ test('un conducteur suit son chantier sans taux ni coût de main-d’œuvre ; l�
     await vueConducteur.goto('/heures', { waitUntil: 'networkidle' });
     await vueConducteur.getByRole('button', { name: /Historique récent/ }).click();
     const ligneHeures = vueConducteur.locator('tr', { hasText: chantier.nom }).first();
-    await expect(ligneHeures).toContainText('3h');
+    // #499 (cadrage version 2, point 2) : les heures par fmtHeures, « 3 h » (espace ordinaire U+0020), et non « 3h ».
+    await expect(ligneHeures.getByRole('cell').nth(3)).toHaveText(/^3\u0020h$/);
     await expect(ligneHeures).not.toContainText('€');
     await expect(vueConducteur.getByRole('columnheader', { name: 'Coût Interne' })).toHaveCount(0);
 
@@ -83,7 +84,8 @@ test('un conducteur suit son chantier sans taux ni coût de main-d’œuvre ; l�
     await vueConducteur.goto('/statistiques', { waitUntil: 'networkidle' });
     await vueConducteur.getByRole('button', { name: 'Intervenants' }).click();
     const ligneStats = vueConducteur.locator(`[data-intervenant="${intervenant.id}"]`);
-    await expect(ligneStats).toContainText('3.0 h');
+    // #499 v2, point 2 : « 3 h » par fmtHeures, et non « 3.0 h » (toFixed(1)).
+    await expect(ligneStats.locator('div.text-right div.font-black')).toHaveText(/^3\u0020h$/);
     await expect(ligneStats).not.toContainText('€');
 
     // Témoin : l'administration voit le coût de main-d'œuvre, son dépassement chiffré et le coût interne.
@@ -91,11 +93,16 @@ test('un conducteur suit son chantier sans taux ni coût de main-d’œuvre ; l�
     await expect(vueAdmin.getByText('Coût Main d\'Œuvre')).toBeVisible();
     await expect(vueAdmin.getByText('Dépenses Réelles Cumulées')).toBeVisible();
     await expect(vueAdmin.locator('[data-alerte="MAIN_OEUVRE_DEPASSEE"]').first()).toHaveText('Main-d’œuvre +41 €');
-    await expect(vueAdmin.locator('[data-estimation]')).toContainText('47 €/h');
+    // #499 v2, point 4 : coût horaire de référence au centime en devise, « 47,00 €/h » (U+00A0 d'Intl avant « € »), comme
+    // dans l'administration. Lectures écartées : « 47 €/h » d'avant #499, la forme des documents (U+0020), l'euro près.
+    // Main-d'œuvre attendue : 141 € (3 h à 47 €, au-delà des 2 h vendues, jamais sous le réel), à l'euro près.
+    await expect(vueAdmin.locator('[data-estimation] li', { hasText: 'Main-d’œuvre attendue' })).toHaveText(/^Main-d’œuvre attendue : 141\u0020€ — heures vendues à 47,00\u00A0€\/h, coût moyen réellement appliqué sur ce chantier\.$/);
     await vueAdmin.goto('/heures', { waitUntil: 'networkidle' });
     await vueAdmin.getByRole('button', { name: /Historique récent/ }).click();
     await expect(vueAdmin.getByRole('columnheader', { name: 'Coût Interne' })).toBeVisible();
-    await expect(vueAdmin.locator('tr', { hasText: chantier.nom }).first()).toContainText('141.00 €');
+    // #499 v2, point 4 : coût interne de la ligne (3 h × 47 €) au centime en devise, « 141,00 € » (U+00A0 avant « € »).
+    // Lectures écartées : « 141.00 € » (toFixed, avant #499), la forme des documents (U+0020), l'euro près (« 141 € »).
+    await expect(vueAdmin.locator('tr', { hasText: chantier.nom }).first().getByRole('cell').nth(4)).toHaveText(/^141,00\u00A0€$/);
     await vueAdmin.goto('/', { waitUntil: 'networkidle' });
     await expect(vueAdmin.getByRole('region', { name: 'Rentabilité des chantiers en cours' })).toContainText('Dépensé à ce jour');
     await vueAdmin.goto('/statistiques', { waitUntil: 'networkidle' });

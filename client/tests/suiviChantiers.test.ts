@@ -77,6 +77,16 @@ test('marge faible et absence de saisie : libellés chiffrés et rang dans la pr
   const faible = chantier('f', 'Faible', { margeEstimeePct: 8.25, alertes: ['MARGE_FAIBLE'] });
   const dormant = chantier('s', 'Dormant', { joursSansSaisie: 21, alertes: ['SANS_SAISIE'] });
   assert.equal(libelleAlerte('MARGE_FAIBLE', faible), 'Marge estimée 8,3 %');
+  // #499 (remarque du rédacteur des tests, correctif décidé par Claude Code) : la marge estimée passe par fmtPourcentage(…, 1).
+  // Une marge négative arrondie à zéro s'écrit « 0 % », jamais « -0 % » (texte d'avant le correctif, toLocaleString('fr-FR')
+  // seul) ; une marge négative réelle garde son signe U+002D et l'arrondi d'Intl, moitié vers l'extérieur : -3,25 donne
+  // « -3,3 % » (une troncature donnerait « -3,2 % »), -0,05 donne « -0,1 % ». Espace ordinaire U+0020 avant « % ».
+  const marge = (pct: number) => libelleAlerte('MARGE_FAIBLE', chantier('m', 'M', { margeEstimeePct: pct, alertes: ['MARGE_FAIBLE'] }));
+  assert.match(marge(-0.04), /^Marge estimée 0 %$/);
+  assert.match(marge(-0.049), /^Marge estimée 0 %$/);
+  assert.match(marge(-3.25), /^Marge estimée -3,3 %$/);
+  assert.match(marge(-0.05), /^Marge estimée -0,1 %$/);
+  assert.equal(marge(-3.25).codePointAt('Marge estimée '.length), 0x2d, 'trait d’union U+002D');
   assert.equal(libelleAlerte('SANS_SAISIE', dormant), 'Sans saisie depuis 21 j');
   // Perte > marge faible > dépassements (même cumulés) > absence de saisie > rien.
   assert.deepEqual(trierChantiers([sain, dormant, cumul, faible, perte], 'PRIORITE').map((c) => c.id), ['c', 'f', 'd', 's', 'a']);
@@ -113,19 +123,29 @@ test('coût de main-d’œuvre réservé à l’administration : alerte et hypot
   });
   assert.equal(hypotheseCoutHoraire(estimation('CHANTIER', null)), 'heures vendues au coût moyen réellement appliqué sur ce chantier');
   assert.equal(hypotheseCoutHoraire(estimation('SOCIETE', null)), 'heures vendues au coût moyen de la société (aucune heure encore saisie ici)');
-  assert.equal(hypotheseCoutHoraire(estimation('CHANTIER', 42.5)), 'heures vendues à 42,5 €/h, coût moyen réellement appliqué sur ce chantier');
+  // #499, cadrage version 2, point 4 : le coût horaire de référence passe au centime en devise (fmtEuroCentime), suivi de
+  // « /h » : « 42,50 € », espace insécable U+00A0 d'Intl avant « € ». Lectures écartées : le texte d'avant #499
+  // (« 42,5 €/h », espace ordinaire, sans zéro), la forme des documents (« 42,50 €/h », U+0020) et l'euro près (« 43 €/h »).
+  assert.match(hypotheseCoutHoraire(estimation('CHANTIER', 42.5)), /^heures vendues à 42,50\u00A0€\/h, coût moyen réellement appliqué sur ce chantier$/);
+  // Au-delà de 1 000 € de l'heure, milliers en espace fine insécable U+202F (écarte « 1 234,5 €/h » d'avant #499, et la langue
+  // du navigateur, « 1,234.50 € ») ; un taux moyen arrondi une seule fois au centime, moitié vers l'extérieur : 104,034996 €
+  // donne « 104,03 € » (un double arrondi par 104,0350 donnerait « 104,04 € »).
+  assert.match(hypotheseCoutHoraire(estimation('SOCIETE', 1234.5)), /^heures vendues à 1\u202F234,50\u00A0€\/h, coût moyen de la société \(aucune heure encore saisie ici\)$/);
+  assert.match(hypotheseCoutHoraire(estimation('CHANTIER', 104.034996)), /^heures vendues à 104,03\u00A0€\/h, /);
 });
 
 test('marge estimée : le coût réel et le matériel des suites SAV, non vendus, s’ajoutent aux hypothèses (audits n° 3 et 4 de #339)', () => {
   const estimation = (source: EstimationMarge['sourceCoutHoraire'], coutHoraireReference: number | null): EstimationMarge => ({
     coutEstime: null, coutMainOeuvreAttendu: null, coutMaterielAttendu: 300, coutHoraireReference, sourceCoutHoraire: source, ratioMateriel: 0.8, sourceMateriel: 'HISTORIQUE',
   });
-  assert.equal(hypotheseCoutHoraire(estimation('CHANTIER', 40), 1.5), 'heures vendues à 40 €/h, coût moyen réellement appliqué sur ce chantier, plus le coût réel des 1,5 h de suites SAV');
+  // #499 v2 : « 40,00 €/h » et « 35,00 €/h », au centime en devise (U+00A0 avant « € ») ; les heures des suites gardent leur
+  // texte (« 1,5 h », espace ordinaire). Lecture écartée : « 40 €/h » d'avant #499.
+  assert.match(hypotheseCoutHoraire(estimation('CHANTIER', 40), 1.5), /^heures vendues à 40,00\u00A0€\/h, coût moyen réellement appliqué sur ce chantier, plus le coût réel des 1,5\u0020h de suites SAV$/);
   assert.equal(hypotheseCoutHoraire(estimation('CHANTIER', null), 5), 'heures vendues au coût moyen réellement appliqué sur ce chantier, plus le coût réel des 5 h de suites SAV');
-  assert.equal(hypotheseCoutHoraire(estimation('SOCIETE', 35), 2), 'heures vendues à 35 €/h, coût moyen de la société (aucune heure encore saisie ici), plus le coût réel des 2 h de suites SAV');
+  assert.match(hypotheseCoutHoraire(estimation('SOCIETE', 35), 2), /^heures vendues à 35,00\u00A0€\/h, coût moyen de la société \(aucune heure encore saisie ici\), plus le coût réel des 2\u0020h de suites SAV$/);
   assert.equal(hypotheseCoutHoraire(estimation('VENDU', null), 2), 'budget main-d’œuvre vendu (aucun coût horaire connu), plus le coût réel des 2 h de suites SAV');
   assert.equal(hypotheseCoutHoraire(estimation('REEL', 40), 2), 'coût réel (chantier terminé)');
-  assert.equal(hypotheseCoutHoraire(estimation('CHANTIER', 40), 0), 'heures vendues à 40 €/h, coût moyen réellement appliqué sur ce chantier');
+  assert.match(hypotheseCoutHoraire(estimation('CHANTIER', 40), 0), /^heures vendues à 40,00\u00A0€\/h, coût moyen réellement appliqué sur ce chantier$/);
   assert.equal(hypotheseMateriel(estimation('CHANTIER', 40), 12.25), 'matériel vendu × 80 %, ratio d’achat observé sur les chantiers terminés, plus le matériel des suites SAV');
   assert.equal(hypotheseMateriel(estimation('CHANTIER', 40), null), 'matériel vendu × 80 %, ratio d’achat observé sur les chantiers terminés');
 });
@@ -134,7 +154,13 @@ test('marge estimée : le coût d’achat prévu au devis, avec son montant pour
   const estimation: EstimationMarge = {
     coutEstime: null, coutMainOeuvreAttendu: null, coutMaterielAttendu: 94.53, coutHoraireReference: null, sourceCoutHoraire: 'CHANTIER', ratioMateriel: null, sourceMateriel: 'DEVIS',
   };
-  assert.equal(hypotheseMateriel(estimation, null, 94.53), 'coût d’achat prévu au devis (94,53 € HT), une fourniture sans prix d’achat prévu comptant pour zéro');
-  assert.equal(hypotheseMateriel(estimation, 12.25, 234.5), 'coût d’achat prévu au devis (234,5 € HT), une fourniture sans prix d’achat prévu comptant pour zéro, plus le matériel des suites SAV');
+  // #499, cadrage version 2, point 4 : le coût d'achat prévu passe au centime en devise (fmtEuroCentime), suivi de « HT » :
+  // « 94,53 € », « 234,50 € », espace insécable U+00A0 d'Intl avant « € ». Lectures écartées : le texte d'avant #499
+  // (« 94,53 € HT » à l'espace ordinaire, « 234,5 € HT » sans zéro), la forme des documents (U+0020) et l'euro près
+  // (« 95 € HT », « 235 € HT »).
+  assert.match(hypotheseMateriel(estimation, null, 94.53), /^coût d’achat prévu au devis \(94,53\u00A0€ HT\), une fourniture sans prix d’achat prévu comptant pour zéro$/);
+  assert.match(hypotheseMateriel(estimation, 12.25, 234.5), /^coût d’achat prévu au devis \(234,50\u00A0€ HT\), une fourniture sans prix d’achat prévu comptant pour zéro, plus le matériel des suites SAV$/);
+  // Au-delà de 1 000 €, milliers en U+202F (écarte « 1 000,5 € HT » d'avant #499 et « 1,000.50 € » en anglais).
+  assert.match(hypotheseMateriel(estimation, null, 1000.5), /^coût d’achat prévu au devis \(1\u202F000,50\u00A0€ HT\), /);
   assert.equal(hypotheseMateriel(estimation, null, null), 'coût d’achat prévu au devis, une fourniture sans prix d’achat prévu comptant pour zéro');
 });

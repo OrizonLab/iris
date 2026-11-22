@@ -265,7 +265,9 @@ test.describe('Rentabilité — chaîne hiérarchique et profil Directeur', () =
       // Performances affiche des euros arrondis (fmtEuro) : « 200 € », « -50 € ».
       expect(avecReglage[0]).toMatch(/^CA VENDU 200\s€$/i);
       expect(avecReglage[1]).toMatch(/^MARGE GÉNÉRÉE [-−]50\s€$/i);
-      expect(avecReglage[2]).toMatch(/^MARGE % [-−]25[.,]0\s?%$/i);
+      // #499 (cadrage version 2, point 3) : marge % par fmtPourcentage, une décimale au plus, sans zéro inutile : « -25 % »
+      // (et non « -25.0% » de toFixed(1), ni « -25,0 % »). Les espaces sont ramenées à l'espace ordinaire par chiffres().
+      expect(avecReglage[2]).toMatch(/^MARGE % -25 %$/i);
 
       // La société décoche les directeurs.
       await envoyer('put', '/parametres', { rentabiliteDirecteurs: false });

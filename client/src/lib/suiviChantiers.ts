@@ -1,5 +1,5 @@
 import { arrondiCentime, arrondiEuro, differenceExacte } from './montants';
-import { fmtEuroCentime } from './formats';
+import { fmtEuroCentime, fmtPourcentage } from './formats';
 
 // Suivi des chantiers : recherche, filtres et tri de la liste et du tableau de bord.
 //
@@ -164,7 +164,7 @@ export function libelleAlerte(code: AlerteChantier, chantier: ChantierSuivi): st
     case 'EN_PERTE':
       return avecMontant('En perte', montantAlerte(Math.abs(m.margeCommerciale ?? 0)), 'En perte ');
     case 'MARGE_FAIBLE':
-      return `Marge estimée ${nombre(m.margeEstimeePct ?? 0, 1)} %`;
+      return `Marge estimée ${fmtPourcentage(m.margeEstimeePct ?? 0, 1)}`;
     case 'SANS_SAISIE':
       return `Sans saisie depuis ${nombre(m.joursSansSaisie ?? 0)} j`;
     // Heures saisies au centième : deux décimales au plus (un dépassement de 0,25 h ne
