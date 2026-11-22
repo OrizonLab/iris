@@ -29,7 +29,7 @@
 // montée en mémoire, puis supprimée. Sans TEST_DATABASE_URL, le fichier s'annonce ignoré : un SKIP n'est pas une réussite.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test, { after, before, describe } from 'node:test';
@@ -49,8 +49,8 @@ const MESSAGES = {
   prixVente: 'Prix de vente invalide.',
   prixAchat: 'Prix d\'achat invalide.',
   stock: 'Stock invalide.',
-  // Tout taux de TVA refusé, mal formé, vide ou non français, reçoit le message des taux admis (Q1, option B du
-  // 22-11-2026, choix par défaut, à confirmer ; message déjà testé par #324, N1, pour « 5.555 » et « 1000 »).
+  // Tout taux de TVA refusé, mal formé, vide ou non français, reçoit le message des taux admis (choix par défaut
+  // de Claude Code, à confirmer ; message déjà testé par #324, N1, pour « 5.555 » et « 1000 »).
   tva: 'Taux de TVA non accepté : 0 %, 5,5 %, 10 % ou 20 %.',
   duree: 'Durée indicative invalide.',
   cleMainOeuvre: 'Une clé d’intégration ne crée, ne modifie, ne désactive ni ne réactive une main d’œuvre, et ne fait pas passer une prestation en main d’œuvre ou l’inverse : réservé à l’administration, en session.',
@@ -297,6 +297,13 @@ if (!TEST_DATABASE_URL) {
         const tete = await ok(appeler('post', `${porte}/articles`, auth, { reference: reference('ART-TETE'), nom: 'TEST Article zéros de tête', prixVenteHt: '0018,75', prixAchatHt: '01250,50', tauxTva: '05,5', stockActuel: '001,5' }), 201);
         relu = await ficheEnBase('articles', tete.id);
         assert.deepEqual([relu.prixVenteHt, relu.prixAchatHt, relu.tauxTva, relu.stockActuel], ['18.75', '1250.5', '5.5', '1.5'], `${qui} : zéros de tête`);
+        // TVA à trois chiffres avant la virgule, zéros de tête compris (cadrage v2, point 5 : « TVA 3 et 2 » ; motif de l'écran
+        // MOTIF_TVA_DEVIS, trois chiffres ; avant le lot, `Number` lisait « 020 » à 20 %). Lecture écartée : une TVA lue à deux
+        // chiffres (« un taux français a au plus deux chiffres »), qui refuserait ces saisies (audit des montants de #658, S11).
+        for (const [saisie, attendu] of [['020', '20'], ['005,5', '5.5'], ['010.00', '10']]) {
+          const fiche = await ok(appeler('post', `${porte}/equipements`, auth, { reference: reference('EQP-TVA3'), nom: 'TEST TVA à trois chiffres', tauxTva: saisie, prixVenteHt: '1' }), 201);
+          assert.equal((await ficheEnBase('equipements', fiche.id)).tauxTva, attendu, `${qui} : TVA « ${saisie} »`);
+        }
       }
     });
 
@@ -304,12 +311,13 @@ if (!TEST_DATABASE_URL) {
     // stock), 11 chiffres refusés, négatif refusé ; chaque refus sans écriture ». S'y ajoutent les formes que `Number`
     // admettait avant le lot et que la règle commune refuse (true lu 1, [] lu 0, blancs internes, unité). Chaque champ porte
     // son propre message (`${champ} invalide.`) ; une TVA refusée, mal formée (« 5,555 », « 1e1 », « 1000 ») comme non
-    // française (« 19,6 », « 5,6 »), reçoit le message des taux admis (Q1, option B, choix par défaut, à confirmer).
+    // française (« 19,6 », « 5,6 »), reçoit le message des taux admis (choix par défaut de Claude Code, à confirmer).
     // Lectures écartées : « 1e3 » lu 1000 ; « 18,755 » ou « 12,345 » arrondis par PostgreSQL à 18,76 ou 12,35
     // (Decimal(12, 2)) ; « 1,2345 » arrondi à 1,235 ; 11 chiffres tronqués ou refusés par la base (500) ; « -1 » admis ;
     // true lu 1 ; « 1e1 » lu 10 % (admis avant le lot) ; une TVA mal formée au message du champ (« TVA invalide. », mutant
-    // joué). Depuis l'option B, une lecture de la TVA à deux chiffres ou à trois décimales ne se voit plus (« 100 » et
-    // « 5,555 » sont refusés au même message) : ces deux mutants sont équivalents.
+    // joué) ; « 5,500 » et « 20.000 », taux français écrits à trois décimales, écartent une TVA lue à trois décimales (comme le
+    // stock), que « 5,555 », refusé de toute façon comme taux non français, ne distingue pas ; une TVA lue à deux chiffres est
+    // écartée par « 020 » et « 005,5 », admis dans le test des bornes (audit des montants de #658, S11 et S12).
     const REFUS_CATALOGUE = [
       ['prixVenteHt', '1e3', MESSAGES.prixVente], ['prixVenteHt', '1E3', MESSAGES.prixVente], ['prixVenteHt', 1e-7, MESSAGES.prixVente],
       ['prixVenteHt', 1e21, MESSAGES.prixVente], ['prixVenteHt', '18,755', MESSAGES.prixVente], ['prixVenteHt', '18.755', MESSAGES.prixVente],
@@ -322,7 +330,7 @@ if (!TEST_DATABASE_URL) {
       ['tauxTva', '5,555', MESSAGES.tva], ['tauxTva', '5.555', MESSAGES.tva], ['tauxTva', '1e1', MESSAGES.tva], ['tauxTva', '-5,5', MESSAGES.tva],
       ['tauxTva', '1000', MESSAGES.tva], ['tauxTva', true, MESSAGES.tva], ['tauxTva', 'abc', MESSAGES.tva], ['tauxTva', '19,6', MESSAGES.tva],
       ['tauxTva', '5,6', MESSAGES.tva], ['tauxTva', '55', MESSAGES.tva], ['tauxTva', '100', MESSAGES.tva], ['tauxTva', '', MESSAGES.tva],
-      ['tauxTva', '   ', MESSAGES.tva],
+      ['tauxTva', '   ', MESSAGES.tva], ['tauxTva', '5,500', MESSAGES.tva], ['tauxTva', '20.000', MESSAGES.tva],
     ];
     const REFUS_STOCK = [
       ['stockActuel', '1e3', MESSAGES.stock], ['stockActuel', '1,2345', MESSAGES.stock], ['stockActuel', '1234567890', MESSAGES.stock],
@@ -485,6 +493,31 @@ if (!TEST_DATABASE_URL) {
     });
 
     // ---------------------------------------------------------------------------------------------------------------
+    // 1 bis. Heures : POST /api/heures, intervenant inconnu (#135 point 3 : l'écran Heures affiche le refus du serveur)
+    // ---------------------------------------------------------------------------------------------------------------
+
+    // N2 de l'audit des droits et de la sécurité de #658 : les écrans Achats et Heures affichent désormais le message du
+    // serveur (#135, point 3) ; un intervenant inconnu répond donc en français, 404 « Intervenant introuvable. » (avant :
+    // « Intervenant not found »), sans écriture. Le corps porte une saisie admise à la virgule (« 3,5 »), qui ne masque
+    // pas le refus ; le même corps, avec un intervenant réel, s'enregistre à 3,5 h (témoin : le 404 tient au seul
+    // intervenant). Par les trois comptes de l'administration et le conducteur titulaire. Lectures écartées : le message
+    // anglais d'avant ; un pointage écrit malgré l'intervenant inconnu ; un autre statut (400, 500).
+    test('heures, intervenant inconnu : 404 « Intervenant introuvable. », sans écriture, par le super administrateur, l’administrateur, le directeur et le conducteur titulaire ; le même corps avec un intervenant réel s’enregistre à 3,5 h', async () => {
+      const s = suffixe();
+      const chantier = await prisma.chantier.create({ data: { nom: `TEST Chantier heures 394 ${s}`, client: 'TEST Client heures 394', dateDebut: new Date(), budgetGlobalVendu: '1000', responsableId: comptes.CT.id } });
+      const intervenant = await prisma.intervenant.create({ data: { nom: `TEST Intervenant heures 394 ${s}`, role: 'Technicien', tauxHoraireCharge: '40' } });
+      const corps = (intervenantId) => ({ chantierId: chantier.id, intervenantId, date: '05-10-2026', nbrHeures: '3,5', commentaire: 'TEST pointage 394' });
+      for (const code of ['SA', 'AD', 'DIR', 'CT']) {
+        const inconnu = corps(randomUUID());
+        await refuse(() => appeler('post', '/api/heures', comptes[code].auth, inconnu), 404, 'Intervenant introuvable.', `${code}, intervenant inconnu`);
+        assert.equal(await prisma.pointageHeure.count({ where: { chantierId: chantier.id } }), 0, `${code} : aucun pointage écrit`);
+      }
+      await ok(appeler('post', '/api/heures', comptes.SA.auth, corps(intervenant.id)));
+      const pointages = await prisma.pointageHeure.findMany({ where: { chantierId: chantier.id } });
+      assert.deepEqual(pointages.map((p) => [p.intervenantId, p.nbrHeures.toString()]), [[intervenant.id, '3.5']], 'témoin : intervenant réel, 3,5 h');
+    });
+
+    // ---------------------------------------------------------------------------------------------------------------
     // 2. Rémunération : PUT /api/parametres/remuneration (super administrateur)
     // ---------------------------------------------------------------------------------------------------------------
 
@@ -590,6 +623,9 @@ if (!TEST_DATABASE_URL) {
       ['plafond « -5 »', { baremeStandard: [{ plafond: '-5', taux: '12,5' }, { plafond: null, taux: '20' }] }, MESSAGES.plafond('Barème standard', 1)],
       ['plafond « 1 500 »', { baremeStandard: [{ plafond: '1 500', taux: '12,5' }, { plafond: null, taux: '20' }] }, MESSAGES.plafond('Barème standard', 1)],
       ['plafond « 0 » de la première tranche réduite', { baremeReduit: [{ plafond: '0', taux: '7,25' }, { plafond: null, taux: '15' }] }, MESSAGES.plafond('Barème réduit', 1)],
+      // Plafond en blancs : refusé, comme avant le lot (`Number('  ')` valait 0, refusé), et non lu « sans plafond » comme les
+      // objectifs et les primes en blancs, qui valent 0 (audit des montants de #658, S26).
+      ['plafond en blancs de la dernière tranche', { baremeStandard: [{ plafond: '1500,50', taux: '12,5' }, { plafond: '  ', taux: '20' }] }, MESSAGES.plafond('Barème standard', 2)],
     ];
     test('rémunération refusée : objectif ou prime en notation scientifique, à décimale en trop, à 11 chiffres, négatif ou non numérique ; taux de tranche null, vide, absent ou hors bornes ; plafond à 0 ou mal formé ; 400 au message exact, rien d’écrit, journal inchangé', async () => {
       await poserDepartRemuneration();
@@ -599,6 +635,24 @@ if (!TEST_DATABASE_URL) {
       }
       const enBase = await reglesEnBase();
       assert.deepEqual([enBase.baremeStandard, enBase.objectifCaMensuel, enBase.primeSuiviAdministratif], [DEPART_REMUNERATION.baremeStandard, '500', '20'], 'règles de départ intactes');
+    });
+
+    // Valeurs vides au comportement actuel (cadrage v2, section « Tests » : « vides au comportement actuel » ; avant le lot,
+    // `Number(valeur ?? 0)` valait 0 pour un objectif ou une prime absent, null, vide ou en blancs, et un plafond absent valait
+    // « sans plafond »). Lectures écartées (audit des montants de #658, S29, S37, S38 et S39) : des blancs refusés, seule la
+    // chaîne vide valant 0 ; null refusé ; une clé absente refusée ; un plafond absent refusé, seuls null et la chaîne vide
+    // valant « sans plafond ». Les valeurs de départ, toutes non nulles, rendent chaque écriture visible.
+    test('rémunération, valeurs vides au comportement actuel : objectif ou prime absent, null, vide ou en blancs à 0 ; plafond absent, sans plafond', async () => {
+      await poserDepartRemuneration();
+      const { objectifCaMensuel: _absent, ...sansObjectifCa } = corpsRemuneration();
+      await ok(appeler('put', '/api/parametres/remuneration', comptes.SA.auth, {
+        ...sansObjectifCa, primeObjectifCa: null, objectifMargeMensuel: '   ', primeObjectifMarge: '', primeSuiviAdministratif: ' \t ',
+        baremeStandard: [{ plafond: '1500,50', taux: '12,5' }, { taux: '20' }],
+      }));
+      const enBase = await reglesEnBase();
+      assert.deepEqual([enBase.objectifCaMensuel, enBase.primeObjectifCa, enBase.objectifMargeMensuel, enBase.primeObjectifMarge, enBase.primeSuiviAdministratif],
+        ['0', '0', '0', '0', '0'], 'objectif absent, prime null, objectif en blancs, prime vide et prime en blancs à 0');
+      assert.deepEqual(enBase.baremeStandard, [{ plafond: 1500.5, taux: 12.5 }, { plafond: null, taux: 20 }], 'plafond absent : dernière tranche, sans plafond');
     });
 
     // Droits inchangés (requireSuperAdmin), contrôlés avant la lecture des montants : l'administrateur et le directeur

@@ -33,9 +33,10 @@ export type FicheCatalogueDevis = {
 
 // Champ chiffré d'une ligne saisie. La quantité, le PU HT et la TVA d'une ligne ordinaire, et les heures d'une
 // ligne au temps passé, sont saisis en texte (#394, pour le devis) : la chaîne tapée (« 18,75 », « 1.5 ») est
-// gardée telle quelle et envoyée brute, le serveur lisant la virgule (nombreDecimalNonNegatif). Le prix et la
-// TVA des lignes au temps passé et au forfait, fixés par la main d'œuvre, et la quantité entière d'une ligne
-// au forfait restent des nombres.
+// gardée telle quelle et envoyée brute, le serveur lisant la virgule (nombreDecimalNonNegatif). La quantité d'une
+// ligne au forfait aussi, depuis le lot U (#394) : nombre à l'ajout et à la remise en édition, elle reste la chaîne
+// tapée ensuite (Devis.tsx, updateLine). Le prix et la TVA des lignes au temps passé et au forfait, fixés par la
+// main d'œuvre, restent des nombres.
 export type ChiffreSaisi = number | string;
 
 export type LigneDevisSaisie = {

@@ -24716,7 +24716,7 @@ if (!TEST_DATABASE_URL) {
           const reference = `TEST-TVA-${famille}-refus-${String(taux).replace(/[^0-9]/g, '')}-${suffixe}`;
           const res = await envoyer('post', chemin(famille), corps(famille, reference, { tauxTva: taux }));
           assert.equal(res.status, 400, `${famille} ${taux} : ${JSON.stringify(res.body)}`);
-          // Depuis le lot U (#394, option B du 22-11-2026, choix par défaut, à confirmer), le catalogue lit la virgule
+          // Depuis le lot U (#394 ; message : choix par défaut de Claude Code, à confirmer), le catalogue lit la virgule
           // décimale : « 5,6 » est lu 5,6 % et refusé par la liste des taux, au même message (avant : « TVA invalide. »).
           // Aucune fiche n'est écrite (décompte des références « -refus- » plus bas).
           assert.equal(res.body.error, REFUS, `${famille} ${taux}`);
