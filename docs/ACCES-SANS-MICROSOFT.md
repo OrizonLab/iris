@@ -143,6 +143,8 @@ retrouve pas.
 | `chantiers:write`, `chantiers:archive` | aucune des 28 routes `/api/v1` actuelles n'exige ces scopes : la saisie, la correction et l'archivage des écritures d'un chantier ne se font qu'en session |
 | `finances:read` | ajoute les montants vendus et la marge aux chantiers, le coût matériel prévu d'un chantier, et le prix d'achat des fiches du catalogue, du modèle joint à un équipement du parc et des lignes de devis |
 
+Les valeurs numériques du catalogue (prix, stock, TVA) sont lues par une règle commune depuis le lot « saisies décimales » (#658, 22-11-2026) : la virgule décimale est admise, ainsi que les nombres JSON et le point, dans les bornes des colonnes. Sont refusés (400, rien n'est écrit) : la notation scientifique, une décimale ou un chiffre en trop, un booléen, un tableau, le signe « + », les notations hexadécimale, binaire et octale, un séparateur sans chiffre d'un côté (« .5 », « 5. ») et une durée indicative non entière. La TVA reste limitée aux taux français (0 %, 5,5 %, 10 % et 20 %) ; tout autre taux reçoit le message des taux admis. Détail : [historique](HISTORIQUE-DECISIONS.md#lot-du-22-11-2026-658).
+
 Donnez le minimum : un agent qui rédige des devis n'a pas besoin d'écrire dans le
 référentiel client.
 
