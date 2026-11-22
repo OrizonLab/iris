@@ -19,7 +19,8 @@
 # contrôles ») : une série complète coûte une cinquantaine de minutes facturables, presque toutes dans `parcours` et
 # `tests`. Les travaux lourds ne tournent donc pas :
 #   - pour une série qui ne porte que de la documentation (`docs/**`, fichiers `*.md`, `LICENSE`, hors client/src,
-#     client/public et server/prisma) ; les seuls tests qui lisent ces fichiers tournent alors dans `perimetre` ;
+#     client/public, server/prisma et deploy_guide.md, que lit un test qui exige PostgreSQL) ; les seuls tests qui
+#     lisent ces fichiers tournent alors dans `perimetre` ;
 #   - pour un push sur `main` dont l'arbre exact est attesté par la série réussie de la PR fusionnée (la fusion par
 #     commit de fusion d'une PR dont la base n'a pas bougé reproduit l'arbre testé, `refs/pull/N/merge`), sauf si
 #     le push touche `.github/**`.

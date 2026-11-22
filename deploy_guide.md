@@ -120,11 +120,11 @@ backend (`prisma migrate deploy`). Pour faire évoluer le schéma par la suite :
 
 Les données vivent dans le volume Docker `postgres_data` de `docker-compose.yml`, nommé `noxia-iris-chantier_postgres_data` par Docker sur une installation clonée dans le dossier `noxia-iris-chantier` (voir plus haut). Pour un export :
 
+La sauvegarde contient toute la base, dont des données personnelles (clients, contacts, comptes), les taux horaires et, en clair, le jeton du lien public du planning, qui ouvre le planning sans authentification. Avant la commande ci-dessous, taper `umask 077` dans le même terminal : le fichier ne sera lisible que par son propriétaire (ce réglage vaut pour tout ce que ce terminal crée ensuite, jusqu'à sa fermeture). Ranger les sauvegardes hors du dossier du dépôt. Leur conservation (durée, chiffrement, copie hors site) relève de la stratégie de sauvegarde, lot séparé non encore décidé ([passation](docs/ROADMAP-PASSATION.md), section 5).
+
 ```bash
 docker exec iris_db pg_dump -U iris iris > sauvegarde_$(date +%F).sql
 ```
-
-Ce fichier contient toute la base, dont des données personnelles (clients, contacts, comptes), les taux horaires et, en clair, le jeton du lien public du planning, qui ouvre le planning sans authentification. Avant la commande, taper `umask 077` dans le même terminal : le fichier ne sera lisible que par son propriétaire (ce réglage vaut pour tout ce que ce terminal crée ensuite, jusqu'à sa fermeture). Ranger les sauvegardes hors du dossier du dépôt. Leur conservation (durée, chiffrement, copie hors site) relève de la stratégie de sauvegarde, lot séparé non encore décidé ([passation](docs/ROADMAP-PASSATION.md), section 5).
 
 ### Restauration d'une sauvegarde
 
@@ -132,7 +132,7 @@ Ce fichier contient toute la base, dont des données personnelles (clients, cont
 
 **Règle : une sauvegarde complète se restaure toujours dans une base recréée vide, backend arrêté.** Ne jamais restaurer dans une base déjà migrée, pas même les seules données : elle contient déjà le compte système, les paramètres de rémunération et l'historique des migrations, que la sauvegarde contient aussi.
 
-**Factures émises après la sauvegarde.** Une sauvegarde antérieure à des factures émises ramènerait en arrière leur numérotation (`SequenceFacture`), alors que la numérotation des factures doit rester continue et chronologique. La conduite à tenir dans ce cas est une question ouverte pour Nelson : ne pas restaurer une telle sauvegarde sans sa décision (#642).
+**Factures et avoirs émis après la sauvegarde.** Une sauvegarde antérieure à des factures ou à des avoirs émis ramènerait en arrière leur numérotation (`SequenceFacture`, `SequenceAvoir`), alors que la numérotation des factures, comme celle des avoirs, doit rester continue et chronologique. La conduite à tenir dans ce cas est une question ouverte pour Nelson : ne pas restaurer une telle sauvegarde sans sa décision (question consignée dans la [passation](docs/ROADMAP-PASSATION.md), section 3).
 
 Pourquoi : dans une base déjà migrée, les déclencheurs existent avant les données, et chaque ligne chargée les rejoue.
 - Les huit journaux horodatés par la base (`JournalAdministration`, `JournalFacture`, `InterventionRapport`, `InterventionSignature`, `EnvoiDocument`, `JournalSaisieChantier`, `JournalCompteComptable`, `JournalRegleComptable`) prendraient l'instant de la restauration au lieu de leur date d'origine, tout comme la date d'acceptation des signatures.
@@ -150,7 +150,7 @@ Dans une base vide, les déclencheurs, les clés étrangères et les contraintes
    ```
 2. **Image d'Iris.** Restaurer avec une image d'Iris au moins aussi récente que la sauvegarde. Au redémarrage, le backend n'applique que les migrations plus récentes que celles de la sauvegarde ; une image plus ancienne n'en verrait aucune à appliquer, sans le signaler.
 3. **Arrêter le backend** : `docker compose stop backend`. Le frontend et la base restent démarrés. Pendant la restauration, ne lancer ni `docker compose up` ni un redémarrage de Docker : avec `restart: always`, le backend redémarrerait et migrerait la base vide. La restauration échouerait alors en entier, sans rien écrire : il faudrait arrêter de nouveau le backend, puis reprendre à l'étape 5, sans refaire l'étape 4. La copie de sécurité est déjà faite, et la base n'est plus celle d'origine : une nouvelle copie ne la contiendrait pas et, faite dans la même minute, écraserait la première, de même nom. Si un outil de sauvegarde planifiée atteint la base (pgBackWeb, par le réseau `backup-net`, par exemple), suspendre aussi ses sauvegardes planifiées jusqu'à la fin de l'étape 7 : lancée pendant les étapes 5 et 6, une sauvegarde enregistrerait une base vide, qui passerait pourtant le contrôle de l'étape 1, ou serait coupée par `dropdb --force`.
-4. **Sauvegarder d'abord la base actuelle**, sous un autre nom de fichier. La commande doit rendre 0 (`echo $?`), et le contrôle de l'étape 1, appliqué à ce fichier, doit afficher `1`. Sinon, la copie est incomplète : ne pas aller plus loin, la base actuelle n'étant pas encore touchée. Avec une copie complète, rien n'est perdu si la sauvegarde à restaurer se révèle mauvaise. Même précaution que pour la sauvegarde (`umask 077` dans ce terminal, copie rangée hors du dépôt). Ne pas supprimer cette copie : elle seule garde les écritures faites depuis la sauvegarde à restaurer, factures émises comprises ; sa conservation relève de la stratégie de sauvegarde, non encore décidée.
+4. **Sauvegarder d'abord la base actuelle**, sous un autre nom de fichier. La commande doit rendre 0 (`echo $?`), et le contrôle de l'étape 1, appliqué à ce fichier, doit afficher `1`. Sinon, la copie est incomplète : ne pas aller plus loin, la base actuelle n'étant pas encore touchée. Avec une copie complète, rien n'est perdu si la sauvegarde à restaurer se révèle mauvaise. Même précaution que pour la sauvegarde (`umask 077` dans ce terminal, copie rangée hors du dépôt). Ne pas supprimer cette copie : elle seule garde les écritures faites depuis la sauvegarde à restaurer, factures et avoirs émis compris ; sa conservation relève de la stratégie de sauvegarde, non encore décidée.
    ```bash
    docker exec iris_db pg_dump -U iris iris > avant_restauration_$(date +%F_%H%M).sql
    ```
