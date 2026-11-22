@@ -482,6 +482,7 @@ L'essentiel du socle technique est donc **vérifié**, et le socle légal ne l'e
 - **À valider.**
   - Autoliquidation de la sous-traitance du BTP (catégorie `AE`, mention et motif) : Q-06.
   - Arrondis : contrôles de l'EN16931 et tolérance EXTENDED-CTC-FR de 0,01 par ligne (feuille « BR EN16931 + EXT FR et FX »). À croiser avec les règles de calcul d'Iris.
+  - TVA différentielle d'un avoir partiel (#522) : elle s'écarte d'au plus 1 centime de `round(base × taux)`. Ce que l'audit des montants de #620 a vérifié sur le schematron EN16931 1.3.16 joint dans S1 : BR-CO-10 à 16 et BR-S-08 sont respectées ; BR-CO-17 et BR-S-09 admettent une tolérance de 1 unité ; les décimales respectent BR-FR-DEC ; BR-FR-16 accepte « 5.5 » et « 5.50 ». Exemple à 5,5 % : HT précédent 0,01 €, HT de l'avoir 0,09 €, TVA de l'avoir 0,01 € au lieu de 0,00 €. L'écart reste dans la tolérance : à confirmer par le test prévu dans FE-3 ; il ne change aucun montant d'Iris et ne vaut pas validation comptable (source : [#622](https://github.com/OrizonLab/iris/issues/622), audit des montants, N1).
 
 #### EX-19 : Socle de données EN16931 (profil EN16931, CIUS FR) et données transmises à l'administration (« 26 puis 34 données »)
 
@@ -1204,7 +1205,8 @@ Chaque question renvoie à sa source. Elles sont à poser au cabinet comptable o
 - **Q-08 : Montant du statut « Encaissée ».**
   - TTC encaissé (`MEN` : « Montant encaissé (TTC) ») ou « montant net » (règle P1.15) ?
   - Comment traiter l'escompte et les frais bancaires ?
-  - Sources : S2, feuille « CDV FE - CDAR » ; S3 §2.1.
+  - Après un avoir partiel, quelle forme d'« Encaissée » (S3 §2.6, étapes 6a et 6b) ?
+  - Sources : S2, feuille « CDV FE - CDAR » ; S3 §2.1 et §2.6.
 - **Q-09 : Catégorie d'entreprise et régime de TVA de la société pilote.** Ils fixent la date d'émission (01-09-2026 ou 01-09-2027) et la périodicité de l'e-reporting. Sources : S14, S17.
 - **Q-10 : Périodicité et délais de l'e-reporting par régime.**
   - Fréquence des données de paiement.

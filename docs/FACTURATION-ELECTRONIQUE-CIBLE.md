@@ -65,7 +65,7 @@ Les sites `www.impots.gouv.fr`, `www.legifrance.gouv.fr`, `www.economie.gouv.fr`
 
 Le socle technique est vérifié sur les annexes AFNOR V1.4 et l'OpenAPI XP Z12-013 1.3.0 publiées par le FNFE-MPE (S1). Le socle légal (CGI, décret 2026-677, arrêté du 27-07-2026, documents DGFiP) n'est **pas vérifié**.
 
-L'API GitHub n'était pas ouverte, dans cet environnement, pour les dépôts tiers. Les étiquettes de S1 et S6 ont été lues le 19-11-2026 par `git ls-remote` et par un `git fetch --depth 1` de l'étiquette, en lecture seule. Aucune étiquette plus récente que `v1.4.0.04` (S1) et `validation-1.3.17` (S6) n'existe à cette date ; `v1.4.0.04` est la tête du dépôt S1.
+L'API GitHub n'était pas ouverte, dans cet environnement, pour les dépôts tiers. Les étiquettes de S1 et S6 ont été lues le 19-11-2026 par `git ls-remote` et par un `git fetch --depth 1` de l'étiquette, en lecture seule. Le contenu de S1 (annexes, schematrons, XSD) a été lu dans un clone complet du dépôt, comme le dit l'annexe (« Vérifiée (clone complet) ») : ce sont deux lectures distinctes, l'une des étiquettes (`git ls-remote`, `git fetch --depth 1`), l'autre du contenu (clone complet). Aucune étiquette plus récente que `v1.4.0.04` (S1) et `validation-1.3.17` (S6) n'existe à cette date ; `v1.4.0.04` est la tête du dépôt S1.
 
 ### 2.3 Textes à lire dès que l'accès sera ouvert
 
@@ -178,7 +178,7 @@ Conservation des fichiers émis et reçus, statuts et preuves                (FE
 - Une ligne par exigence, EX-01 à EX-52, dans la numérotation de l'[inventaire réglementaire](FACTURATION-ELECTRONIQUE-EXIGENCES.md), où chacune est détaillée avec ses extraits. L'énoncé y est condensé.
 - **Source** : identifiant du registre (section 2.1), qui donne le document et la version, puis la section ou la règle.
 - **Vérif.** : V, P ou NV (section 2.1).
-- **État actuel** : chemins relatifs à `server/src/domaines/`, sauf `schema.prisma` (`server/prisma/schema.prisma`), `commun/…` (`server/src/commun/…`) et `mig <dossier>` (`server/prisma/migrations/<dossier>/migration.sql`). Lignes relues sur `1803612`.
+- **État actuel** : chemins relatifs à `server/src/domaines/`, sauf `schema.prisma` (`server/prisma/schema.prisma`), `commun/…` (`server/src/commun/…`) et `mig <dossier>` (`server/prisma/migrations/<dossier>/migration.sql`). Lignes relues sur `1803612`. Les références `schema.prisma:…` sont à relire au cadrage de chaque lot : sur `main`, le fichier est décalé de 2 lignes après la ligne 250 depuis #617 (#582), sans que ces références soient toutes recalées ici (remarque de l'audit des montants de #620, [#622](https://github.com/OrizonLab/iris/issues/622)).
 - **Test existant** : dans `server/tests/` (`.mjs`) ou `client/tests/e2e/` (`.spec.ts`). Il prouve l'état actuel, pas la conformité.
 - **Écart** : total, partiel, aucun ou sans objet.
 - **Classement** : Obl. (obligatoire), Rec. (recommandé), Conf. (confort). Une exigence obligatoire non respectée par le lot qui la couvre est une remarque R de son audit.
@@ -322,16 +322,22 @@ Ces choix par défaut, simplifications ou cas ignorés heurtent une exigence obl
 | 18 | Factures fournisseurs : numéro libre, hors taxe seul ; fournisseur sans SIREN | Réception, rattachement par SIREN | EX-35, EX-36 | FE-9 (N-11) |
 | 19 | Polices non incorporées, texte WinAnsi (`documents/gabarit.ts:66-82`) | Un PDF/A-3 incorpore ses polices (S12, non lue) | EX-06 | FE-3 |
 
-**Issues `suivi-audit` liées.**
+**Issues liées** (toutes `suivi-audit`, sauf #35, qui n'a pas l'étiquette).
 
 | Issue | Objet | Lot |
 |---|---|---|
-| #35 | Export comptable sans période ni journal ; journal des factures sans avant ni après | FE-10 pour la piste d'audit ; l'export reste à #35 |
+| #35 | Export comptable sans période ni journal ; journal des factures sans avant ni après (issue ouverte, **sans l'étiquette `suivi-audit`** : fiche de reste à faire et de dette relevée avant la mise en service) | FE-10 pour la piste d'audit ; l'export reste à #35 |
 | #243 | Cohérence interne des pièces émises non garantie en base | Préalable utile à FE-2 : le modèle canonique suppose des totaux cohérents |
 | #247 | Double clic sur « Créer l'avoir partiel » : deux avoirs émis et numérotés | Correctif propre à Iris, au plus tard avec FE-5 : garde du formulaire et clé d'idempotence côté serveur (correctif proposé par l'issue). Le `trackingId` de FE-5 ne dédoublonne qu'un même dépôt : deux avoirs distincts seraient déposés tous deux |
 | #352 | Brouillon bloqué par la chronologie | FE-6 (date de la nouvelle facture) |
 | #536 | N3 : preuve d'envoi non reproductible | FE-5 |
 | #540 | N7 : devis `A26-0001` et avoir `A2026-0001` | FE-1 (préfixes ; Q-20) |
+| #305 | Gabarit PDF : coupures sur espaces insécables, caractères de mise en forme, attente des tests de verrou | FE-3 : le PDF/A-3 embarque le PDF du gabarit commun (ligne 19 de la section 6) ; à relire à son cadrage |
+| #308 | PDF : tester l'en-tête et le pied de page avec des caractères hors WinAnsi | FE-3 : texte WinAnsi et polices (ligne 19 de la section 6) ; à relire à son cadrage |
+| #411 | Envoi par Microsoft 365 (6b-1b) : tests et notes non bloquants des audits de #410 | FE-3 : à relire à son cadrage pour celles de ses notes qui touchent le PDF envoyé ; le reste suit son issue |
+| #588 | Messages du serveur : taux de TVA écrits au point et clés techniques brutes (« 5.5 % », « TVA:5.5, VENTE_ARTICLE ») | FE-3 : écriture des taux (« 5.5 % » au point, selon l'issue ; BR-FR-16 accepte « 5.5 » et « 5.50 » dans le fichier structuré, EX-18) ; à relire à son cadrage |
+| #526 | Suivi d'audit de #524 : verrou de la garde différée, test de migration fragile, avoir de 0,00 € | FE-6 : sa remarque sur l'avoir de 0,00 € touche N-05 et Q-25 ; le reste suit son issue |
+| #531 | Suivi d'audit de #530 (pas d'avoir à 0,00 €) : notes non bloquantes | FE-6 : **fermée** par #636 (20-11-2026) ; le lot en relit ce qui touche l'avoir à 0,00 € (N-05, Q-25) |
 | #154 | Double saisie probable d'un règlement | FE-7 : un doublon fausserait « Encaissée » |
 | #156 | Règle du surplus (trop-perçu) connue du formulaire | FE-7 : montant d'Encaissée d'un trop-perçu (N-17, Q-08) |
 
@@ -372,6 +378,8 @@ Invariants : continuité et chronologie de la numérotation, immutabilité des d
 | 11. Règlement reçu sur une facture rejetée ou refusée | Aucun statut obligatoire, donc aucune Encaissée, ne suit « Rejetée » ou « Refusée » (S3 §2.5) | Parts de règlement immuables, retirées par contre-passation seule (`reglements/routes.ts:131-163`) ; un règlement ne précède pas l'émission de la facture qu'il règle (`reglements/routes.ts:91`) | **Conflit** : l'encaissement ne se reporte pas sur la nouvelle facture à sa date réelle, et le contre-passer pour permettre l'annulation fausserait l'encaissé (N-06, Q-08) |
 | 12. Avoirs partiels déjà transmis d'une facture ensuite refusée | Flux 1 de la facture refusée ignoré pour le pré-remplissage (S3 §2.5) | Avoirs partiels émis et figés, chacun déposé avec son flux 1 (FE-5) | **Question** : leur flux 1 compte-t-il encore pour le pré-remplissage de TVA ? (N-06, Q-03) |
 
+**Export comptable** (note de l'audit des montants de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N5) : compatible. Un avoir interne entre au journal des ventes comme tout avoir émis, qui reprend les comptes et le journal de sa facture d'origine (`comptabilite/metier.ts:23`) ; cela ne vaut plus si le cabinet répond « non émise » à Q-01 (voir le point 1).
+
 Questions posées : N-03 à N-07 pour Nelson ; Q-01 à Q-03, Q-08, Q-20 et Q-25 pour le cabinet.
 
 ## 8. Découpage en lots
@@ -390,9 +398,9 @@ Questions posées : N-03 à N-07 pour Nelson ; Q-01 à Q-03, Q-08, Q-20 et Q-25 
 | FE-6 | Correction après rejet ou refus | FE-5 ; N-03 à N-07 ; Q-01 à Q-03 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-7 | Encaissée et données de paiement | FE-5 ; N-06, N-13, N-17 ; Q-05 à Q-08 | `auditeur-montants`, `auditeur-droits-securite` |
 | FE-8 | E-reporting | FE-7 ; Q-05, Q-09, Q-10 | `auditeur-montants`, `auditeur-droits-securite` |
-| FE-9 | Boîte de réception et statuts acheteur | FE-1, FE-4 ; N-11 | `auditeur-droits-securite` |
+| FE-9 | Boîte de réception et statuts acheteur | FE-1, FE-4 ; N-11 | `auditeur-droits-securite` ; `auditeur-montants` (montants reçus, choix par défaut, à confirmer) |
 | FE-10 | Conservation et restitution | FE-5, FE-9 ; Q-11, Q-12 ; N-16 | `auditeur-montants` (factures et avoirs figés), `auditeur-droits-securite` |
-| FE-11 | Clients publics, si N-10 le demande | FE-5 | `auditeur-droits-securite` |
+| FE-11 | Clients publics, si N-10 le demande | FE-5 | `auditeur-droits-securite` ; `auditeur-montants` (données des factures publiques, choix par défaut, à confirmer) |
 | FE-12 | Facture d'acompte et facture définitive après acompte, obligatoire si Q-21 le confirme | FE-7 ; Q-07, Q-21 ; N-12 | `auditeur-montants`, `auditeur-droits-securite` |
 
 Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon le circuit de `CLAUDE.md`.
@@ -405,6 +413,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Validateurs officiels.** « Pour les schematrons, validateurs officiels dans un conteneur de CI plutôt que saxon-js » : une image de conteneur porte les artefacts aux versions de S1 et S6.
 - **Audits.** « auditeur-montants et auditeur-droits-securite sur chaque lot concerné » (section 8.1).
 - **Dernières versions.** « vérifie la dernière version avant de coder » (cadrage, rubrique « RÉFÉRENCES ») : chaque lot de code vérifie, avant de coder, la dernière version des sources qu'il applique (section 2.1) et cite dans sa PR la version retenue.
+- **Règles du circuit pour les montants** (rappel de `CLAUDE.md`, remarque de l'audit des montants de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N3) : les tests de montants sont éprouvés par mutants ; une fusion ne vaut pas validation comptable ; la validation du cabinet et de Nelson précède la mise en service. L'`auditeur-montants` sur FE-1 est fait par #620.
 - **Règle R.** Une exigence obligatoire de la matrice que le lot devait couvrir et laisse non respectée est une remarque R.
 - **Règle 4 de la méthode.** Aucune donnée réelle n'existe : aucun lot ne migre de données existantes. Les colonnes nouvelles sont vides ou prennent la valeur du comportement actuel.
 
@@ -456,8 +465,11 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
   - Modèle canonique EN16931 par une fonction pure ; contrôle des données obligatoires avant le numéro.
 - **Hors périmètre** : les fichiers XML et PDF (FE-3) ; la facture d'acompte (FE-12).
 - **Exigences** : EX-10, 11, 12, 15, 16, 17, 18, 19, 21.
-- **Paramètres** : contenu des notes `PMT`, `PMD`, `AAB` : aucune valeur par défaut, saisie obligatoire (Q-23) ; correspondance des unités : règle du format, dans le code ; une unité sans correspondance bloque l'émission électronique.
+- **Paramètres** : contenu des notes `PMT`, `PMD`, `AAB` : aucune valeur par défaut, saisie obligatoire (Q-23) ; une unité sans correspondance bloque l'émission électronique.
+  - **Correspondance des unités** (note du contrôle de cohérence de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N10) : le code UN/ECE Rec. 20 est une règle du format, mais la liste des unités ne peut pas être figée « dans le code » : aujourd'hui libres (B-50 de l'[inventaire du paramétrage](PARAMETRAGE-INVENTAIRE.md)), elles seront tenues par la société dès le lot P3 ([paramétrage cible](PARAMETRAGE-CIBLE.md), section 5). La correspondance entre une unité de la société et son code ne peut donc pas être une table écrite dans le code ; où elle se tient reste à trancher au cadrage de FE-2, selon la règle permanente 1 (un paramètre plutôt qu'une constante).
+  - **Catégorie d'opération « par article »** : la liste de contrôle de FE-DOC la dit « par article » ; la proposition la déduit de la nature de chaque ligne (`PRESTATION` ou `ARTICLE`, B-48 du paramétrage cible, tenue par la société dès le lot P3) et non d'une fiche du catalogue. Une catégorie portée par chaque fiche changerait le modèle de données : question pour Nelson posée au cadrage de FE-2 ([liste de contrôle du déploiement, section 4.6](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#46-catégorie-dopération-par-article)).
 - **Variables d'environnement** : aucune.
+- **Ventilation de la TVA** (note de l'audit des montants de #620, #622, N2) : la ventilation de TVA d'une facture est aujourd'hui unique par taux (`FactureVentilationTva`, `@@unique([factureId, tauxTva])` dans `schema.prisma`). Si la réponse à Q-22 donne deux catégories à 0 % sur une même facture, chaque ventilation (BG-23) doit porter une catégorie et un taux : l'unicité par taux ne suffirait plus. Le lot le tranche à son cadrage ; aucune solution n'est choisie ici.
 - **Critères** : une facture émise porte toutes les données obligatoires de la CIUS française ; une ligne à 0 % sans catégorie est refusée avant le numéro ; aucun montant ne change.
 - **Tests** : API sur PostgreSQL (copies figées, refus avant numéro, montants inchangés) ; tests unitaires du modèle canonique ; Playwright du brouillon.
 - **Auditeurs** : `auditeur-montants`, `auditeur-droits-securite`.
@@ -475,7 +487,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Paramètres** : format transmis, Factur-X par défaut (choix par défaut, à confirmer).
 - **Variables d'environnement** : selon N-15, l'adresse du service de validation (nom proposé : `EFACTURE_VALIDATEUR_URL`), à documenter dans ce lot.
 - **Critères** : chaque facture et chaque avoir des tests passent les validateurs officiels ; une pièce invalide n'est pas émise et ne consomme pas de numéro.
-- **Tests** : job de CI dédié ; API sur PostgreSQL (refus avant numéro, rollback de la séquence) ; tests de non-régression du PDF.
+- **Tests** : job de CI dédié ; API sur PostgreSQL (refus avant numéro, rollback de la séquence) ; tests de non-régression du PDF ; test de la TVA différentielle d'un avoir partiel (#522), qui s'écarte d'au plus 1 centime de `round(base × taux)`, dans la tolérance de BR-CO-17 et BR-S-09 (annexe, EX-18, « À valider »).
 - **Auditeurs** : `auditeur-montants` (montants du fichier), `auditeur-droits-securite` (dépendances).
 
 #### FE-4 : connecteur PA, annuaire et contrôle de compatibilité
@@ -512,11 +524,14 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Variables d'environnement** : celles de FE-4.
 - **Critères** : une facture émise vers un client B2B France arrive au statut Déposée sur le faux serveur ; un rejet et un refus s'affichent avec leur motif ; le fichier transmis se retélécharge à l'identique.
 - **Tests** : API sur PostgreSQL et Playwright des parcours rejet et refus (détection et alerte) ; immutabilité du journal en base.
+- **Contrôle de compatibilité** : étend `npm run efacture:verifier` (section 8.4, [#622](https://github.com/OrizonLab/iris/issues/622), N4) : le dépôt jusqu'au statut Déposée.
+- **Modèle de données** (note de #624, [#622](https://github.com/OrizonLab/iris/issues/622), N-v3-1) : l'environnement (bac à sable ou production) où a eu lieu chaque transmission et chaque statut est gardé avec eux ; **modèle de données de FE-5, à confirmer par Nelson** au cadrage du lot (le point 11 de la [section 8 du document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#8-choix-par-défaut-de-ce-document-à-confirmer) le précise aussi). Rien n'est tranché ici.
 - **Auditeurs** : `auditeur-montants`, `auditeur-droits-securite`.
 
 #### FE-6 : correction après rejet ou refus
 
 - **Périmètre** : selon les réponses à N-03 à N-07 et à Q-01 à Q-03 : avoir interne `ARCHIVEONLY`, nouvelle facture, contestation, renvoi d'un fichier irrecevable.
+- **Contrôles d'un avoir interne** (note de l'audit des montants de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N6) : un avoir interne `ARCHIVEONLY` passe les schematrons, mais ni l'annuaire ni le dépôt à la PA ; sinon une facture rejetée pour son adresse électronique ne pourrait pas s'annuler. Ce que le cycle décidé (N-03, Q-01) fait de plus reste à trancher ; rien n'est décidé ici.
 - **Hors périmètre** : la facture rectificative 384, sauf réponse contraire.
 - **Exigences** : EX-03, 21, 26, 29.
 - **Paramètres** : aucun sans décision.
@@ -536,6 +551,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Paramètres** : aucun ; la règle d'exigibilité reste dans le code, avec sa source (Q-06 à Q-08).
 - **Critères** : un règlement partiel puis total produisent les statuts attendus ; une contre-passation produit un statut négatif ; une facture soldée par avoirs, sans règlement, ne produit aucun montant encaissé ; trop-perçu, avoir après règlement, facture de cadre M et règlement d'une facture refusée suivent les réponses à N-06, N-17 et Q-08, sans règle inventée.
 - **Tests** : parcours encaissement sur PostgreSQL et dans le navigateur.
+- **Contrôle de compatibilité** : étend `npm run efacture:verifier` (section 8.4, [#622](https://github.com/OrizonLab/iris/issues/622), N4) : l'envoi du statut « Encaissée » (statuts envoyés).
 - **Auditeurs** : `auditeur-montants`, `auditeur-droits-securite`.
 
 #### FE-8 : e-reporting
@@ -546,6 +562,8 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Paramètres** : régime de TVA (FE-1) ; la périodicité de chaque régime reste dans le code, avec sa source, après Q-10.
 - **Critères** : un e-reporting test est accepté par le bac à sable ; une correction produit une transmission rectificative.
 - **Tests** : API sur PostgreSQL ; validation XSD et schematron du flux 10 (S1, `Flux10/`).
+- **Contrôle de compatibilité** : étend `npm run efacture:verifier` (section 8.4, [#622](https://github.com/OrizonLab/iris/issues/622), N4) : l'e-reporting test.
+- **Question ouverte, sans identifiant, au cadrage de FE-8** (note de l'audit des montants de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N7) : quel signe porte, dans le flux 10.3 (agrégé B2C), un avoir d'un client particulier ? Iris n'a aucun montant négatif : ses avoirs sont positifs, avec leur type 381. Les documents du dépôt ne le disent pas : l'annexe liste les données de 10.3 (TT-77 à TT-88, EX-39) sans règle de signe, et ne cite un montant négatif que pour « Encaissée » (EX-30) et pour une annulation en 10.4 (EX-42). La source à lire est la feuille « E-REPORTING - Flux 10 » de S2 (et le schematron de `Flux10/`, S1), à relire au cadrage ; **aucune réponse n'est présumée**. Si la source ne la tranche pas, la question serait portée au cabinet par Nelson (section 11.2).
 - **Auditeurs** : `auditeur-montants`, `auditeur-droits-securite`.
 
 #### FE-9 : boîte de réception et statuts acheteur
@@ -554,9 +572,10 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 - **Exigences** : EX-01, 24, 25, 27, 28, 32, 35, 36, 37, 46.
 - **Paramètres** : qui approuve ou refuse : droits nouveaux, réservés à l'administration par défaut (choix par défaut, à confirmer ; règle 5 de la méthode).
 - **Variables d'environnement** : celles de FE-4.
-- **Critères** : une facture test déposée sur le bac à sable apparaît une fois dans Iris, avec son original et son lisible ; un refus exige un motif de la liste officielle.
-- **Tests** : parcours réception sur PostgreSQL et dans le navigateur ; dédoublonnage ; droits.
-- **Auditeur** : `auditeur-droits-securite`.
+- **Critères** : une facture test déposée sur le bac à sable apparaît une fois dans Iris, avec son original et son lisible ; un refus exige un motif de la liste officielle ; chaque statut acheteur posé (Prise en charge, Approuvée, En litige, Refusée) est inscrit dans un journal horodaté et immuable (note du contrôle de cohérence de #620, [#622](https://github.com/OrizonLab/iris/issues/622), N12).
+- **Tests** : parcours réception sur PostgreSQL et dans le navigateur ; dédoublonnage ; droits ; journal des statuts acheteur en ajout seul, horodaté par la base.
+- **Contrôle de compatibilité** : étend `npm run efacture:verifier` (section 8.4, [#622](https://github.com/OrizonLab/iris/issues/622), N4) : la facture test reçue et les statuts envoyés.
+- **Auditeurs** : `auditeur-droits-securite` ; `auditeur-montants` pour les montants des factures reçues (note #622, N14 ; choix par défaut, à confirmer).
 
 #### FE-10 : conservation et restitution
 
@@ -569,7 +588,7 @@ Le `controleur-coherence` passe avant chaque lot et avant chaque fusion, selon l
 
 #### FE-11 et FE-12 : lots conditionnels
 
-- **FE-11, clients publics** (si N-10) : Chorus Pro ou PA, règles BR-FR-CPRO, engagement juridique et code service (EX-04).
+- **FE-11, clients publics** (si N-10) : Chorus Pro ou PA, règles BR-FR-CPRO, engagement juridique et code service (EX-04). Auditeurs : `auditeur-droits-securite` ; `auditeur-montants` pour les données des factures publiques (note #622, N14 ; choix par défaut, à confirmer).
 - **FE-12, facture d'acompte** (obligatoire si le cabinet confirme qu'une facture d'acompte est due, Q-21 ; sa place relève de N-12) : types 386 et 503, facture définitive de cadre 4 qui reprend l'acompte (ligne de reprise ou montant déjà payé BT-113, selon N-12), Encaissée de l'acompte, due « même avec option sur les débits » (S3 §3.2.19) (EX-20, EX-22, EX-30 ; Q-07, Q-21).
 
 ### 8.4 Ordre et faisabilité de la recette
@@ -648,10 +667,12 @@ Métier, périmètre, modèle de données et montants. Chaque question cite sa s
 | N-14 | Canal B2B France : la PA dès l'activation du connecteur, ou le courriel jusqu'à la date d'obligation ? Après cette date, refuser d'émettre une facture B2B France sans connecteur actif ? | Cadrage ; EX-01 | Conformité de l'émission ; blocage possible |
 | N-15 | Validation hors CI : un service de validation en conteneur, déployé avec Iris (choix proposé), saxon-js dans le processus, ou autre ? Iris refuse-t-il d'émettre si le service ne répond pas ? | Cadrage (« plutôt que saxon-js ») ; EX-07 | Architecture du déploiement |
 | N-16 | Lieu de conservation des fichiers : base, stockage de l'instance, PA ? Sauvegarde ? | Cadrage (« durée et lieu ») ; EX-46 | Architecture ; FE-10 |
-| N-17 | Montant et répartition par taux d'Encaissée, aucune règle n'étant inventée (à valider avec le cabinet, Q-08) : règlement partiel d'une facture à plusieurs taux, ou qui porte des avoirs partiels (S3 §2.6 : « Encaissée » sur la facture pour sa totalité et sur l'avoir en négatif, « Fortement Recommandé », ou « Encaissée » partiel de la facture seule ; même alternative pour l'e-reporting des encaissements, S3 cas n°43) ; part d'un règlement au-delà du reste dû, qui devient un trop-perçu (règles de montants du 17-10-2026 ; #156) ; avoir émis après un règlement, qui crée un trop-perçu ; facture de cadre M, les données de paiement ne visant que les prestations de services (S3 cas n°31 ; Q-05). | S2 BR-FR-CDV-14, G7.45 ; S3 §2.1, §2.6, cas n°31, 43 | Montants |
+| N-17 | Montant et répartition par taux d'Encaissée, aucune règle n'étant inventée (à valider avec le cabinet, Q-08) : règlement partiel d'une facture à plusieurs taux, ou qui porte des avoirs partiels (S3 §2.6 : « Encaissée » sur la facture pour sa totalité et sur l'avoir en négatif, « Fortement Recommandé », ou « Encaissée » partiel de la facture seule ; même alternative pour l'e-reporting des encaissements des ventes B2B internationales, S3 cas n°43, §3.2.42.4) ; part d'un règlement au-delà du reste dû, qui devient un trop-perçu (règles de montants du 17-10-2026 ; #156) ; avoir émis après un règlement, qui crée un trop-perçu ; facture de cadre M, les données de paiement ne visant que les prestations de services (S3 cas n°31 ; Q-05). | S2 BR-FR-CDV-14, G7.45 ; S3 §2.1, §2.6, cas n°31, 43 (§3.2.42.4, relevé par le contrôle de cohérence de #620 dans [#622](https://github.com/OrizonLab/iris/issues/622) ; non relu dans S3 pour cette PR) | Montants |
 | N-PA-1 | Qui conclut le contrat avec la PA : la société de l'installation, en son nom, ou vous, pour son compte ? Pour le pilote, qui le signe ? **Répondue le 20-11-2026** : « la societé normalement » (lecture retenue : la société signe, c'est l'usage (non vérifié) ; le point juridique reste non vérifié, EX-49 ; à corriger par Nelson si besoin ; [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique)). | Cadrage (« PA choisie et contrat signé ») ; EX-49 (accord formel signé par l'assujetti ou son mandataire, non vérifié) ; [connexion à une PA, section 6](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles) (née de #624) | Contrat ; changement de PA |
 
 ### 11.2 Pour le cabinet
+
+Ces questions passent par Nelson, qui les porte au cabinet : « En cas d'ambiguïté, pose-moi la question : je la porte au cabinet » (cadrage du 19-11-2026, cité en section 1).
 
 Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les questions de cabinet restées dans le [paramétrage cible](PARAMETRAGE-CIBLE.md) (section 3.4) et celles nées de l'audit. Les doublons sont fusionnés : les mentions de la facturation électronique relèvent de Q-04 et Q-14, la conservation et la piste d'audit de Q-11 et Q-12. Q-PA-1 à Q-PA-3, nées de FE-DOC (PR a, #624), sont reportées à la suite de Q-25 avec leur identifiant, numéroté à part.
 
@@ -664,7 +685,7 @@ Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les q
 | Q-05 | Catégorie d'opération (B, S, M) des interventions SAV et de maintenance (pièces et main-d'œuvre, forfait, dépannage) et des travaux immobiliers ; opération principale et accessoire | S3 cas n°31 ; S2 BR-FR-08 | BT-23 ; FE-2 |
 | Q-06 | Travaux immobiliers et sous-traitance du BTP : TVA à l'encaissement, Encaissée à chaque règlement, retenue de garantie ; option pour les débits ; autoliquidation (`AE`, mention, cadre S5) | S3 §2.1, cas n°13, 14, 34 ; S2 BR-FR-08, 15 | FE-2, FE-7 |
 | Q-07 | Acomptes sur livraisons de biens : statut Encaissée obligatoire ? | S3 §2.1 et §3.2.19 ; S18 | FE-7, FE-12 |
-| Q-08 | Montant d'Encaissée : TTC (`MEN`) ou net (P1.15) ? Escompte, frais bancaires, répartition par taux, forme après un avoir partiel (S3 §2.6), trop-perçu, avoir après règlement, facture de cadre M, règlement d'une facture ensuite refusée (N-06, N-17) | S2 « CDV FE - CDAR » ; S3 §2.1, §2.5, §2.6, cas n°31 | Montants ; FE-7 |
+| Q-08 | Montant d'Encaissée : TTC (`MEN`) ou net (P1.15) ? Escompte, frais bancaires, répartition par taux, forme après un avoir partiel (S3 §2.6 : l'alternative vaut-elle pour tout avoir partiel, et, pour l'e-reporting des encaissements des ventes B2B internationales, S3 cas n°43, §3.2.42.4 ?), trop-perçu, avoir après règlement, facture de cadre M, règlement d'une facture ensuite refusée (N-06, N-17) | S2 « CDV FE - CDAR » ; S3 §2.1, §2.5, §2.6, cas n°31, 43 | Montants ; FE-7 |
 | Q-09 | Catégorie et régime de TVA de la société pilote : date d'émission et périodicité de l'e-reporting | S14, S17 | Calendrier |
 | Q-10 | Périodicité et délais de l'e-reporting par régime ; données de paiement ; régime simplifié | S17, S18 | FE-8 |
 | Q-11 | Conservation : durée, point de départ, détenteur (PA ou société), format, intégrité | S19, S14 | FE-10 |
@@ -688,7 +709,7 @@ Q-01 à Q-19 reprennent l'inventaire réglementaire. Q-20 à Q-25 ajoutent les q
 
 ## 12. Points documentaires
 
-Les 27 points de l'inventaire documentaire du lot 0, et leur traitement. Les points 5, 6, 8, 10, 20 et 24 sont faits par #626, la PR documentaire des points du lot 0 (19-11-2026, [historique](HISTORIQUE-DECISIONS.md#points-documentaires-du-lot-0-19-11-2026)) ; ailleurs, « cette PR » désigne la PR du lot 0 (#620). Tout ce que ces points décrivent de la facturation électronique reste **prévu**.
+Les 27 points de l'inventaire documentaire du lot 0, et leur traitement. Les points 5, 6, 8, 10, 20 et 24 sont faits par #626, la PR documentaire des points du lot 0 (19-11-2026, [historique](HISTORIQUE-DECISIONS.md#points-documentaires-du-lot-0-19-11-2026)) ; ailleurs, « cette PR » désigne la PR du lot 0 (#620). Les points 9, 15, 18 et 19 sont complétés le 22-11-2026 par la PR documentaire des compléments (#622, #627 ; [#627](https://github.com/OrizonLab/iris/issues/627), N1). Tout ce que ces points décrivent de la facturation électronique reste **prévu**.
 
 | # | Point | Traitement |
 |---|---|---|
@@ -700,17 +721,17 @@ Les 27 points de l'inventaire documentaire du lot 0, et leur traitement. Les poi
 | 6 | Paramétrage cible et inventaire : relier A2 à la décision du 19-11-2026 | **Fait** (#626) : note datée dans chacun des deux documents |
 | 7 | Vision : « échue », « partiellement réglée », « réglée » et « encaissée » | FE-7 |
 | 8 | Paramétrage cible et inventaire : constats périmés depuis #217 et #300 | **Fait** (#626) : note datée dans chacun des deux documents (hors facturation électronique) |
-| 9 | README, phase 8 | PR documentaire après la fusion |
+| 9 | README, phase 8 | **Porteur : Claude Code** (note de #627, N1) : `README.md` n'est pas dans `docs/`, que la PR documentaire est seule à écrire ; #625 et #626 l'excluaient. La ligne de la phase 8, avec #520, #524, #530, #534, #568 et #573 et leur statut, est écrite par Claude Code dans la PR documentaire des compléments (#622, #627) |
 | 10 | `MODELE-DONNEES-CIBLE.md` : « transition manuelle actuelle « Réglée » » | **Fait** (#626) : phrase corrigée, avec ses sources |
 | 11 | Issues #526 et #35 à mettre à jour | Commentaires d'état par Claude Code, hors de cette PR |
 | 12 | Intégration : données structurées incomplètes | Cette PR, par renvoi à la section 5 |
 | 13 | Intégration : état de chaque point de l'architecture | Cette PR |
 | 14 | Réception à décrire ; PA de réception de la société pilote | Cette PR (intégration, sections 3 et 10 ; N-01) |
-| 15 | E-reporting dans l'intégration et la passation | Intégration : cette PR. Passation : après la fusion |
+| 15 | E-reporting dans l'intégration et la passation | Intégration : cette PR. Passation : **fait**, dans la [passation](ROADMAP-PASSATION.md#1-état-actuel-par-domaine) (section 1, ligne « Absent : facturation électronique ») et dans la [section 2](ROADMAP-PASSATION.md#2-pilote) (bloc « Facturation électronique (A2) ») ; relevé le 22-11-2026 (#627, N1) |
 | 16 | Clients publics absents des documents | Cette PR (N-10) |
 | 17 | Facture d'acompte | Cette PR (N-12, Q-21) |
-| 18 | Passation, section 3 : questions de cabinet | Cette PR (section 11.2) ; passation après la fusion |
-| 19 | Passation, section 3 : rejet et refus ; facture à 0,00 € refusée | Cette PR (section 7) ; passation après la fusion |
+| 18 | Passation, section 3 : questions de cabinet | Cette PR (section 11.2). Passation : **fait**, la [section 3](ROADMAP-PASSATION.md#3-questions-ouvertes-pour-nelson) renvoie aux questions de cabinet (Q-01 à Q-25, que Nelson porte) sans les recopier ; relevé le 22-11-2026 (#627, N1) |
+| 19 | Passation, section 3 : rejet et refus ; facture à 0,00 € refusée | Cette PR (section 7). Passation : **fait**, la [section 3](ROADMAP-PASSATION.md#3-questions-ouvertes-pour-nelson) renvoie à la section 7 de la proposition (N-03 à N-17) et la section 4 porte le bloc « Pas d'avoir à 0,00 € (#530) » (N-05) ; relevé le 22-11-2026 (#627, N1) |
 | 20 | Passation, section 4 : compatibilité des choix « forts » | Section 6 : #620. Passation : **fait** (#626), une ligne « Facturation électronique » par bloc concerné |
 | 21 | Paramétrage cible, décision 1 : état et lot | FE-1 |
 | 22 | Droits cible : permissions du connecteur et de la réception | FE-4, FE-9, avec les lots de droits |
@@ -732,3 +753,5 @@ Les 27 points de l'inventaire documentaire du lot 0, et leur traitement. Les poi
 8. Droits : transmission et lecture des statuts comme l'émission et la consultation actuelles ; réception réservée à l'administration.
 9. Noms des variables d'environnement proposés en 8.3, documentés par le lot qui les lit.
 10. FE-DOC en deux PR, la première juste après FE-0.
+11. `auditeur-montants` prévu pour FE-9 (montants des factures reçues) et FE-11 (données des factures publiques), en plus de l'`auditeur-droits-securite` (section 8.1 ; #622, N14).
+12. Les compléments des fiches versés le 22-11-2026 par la PR documentaire des compléments (#622, #627) sont des mentions, des rappels et des questions : aucun ne crée une exigence ni ne tranche une question ouverte.
