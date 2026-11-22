@@ -159,7 +159,7 @@ GET /api/fournisseurs requireAuth#07b983da0ce5 > <anonymous>#333722666a1a
 POST /api/fournisseurs requireAuth#07b983da0ce5 > blockCommercialEtAssimiles#342378890e96 > blockTechnicien#2b927a462cc3 > <anonymous>#8f0805860ba0
 PUT /api/fournisseurs/:id requireAuth#07b983da0ce5 > blockCommercialEtAssimiles#342378890e96 > blockTechnicien#2b927a462cc3 > <anonymous>#8ab476918808
 DELETE /api/fournisseurs/:id requireAuth#07b983da0ce5 > blockCommercialEtAssimiles#342378890e96 > blockTechnicien#2b927a462cc3 > <anonymous>#3fb4b54184ca
-POST /api/achats requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#ea877e493e1f
+POST /api/achats requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#e9384a335a4c
 PATCH /api/achats/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#a76e6da95b42
 DELETE /api/achats/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#65ae2c815cd1
 POST /api/achats/:id/restaurer requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#b547de0cd48d
@@ -167,7 +167,7 @@ GET /api/achats requireAuth#07b983da0ce5 > listerAchats#57fd2968acbb
 GET /api/v1/achats <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerAchats#57fd2968acbb
 GET /api/heures requireAuth#07b983da0ce5 > listerHeures#b6716193be5c
 GET /api/v1/heures <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerHeures#b6716193be5c
-POST /api/heures requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#4e613df2e04e
+POST /api/heures requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#eb562afa2a81
 PATCH /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#f7414586d918
 DELETE /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#a964dff53d9c
 POST /api/heures/:id/restaurer requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#bc81f9477fc9

@@ -4,6 +4,7 @@ import { isAdminRole, roleDuCompte, useCurrentUser } from '../roles';
 import { useCompanyTimezone, useFuseauSocieteConnu } from '../companyTimezoneContext';
 import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { fmtEuro } from '../lib/formats';
+import { MOTIF_PRIX_DEVIS, TITRE_PRIX_DEVIS } from '../lib/catalogueDevis';
 
 const Achats = () => {
   const companyTimezone = useCompanyTimezone();
@@ -13,6 +14,7 @@ const Achats = () => {
   const [chantiers, setChantiers] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
+  const [erreur, setErreur] = useState('');
 
   // Rôle réel, relu auprès de /api/me ; aucun repli sur le conducteur (#206).
   const userRole = roleDuCompte(useCurrentUser());
@@ -35,17 +37,25 @@ const Achats = () => {
     setFournisseurs(await fournRes.json());
   };
 
+  // Un refus du serveur (saisie hors bornes, chantier clôturé…) s'affiche et la saisie reste en place ; le formulaire ne
+  // se vide qu'après un enregistrement réussi (#135, point 3 ; #394).
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
-    
-    await apiFetch('/achats', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-
-    (e.target as HTMLFormElement).reset();
+    const formulaire = e.currentTarget as HTMLFormElement;
+    setErreur('');
+    const data = Object.fromEntries(new FormData(formulaire).entries());
+    try {
+      const res = await apiFetch('/achats', { method: 'POST', body: JSON.stringify(data) });
+      if (!res.ok) {
+        const corps = await res.json().catch(() => ({}));
+        setErreur(corps.error || 'Enregistrement de l’achat impossible.');
+        return;
+      }
+    } catch {
+      setErreur('Impossible de joindre le serveur : l’achat n’est pas enregistré.');
+      return;
+    }
+    formulaire.reset();
     fetchData();
   };
 
@@ -95,8 +105,9 @@ const Achats = () => {
           </div>
           <div className="form-group mb-0" style={{flex: '1 1 150px'}}>
             <label className="form-label">Montant (€ HT)</label>
-            <input required type="number" step="0.01" name="montantHT" className="form-input" />
+            <input required type="text" inputMode="decimal" pattern={MOTIF_PRIX_DEVIS} title={TITRE_PRIX_DEVIS} name="montantHT" className="form-input" />
           </div>
+          {erreur && <p role="alert" className="text-sm text-red-600" style={{flex: '1 1 100%'}}>{erreur}</p>}
           <button className="btn btn-primary" style={{flex: '1 1 100%'}}>Enregistrer l'achat</button>
         </form>
       </div>

@@ -6,6 +6,7 @@ import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { isAdminRole, useCurrentRole } from '../roles';
 import { sommeExacte, coutLigneHeures } from '../lib/montants';
 import { fmtEuroCentime, fmtHeures } from '../lib/formats';
+import { MOTIF_DEMI_HEURE, TITRE_DEMI_HEURE } from '../lib/saisiesDecimales';
 
 const Heures = () => {
   const companyTimezone = useCompanyTimezone();
@@ -14,6 +15,7 @@ const Heures = () => {
   const [heures, setHeures] = useState<any[]>([]);
   const [chantiers, setChantiers] = useState<any[]>([]);
   const [intervenants, setIntervenants] = useState<any[]>([]);
+  const [erreur, setErreur] = useState('');
   // Coût interne (heures × taux) : réservé à l'administration ; le serveur n'envoie le taux qu'à elle.
   const coutVisible = isAdminRole(useCurrentRole());
 
@@ -33,17 +35,25 @@ const Heures = () => {
     setIntervenants(await intervRes.json());
   };
 
+  // Un refus du serveur (saisie hors bornes, chantier clôturé…) s'affiche et la saisie reste en place ; le formulaire ne
+  // se vide qu'après un enregistrement réussi (#135, point 3 ; #394).
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
-    
-    await apiFetch('/heures', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-
-    (e.target as HTMLFormElement).reset();
+    const formulaire = e.currentTarget as HTMLFormElement;
+    setErreur('');
+    const data = Object.fromEntries(new FormData(formulaire).entries());
+    try {
+      const res = await apiFetch('/heures', { method: 'POST', body: JSON.stringify(data) });
+      if (!res.ok) {
+        const corps = await res.json().catch(() => ({}));
+        setErreur(corps.error || 'Enregistrement du pointage impossible.');
+        return;
+      }
+    } catch {
+      setErreur('Impossible de joindre le serveur : le pointage n’est pas enregistré.');
+      return;
+    }
+    formulaire.reset();
     fetchData();
   };
 
@@ -118,7 +128,7 @@ const Heures = () => {
           
           <div className="flex flex-col">
             <label className="text-sm font-semibold text-gray-600 mb-1">Nombre d'heures (h)</label>
-            <input required type="number" step="0.5" min="0.5" name="nbrHeures" placeholder="Ex: 3.5" className="p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all w-full" />
+            <input required type="text" inputMode="decimal" pattern={MOTIF_DEMI_HEURE} title={TITRE_DEMI_HEURE} name="nbrHeures" placeholder="Ex. : 3,5" className="p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all w-full" />
           </div>
           
           <div className="flex flex-col lg:col-span-2">
@@ -126,6 +136,7 @@ const Heures = () => {
             <input type="text" name="commentaire" className="p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all w-full" placeholder="Travaux effectués, imprévus..." />
           </div>
           
+          {erreur && <p role="alert" className="md:col-span-2 lg:col-span-3 text-sm text-red-600">{erreur}</p>}
           <div className="md:col-span-2 lg:col-span-3 mt-2">
             <button className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md text-lg">
               Enregistrer le pointage

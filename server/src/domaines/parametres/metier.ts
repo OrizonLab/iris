@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { decimalToNumber } from '../../commun/montants';
+import { nombreDecimalNonNegatif } from '../../commun/validation';
 
 // --- Paramètres globaux (singleton) ---
 export interface Parametres {
@@ -40,15 +41,20 @@ export async function getParametres(): Promise<Parametres> {
 export function validerBareme(valeur: unknown, champ: string): TrancheBareme[] {
   if (!Array.isArray(valeur)) throw new Error(`${champ} : un tableau de tranches est attendu.`);
   if (valeur.length > 20) throw new Error(`${champ} : 20 tranches au maximum.`);
+  // Taux et plafond lus par la règle commune des saisies (#394) : virgule ou point décimal, deux décimales au plus,
+  // notation scientifique refusée. Un taux vide ou absent est refusé (choix par défaut, à confirmer, le plus
+  // restrictif) : `Number` le lisait 0 %, et l'écran, en convertissant une saisie à la virgule, envoyait null,
+  // enregistré comme 0 % sans aucun refus (C2 du contrôle de cohérence de #394). Un plafond vide ou absent signifie
+  // toujours « sans plafond ».
   const tranches: TrancheBareme[] = valeur.map((t: any, i: number) => {
-    const taux = Number(t?.taux);
-    if (!Number.isFinite(taux) || taux < 0 || taux > 100) {
-      throw new Error(`${champ}, tranche ${i + 1} : le taux doit être compris entre 0 et 100.`);
+    const taux = nombreDecimalNonNegatif(t?.taux, 3, true);
+    if (taux === null || taux > 100) {
+      throw new Error(`${champ}, tranche ${i + 1} : le taux doit être compris entre 0 et 100, deux décimales au plus.`);
     }
     const brut = t?.plafond;
-    const plafond = brut === null || brut === undefined || brut === '' ? Infinity : Number(brut);
-    if (plafond !== Infinity && (!Number.isFinite(plafond) || plafond <= 0)) {
-      throw new Error(`${champ}, tranche ${i + 1} : le plafond doit être un montant positif, ou vide pour la dernière tranche.`);
+    const plafond = brut === null || brut === undefined || brut === '' ? Infinity : nombreDecimalNonNegatif(brut, 10);
+    if (plafond === null) {
+      throw new Error(`${champ}, tranche ${i + 1} : le plafond doit être un montant positif, deux décimales au plus, ou vide pour la dernière tranche.`);
     }
     return { plafond, taux };
   });
@@ -66,9 +72,13 @@ export function validerBareme(valeur: unknown, champ: string): TrancheBareme[] {
   return tranches;
 }
 
+// Objectif ou prime de rémunération, positif ou nul, au centime, dix chiffres avant la virgule (colonne Decimal(12, 2)),
+// lu par la règle commune des saisies (#394) : « 1250,50 » est admis, « 1e3 » et « 12.345 » refusés. Une valeur
+// absente ou vide vaut 0, comme avant.
 export function montantPositif(valeur: unknown, champ: string): number {
-  const n = Number(valeur ?? 0);
-  if (!Number.isFinite(n) || n < 0) throw new Error(`${champ} : montant invalide.`);
+  if (valeur === undefined || valeur === null || (typeof valeur === 'string' && valeur.trim() === '')) return 0;
+  const n = nombreDecimalNonNegatif(valeur, 10, true);
+  if (n === null) throw new Error(`${champ} : montant invalide.`);
   return n;
 }
 

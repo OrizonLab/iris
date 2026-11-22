@@ -57,7 +57,7 @@ export const formatPrixFacultatif = (montant: number | null | undefined) => (mon
 export const formatHeures = (heures: number) => fmtHeures(heures);
 
 // Valeur d'un champ de saisie : la virgule décimale française, comme l'écrit l'utilisateur.
-export const valeurSaisie = (nombre: number | null | undefined) => (nombre == null ? '' : String(nombre).replace('.', ','));
+export const valeurSaisie = (nombre: number | string | null | undefined) => (nombre == null ? '' : String(nombre).replace('.', ','));
 
 export const libelleMainOeuvre = (mainOeuvre: MainOeuvreResumee) => `${mainOeuvre.reference} · ${mainOeuvre.nom}${mainOeuvre.actif ? '' : ' (désactivée)'}`;
 

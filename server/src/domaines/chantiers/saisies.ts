@@ -144,7 +144,7 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
       });
       res.json(cree);
     } catch (error) {
-      res.status(500).json({ error: 'Error creating achat' });
+      res.status(500).json({ error: 'Enregistrement de l’achat impossible.' });
     }
   });
 
@@ -269,7 +269,7 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
       const nbrHeures = nombreDecimalNonNegatif(req.body.nbrHeures, 8);
       if (nbrHeures === null) return res.status(400).json({ error: 'Le nombre d’heures doit être strictement positif.' });
       const intervenant = await prisma.intervenant.findUnique({ where: { id: req.body.intervenantId } });
-      if (!intervenant) return res.status(404).json({ error: 'Intervenant not found' });
+      if (!intervenant) return res.status(404).json({ error: 'Intervenant introuvable.' });
       if (!(await assertChantierWritable(req, res, req.body.chantierId))) return;
 
       const cree = await transactionVerifiee(async (tx) => {
@@ -288,7 +288,7 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
       // Réponse masquée comme en lecture : ni taux appliqué hors administration.
       res.json(saisieSelonDroits(req)(cree));
     } catch (error) {
-      res.status(500).json({ error: 'Error creating pointage' });
+      res.status(500).json({ error: 'Enregistrement du pointage impossible.' });
     }
   });
 

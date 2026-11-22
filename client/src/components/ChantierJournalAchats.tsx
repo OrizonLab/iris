@@ -1,5 +1,7 @@
 import { Wallet, Pencil, Trash2, Search } from 'lucide-react';
 import { toDateFrancaise, fmtDate, fmtEuro } from '../lib/formats';
+import { MOTIF_PRIX_DEVIS, TITRE_PRIX_DEVIS } from '../lib/catalogueDevis';
+import { valeurSaisie } from '../lib/mainOeuvre';
 
 export function ChantierJournalAchats({ achats, achatsTotal, achatSearch, setAchatSearch, achatFournisseurFiltre, setAchatFournisseurFiltre, achatsFournisseursDispo, achatCategorieFiltre, setAchatCategorieFiltre, achatsCategoriesDispo, achatTri, setAchatTri, achatsFiltreActif, resetAchatsFiltres, achatsAffiches, editingAchatId, handleAchatSubmit, fournisseurs, categories, savingAchat, setEditingAchatId, peutCorrigerTravaux, peutArchiverTravaux, startEditAchat, handleDeleteAchat, achatsAffichesTotal }: {
   achats: any[];
@@ -103,7 +105,7 @@ export function ChantierJournalAchats({ achats, achatsTotal, achatSearch, setAch
                       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 px-6 py-3 bg-gray-50"
                     >
                       <input required type="text" inputMode="numeric" pattern="\d{2}-\d{2}-\d{4}" placeholder="JJ-MM-AAAA" name="date" defaultValue={toDateFrancaise(a.date)} className="form-input text-sm" />
-                      <input required type="number" step="0.01" name="montantHT" defaultValue={a.montantHT} placeholder="Montant HT" className="form-input text-sm" />
+                      <input required type="text" inputMode="decimal" pattern={MOTIF_PRIX_DEVIS} title={TITRE_PRIX_DEVIS} name="montantHT" defaultValue={valeurSaisie(a.montantHT)} placeholder="Montant HT" aria-label="Montant HT" className="form-input text-sm" />
                       <select required name="fournisseurId" defaultValue={a.fournisseurId} className="form-input text-sm">
                         {fournisseurs.length === 0 && <option value={a.fournisseurId}>{a.fournisseur?.nom}</option>}
                         {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}

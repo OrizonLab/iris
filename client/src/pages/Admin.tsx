@@ -192,14 +192,10 @@ const Admin = () => {
         method: 'PUT',
         body: JSON.stringify({
           ...remuneration,
-          baremeStandard: (remuneration.baremeStandard ?? []).map((t: any) => ({
-            plafond: t.plafond === '' || t.plafond === null ? null : Number(t.plafond),
-            taux: Number(t.taux),
-          })),
-          baremeReduit: (remuneration.baremeReduit ?? []).map((t: any) => ({
-            plafond: t.plafond === '' || t.plafond === null ? null : Number(t.plafond),
-            taux: Number(t.taux),
-          })),
+          // Saisies envoyées telles quelles (« 1500,50 », « 12,5 ») : le serveur les lit à la virgule et refuse un taux
+          // vide. `Number` les aurait changées en null, enregistré comme « sans plafond » et 0 % (#394, C2 du contrôle).
+          baremeStandard: (remuneration.baremeStandard ?? []).map((t: any) => ({ plafond: t.plafond ?? null, taux: t.taux ?? null })),
+          baremeReduit: (remuneration.baremeReduit ?? []).map((t: any) => ({ plafond: t.plafond ?? null, taux: t.taux ?? null })),
         }),
       });
       const data = await res.json();

@@ -7,6 +7,7 @@ import {
   type ForfaitMainOeuvre, type TarifForfait,
 } from '../lib/forfaitMainOeuvre';
 import { formatPrix } from '../lib/tempsPasse';
+import { MOTIF_ENTIER_POSITIF, TITRE_ENTIER_POSITIF } from '../lib/saisiesDecimales';
 
 // Bloc « Main d'œuvre au jour ou à la demi-journée » (réponses de Nelson du 30-10-2026, « Option de la main
 // d'œuvre » et « Prix à part ») : une main d'œuvre active du catalogue, son forfait (jour ou demi-journée) et
@@ -95,7 +96,7 @@ export function LigneForfaitMainOeuvre({ ligne, onDesignation, onQuantite, onRet
       <span className="block text-xs text-gray-500 mt-0.5">Main d’œuvre {forfait === 'JOUR' ? 'au jour' : 'à la demi-journée'}, {tarif}{ligne.reference ? ` · Réf. ${ligne.reference}` : ''}</span>
     </label>
     <div className="grid gap-2 items-end grid-cols-2 md:grid-cols-[150px_1fr_1fr_1fr_auto]">
-      <label className="text-sm">{LIBELLES_QUANTITE_FORFAIT[forfait]}<input required min="1" step="1" type="number" inputMode="numeric" className="mt-1 w-full border rounded px-2 py-2" value={ligne.quantite} onChange={(e) => onQuantite(e.target.value)}/></label>
+      <label className="text-sm">{LIBELLES_QUANTITE_FORFAIT[forfait]}<input required type="text" inputMode="numeric" pattern={MOTIF_ENTIER_POSITIF} title={TITRE_ENTIER_POSITIF} className="mt-1 w-full border rounded px-2 py-2" value={ligne.quantite} onChange={(e) => onQuantite(e.target.value)}/></label>
       <p className="text-sm"><span className="block text-gray-600">{forfait === 'JOUR' ? 'Prix du forfait jour' : 'Prix de la demi-journée'}</span><strong data-testid="prix-forfait">{formatPrix(Number(ligne.prixUnitaireHt))} HT</strong></p>
       <p className="text-sm"><span className="block text-gray-600">TVA</span>{String(ligne.tauxTva).replace('.', ',')} %</p>
       <p className="text-sm"><span className="block text-gray-600">Unité</span>{ligne.unite}</p>
