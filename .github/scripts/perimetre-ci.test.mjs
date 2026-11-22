@@ -70,6 +70,8 @@ describe('CI — ce qui compte comme documentation', () => {
     'client/src/sous/dossier/x.md',
     'client/public/x.md',
     'client/public/docs/x.md',
+    // Lu par server/tests/restauration-sauvegarde.test.mjs, qui exige PostgreSQL (#642).
+    'deploy_guide.md',
     'server/index.ts',
     '.github/workflows/ci.yml',
     'LICENSE.txt',
