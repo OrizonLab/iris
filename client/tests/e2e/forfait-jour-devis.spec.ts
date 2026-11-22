@@ -79,7 +79,7 @@ test('fiche de main d’œuvre avec ses prix de la demi-journée, puis devis com
   await ajouter.click();
   const lignes = page.getByRole('group', { name: 'Ligne au jour ou à la demi-journée', exact: true });
   await expect(lignes).toHaveCount(1);
-  await lignes.nth(0).getByRole('spinbutton', { name: 'Jours' }).fill('2');
+  await lignes.nth(0).getByRole('textbox', { name: 'Jours' }).fill('2');
   await expect(lignes.nth(0).getByTestId('prix-forfait')).toHaveText('300,00 € HT');
   await expect(lignes.nth(0)).toContainText('jour');
   // « Prix du forfait jour », comme le catalogue (« Prix de vente HT au forfait jour »), et non plus « Prix du jour », qui
@@ -101,7 +101,7 @@ test('fiche de main d’œuvre avec ses prix de la demi-journée, puis devis com
   await expect(bloc.getByTestId('prix-forfait-propose')).toHaveText('150,50 € HT par demi-journée');
   await ajouter.click();
   await expect(lignes).toHaveCount(2);
-  await expect(lignes.nth(1).getByRole('spinbutton', { name: 'Demi-journées' })).toHaveValue('1');
+  await expect(lignes.nth(1).getByRole('textbox', { name: 'Demi-journées' })).toHaveValue('1');
   await expect(lignes.nth(1).getByTestId('prix-forfait')).toHaveText('150,50 € HT');
   await expect(lignes.nth(1)).toContainText('demi-journée');
   await expect(lignes.nth(1).getByText('Prix de la demi-journée', { exact: true })).toBeVisible();
@@ -123,7 +123,7 @@ test('fiche de main d’œuvre avec ses prix de la demi-journée, puis devis com
   await ligne.getByRole('button', { name: 'Modifier' }).click();
   await expect(lignes).toHaveCount(2);
   await expect(lignes.nth(0).getByTestId('prix-forfait')).toHaveText('300,00 € HT');
-  await lignes.nth(1).getByRole('spinbutton', { name: 'Demi-journées' }).fill('2');
+  await lignes.nth(1).getByRole('textbox', { name: 'Demi-journées' }).fill('2');
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(ligne).toContainText(/HT 901,00\u0020€/);
   await expect(ligne.getByTestId('heures-prevues-devis')).toHaveText('Heures prévues : 22,5 h');

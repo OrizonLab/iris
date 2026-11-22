@@ -26,12 +26,11 @@ export function catalogueFamily(value: string): CatalogueFamily | null {
   return value === 'prestations' || value === 'articles' || value === 'equipements' ? value : null;
 }
 
-// Nombre positif ou nul d'une fiche (prix, TVA, stock, durée), lu par la règle commune des saisies (#394) : virgule
-// ou point décimal, au plus `chiffres` chiffres avant la virgule et `decimales` après (bornes des colonnes) ; la
-// notation scientifique, un signe et une décimale en trop sont refusés, alors que `Number` les admettait (« 1e3 »,
-// « 12.345 », que PostgreSQL arrondissait sans le dire) et refusait « 18,75 ». Une valeur absente ou vide prend
-// `defaut`, comme avant (`Number('')` valait 0) ; le refus d'un champ vide, quand il y en a un, est porté par
-// l'appelant (TVA).
+// Nombre positif ou nul d'une fiche (prix, stock ; durée par `catalogueEntier`), lu par la règle commune des saisies
+// (#394) : virgule ou point décimal, au plus `chiffres` chiffres avant la virgule et `decimales` après (bornes des
+// colonnes) ; la notation scientifique, un signe et une décimale en trop sont refusés, alors que `Number` les
+// admettait (« 1e3 », « 12.345 », que PostgreSQL arrondissait sans le dire) et refusait « 18,75 ». Une valeur absente
+// ou vide prend `defaut`, comme avant (`Number('')` valait 0). La TVA a sa propre lecture (`tauxTvaCatalogue`).
 function catalogueNombre(value: unknown, champ: string, defaut = 0, chiffres = 10, decimales = 2): number {
   if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) return defaut;
   const n = nombreDecimalNonNegatif(value, chiffres, true, decimales);
@@ -48,12 +47,22 @@ function cataloguePrixAchat(value: unknown): number | null {
 // TVA d'une fiche : 20 % sans valeur, sinon un des taux français (commun/tva.ts), à la création comme à
 // la modification ; une fiche enregistrée avant le lot « TVA française » garde son taux tant qu'elle
 // n'est pas modifiée. Un champ vide est refusé, comme sur une ligne de devis ou de facture : `Number('')`
-// vaudrait 0, soit une autoliquidation que personne n'a saisie (#324, N1).
+// vaudrait 0, soit une autoliquidation que personne n'a saisie (#324, N1). Lu à la virgule par la règle
+// commune (#394), tout taux refusé, mal formé ou non français, reçoit le même message, qui dit les taux admis.
 function tauxTvaCatalogue(value: unknown): number {
-  if (typeof value === 'string' && value.trim() === '') throw new Error(REFUS_TAUX_TVA);
-  const taux = catalogueNombre(value, 'TVA', 20, 3, 2);
-  if (!estTauxTvaFrancais(taux)) throw new Error(REFUS_TAUX_TVA);
+  if (value === undefined || value === null) return 20;
+  const taux = nombreDecimalNonNegatif(value, 3, true, 2);
+  if (taux === null || !estTauxTvaFrancais(taux)) throw new Error(REFUS_TAUX_TVA);
   return taux;
+}
+
+// Durée indicative en minutes, colonne entière : un entier positif ou nul de 9 chiffres au plus. « 12,5 », lu
+// décimal, serait tronqué à 12 par la colonne sans le dire ; il est refusé, comme « 12.5 », que la lecture par
+// `Number` d'avant #394 laissait déjà tronquer. Une valeur vide vaut 0, comme avant.
+function catalogueEntier(value: unknown, champ: string): number {
+  const n = catalogueNombre(value, champ, 0, 9, 2);
+  if (!Number.isInteger(n)) throw new Error(`${champ} invalide.`);
+  return n;
 }
 
 // Champs communs aux trois familles et aux mains d'œuvre : référence, nom, description,
@@ -98,7 +107,7 @@ export function catalogueExtraPayload(family: CatalogueFamily, body: Record<stri
   if (family === 'prestations') {
     return {
       unite: String(body.unite || 'unité'),
-      dureeIndicativeMin: body.dureeIndicativeMin == null ? null : catalogueNombre(body.dureeIndicativeMin, 'Durée indicative'),
+      dureeIndicativeMin: body.dureeIndicativeMin == null ? null : catalogueEntier(body.dureeIndicativeMin, 'Durée indicative'),
       prixAchatHt: cataloguePrixAchat(body.prixAchatHt),
     };
   }

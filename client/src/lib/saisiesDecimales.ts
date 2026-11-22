@@ -14,8 +14,8 @@ export const MOTIF_DEMI_HEURE = String.raw`(?!0+(?:[.,]0+)?$)\d{1,8}(?:[.,](?:00
 export const TITRE_DEMI_HEURE = 'Un nombre d’heures à la demi-heure, à partir de 0,5 (par exemple 3,5)';
 
 // Taux en pourcentage de 0 à 100, deux décimales au plus (taux d'acompte par défaut, seuil de marge faible, taux
-// d'une tranche de barème), aux bornes du serveur.
-export const MOTIF_POURCENTAGE = String.raw`100(?:[.,]0{1,2})?|\d{1,2}(?:[.,]\d{1,2})?`;
+// d'une tranche de barème), aux bornes du serveur : trois chiffres au plus, un zéro de tête admis (« 050 »).
+export const MOTIF_POURCENTAGE = String.raw`100(?:[.,]0{1,2})?|0?\d{1,2}(?:[.,]\d{1,2})?`;
 export const TITRE_POURCENTAGE = 'Taux de 0 à 100 %, deux décimales au plus (par exemple 5,5)';
 
 // Plafond d'une tranche de barème : un montant strictement positif, au centime, dix chiffres avant la virgule ; vide

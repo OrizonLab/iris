@@ -24716,8 +24716,10 @@ if (!TEST_DATABASE_URL) {
           const reference = `TEST-TVA-${famille}-refus-${String(taux).replace(/[^0-9]/g, '')}-${suffixe}`;
           const res = await envoyer('post', chemin(famille), corps(famille, reference, { tauxTva: taux }));
           assert.equal(res.status, 400, `${famille} ${taux} : ${JSON.stringify(res.body)}`);
-          // Le catalogue n'a jamais lu la virgule décimale : « 5,6 » y est refusé en amont, comme avant le lot.
-          assert.equal(res.body.error, taux === '5,6' ? 'TVA invalide.' : REFUS, `${famille} ${taux}`);
+          // Depuis le lot U (#394, option B du 22-11-2026, choix par défaut, à confirmer), le catalogue lit la virgule
+          // décimale : « 5,6 » est lu 5,6 % et refusé par la liste des taux, au même message (avant : « TVA invalide. »).
+          // Aucune fiche n'est écrite (décompte des références « -refus- » plus bas).
+          assert.equal(res.body.error, REFUS, `${famille} ${taux}`);
         }
         // Modifiée à un autre taux, chaque famille (main d'œuvre comprise) refuse la fiche, qui garde ses 20 %.
         const modifiee = await envoyer('put', `${chemin(famille)}/${aVingt.id}`, corps(famille, aVingt.reference, { tauxTva: '7' }));

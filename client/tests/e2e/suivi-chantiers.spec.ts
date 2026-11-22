@@ -97,9 +97,9 @@ test.describe('Suivi des chantiers — rentabilité et dérives', () => {
     try {
       const page = await allerSurPageAdmin('/admin');
       await page.getByRole('button', { name: 'Marges & Commissions' }).click();
-      const seuil = page.getByRole('spinbutton', { name: 'Seuil de marge faible en pourcentage' });
+      const seuil = page.getByRole('textbox', { name: 'Seuil de marge faible en pourcentage' });
       const jours = page.getByRole('spinbutton', { name: 'Nombre de jours sans saisie' });
-      await seuil.fill('12.5');
+      await seuil.fill('12,5');
       await jours.fill('');
       // L'alerte « Paramètres mis à jour » s'ouvre après la réponse : le test l'attend et
       // l'accepte avant de continuer, sans quoi il pouvait se terminer pendant qu'elle s'ouvrait

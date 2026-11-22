@@ -264,9 +264,9 @@ export default function Devis() {
     if (statutDevis) setDevis(liste => liste.map(d => d.id === devisId ? { ...d, statut: statutDevis } : d));
   };
   // Les champs chiffrés en texte (#394) gardent la saisie telle que tapée (« 18,75 »), envoyée brute : le
-  // serveur lit la virgule. Seule la quantité d'une ligne au forfait, un entier saisi dans un champ
-  // numérique, reste un nombre.
-  const updateLine = (index: number, key: keyof Ligne, value: string) => setForm(f => ({ ...f, lignes: f.lignes.map((ligne, i) => i === index ? { ...ligne, [key]: key === 'quantite' && ligne.forfaitMainOeuvre ? Number(value) : value } as Ligne : ligne) }));
+  // serveur lit la virgule. La quantité d'une ligne au forfait aussi : convertie par `Number` à chaque touche,
+  // « 1. » devenait 1, puis « 15 », et « 1.5 » était enregistré 15 jours sans refus.
+  const updateLine = (index: number, key: keyof Ligne, value: string) => setForm(f => ({ ...f, lignes: f.lignes.map((ligne, i) => i === index ? { ...ligne, [key]: value } as Ligne : ligne) }));
   const addLine = () => setForm(f => ({ ...f, lignes: [...f.lignes, { ...ligneVide }] }));
   const removeLine = (index: number) => setForm(f => ({ ...f, lignes: f.lignes.filter((_, i) => i !== index) }));
   const estDerniereVersion = (d: Devis, inclureAnnulees = true) => !devis.some(autre => autre.dossierId === d.dossierId && autre.version > d.version && (inclureAnnulees || autre.statut !== 'ANNULE'));

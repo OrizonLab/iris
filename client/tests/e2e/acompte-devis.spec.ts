@@ -332,7 +332,7 @@ test('réglage du taux d’acompte par défaut : dans « Marges & Commissions »
     await allerSurPageAdmin('/admin');
     await page.getByRole('button', { name: 'Marges & Commissions' }).click();
     const groupe = page.getByRole('group', { name: 'Devis et acompte' });
-    const champ = groupe.getByRole('spinbutton', { name: /Taux d'acompte proposé par défaut/ });
+    const champ = groupe.getByRole('textbox', { name: /Taux d'acompte proposé par défaut/ });
     await expect(champ).toHaveValue('40');
     await expect(champ).toHaveAccessibleDescription('Proposé sur chaque nouveau devis ; 0 % : aucun acompte n’est exigé.');
     await champ.fill('0');
