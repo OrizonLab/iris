@@ -18,10 +18,13 @@ const SHA_NULLE = /^0+$/;
 // Documentation : tout fichier sous docs/, tout fichier Markdown, la licence, hors des dossiers que Vite livre
 // (client/src, client/public : un `.md` peut y être importé) et hors de server/prisma : Prisma tient tout dossier de
 // migrations/ pour une migration, et un dossier qui ne porte qu'un README.md fait échouer `prisma migrate deploy`
-// (P3015), dans les travaux « Backend — tests » et « Frontend — parcours utilisateur » comme au déploiement. Les seuls
-// tests de la CI qui lisent ces fichiers (server/tests/environnement.test.mjs, tests unitaires du client dont
-// identite.test.ts) tournent dans le travail de périmètre quand la série ne porte que de la documentation.
+// (P3015), dans les travaux « Backend — tests » et « Frontend — parcours utilisateur » comme au déploiement. Les tests
+// de la CI qui lisent ces fichiers (server/tests/environnement.test.mjs, tests unitaires du client dont
+// identite.test.ts) tournent dans le travail de périmètre quand la série ne porte que de la documentation ; hors
+// deploy_guide.md, dont server/tests/restauration-sauvegarde.test.mjs (#618) lit les commandes et la requête des
+// journaux, et qui exige PostgreSQL : un changement du guide lance les travaux lourds.
 export function estDocumentation(chemin) {
+  if (chemin === 'deploy_guide.md') return false;
   if (['client/src/', 'client/public/', 'server/prisma/'].some((dossier) => chemin.startsWith(dossier))) return false;
   return chemin.startsWith('docs/') || chemin.endsWith('.md') || chemin === 'LICENSE';
 }
