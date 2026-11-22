@@ -11,7 +11,7 @@ import { estASurveiller, trierChantiers } from '../lib/suiviChantiers';
 import { useCompanyTimezone } from '../companyTimezoneContext';
 import { companyDateInputValue, jourCivilChantier } from '../lib/dateFormatting';
 import { sommeExacte, arrondiEuro } from '../lib/montants';
-import { fmtEuro, fmtHeures } from '../lib/formats';
+import { fmtEuro, fmtHeures, fmtPourcentage } from '../lib/formats';
 
 type Period = 'month' | 'quarter' | 'year';
 
@@ -218,7 +218,7 @@ const Dashboard = () => {
                   {fmtEuro(globalStats.margeTotal)}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {globalStats.margePct != null ? `${globalStats.margePct.toFixed(1)}% · ` : ''}{periodLabel}
+                  {globalStats.margePct != null ? `${fmtPourcentage(globalStats.margePct, 1)} · ` : ''}{periodLabel}
                 </div>
               </div>
             </div>
@@ -280,7 +280,7 @@ const Dashboard = () => {
                     {fmtEuro(margeEstimeeEnCours)}
                   </div>
                   <div className={`text-xs font-semibold ${arrondiEuro(margeEstimeeEnCours) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {margeEstimeeEnCoursPct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} % du vendu
+                    {fmtPourcentage(margeEstimeeEnCoursPct, 1)} du vendu
                   </div>
                 </div>
               </div>
@@ -363,12 +363,12 @@ const Dashboard = () => {
                       </div>
 
                       <div className="hidden sm:flex flex-col items-end w-40 shrink-0">
-                        <span className="text-sm font-black text-primary-dark">{pct.toFixed(0)}%</span>
+                        <span className="text-sm font-black text-primary-dark">{fmtPourcentage(pct, 0)}</span>
                         <div className="w-full mt-1">
                           <ProgressMeter value={c.metrics?.heuresRealisees ?? 0} max={c.heuresVendues || 1} color="blue" size="sm" />
                         </div>
                       </div>
-                      <span className="sm:hidden text-sm font-black text-primary-dark w-12 text-right">{pct.toFixed(0)}%</span>
+                      <span className="sm:hidden text-sm font-black text-primary-dark w-12 text-right whitespace-nowrap">{fmtPourcentage(pct, 0)}</span>
 
                       <ChevronRight size={20} className="text-gray-300 group-hover:text-accent transition-colors shrink-0" />
                     </button>

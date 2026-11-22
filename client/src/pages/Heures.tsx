@@ -5,6 +5,7 @@ import { useCompanyTimezone, useFuseauSocieteConnu } from '../companyTimezoneCon
 import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { isAdminRole, useCurrentRole } from '../roles';
 import { sommeExacte, coutLigneHeures } from '../lib/montants';
+import { fmtEuroCentime, fmtHeures } from '../lib/formats';
 
 const Heures = () => {
   const companyTimezone = useCompanyTimezone();
@@ -70,8 +71,8 @@ const Heures = () => {
             <div key={c.id} className="card flex-1 min-w-0">
               <h3 className="mb-2 truncate text-primary-dark" title={c.nom}>{c.nom}</h3>
               <div className="flex justify-between text-sm mb-1">
-                <span>{realisees}h réalisées</span>
-                <span>{c.heuresVendues}h vendues</span>
+                <span>{fmtHeures(realisees)} réalisées</span>
+                <span>{fmtHeures(c.heuresVendues)} vendues</span>
               </div>
               <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--color-gray-light)', borderRadius: '4px' }}>
                 <div style={{ 
@@ -161,7 +162,7 @@ const Heures = () => {
                   <span className="text-sm text-gray-600">{h.intervenant?.nom}</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="font-extrabold text-primary text-lg">{h.nbrHeures}h</span>
+                  <span className="font-extrabold text-primary text-lg">{fmtHeures(h.nbrHeures)}</span>
                 </div>
               </div>
               {h.commentaire && (
@@ -189,10 +190,10 @@ const Heures = () => {
                   <td className="px-6 py-4 text-sm text-gray-600">{formatDateOnly(h.date)}</td>
                   <td className="px-6 py-4 font-semibold text-gray-800">{h.chantier?.nom}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{h.intervenant?.nom}</td>
-                  <td className="px-6 py-4 font-bold text-primary">{h.nbrHeures}h</td>
+                  <td className="px-6 py-4 font-bold text-primary">{fmtHeures(h.nbrHeures)}</td>
                   {coutVisible && (
                   <td className="px-6 py-4 text-sm font-semibold text-gray-500 text-right">
-                    {coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)} €
+                    {fmtEuroCentime(coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique))}
                   </td>
                   )}
                 </tr>

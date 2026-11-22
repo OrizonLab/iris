@@ -4,22 +4,25 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { fmtDate, fmtEuro, fmtEuroCentime, fmtHeures, fmtMontantDocument, fmtNombreHeures, toDateFrancaise } from '../src/lib/formats.ts';
+import { fmtDate, fmtEuro, fmtEuroCentime, fmtHeures, fmtMontantDocument, fmtNombreHeures, fmtPourcentage, toDateFrancaise } from '../src/lib/formats.ts';
 import { jourFrancais } from '../src/lib/dateFormatting.ts';
 import { arrondiCentime, arrondiEuro, sommeExacte } from '../src/lib/montants.ts';
-import { formatEuros } from '../src/lib/mainOeuvre.ts';
+import { formatEuros, formatHeures } from '../src/lib/mainOeuvre.ts';
 import { formatPrix, heuresMinimum, refusQuantiteTempsPasse } from '../src/lib/tempsPasse.ts';
 import { heuresFr } from '../src/lib/factureTempsPasse.ts';
 import { formatHeuresPrevues } from '../src/lib/catalogueDevis.ts';
 import { alerteMargeSav, detailMargeSav, type MargeSavHorsContrat } from '../src/lib/coutsIntervention.ts';
 
 // Lot A5, #205 : un seul module de formats (cadrage du lot « anomalies d'écran », PR A5, version 2, et vérification
-// des C5 à C7 du contrôle avant le code). Cinq familles, chacune gardant son texte d'avant #205 :
+// des C5 à C7 du contrôle avant le code). Six familles : les cinq de #205, chacune gardant son texte d'avant #205, et le
+// pourcentage, ajouté par #499 (cadrage du correctif, version 2, point 1), dont le texte change (effets déclarés) :
 //  - le montant à l'euro près (`fmtEuro`) : `arrondiEuro`, `fr-FR`, une espace ordinaire puis « € » ;
 //  - le montant au centime en devise (`fmtEuroCentime`) : `arrondiCentime`, format monétaire `fr-FR`/`EUR` d'Intl,
 //    avec son espace insécable avant « € » ;
 //  - la forme des documents (`fmtMontantDocument`, C5) : le texte de `formatMontantFacture` du serveur, espace ordinaire ;
 //  - les heures, deux décimales au plus, ou trois pour le temps passé, avec ou sans « h » ;
+//  - le pourcentage (`fmtPourcentage`, #499) : valeur en pour cent, au plus 0, 1 ou 2 décimales selon l'usage, sans zéro
+//    inutile, espace ordinaire avant « % », jamais « -0 % » (choix par défaut, à confirmer, règle 5) ;
 //  - les jours `JJ-MM-AAAA`, par `jourFrancais`, avec le repli d'un jour absent vers ''.
 // Montants (règle 2) : chaque attendu est choisi pour qu'une autre lecture plausible donne un autre texte ; le commentaire
 // dit la lecture écartée. `test:unit` tourne avec TZ=Pacific/Gambier (UTC-9) ; la langue par défaut de Node y est celle
@@ -231,12 +234,99 @@ test('chaque famille garde son texte d’avant #205 ; au centime, seul « -0,00 
   assert.notDeepEqual(ecarts(MONTANTS, AVANT.euro, fmtEuroCentime), []);
 });
 
+// --- #499 : famille « pourcentage » et heures (cadrage du correctif, version 2, points 1 et 2) ---
+// fmtPourcentage(valeur, decimalesMax) : valeur en pour cent, `fr-FR`, au plus 0, 1 ou 2 décimales déclarées par l'usage
+// (marges, taux de dépassement, répartition des types : 1 ; avancement, objectifs, répartition des chantiers : 0 ; taux de
+// TVA : 2), sans zéro inutile, espace ordinaire U+0020 avant « % », jamais « -0 % » (choix par défaut, à confirmer,
+// règle 5). Chaque attendu dit la lecture qu'il écarte.
+test('pourcentage (fmtPourcentage, #499) : décimales déclarées par l’usage, sans zéro inutile, arrondi d’Intl, espace ordinaire avant « % », jamais « -0 % »', () => {
+  // 1,125 % : « 1 % », « 1,1 % », « 1,13 % ». Écarte un decimalesMax ignoré ou figé, dans un sens ou dans l'autre.
+  assert.equal(fmtPourcentage(1.125, 0), '1 %');
+  assert.equal(fmtPourcentage(1.125, 1), '1,1 %');
+  assert.equal(fmtPourcentage(1.125, 2), '1,13 %');
+  // Pas de valeur par défaut : chaque usage déclare ses décimales (un paramètre par défaut ramènerait length à 1).
+  assert.equal(fmtPourcentage.length, 2);
+  // Sans zéro inutile : 12,0 donne « 12 % » (et non « 12.0% » de toFixed(1), effet visible déclaré, ni « 12,0 % ») ; les
+  // taux de TVA « 5,5 % » et « 20 % » (et non « 5.50 % » ni « 20.00 % » de toFixed(2), ni « 5,50 % » à deux décimales fixes).
+  assert.equal(fmtPourcentage(12, 1), '12 %');
+  assert.equal(fmtPourcentage(5.5, 2), '5,5 %');
+  assert.equal(fmtPourcentage(20, 2), '20 %');
+  assert.equal(fmtPourcentage(0, 2), '0 %');
+  // Arrondi d'Intl, moitié vers l'extérieur sur l'écriture décimale : 0,15 donne « 0,2 % » à une décimale (toFixed(1) sur
+  // le flottant donne « 0.1 », effet visible déclaré) ; 1,005 donne « 1,01 % » (toFixed(2) : « 1.00 ») ; 99,95 donne
+  // « 100 % » (une troncature : « 99,9 % ») ; 12,5 donne « 13 % » sans décimale (un arrondi au pair : « 12 % »).
+  assert.equal((0.15).toFixed(1), '0.1', 'témoin : toFixed sur le flottant');
+  assert.equal(fmtPourcentage(0.15, 1), '0,2 %');
+  assert.equal(fmtPourcentage(1.005, 2), '1,01 %');
+  assert.equal(fmtPourcentage(99.95, 1), '100 %');
+  assert.equal(fmtPourcentage(12.5, 0), '13 %');
+  assert.equal(fmtPourcentage(-12.5, 0), '-13 %');
+  // Jamais « -0 % » : un négatif arrondi à zéro s'écrit « 0 % » (Intl seul écrit « -0 », toFixed « -0.0 ») ; un négatif
+  // non nul garde son signe, le trait d'union U+002D (et non le signe moins U+2212).
+  assert.equal((-0.04).toLocaleString('fr-FR', { maximumFractionDigits: 1 }), '-0', 'témoin : Intl seul');
+  assert.equal((-0.04).toFixed(1), '-0.0', 'témoin : toFixed');
+  for (const [valeur, decimales] of [[-0.04, 1], [-0.049, 1], [-0.4, 0], [-0.004, 2], [-0, 0], [-0, 2]] as [number, 0 | 1 | 2][]) {
+    assert.equal(fmtPourcentage(valeur, decimales), '0 %', `${Object.is(valeur, -0) ? '-0' : valeur} à ${decimales} décimale(s)`);
+  }
+  assert.equal(fmtPourcentage(-0.05, 1), '-0,1 %');
+  assert.equal(fmtPourcentage(-0.5, 0), '-1 %');
+  assert.equal(fmtPourcentage(-19, 1), '-19 %');
+  assert.equal(fmtPourcentage(-19, 1).codePointAt(0), 0x2d, 'trait d’union U+002D');
+  // Espace ordinaire U+0020 avant « % » (cadrage : « comme les textes déjà en français »), et non l'espace insécable
+  // U+00A0 ni l'espace fine U+202F ; milliers de fr-FR en U+202F (écarte la langue du navigateur : « 1,235 % »).
+  assert.equal(fmtPourcentage(12.5, 1), '12,5 %');
+  assert.equal(fmtPourcentage(12.5, 1).at(-2), ' ');
+  assert.equal(fmtPourcentage(1234.5, 0), `1${FINE}235 %`);
+});
+
+// Pourcentages déjà écrits en français avant #499, que la famille reprend : Dashboard.tsx:283 de 8a47a50 (marge estimée
+// du portefeuille, `toLocaleString('fr-FR', { maximumFractionDigits: 1 })`), la marge faible de suiviChantiers.ts
+// (`nombre(…, 1)`), l'acompte exigé de l'historique des devis (deux décimales), le taux du tableau des règles TVA
+// (Intl.NumberFormat('fr-FR'), trois décimales au plus, sur des taux à deux décimales).
+const POURCENTS = [-19, -12.5, -0.05, -0.049, -0.04, -0.004, -0, 0, 0.004, 0.04, 0.05, 0.15, 1.005, 1.125, 2.675, 5.5, 12, 12.5, 12.345, 99.95, 100, 1234.5];
+test('pourcentage : même texte que les pourcentages déjà en français, sauf « -0 % » qui devient « 0 % » ; effets déclarés des anciens toFixed', () => {
+  const francais = (decimales: number) => (n: number) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: decimales })} %`;
+  const nomme = (valeurs: number[]) => valeurs.map((v) => (Object.is(v, -0) ? '-0' : String(v)));
+  // Seuls changent les négatifs arrondis à zéro (lecture écartée : une famille qui changerait un autre texte déjà juste).
+  assert.deepEqual(nomme(ecarts(POURCENTS, francais(1), (n) => fmtPourcentage(n, 1))), ['-0.049', '-0.04', '-0.004', '-0']);
+  assert.deepEqual(nomme(ecarts(POURCENTS, francais(0), (n) => fmtPourcentage(n, 0))), ['-0.05', '-0.049', '-0.04', '-0.004', '-0']);
+  assert.deepEqual(nomme(ecarts(POURCENTS, francais(2), (n) => fmtPourcentage(n, 2))), ['-0.004', '-0']);
+  const tauxTva = [0, 2.1, 5.5, 8.25, 10, 19.6, 20];
+  assert.deepEqual(ecarts(tauxTva, (n) => `${new Intl.NumberFormat('fr-FR').format(n)} %`, (n) => fmtPourcentage(n, 2)), []);
+  // Effets visibles déclarés (cadrage, point 1), texte de 8a47a50 → texte de la famille : marge « 12.0% » → « 12 % »
+  // (Dashboard.tsx:221, Performances.tsx:118) ; répartition « 38% » → « 38 % » (Statistiques.tsx:127) ; taux de TVA
+  // « 20.00 % » → « 20 % » (Catalogue.tsx:241) ; arrondi d'Intl « 0.1% » → « 0,2 % » pour 0,15.
+  const avantToFixed = (decimales: number, espace = '') => (n: number) => `${n.toFixed(decimales)}${espace}%`;
+  assert.deepEqual([12, 37.5, 20, 0.15].map((n, i) => [avantToFixed([1, 0, 2, 1][i], i === 2 ? ' ' : '')(n), fmtPourcentage(n, [1, 0, 2, 1][i] as 0 | 1 | 2)]), [
+    ['12.0%', '12 %'], ['38%', '38 %'], ['20.00 %', '20 %'], ['0.1%', '0,2 %'],
+  ]);
+});
+
+test('heures (#499, point 2) : formatHeures est l’alias de fmtHeures ; « 3.0 h » devient « 3 h », « 7.3h » devient « 7,33 h »', () => {
+  for (const heures of HEURES) assert.equal(formatHeures(heures), fmtHeures(heures), String(heures));
+  // Heures par jour d'une fiche de main d'œuvre (au centième, sous 24 h) : même texte qu'avant l'alias.
+  const avantAlias = (heures: number) => `${String(Number(heures)).replace('.', ',')} h`;
+  assert.deepEqual(ecarts([0.25, 7, 7.5, 7.75, 8, 23.99], avantAlias, formatHeures), []);
+  // Hors de ce domaine, l'ancien texte n'arrondissait pas et n'avait pas de séparateur des milliers.
+  assert.equal(avantAlias(2 / 3), '0,6666666666666666 h', 'témoin : l’ancien texte');
+  assert.equal(formatHeures(2 / 3), '0,67 h');
+  assert.equal(formatHeures(1234.5), `1${FINE}234,5 h`);
+  // Effets visibles déclarés : toFixed(1) suivi de « h » (Statistiques.tsx:193, Performances.tsx:209-217) → fmtHeures.
+  assert.equal(`${(3).toFixed(1)} h`, '3.0 h', 'témoin : Statistiques.tsx:193 de 8a47a50');
+  assert.equal(fmtHeures(3), '3 h');
+  assert.equal(`${(22 / 3).toFixed(1)}h`, '7.3h', 'témoin : Performances.tsx:217 de 8a47a50');
+  assert.equal(fmtHeures(22 / 3), '7,33 h');
+  // Quantité de la facture au temps passé (FactureTempsPasse.tsx:70) : fmtNombreHeures(q, 3), même texte qu'avant.
+  assert.deepEqual(ecarts(HEURES, (q) => q.toLocaleString('fr-FR', { maximumFractionDigits: 3 }), (q) => fmtNombreHeures(q, 3)), []);
+});
+
 // --- Liste fermée de l'inventaire (C4 et C6 du contrôle du cadrage) ---
 // Garde sur les sources : elle échoue si l'une des fonctions locales de l'inventaire, ou l'un de ses toLocaleString()
 // sans locale, subsiste. Elle ne porte que sur cette liste, relevée par le cadrage sur 1d9eb57 (lignes de e39f005
-// ci-dessous) : les montants hors périmètre, versés à une issue `suivi-audit`, n'y sont pas (Admin.tsx:625-637,
-// Achats.tsx:127, lib/suiviChantiers.ts:148). L'E2E formats-locale.spec.ts montre le format à l'écran, navigateur en
-// anglais ; ce test couvre aussi les écrans où un navigateur français ne le montrerait pas.
+// ci-dessous) : les montants alors hors périmètre, versés à #499 (Admin.tsx:625-637, Achats.tsx:127,
+// lib/suiviChantiers.ts:148), sont passés au module par la version 2 de son cadrage, et gardés plus bas (familles de
+// FAMILLE_PAR_FICHIER, et aucun toLocaleString() sans locale dans tout src/). L'E2E formats-locale.spec.ts montre le
+// format à l'écran, navigateur en anglais ; ce test couvre aussi les écrans où un navigateur français ne le montrerait pas.
 const racineClient = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = (relatif: string) => readFileSync(path.join(racineClient, 'src', relatif), 'utf8');
 
@@ -273,6 +363,9 @@ const FONCTIONS_GARDEES: [string, string, RegExp][] = [
   ['lib/tempsPasse.ts', 'formatPrix', /\bfmtMontantDocument\b/],
   ['lib/factureTempsPasse.ts', 'heuresFr', /\bfmtHeures\(heures, 3\)/],
   ['lib/catalogueDevis.ts', 'formatHeuresPrevues', /\bfmtHeures\(heures\)/],
+  // #499, cadrage version 2, point 2 : heures par jour d'une fiche de main d'œuvre, alias de `fmtHeures` (et non plus
+  // `String(…).replace('.', ',')`, sans arrondi ni séparateur des milliers).
+  ['lib/mainOeuvre.ts', 'formatHeures', /\bfmtHeures\(heures\)/],
 ];
 
 // Fichiers dont les montants s'écrivaient sans locale (toLocaleString()) : [fichier, lignes sur e39f005]. Sur e39f005,
@@ -288,7 +381,9 @@ const SANS_LOCALE: [string, number[]][] = [
 const TO_LOCALE_SANS_LOCALE = /\.toLocaleString\(\s*\)/;
 const lignesSansLocale = (texte: string) => texte.split('\n').flatMap((ligne, rang) => (TO_LOCALE_SANS_LOCALE.test(ligne) ? [rang + 1] : []));
 
-const NOMS_DU_MODULE = ['fmtEuro', 'fmtEuroCentime', 'fmtMontantDocument', 'fmtNombreHeures', 'fmtHeures', 'toDateFrancaise', 'fmtDate'];
+// fmtPourcentage (#499, cadrage version 2, point 1) : nom du module, qu'aucun écran ne redéfinit ; ce n'est pas une famille
+// de montant (FAMILLES_MONTANT, plus bas, ne le compte pas).
+const NOMS_DU_MODULE = ['fmtEuro', 'fmtEuroCentime', 'fmtMontantDocument', 'fmtNombreHeures', 'fmtHeures', 'fmtPourcentage', 'toDateFrancaise', 'fmtDate'];
 const IMPORT_DU_MODULE = /from '(?:\.\.\/lib|\.)\/formats'/;
 const fichiersSources = (dossier: string): string[] => readdirSync(dossier).flatMap((nom) => {
   const chemin = path.join(dossier, nom);
@@ -444,6 +539,19 @@ const FAMILLE_PAR_FICHIER: [string, string][] = [
   // contrats, au texte de la marge à l'heure d'un SAV hors contrat (Interventions.tsx, plus haut), dont elle est la variante
   // sous contrat.
   ['components/MargeDuContrat.tsx', 'centime en devise'],
+  // #499, cadrage du correctif, version 2, point 4 (C4, montants des écrans Travaux ; choix par défaut, à confirmer,
+  // règle 5) : famille choisie pour garder le texte d'origine quand il était déjà juste.
+  //  - journal des heures, coût interne d'une ligne : centime en devise (« 141,00 € », et non « 141.00 € » de toFixed) ;
+  //  - fiche chantier, hypothèses de la marge estimée : centime en devise, une seule famille par fichier (« 47,00 €/h » sur
+  //    la fiche, comme dans l'administration ; « 234,50 € HT ») ;
+  //  - administration, Chantiers : budgets à l'euro près, comme la liste des chantiers (ListeChantiers.tsx), « — » gardé
+  //    pour un vendu non communiqué (réponse de Nelson du 06-11-2026) ;
+  //  - journal des achats : euro près, comme le journal des achats de la fiche (ChantierJournalAchats.tsx) ; « 901,50 € »
+  //    s'y affiche « 902 € ».
+  ['pages/Heures.tsx', 'centime en devise'],
+  ['lib/suiviChantiers.ts', 'centime en devise'],
+  ['pages/Admin.tsx', 'euro près'],
+  ['pages/Achats.tsx', 'euro près'],
 ];
 
 test('famille de montant de chaque fichier : celle de son texte d’avant #205 (ou choisie par #499), et elle seule ; tout fichier qui met en forme un montant est lié à la sienne', () => {
@@ -515,8 +623,9 @@ test('famille de montant de chaque fichier : celle de son texte d’avant #205 (
 // --- #499 : montants des écrans du pilote au format français (cadrage du correctif #499, version 2, « Tests ») ---
 // Garde sur les sources : un montant ne s'écrit plus à la main avant « € ». FAMILLE_PAR_FICHIER ne voit qu'une famille
 // employée, et non un montant écrit hors du module à côté d'elle : ces motifs, relevés sur 33013bf (base du correctif),
-// le voient. Le taux de TVA du catalogue (« 20.00 % », Catalogue.tsx) et le corps de la requête des règlements
-// (montant: (…).toFixed(2)) ne sont pas suivis de « € » : ils restent, hors périmètre.
+// le voient. Le corps de la requête des règlements (montant: (…).toFixed(2)) n'est pas suivi de « € » : il reste (liste
+// fermée des toFixed, plus bas). Le taux de TVA du catalogue, que ce motif ne voyait pas (« 20.00 % », Catalogue.tsx),
+// passe par fmtPourcentage depuis la version 2 du cadrage de #499 (« 20 % ») : garde des pourcentages, plus bas.
 const ECRANS_499 = ['pages/Devis.tsx', 'pages/Catalogue.tsx', 'components/AdminReferentiels.tsx', 'pages/Reglements.tsx'];
 // toFixed(…), éventuellement suivi d'appels (.replace(…)), puis la fin de l'expression (« } » d'un JSX ou d'un gabarit,
 // ou une concaténation) et « € ».
@@ -618,4 +727,216 @@ test('témoin des gardes : elles reconnaissent les formes de l’inventaire, et 
   assert.doesNotMatch('  const heures = Math.floor(minutes / 60);', definition('heures'));
   assert.doesNotMatch('import { fmtEuro } from \'../lib/formats\';', definition('fmtEuro'));
   assert.deepEqual(lignesSansLocale('{arrondiEuro(x).toLocaleString(\'fr-FR\')} €'), []);
+});
+
+// --- #499, cadrage du correctif, version 2, point 8 : gardes étendues à tout src/ ---
+// Après #499, plus aucun montant, heure ou pourcentage ne s'écrit hors du module dans client/src, hors l'exception nommée
+// (ChantierIndicateurs.tsx, #388). Les appels sont relevés par le parseur TypeScript : un commentaire ou une chaîne qui les
+// nomme ne compte pas (montants.ts cite `toFixed` dans deux commentaires).
+const sourcesDuClient = () => {
+  const sources = path.join(racineClient, 'src');
+  return fichiersSources(sources).map((chemin) => ({ relatif: path.relative(sources, chemin).split(path.sep).join('/'), texte: readFileSync(chemin, 'utf8') }));
+};
+// Appels d'une méthode ou constructions relevés dans l'arbre : [ligne, texte de l'appel].
+const appelsRetenus = (texte: string, fichier: string, retenir: (noeud: ts.CallExpression | ts.NewExpression) => boolean) => {
+  const fichierArbre = arbre(texte, fichier);
+  const trouves: [number, string][] = [];
+  const visiter = (noeud: ts.Node) => {
+    if ((ts.isCallExpression(noeud) || ts.isNewExpression(noeud)) && retenir(noeud)) {
+      trouves.push([fichierArbre.getLineAndCharacterOfPosition(noeud.getStart(fichierArbre)).line + 1, noeud.getText(fichierArbre)]);
+    }
+    ts.forEachChild(noeud, visiter);
+  };
+  visiter(fichierArbre);
+  return trouves;
+};
+const nomAppele = (noeud: ts.CallExpression | ts.NewExpression) => (ts.isPropertyAccessExpression(noeud.expression) ? noeud.expression.name.text : ts.isIdentifier(noeud.expression) ? noeud.expression.text : '');
+const appelsToFixed = (texte: string, fichier: string) => appelsRetenus(texte, fichier, (n) => ts.isCallExpression(n) && nomAppele(n) === 'toFixed');
+// toLocaleString(), toLocaleDateString(), toLocaleTimeString(), Intl.NumberFormat() ou Intl.DateTimeFormat() sans locale
+// (aucun argument, ou `undefined`) : le texte suit alors la langue du navigateur (« 1,234.5 € » en anglais).
+const METHODES_DE_LOCALE = new Set(['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']);
+const FORMATS_INTL = new Set(['NumberFormat', 'DateTimeFormat']);
+const appelsSansLocale = (texte: string, fichier: string) => appelsRetenus(texte, fichier, (n) => {
+  const nom = nomAppele(n);
+  const intl = FORMATS_INTL.has(nom) && ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === 'Intl';
+  if (!(ts.isCallExpression(n) && METHODES_DE_LOCALE.has(nom)) && !intl) return false;
+  const [premier] = n.arguments ?? [];
+  return !premier || (ts.isIdentifier(premier) && premier.text === 'undefined');
+});
+
+// toFixed restants dans src/ hors l'exception nommée, liste fermée (cadrage v2, point 8 ; lignes sur 39ad174) : aucun
+// n'est un affichage. Clé : le fichier et le texte de l'appel, plutôt que la ligne, qu'une modification voisine déplace.
+const TO_FIXED_RESTANTS: [string, string][] = [
+  // montants.ts l. 38 : arrondi d'un rapport sur sa valeur exacte en binaire ; rend un nombre, jamais affiché.
+  ['lib/montants.ts', 'Math.abs(montant).toFixed(decimales)'],
+  // reglements.ts l. 26 : valeur d'un champ de saisie (« 1234,50 », virgule remise), jamais suivie de « € » (SAISIE_EURO).
+  ['lib/reglements.ts', '(centimes / 100).toFixed(2)'],
+  // traceSignature.ts l. 54 et 57 : coordonnées du tracé SVG de la signature.
+  ['lib/traceSignature.ts', '(premier[0] * largeur).toFixed(1)'],
+  ['lib/traceSignature.ts', '(premier[1] * 100).toFixed(1)'],
+  ['lib/traceSignature.ts', '(x * largeur).toFixed(1)'],
+  ['lib/traceSignature.ts', '(y * 100).toFixed(1)'],
+  // Reglements.tsx l. 149 et 150 : montants du corps de la requête d'un règlement, au point décimal, pour le serveur.
+  ['pages/Reglements.tsx', '((part.centimes ?? 0) / 100).toFixed(2)'],
+  ['pages/Reglements.tsx', '(montantCentimes / 100).toFixed(2)'],
+];
+const triees = (paires: [string, string][]) => [...paires].sort(([a, b], [c, d]) => (a === c ? b.localeCompare(d) : a.localeCompare(c)));
+
+test('#499 v2 : liste fermée des toFixed restants dans src/ (aucun n’est un affichage), hors l’exception nommée', () => {
+  // Témoins : le parseur relève un toFixed d'un affichage de 8a47a50 (Heures.tsx:195), et non un toFixed cité dans un
+  // commentaire ou une chaîne.
+  assert.deepEqual(appelsToFixed('<td>{coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)} €</td>', 'extrait.tsx').map(([, t]) => t), ['coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)']);
+  assert.deepEqual(appelsToFixed("// alors que `toFixed(2)` donne 1,02 €\nconst t = 'x.toFixed(2)';", 'extrait.ts'), []);
+  assert.deepEqual(appelsToFixed('const a = b?.toFixed(1);', 'extrait.ts').map(([, t]) => t), ['b?.toFixed(1)']);
+  const restants: [string, string][] = [];
+  const lignes: string[] = [];
+  for (const { relatif, texte } of sourcesDuClient()) {
+    if (relatif in EXCEPTIONS) continue;
+    for (const [ligne, appel] of appelsToFixed(texte, relatif)) { restants.push([relatif, appel]); lignes.push(`${relatif}:${ligne} ${appel}`); }
+  }
+  assert.deepEqual(triees(restants), triees(TO_FIXED_RESTANTS), `toFixed relevés :\n${lignes.join('\n')}`);
+  // L'exception nommée en garde (fiche chantier, #388) : elle n'entre pas dans cette liste.
+  assert.ok(appelsToFixed(source('components/ChantierIndicateurs.tsx'), 'components/ChantierIndicateurs.tsx').length > 0, 'témoin : l’exception nommée garde des toFixed');
+});
+
+test('#499 v2 : plus aucun montant au point décimal (toFixed suivi de « € ») dans aucun fichier de src/', () => {
+  // Témoin, recopié de 8a47a50 : coût interne d'une ligne du journal des heures (Heures.tsx:195).
+  assert.equal(occurrences('{coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)} €', TO_FIXED_EURO).length, 1);
+  for (const { relatif, texte } of sourcesDuClient()) {
+    const restants = occurrences(texte, TO_FIXED_EURO);
+    assert.deepEqual(restants, [], `${relatif} : montant au point décimal avant « € » (${restants.length})`);
+  }
+});
+
+test('#499 v2 : aucun toLocaleString() sans locale dans src/, hors l’exception nommée', () => {
+  // Témoins, recopiés de 8a47a50 : budgets d'Administration > Chantiers (Admin.tsx:642 et :650), achat (Achats.tsx:127).
+  assert.equal(appelsSansLocale("<div>{c.budgetGlobalVendu == null ? '—' : `${c.budgetGlobalVendu.toLocaleString()} €`}</div>", 'extrait.tsx').length, 1);
+  assert.equal(appelsSansLocale('<div>{c.budgetMaterielVendu.toLocaleString()} €</div>', 'extrait.tsx').length, 1);
+  assert.equal(appelsSansLocale("<td style={{padding: '8px'}}>{a.montantHT.toLocaleString()} €</td>", 'extrait.tsx').length, 1);
+  // Autres écritures du même défaut : espaces, `undefined` pour locale, chaînage optionnel, date, Intl sans locale.
+  for (const extrait of ['x.toLocaleString( )', 'x.toLocaleString(undefined, { maximumFractionDigits: 2 })', 'x?.toLocaleString()', 'd.toLocaleDateString()', 'new Intl.NumberFormat().format(x)', 'Intl.DateTimeFormat(undefined, { timeZone: f })']) {
+    assert.equal(appelsSansLocale(extrait, 'extrait.ts').length, 1, extrait);
+  }
+  // Ni une locale nommée (fr-FR, ou en-CA de dateFormatting.ts pour un jour AAAA-MM-JJ), ni un commentaire ou une chaîne.
+  for (const extrait of ["x.toLocaleString('fr-FR')", "x.toLocaleString('fr-FR', { maximumFractionDigits: 1 })", "new Intl.NumberFormat('fr-FR').format(r.taux)", "new Intl.DateTimeFormat('en-CA', { timeZone: f })", "// x.toLocaleString() sans locale\nconst t = 'x.toLocaleString()';"]) {
+    assert.deepEqual(appelsSansLocale(extrait, 'extrait.ts'), [], extrait);
+  }
+  for (const { relatif, texte } of sourcesDuClient()) {
+    if (relatif in EXCEPTIONS) continue;
+    const restants = appelsSansLocale(texte, relatif);
+    assert.deepEqual(restants, [], `${relatif} : format sans locale, l. ${restants.map(([l]) => l).join(', ')}`);
+  }
+});
+
+// Motifs ciblés des heures et des taux écrits bruts (cadrage v2, point 8). Une expression « nue » : un identifiant ou une
+// propriété, sans appel (un appel du module, fmtHeures(…), fmtPourcentage(…), n'en est pas une), éventuellement suivie de
+// « ?? valeur ».
+const nue = (nom: string) => `[\\w$.?!]*(?:${nom})[\\w$.?!]*(?:\\s*\\?\\?\\s*[\\w$.]+)?`;
+// Heures : expression nue dont le nom dit une durée (« heures », « Heures », « realisees »), éventuellement suivie de
+// toFixed(…), puis « h » comme mot. L'heure d'horloge de Performances (heurePic, HOUR_RANGE, h du créneau) n'a pas ce nom.
+const HEURES_BRUTES = new RegExp(`\\{\\s*${nue('[hH]eures|realisees')}(?:\\.toFixed\\([^()]*\\))?\\s*\\}\\s*h\\b`, 'g');
+// Pourcentage au point décimal : toFixed(…), la fin de l'expression, puis « % » (« 12.0% », « 20.00 % »).
+const TO_FIXED_POURCENT = /\.toFixed\([^()]*\)\s*\}\s*%/g;
+// Taux brut : expression nue dont le nom dit un taux, ou la cible d'une trace de règle TVA, puis « % ».
+const TAUX_BRUT = new RegExp(`\\{\\s*${nue('taux|Taux|cible')}\\s*\\}\\s*%`, 'g');
+// Pourcentage nu dans un texte JSX (« {pct}% »). Le « % » du CSS est dans un gabarit (« width: `${pct}%` »,
+// « `${from}% ${cumulative}%` ») : l'accolade y suit « $ », qu'exclut ce motif.
+const POURCENT_JSX_BRUT = new RegExp(`(?<![$\\w])\\{\\s*${nue('\\w')}\\s*\\}\\s*%`, 'g');
+// Pourcentage nu dans un gabarit, nommé « pct » ou « Pct », hors d'une propriété CSS de dimension (« height: `${heightPct}%` »).
+const POURCENT_GABARIT_BRUT = new RegExp(`(?<!\\b(?:width|height|left|right|top|bottom|minWidth|maxWidth|flexBasis)\\s*:\\s*\`)\\$\\{\\s*${nue('pct|Pct')}\\s*\\}\\s*%`, 'g');
+const MOTIFS_BRUTS: [string, RegExp][] = [['heure brute', HEURES_BRUTES], ['pourcentage au point décimal', TO_FIXED_POURCENT], ['taux brut', TAUX_BRUT], ['pourcentage nu (JSX)', POURCENT_JSX_BRUT], ['pourcentage nu (gabarit)', POURCENT_GABARIT_BRUT]];
+// Liste fermée des écritures nues gardées : dureeTempsPasse (tempsPasse.ts:60), heures entières d'une durée (Math.floor
+// des minutes), suivies des minutes, comme le PDF : « 1 h 15 min ». Un entier ne prend ni décimale ni séparateur.
+const ECRITURES_NUES_GARDEES: [string, string, string][] = [
+  ['lib/tempsPasse.ts', 'heure brute', '{heures} h'],
+  ['lib/tempsPasse.ts', 'heure brute', '{heures} h'],
+];
+
+test('#499 v2 : motifs ciblés des heures et des taux bruts ; témoins de 8a47a50, ni le « % » du CSS ni l’heure d’horloge', () => {
+  const trouve = (extrait: string) => MOTIFS_BRUTS.flatMap(([nom, motif]) => occurrences(extrait, motif).map(() => nom));
+  // Heures, recopiées de 8a47a50 : Heures.tsx:73, :74, :164 et :192 ; Statistiques.tsx:193 ; Performances.tsx:209, :216 et
+  // :217 ; Interventions.tsx:326 (pilote, #259) ; Admin.tsx:646.
+  for (const extrait of [
+    '<span>{realisees}h réalisées</span>',
+    '<span>{c.heuresVendues}h vendues</span>',
+    '<span className="font-extrabold text-primary text-lg">{h.nbrHeures}h</span>',
+    '<td className="px-6 py-4 font-bold text-primary">{h.nbrHeures}h</td>',
+    '<div className="font-black text-purple-600">{iv.heures.toFixed(1)} h</div>',
+    "{d.nbSaisies > 0 ? `${d.heuresSaisies.toFixed(1)}h` : '—'}",
+    "<span>{a.heuresTotalesSaisies.toFixed(1)}h saisies · {a.nbSaisiesTotal} saisie{a.nbSaisiesTotal > 1 ? 's' : ''}</span>",
+    '<span>{a.moyenneHeuresParJourActif.toFixed(1)}h / jour actif en moyenne</span>',
+    "<li key={heure.id}>{formatDateOnlyOrEmpty(heure.date)} — {heure.nbrHeures} h{heure.commentaire ? ` — ${heure.commentaire}` : ''}</li>",
+    '<div className="font-bold">{c.heuresVendues} h</div>',
+    '<td>{x.nbrHeures ?? 0} h</td>',
+  ]) assert.deepEqual(trouve(extrait), ['heure brute'], extrait);
+  // Pourcentages et taux, recopiés de 8a47a50 : Dashboard.tsx:221, :366 et :371 ; Statistiques.tsx:127 et :305 ;
+  // Performances.tsx:118, :169 et :184 ; Catalogue.tsx:241.
+  for (const extrait of [
+    "{globalStats.margePct != null ? `${globalStats.margePct.toFixed(1)}% · ` : ''}{periodLabel}",
+    '<span className="text-sm font-black text-primary-dark">{pct.toFixed(0)}%</span>',
+    '<span className="sm:hidden text-sm font-black text-primary-dark w-12 text-right">{pct.toFixed(0)}%</span>',
+    '<span className="text-sm font-semibold text-gray-400">({c.pct.toFixed(0)}%)</span>',
+    "<td style={{ padding: '8px', textAlign: 'right' }} className=\"text-gray-500 font-semibold\">{t.pct.toFixed(1)}%</td>",
+    "<div className=\"font-bold text-gray-800 mt-0.5\">{p.margePct == null ? '—' : `${p.margePct.toFixed(1)}%`}</div>",
+    '{p.tauxDepassementHeures.toFixed(1)}%',
+    '{p.nbObjectifsRespectes}/{p.nbChantiersTermines} ({p.tauxObjectifsRespectes.toFixed(0)}%)',
+    '<td className="px-4 py-3 text-right">{Number(f.tauxTva).toFixed(2)} %</td>',
+  ]) assert.deepEqual(trouve(extrait), ['pourcentage au point décimal'], extrait);
+  // Taux de TVA de l'écran Comptabilité, recopiés de 8a47a50 : message d'enregistrement (:57), message de retrait (:73),
+  // historique, titre et texte de la boîte de retrait (:97) ; acompte exigé de l'historique des devis (33013bf, corrigé par #571).
+  for (const extrait of [
+    'setSucces(`TVA ${b.taux}% enregistrée.`)',
+    'setSucces(`Règle TVA ${retraitTva.taux} % retirée. Le compte reste disponible.`)',
+    "{j.type === 'TVA' ? `TVA ${j.cible} %` : libelles[j.cible] ?? j.cible}",
+    '<h2 className="text-lg font-semibold">Retirer la règle TVA {retraitTva.taux} % ?</h2>',
+    'les émissions futures à {retraitTva.taux} % seront bloquées',
+    '`Acompte de ${d.tauxAcompte ?? 0} % exigé`',
+  ]) assert.ok(trouve(extrait).includes('taux brut'), extrait); // dans un texte JSX, le motif du pourcentage nu le voit aussi
+  // Pourcentages nus, autres écritures du même défaut.
+  assert.deepEqual(trouve('<span>{pct}%</span>'), ['pourcentage nu (JSX)']);
+  assert.deepEqual(trouve('<td>{p.margePct} %</td>'), ['pourcentage nu (JSX)']);
+  assert.deepEqual(trouve('`${p.margePct}% · `'), ['pourcentage nu (gabarit)']);
+  assert.deepEqual(trouve('`${margeEstimeeEnCoursPct} % du vendu`'), ['pourcentage nu (gabarit)']);
+  // Ni le « % » du CSS, ni l'heure d'horloge (Performances.tsx:221, :228, :238 et :239), ni un appel du module ou un
+  // format français, ni la durée entière gardée.
+  for (const extrait of [
+    "style={{ width: `${pct}%`, backgroundColor: fillColor(color, ratio) }}",
+    "style={{ height: `${heightPct}%` }}",
+    "style={{ width: `${Math.min(100, percent)}%` }}",
+    "style={{ width: `${(iv.heures / maxHeures) * 100}%` }}",
+    '`${CHANTIER_COLORS[c.key]} ${from}% ${cumulative}%`',
+    "Créneau de saisie habituel {a.heurePic != null && <span className=\"text-accent\">— vers {a.heurePic}h-{a.heurePic + 1}h</span>}",
+    "title={`${h}h : ${count} saisie${count > 1 ? 's' : ''}`}",
+    '<span>{HOUR_RANGE[0]}h</span>',
+    '<span>{HOUR_RANGE[HOUR_RANGE.length - 1]}h</span>',
+    '<span>{fmtHeures(realisees)} réalisées</span>',
+    '{fmtPourcentage(p.margePct, 1)}',
+    "<td className=\"p-2\">{new Intl.NumberFormat('fr-FR').format(r.taux)} %</td>",
+    "<td className=\"p-2\">{ligne.tauxTva.toLocaleString('fr-FR')} %</td>",
+    "<td>{String(f.tauxTva).replace('.', ',')} %</td>",
+    '`, plus le coût réel des ${nombre(heuresSuites, 2)} h de suites SAV`',
+    "placeholder={String(retraitTva.taux)}",
+  ]) assert.deepEqual(trouve(extrait), [], extrait);
+  const relevees: [string, string, string][] = [];
+  for (const { relatif, texte } of sourcesDuClient()) {
+    if (relatif in EXCEPTIONS) continue;
+    for (const [nom, motif] of MOTIFS_BRUTS) for (const brute of occurrences(texte, motif)) relevees.push([relatif, nom, brute]);
+  }
+  assert.deepEqual(relevees, ECRITURES_NUES_GARDEES);
+});
+
+// T1 du contrôle de cohérence (N6 de #499) : l'exception nommée ne reste que tant qu'elle sert. La fiche chantier
+// (ChantierIndicateurs.tsx, #388) garde au moins un toLocaleString() sans locale ou un pourcentage au point décimal ;
+// sinon, le test demande de la retirer.
+test('#499 v2 : l’exception nommée (ChantierIndicateurs.tsx, #388) reste nécessaire, sinon elle est à retirer d’EXCEPTIONS', () => {
+  assert.deepEqual(Object.keys(EXCEPTIONS), ['components/ChantierIndicateurs.tsx']);
+  for (const fichier of Object.keys(EXCEPTIONS)) {
+    const texte = source(fichier);
+    const defauts = appelsSansLocale(texte, fichier).length + occurrences(texte, TO_FIXED_POURCENT).length;
+    assert.ok(defauts > 0, `${fichier} : plus aucun toLocaleString() sans locale ni toFixed(…)}% ; l’exception (${EXCEPTIONS[fichier]}) n’est plus nécessaire, la retirer d’EXCEPTIONS`);
+  }
+  // fmtPourcentage est un nom du module, et non une famille de montant.
+  assert.ok(NOMS_DU_MODULE.includes('fmtPourcentage'));
+  assert.ok(!Object.hasOwn(FAMILLES_MONTANT, 'fmtPourcentage'));
+  assert.match(source('lib/formats.ts'), /export const fmtPourcentage = \(valeur: number, decimalesMax: 0 \| 1 \| 2\) =>/);
 });

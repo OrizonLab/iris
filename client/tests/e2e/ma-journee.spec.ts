@@ -134,7 +134,9 @@ test('sur téléphone, le technicien suit sa journée, appelle le contact et mè
     await fiche.getByPlaceholder('Heures').fill('1,5');
     await fiche.getByPlaceholder('Commentaire').fill('Dépannage chaudière');
     await fiche.getByRole('button', { name: 'Enregistrer mes heures' }).click();
-    await expect(fiche.getByText(/— 1\.5 h — Dépannage chaudière/)).toBeVisible();
+    // #499 et #259 (cadrage de #499, version 2, point 2) : les heures saisies s'écrivent par fmtHeures, « 1,5 h » (virgule,
+    // espace ordinaire U+0020), et non « 1.5 h », le nombre brut renvoyé par le serveur.
+    await expect(fiche.getByRole('listitem').filter({ hasText: 'Dépannage chaudière' })).toHaveText(new RegExp(`^${dateDuJour()} — 1,5\u0020h — Dépannage chaudière$`));
 
     await fiche.getByRole('button', { name: 'Terminer' }).click();
     await fiche.getByRole('dialog', { name: 'Terminer l’intervention' }).getByRole('button', { name: 'Confirmer la fin de l’intervention' }).click();

@@ -58,7 +58,9 @@ test('le technicien saisit ses heures sur une curative hors contrat ; l’admini
     const saisie = vue.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith(`/interventions/${curative.id}/couts/heures`));
     await enregistrer.click();
     expect((await saisie).status()).toBe(201);
-    await expect(carte.getByText(`${dateDuJour()} — 1.5 h — Remplacement du détecteur`)).toBeVisible();
+    // #499 et #259 (cadrage de #499, version 2, point 2) : les heures saisies s'écrivent par fmtHeures, « 1,5 h » (virgule,
+    // espace ordinaire U+0020), et non « 1.5 h », le nombre brut renvoyé par le serveur.
+    await expect(carte.getByRole('listitem').filter({ hasText: 'Remplacement du détecteur' })).toHaveText(new RegExp(`^${dateDuJour()} — 1,5\u0020h — Remplacement du détecteur$`));
     await expect(carte.getByRole('button', { name: 'Enregistrer l’achat matériel' })).toHaveCount(0);
   } finally {
     await vue.context().close();

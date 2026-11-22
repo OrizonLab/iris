@@ -3,6 +3,7 @@ import { apiFetch } from '../api';
 import { isAdminRole, roleDuCompte, useCurrentUser } from '../roles';
 import { useCompanyTimezone, useFuseauSocieteConnu } from '../companyTimezoneContext';
 import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
+import { fmtEuro } from '../lib/formats';
 
 const Achats = () => {
   const companyTimezone = useCompanyTimezone();
@@ -124,7 +125,7 @@ const Achats = () => {
                 <td style={{padding: '8px'}}>{a.numeroFacture || '-'}</td>
                 <td style={{padding: '8px'}}>{a.description}</td>
                 <td style={{padding: '8px'}}>{a.categorie?.nom}</td>
-                <td style={{padding: '8px', textAlign: 'right', fontWeight: 'bold'}}>{a.montantHT.toLocaleString()} €</td>
+                <td style={{padding: '8px', textAlign: 'right', fontWeight: 'bold'}}>{fmtEuro(a.montantHT)}</td>
               </tr>
             ))}
           </tbody>

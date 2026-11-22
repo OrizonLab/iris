@@ -11,6 +11,7 @@ import { AdminMarges } from '../components/AdminMarges';
 import { AdminUtilisateurs } from '../components/AdminUtilisateurs';
 import { AdminModules } from '../components/AdminModules';
 import type { MainOeuvreResumee } from '../lib/mainOeuvre';
+import { fmtEuro, fmtHeures } from '../lib/formats';
 
 // Onglets ouverts hors droits de l'administration, par capacité et non par type de compte :
 // - les référentiels du Journal des Achats, que le conducteur de travaux, le responsable et
@@ -639,19 +640,19 @@ const Admin = () => {
                   <div>
                     <div className="text-xs text-muted uppercase">Global Vendu</div>
                     {/* Vendu nul (null) : non communiqué au directeur ni à l'assistante technique sans la rentabilité des chantiers (réponse de Nelson du 06-11-2026). */}
-                    <div className="font-bold">{c.budgetGlobalVendu == null ? '—' : `${c.budgetGlobalVendu.toLocaleString()} €`}</div>
+                    <div className="font-bold">{c.budgetGlobalVendu == null ? '—' : fmtEuro(c.budgetGlobalVendu)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted uppercase">Heures Vendues</div>
-                    <div className="font-bold">{c.heuresVendues} h</div>
+                    <div className="font-bold">{fmtHeures(c.heuresVendues)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted uppercase">Matériel</div>
-                    <div className="font-bold text-accent">{c.budgetMaterielVendu.toLocaleString()} €</div>
+                    <div className="font-bold text-accent">{fmtEuro(c.budgetMaterielVendu)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted uppercase">Main d'Œuvre</div>
-                    <div className="font-bold" style={{color: '#8b5cf6'}}>{c.budgetMainOeuvreVendu.toLocaleString()} €</div>
+                    <div className="font-bold" style={{color: '#8b5cf6'}}>{fmtEuro(c.budgetMainOeuvreVendu)}</div>
                   </div>
                 </div>
               </div>

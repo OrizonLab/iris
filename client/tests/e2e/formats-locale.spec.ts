@@ -18,7 +18,8 @@ const FINE = ' ';
 
 // `toHaveText` avec une chaîne ramène toute espace (U+202F, U+00A0 comprises) à l'espace ordinaire : une expression
 // ancrée compare le texte exact, caractère par caractère.
-const exactement = (texte: string) => new RegExp(`^${texte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+const echapper = (texte: string) => texte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const exactement = (texte: string) => new RegExp(`^${echapper(texte)}$`);
 
 // Témoin : la page est bien servie en anglais ; un `toLocaleString()` sans locale y écrirait « 1,235 ».
 async function navigateurEnAnglais(page: Page) {
@@ -35,7 +36,7 @@ async function remplacerReponse(page: Page, motif: string, modifier: (donnees: a
 
 test('tableau de bord, navigateur en anglais : achats, heures, CA, marge et commission au format français', async ({ page, allerSurPageAdmin }) => {
   await remplacerReponse(page, '**/api/stats/global?*', (donnees) => ({
-    ...donnees, achatsTotal: 1234.5, heuresTotal: 1234.4, caTotal: 12345.5, margeTotal: -2345.5, commissionCommercialeTotal: 1500.4, commissionTotal: 1500.4,
+    ...donnees, achatsTotal: 1234.5, heuresTotal: 1234.4, caTotal: 12345.5, margeTotal: -2345.5, commissionCommercialeTotal: 1500.4, commissionTotal: 1500.4, margePct: -0.04,
   }));
   await allerSurPageAdmin('/');
   await navigateurEnAnglais(page);
@@ -46,6 +47,9 @@ test('tableau de bord, navigateur en anglais : achats, heures, CA, marge et comm
   await expect(valeur('CA Vendu')).toHaveText(exactement(`12${FINE}346 €`));
   await expect(valeur('Marge totale')).toHaveText(exactement(`-2${FINE}346 €`));
   await expect(valeur('Commission commerciale')).toHaveText(exactement(`1${FINE}500 €`));
+  // #499, cadrage version 2 (points 1 et 10) : marge de -0,04 % à une décimale, « 0 % » (fmtPourcentage, jamais « -0 % »).
+  // Lectures écartées : « -0.0% » (toFixed(1), avant #499), « -0 % » (Intl sans signDisplay), « -0,04 % » (deux décimales).
+  await expect(page.locator('div.bg-white.p-4', { hasText: 'Marge totale' }).last().locator('div.text-xs.text-gray-400')).toHaveText(/^0\u0020% · \S.*$/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
@@ -133,12 +137,41 @@ test('Performances, navigateur en anglais : CA, marge et manque à gagner au for
       tauxDepassementHeures: 12.5, manqueAGagnerMainOeuvre: 1234.5, tauxObjectifsRespectes: 0, nbObjectifsRespectes: 0,
     }],
   }));
+  // Assiduité de la semaine du même conducteur : trois jours actifs (7,5 h, 7,25 h et 7,25 h), 22 h en trois saisies.
+  await remplacerReponse(page, '**/api/stats/conducteurs/assiduite?*', (donnees) => ({
+    ...donnees,
+    conducteurs: [{
+      id: 'e2e-format-conducteur', joursActifs: 3, nbSaisiesTotal: 3, heuresTotalesSaisies: 22, moyenneHeuresParJourActif: 22 / 3, heurePic: 8,
+      tranchesHoraires: [{ heure: 8, nbSaisies: 3 }],
+      days: [
+        { date: '2026-11-16', label: 'Lundi', nbSaisies: 1, heuresSaisies: 7.5 },
+        { date: '2026-11-17', label: 'Mardi', nbSaisies: 1, heuresSaisies: 7.25 },
+        { date: '2026-11-18', label: 'Mercredi', nbSaisies: 1, heuresSaisies: 7.25 },
+        { date: '2026-11-19', label: 'Jeudi', nbSaisies: 0, heuresSaisies: 0 },
+        { date: '2026-11-20', label: 'Vendredi', nbSaisies: 0, heuresSaisies: 0 },
+      ],
+    }],
+  }));
   await allerSurPageAdmin('/performances');
   await navigateurEnAnglais(page);
   const carte = page.locator('div.bg-white.rounded-xl', { hasText: nom });
   await expect(carte.locator('div.bg-gray-50', { hasText: 'CA vendu' }).locator('div.mt-0\\.5')).toHaveText(exactement(`12${FINE}346 €`));
   await expect(carte.locator('div.bg-gray-50', { hasText: 'Marge générée' }).locator('div.mt-0\\.5')).toHaveText(exactement(`-2${FINE}346 €`));
   await expect(carte.locator('div.border-t', { hasText: 'Dépassement heures' }).locator('span.text-sm.font-black').last()).toHaveText(exactement(`-1${FINE}235 €`));
+  // #499, cadrage version 2 (points 1 et 10) : pourcentages par fmtPourcentage, virgule et espace ordinaire avant « % ».
+  // Marge -19 % à une décimale : « -19 % » (et non « -19.0% », toFixed(1)) ; dépassement 12,5 % : « 12,5 % » (et non
+  // « 12.5% ») ; objectifs 0 % sans décimale : « 0/1 (0 %) » (et non « 0/1 (0%) »).
+  await expect(carte.locator('div.bg-gray-50', { hasText: 'Marge %' }).locator('div.mt-0\\.5')).toHaveText(/^-19\u0020%$/);
+  await expect(carte.locator('div.border-t', { hasText: 'Dépassement heures' }).locator('span.text-sm.font-black').first()).toHaveText(/^12,5\u0020%$/);
+  await expect(carte.locator('div.border-t', { hasText: 'Objectifs respectés' }).locator('span.text-sm.font-black')).toHaveText(/^0\/1 \(0\u0020%\)$/);
+  // Assiduité de la semaine, heures par fmtHeures (deux décimales au plus) : 7,25 h dans la journée, « 7,25 h » (et non
+  // « 7.3h », toFixed(1)) ; 22 h saisies, « 22 h » (et non « 22.0h ») ; 22 h sur 3 jours actifs, « 7,33 h » (et non « 7.3h »,
+  // ni « 7,3 h » à une décimale). L'heure d'horloge du créneau habituel reste « 8h-9h ».
+  const assiduite = carte.locator('div.pt-3.border-t', { hasText: 'Assiduité de saisie' });
+  await expect(assiduite.locator('div.grid-cols-5 > div').nth(1).locator('div.text-sm')).toHaveText(/^7,25\u0020h$/);
+  await expect(assiduite.locator('span', { hasText: 'saisies ·' })).toHaveText(/^22\u0020h saisies · 3 saisies$/);
+  await expect(assiduite.locator('span', { hasText: 'jour actif en moyenne' })).toHaveText(/^7,33\u0020h \/ jour actif en moyenne$/);
+  await expect(assiduite.getByText(/— vers 8h-9h/)).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
@@ -149,12 +182,121 @@ test('Statistiques, navigateur en anglais : coût d’un intervenant et achats d
   await remplacerReponse(page, '**/api/stats/fournisseurs?*', (donnees) => ({
     ...donnees, fournisseurs: [{ id: 'e2e-format-fournisseur', nom: 'TEST Fournisseur format', nbAchats: 2, total: 12345.5 }],
   }));
+  // #499 v2 : répartition des chantiers terminés (0 décimale) et des types de chantiers (1 décimale).
+  await remplacerReponse(page, '**/api/stats/chantiers-repartition', (donnees) => ({
+    ...donnees, total: 8, categories: [
+      { key: 'positif', count: 1, pct: 12.5, label: 'TEST répartition format' },
+      { key: 'tempsSeul', count: 7, pct: 87.5, label: 'TEST répartition format' },
+    ],
+  }));
+  await remplacerReponse(page, '**/api/stats/types-chantiers?*', (donnees) => ({
+    ...donnees, totalChantiers: 8, types: [{ type: 'TEST Type format A', count: 1, pct: 12.5 }, { type: 'TEST Type format B', count: 1, pct: 0.15 }],
+  }));
   await allerSurPageAdmin('/statistiques');
   await navigateurEnAnglais(page);
+  // #499, cadrage version 2, point 1 : répartition sans décimale, 12,5 % donne « 13 % » et 87,5 % « 88 % » (moitié vers
+  // l'extérieur). Lectures écartées : « 13% » et « 88% » (toFixed(0), avant #499, sans espace), « 12 % » et « 88 % » (arrondi
+  // au pair), « 12,5 % » (une décimale).
+  await expect(page.locator('div.bg-gray-50.rounded-xl', { hasText: 'Tout positif' }).locator('span.text-sm.font-semibold')).toHaveText(/^\(13\u0020%\)$/);
+  await expect(page.locator('div.bg-gray-50.rounded-xl', { hasText: 'Dépassement temps seul' }).locator('span.text-sm.font-semibold')).toHaveText(/^\(88\u0020%\)$/);
   await page.getByRole('button', { name: 'Intervenants' }).click();
   await expect(page.locator('[data-intervenant="e2e-format-intervenant"] div.text-right div.text-xs')).toHaveText(exactement(`1${FINE}235 €`));
+  // #499, cadrage version 2, point 2 : heures de l'intervenant par fmtHeures, « 12,5 h » (et non « 12.5 h », toFixed(1)).
+  await expect(page.locator('[data-intervenant="e2e-format-intervenant"] div.text-right div.font-black')).toHaveText(/^12,5\u0020h$/);
   await page.getByRole('button', { name: 'Fournisseurs' }).click();
   const fournisseur = page.locator('div.flex.items-center.gap-4', { hasText: 'TEST Fournisseur format' });
   await expect(fournisseur.locator('div.text-right div.font-black')).toHaveText(exactement(`12${FINE}346 €`));
+  // Types de chantiers, une décimale : « 12,5 % » (et non « 12.5% ») ; 0,15 % donne « 0,2 % », l'arrondi d'Intl sur
+  // l'écriture décimale (toFixed(1) sur le flottant donnait « 0.1% » ; une troncature donnerait « 0,1 % »).
+  await page.getByRole('button', { name: 'Types de chantiers' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'TEST Type format A' }).getByRole('cell').nth(2)).toHaveText(/^12,5\u0020%$/);
+  await expect(page.getByRole('row').filter({ hasText: 'TEST Type format B' }).getByRole('cell').nth(2)).toHaveText(/^0,2\u0020%$/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// #499, cadrage version 2 (points 3 et 10) : taux de TVA par fmtPourcentage, deux décimales au plus, sans zéro inutile.
+// Catalogue : 5,5 % et 20 %, les deux taux réduit et normal admis par le catalogue. Lectures écartées : « 5.50 % » et
+// « 20.00 % » (toFixed(2), avant #499), « 5,50 % » et « 20,00 % » (deux décimales fixes), « 5.5 % » (langue du navigateur).
+test('Catalogue, navigateur en anglais : taux de TVA « 5,5 % » et « 20 % » au format français', async ({ page, request, session, allerSurPageAdmin }) => {
+  const headers = { Authorization: `Bearer ${session.token}` };
+  const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+  const creer = async (reference: string, tauxTva: string) => {
+    const response = await request.post(`${api}/catalogue/articles`, { headers, data: { reference, nom: `TEST Article TVA ${tauxTva} ${suffixe}`, unite: 'u', prixVenteHt: '10', tauxTva } });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    return response.json() as Promise<{ id: string; tauxTva: number }>;
+  };
+  const reduit = await creer(`E2E-TVA55-${suffixe}`, '5.5');
+  const normal = await creer(`E2E-TVA20-${suffixe}`, '20');
+  const fiches = await (await request.get(`${api}/catalogue/articles`, { headers })).json() as { id: string; tauxTva: number }[];
+  expect([reduit.id, normal.id].map((id) => fiches.filter((f) => f.id === id).map((f) => Number(f.tauxTva)))).toEqual([[5.5], [20]]);
+  await allerSurPageAdmin('/catalogue');
+  await navigateurEnAnglais(page);
+  await page.getByRole('button', { name: 'Articles', exact: true }).click();
+  const tableau = page.getByRole('table');
+  await expect(tableau.getByRole('columnheader').nth(5)).toHaveText('TVA');
+  await expect(tableau.getByRole('row').filter({ hasText: `E2E-TVA55-${suffixe}` }).getByRole('cell').nth(5)).toHaveText(/^5,5\u0020%$/);
+  await expect(tableau.getByRole('row').filter({ hasText: `E2E-TVA20-${suffixe}` }).getByRole('cell').nth(5)).toHaveText(/^20\u0020%$/);
+});
+
+// Comptabilité (cadrage v2, point 3 : Comptabilite.tsx:57, :73 et :97) : une règle TVA à 5,5 %, créée à l'écran en tapant
+// « 5,5 », puis retirée. Message d'enregistrement « TVA 5,5 % enregistrée. » : le taux enregistré, renvoyé par le serveur,
+// est mis en forme (lectures écartées : « TVA 5,5% enregistrée. », le texte tapé d'avant #499 ; « TVA NaN % », une virgule
+// non relue, ou le texte tapé relu pour « 5,5/ », formats-marges-quantites.spec.ts). Historique « TVA 5,5 % » (et non
+// « TVA 5.5 % », la cible brute), boîte de retrait « Retirer la règle
+// TVA 5,5 % ? » et « les émissions futures à 5,5 % », message de retrait « Règle TVA 5,5 % retirée. » (et non « 5.5 % »).
+// Le taux 5,5 % est laissé sans règle à la fin, comme le parcours comptabilite.spec.ts le suppose à son début.
+test('Comptabilité, navigateur en anglais : règle TVA à 5,5 %, enregistrée puis retirée, au format français dans les messages, l’historique et la boîte de retrait', async ({ page, request, session, allerSurPageAdmin }) => {
+  const headers = { Authorization: `Bearer ${session.token}` };
+  type Plan = { reglesTva: { taux: number; compteId: string; updatedAt: string }[]; comptes: { id: string; actif: boolean }[] };
+  const plan = async () => (await (await request.get(`${api}/comptabilite`, { headers })).json()) as Plan;
+  const retirer55 = async (motif: string) => {
+    const regle = (await plan()).reglesTva.find((r) => r.taux === 5.5);
+    if (!regle) return;
+    const retrait = await request.delete(`${api}/comptabilite/tva/5.5`, { headers, data: { confirmation: '5.5', expectedCompteId: regle.compteId, expectedUpdatedAt: regle.updatedAt, motif } });
+    expect(retrait.ok(), await retrait.text()).toBeTruthy();
+  };
+  await retirer55('Remise à zéro du parcours des formats');
+  const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+  const code = `445${String(Date.now()).slice(-9)}`;
+  const libelle = `TVA réduite format ${suffixe}`;
+  const creation = await request.post(`${api}/comptabilite/comptes`, { headers, data: { code, libelle, nature: 'TVA' } });
+  expect(creation.status(), await creation.text()).toBe(201);
+  const compteId = (await creation.json() as { id: string }).id;
+  const motifCreation = `TEST création TVA format ${suffixe}`;
+  const motifRetrait = `TEST retrait TVA format ${suffixe}`;
+  try {
+    await allerSurPageAdmin('/comptabilite');
+    await navigateurEnAnglais(page);
+    await page.getByRole('textbox', { name: 'Taux de TVA (%)' }).fill('5,5');
+    await page.getByRole('combobox', { name: 'Compte TVA à associer' }).selectOption(compteId);
+    await page.getByRole('textbox', { name: /Motif de création TVA/ }).fill(motifCreation);
+    const enregistrement = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/api/comptabilite/tva/'));
+    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    expect((await enregistrement).status()).toBe(200);
+    await expect(page.locator('p.text-emerald-700')).toHaveText(/^TVA 5,5\u0020% enregistrée\.$/);
+    expect((await plan()).reglesTva.filter((r) => r.taux === 5.5).map((r) => r.compteId)).toEqual([compteId]);
+
+    await page.getByRole('button', { name: 'Historique des règles' }).click();
+    const historique = page.getByRole('region', { name: 'Historique des règles' });
+    await expect(historique.locator('p', { hasText: motifCreation })).toHaveText(new RegExp(`^Création de TVA 5,5\u0020% : — → ${code} — ${echapper(libelle)} · ${echapper(motifCreation)} · `));
+
+    const ligne = page.getByRole('row').filter({ hasText: code });
+    await ligne.getByRole('button', { name: 'Retirer' }).click();
+    const dialogue = page.getByRole('dialog', { name: 'Retirer la règle TVA' });
+    await expect(dialogue.getByRole('heading')).toHaveText(/^Retirer la règle TVA 5,5\u0020% \?$/);
+    await expect(dialogue.locator('p.text-sm.text-gray-600')).toHaveText(new RegExp(`^Le compte ${code} reste dans le plan\\. Les exports des factures émises restent inchangés ; les émissions futures à 5,5\u0020% seront bloquées avant numérotation jusqu’à un nouveau mapping\\.$`));
+    await dialogue.getByLabel('Confirmer le taux exact').fill('5,5');
+    await dialogue.getByRole('textbox', { name: /Motif du retrait/ }).fill(motifRetrait);
+    const suppression = page.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().includes('/api/comptabilite/tva/'));
+    await dialogue.getByRole('button', { name: 'Confirmer le retrait' }).click();
+    expect((await suppression).status()).toBe(204);
+    await expect(page.locator('p.text-emerald-700')).toHaveText(/^Règle TVA 5,5\u0020% retirée\. Le compte reste disponible\.$/);
+    const apres = await plan();
+    expect(apres.reglesTva.some((r) => r.taux === 5.5)).toBe(false);
+    expect(apres.comptes.find((c) => c.id === compteId)?.actif).toBe(true);
+    await page.getByRole('button', { name: 'Historique des règles' }).click();
+    await expect(historique.locator('p', { hasText: motifRetrait })).toHaveText(new RegExp(`^Retrait de TVA 5,5\u0020% : ${code} — ${echapper(libelle)} → retiré · ${echapper(motifRetrait)} · `));
+  } finally {
+    await retirer55('Nettoyage du parcours des formats');
+  }
 });

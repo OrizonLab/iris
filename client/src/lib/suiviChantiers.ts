@@ -1,4 +1,5 @@
 import { arrondiCentime, arrondiEuro, differenceExacte } from './montants';
+import { fmtEuroCentime, fmtPourcentage } from './formats';
 
 // Suivi des chantiers : recherche, filtres et tri de la liste et du tableau de bord.
 //
@@ -163,7 +164,7 @@ export function libelleAlerte(code: AlerteChantier, chantier: ChantierSuivi): st
     case 'EN_PERTE':
       return avecMontant('En perte', montantAlerte(Math.abs(m.margeCommerciale ?? 0)), 'En perte ');
     case 'MARGE_FAIBLE':
-      return `Marge estimée ${nombre(m.margeEstimeePct ?? 0, 1)} %`;
+      return `Marge estimée ${fmtPourcentage(m.margeEstimeePct ?? 0, 1)}`;
     case 'SANS_SAISIE':
       return `Sans saisie depuis ${nombre(m.joursSansSaisie ?? 0)} j`;
     // Heures saisies au centième : deux décimales au plus (un dépassement de 0,25 h ne
@@ -204,7 +205,7 @@ export function ancienneteSaisie(jours: number): string {
  * transmis qu'à l'administration : sans lui, l'hypothèse est décrite sans montant. Le coût réel des
  * heures des suites SAV, non vendues, s'ajoute à la projection du chantier (cf. computeChantierMetrics). */
 export function hypotheseCoutHoraire(e: EstimationMarge, heuresSuites = 0): string {
-  const taux = e.coutHoraireReference != null ? `à ${nombre(e.coutHoraireReference, 2)} €/h, ` : 'au ';
+  const taux = e.coutHoraireReference != null ? `à ${fmtEuroCentime(e.coutHoraireReference)}/h, ` : 'au ';
   const suites = heuresSuites > 0 ? `, plus le coût réel des ${nombre(heuresSuites, 2)} h de suites SAV` : '';
   switch (e.sourceCoutHoraire) {
     case 'CHANTIER': return `heures vendues ${taux}coût moyen réellement appliqué sur ce chantier${suites}`;
@@ -220,7 +221,7 @@ export function hypotheseCoutHoraire(e: EstimationMarge, heuresSuites = 0): stri
 export function hypotheseMateriel(e: EstimationMarge, materielSuites?: number | null, coutMaterielPrevu?: number | null): string {
   const suites = materielSuites ? ', plus le matériel des suites SAV' : '';
   switch (e.sourceMateriel) {
-    case 'DEVIS': return `coût d’achat prévu au devis${coutMaterielPrevu != null ? ` (${nombre(coutMaterielPrevu, 2)} € HT)` : ''}, une fourniture sans prix d’achat prévu comptant pour zéro${suites}`;
+    case 'DEVIS': return `coût d’achat prévu au devis${coutMaterielPrevu != null ? ` (${fmtEuroCentime(coutMaterielPrevu)} HT)` : ''}, une fourniture sans prix d’achat prévu comptant pour zéro${suites}`;
     case 'HISTORIQUE': return `matériel vendu × ${nombre((e.ratioMateriel ?? 1) * 100, 0)} %, ratio d’achat observé sur les chantiers terminés${suites}`;
     case 'VENDU': return `matériel restant compté à son prix de vente (aucun chantier terminé pour l’instant)${suites}`;
     case 'REEL': return 'achats réels (chantier terminé)';

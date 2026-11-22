@@ -4,7 +4,7 @@ import { apiFetch } from '../api';
 import { decalerReference, jourFrancais } from '../lib/dateFormatting';
 import { useReferencePeriode } from '../lib/referencePeriode';
 import { isAdminRole, roleDuCompte, roleLabel, useCurrentUser } from '../roles';
-import { fmtEuro } from '../lib/formats';
+import { fmtEuro, fmtHeures, fmtPourcentage } from '../lib/formats';
 
 type Period = 'week' | 'month' | 'year';
 
@@ -124,7 +124,7 @@ function ChantiersTab() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-gray-800">{c.count}</span>
-              <span className="text-sm font-semibold text-gray-400">({c.pct.toFixed(0)}%)</span>
+              <span className="text-sm font-semibold text-gray-400">({fmtPourcentage(c.pct, 0)})</span>
             </div>
             <div className="text-xs text-gray-400 mt-1">{c.label}</div>
           </div>
@@ -190,7 +190,7 @@ function IntervenantsTab() {
                 </div>
               </div>
               <div className="text-right w-28 shrink-0">
-                <div className="font-black text-purple-600">{iv.heures.toFixed(1)} h</div>
+                <div className="font-black text-purple-600">{fmtHeures(iv.heures)}</div>
                 {/* Coût d'un intervenant : réservé à l'administration (le serveur envoie null aux autres). */}
                 {iv.cout != null && <div className="text-xs text-gray-400">{fmtEuro(iv.cout)}</div>}
               </div>
@@ -302,7 +302,7 @@ function TypesChantiersTab() {
                     </div>
                   </td>
                   <td style={{ padding: '8px', textAlign: 'right' }} className="font-black text-indigo-600">{t.count}</td>
-                  <td style={{ padding: '8px', textAlign: 'right' }} className="text-gray-500 font-semibold">{t.pct.toFixed(1)}%</td>
+                  <td style={{ padding: '8px', textAlign: 'right' }} className="text-gray-500 font-semibold">{fmtPourcentage(t.pct, 1)}</td>
                 </tr>
               ))}
             </tbody>

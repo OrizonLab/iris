@@ -318,7 +318,10 @@ test('fiche chantier en cours : les hypothèses de la marge estimée disent le c
 
   // Administration : 2 h vendues à 40 €, plus les 60 € de la suite.
   const page = await allerSurPageAdmin(`/chantiers/${chantier.id}`);
-  await expect(page.locator('[data-estimation]')).toContainText('Main-d’œuvre attendue : 140 € — heures vendues à 40 €/h, coût moyen réellement appliqué sur ce chantier, plus le coût réel des 1,5 h de suites SAV.');
+  // #499, cadrage version 2, point 4 : coût horaire au centime en devise, « 40,00 €/h » (U+00A0 d'Intl avant « € ») ; le
+  // montant attendu reste à l'euro près (« 140 € », U+0020) et les heures des suites à l'espace ordinaire (« 1,5 h »).
+  // Lectures écartées : « 40 €/h » d'avant #499, la forme des documents (« 40,00 €/h » à l'espace ordinaire).
+  await expect(page.locator('[data-estimation] li', { hasText: 'Main-d’œuvre attendue' })).toHaveText(/^Main-d’œuvre attendue : 140\u0020€ — heures vendues à 40,00\u00A0€\/h, coût moyen réellement appliqué sur ce chantier, plus le coût réel des 1,5\u0020h de suites SAV\.$/);
 
   const contexte = await browser.newContext();
   const vueConducteur = await contexte.newPage();

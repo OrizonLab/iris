@@ -20,7 +20,7 @@ import { useModules } from '../modules';
 import { interventionRemettable } from '../lib/remiseAPlanifier';
 import { useCompanyTimezone } from '../companyTimezoneContext';
 import { formatCompanyDate, formatDateOnly } from '../lib/dateFormatting';
-import { fmtEuroCentime } from '../lib/formats';
+import { fmtEuroCentime, fmtHeures } from '../lib/formats';
 import { chantiersDuClient } from '../lib/chantiersDuClient';
 import type { ContactIntervention, Planification, SiteIntervention } from '../lib/intervention';
 
@@ -323,7 +323,7 @@ export default function Interventions({ interventionId }: { interventionId?: str
         {/* Intervention SAV hors contrat, sans devis ni chantier : sa marge à l'heure, au prix figé des mains d'œuvre, pour l'administration (lot « marge d'un SAV hors contrat »). */}
         {estEncadrement && couts[item.id].margeSav && (() => { const marge = couts[item.id].margeSav!; const alerte = alerteMargeSav(marge); return <div data-marge-sav className="mt-1"><p className="font-medium text-slate-800">Marge à l’heure : {fmtEuroCentime(marge.margeHT)} HT</p><p className="text-xs text-slate-600">{detailMargeSav(marge, fmtEuroCentime)}</p>{alerte && <p role="note" className="mt-1 text-xs text-amber-800">{alerte}</p>}</div>; })()}
         {estTechnicien && <>
-          {(couts[item.id].heures || []).length > 0 && <ul className="mb-3 space-y-1 text-slate-700">{couts[item.id].heures!.map((heure) => <li key={heure.id}>{formatDateOnlyOrEmpty(heure.date)} — {heure.nbrHeures} h{heure.commentaire ? ` — ${heure.commentaire}` : ''}</li>)}</ul>}
+          {(couts[item.id].heures || []).length > 0 && <ul className="mb-3 space-y-1 text-slate-700">{couts[item.id].heures!.map((heure) => <li key={heure.id}>{formatDateOnlyOrEmpty(heure.date)} — {fmtHeures(heure.nbrHeures)}{heure.commentaire ? ` — ${heure.commentaire}` : ''}</li>)}</ul>}
           <form onSubmit={(event) => void enregistrerHeures(event, item.id)} className="grid gap-2 sm:grid-cols-2"><input required name="date" inputMode="numeric" pattern="\d{2}-\d{2}-\d{4}" placeholder="Date (JJ-MM-AAAA)" className="form-input" /><input required name="nbrHeures" inputMode="decimal" placeholder="Heures" className="form-input" /><input name="commentaire" maxLength={500} placeholder="Commentaire" className="form-input sm:col-span-2" /><input name="motif" maxLength={500} placeholder="Motif (obligatoire si 0)" className="form-input" /><button type="submit" className="btn btn-secondary">Enregistrer mes heures</button></form>
         </>}
         {/* Matériel saisi par l'encadrement, sous contrat comme hors contrat (lot « matériel d'une intervention curative »). */}

@@ -37,7 +37,11 @@ test('fiche chantier : la marge estimée part du coût d’achat prévu au devis
   // Administration : le coût d'achat prévu, avec son montant (3 × 30,40 €, la visserie sans prix d'achat comptant pour zéro).
   const page = await allerSurPageAdmin(`/chantiers/${chantier.id}`);
   const estimation = page.locator('[data-estimation]');
-  await expect(estimation).toContainText('coût d’achat prévu au devis (91,2 € HT), une fourniture sans prix d’achat prévu comptant pour zéro.');
+  // #499, cadrage version 2, point 4 : le coût d'achat prévu au centime en devise, « 91,20 € HT » (U+00A0 d'Intl avant
+  // « € »). Lectures écartées : « 91,2 € HT » d'avant #499 (sans zéro, espace ordinaire), la forme des documents (U+0020),
+  // l'euro près (« 91 € HT »). Le matériel attendu reste à l'euro près, comme les autres postes de la fiche.
+  const HYPOTHESE_MATERIEL = /^Matériel attendu : 91\u0020€ — coût d’achat prévu au devis \(91,20\u00A0€ HT\), une fourniture sans prix d’achat prévu comptant pour zéro\.$/;
+  await expect(estimation.locator('li', { hasText: 'Matériel attendu' })).toHaveText(HYPOTHESE_MATERIEL);
 
   // Conducteur titulaire : la même hypothèse, avec son montant, et le matériel attendu.
   const contexte = await browser.newContext();
@@ -48,7 +52,7 @@ test('fiche chantier : la marge estimée part du coût d’achat prévu au devis
   }, [jetonPour(conducteur.id), JSON.stringify({ ...conducteur, permissions: ['chantiers:read', 'clients:read'] })]);
   await vueConducteur.goto(`/chantiers/${chantier.id}`, { waitUntil: 'networkidle' });
   const vue = vueConducteur.locator('[data-estimation]');
-  await expect(vue).toContainText('coût d’achat prévu au devis (91,2 € HT), une fourniture sans prix d’achat prévu comptant pour zéro.');
+  await expect(vue.locator('li', { hasText: 'Matériel attendu' })).toHaveText(HYPOTHESE_MATERIEL);
   await expect(vue.locator('li', { hasText: 'Matériel attendu' }).locator('strong')).toHaveText(/^91\s€$/); // arrondi à l'euro, comme les autres postes de la fiche
   await contexte.close();
 });
