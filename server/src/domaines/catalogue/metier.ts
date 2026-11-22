@@ -2,7 +2,7 @@ import express from 'express';
 import { prisma } from '../../db';
 import { voitPrixAchatDevis } from '../../droits/visibilite';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
-import { booleenStrict } from '../../commun/validation';
+import { booleenStrict, nombreDecimalNonNegatif } from '../../commun/validation';
 
 // --- Catalogue natif Iris ---
 // Trois familles partagent la même forme (référence, nom, prix, TVA, catégorie) et sont
@@ -26,11 +26,16 @@ export function catalogueFamily(value: string): CatalogueFamily | null {
   return value === 'prestations' || value === 'articles' || value === 'equipements' ? value : null;
 }
 
-// Nombre positif obligatoire : `Number('')` vaut 0 et `Number('abc')` vaut NaN, on refuse
-// donc explicitement tout ce qui n'est pas un nombre fini positif (prix, TVA, stock).
-function catalogueNombre(value: unknown, champ: string, defaut = 0): number {
-  const n = Number(value ?? defaut);
-  if (!Number.isFinite(n) || n < 0) throw new Error(`${champ} invalide.`);
+// Nombre positif ou nul d'une fiche (prix, TVA, stock, durée), lu par la règle commune des saisies (#394) : virgule
+// ou point décimal, au plus `chiffres` chiffres avant la virgule et `decimales` après (bornes des colonnes) ; la
+// notation scientifique, un signe et une décimale en trop sont refusés, alors que `Number` les admettait (« 1e3 »,
+// « 12.345 », que PostgreSQL arrondissait sans le dire) et refusait « 18,75 ». Une valeur absente ou vide prend
+// `defaut`, comme avant (`Number('')` valait 0) ; le refus d'un champ vide, quand il y en a un, est porté par
+// l'appelant (TVA).
+function catalogueNombre(value: unknown, champ: string, defaut = 0, chiffres = 10, decimales = 2): number {
+  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) return defaut;
+  const n = nombreDecimalNonNegatif(value, chiffres, true, decimales);
+  if (n === null) throw new Error(`${champ} invalide.`);
   return n;
 }
 
@@ -46,7 +51,7 @@ function cataloguePrixAchat(value: unknown): number | null {
 // vaudrait 0, soit une autoliquidation que personne n'a saisie (#324, N1).
 function tauxTvaCatalogue(value: unknown): number {
   if (typeof value === 'string' && value.trim() === '') throw new Error(REFUS_TAUX_TVA);
-  const taux = catalogueNombre(value, 'TVA', 20);
+  const taux = catalogueNombre(value, 'TVA', 20, 3, 2);
   if (!estTauxTvaFrancais(taux)) throw new Error(REFUS_TAUX_TVA);
   return taux;
 }
@@ -105,7 +110,7 @@ export function catalogueExtraPayload(family: CatalogueFamily, body: Record<stri
       // de la section 3 de la passation, bloc « Catalogue dans les devis (lot pilote 2, #161) », sur le prix d'achat
       // effacé par une modification qui l'omet, vaut aussi pour ce champ, #604).
       stockSuivi: drapeauCatalogue(body, 'stockSuivi') ?? false,
-      stockActuel: catalogueNombre(body.stockActuel, 'Stock'),
+      stockActuel: catalogueNombre(body.stockActuel, 'Stock', 0, 9, 3),
     };
   }
   return { fabricant: body.fabricant ? String(body.fabricant).trim() : null, prixAchatHt: cataloguePrixAchat(body.prixAchatHt) };

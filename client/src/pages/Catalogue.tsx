@@ -4,6 +4,8 @@ import { apiFetch } from '../api';
 import CatalogueMainOeuvre from '../components/CatalogueMainOeuvre';
 import type { MainOeuvre } from '../lib/mainOeuvre';
 import { fmtMontantDocument, fmtPourcentage } from '../lib/formats';
+import { MOTIF_PRIX_DEVIS, MOTIF_TVA_DEVIS, TITRE_PRIX_DEVIS, TITRE_TVA_DEVIS } from '../lib/catalogueDevis';
+import { MOTIF_STOCK, TITRE_STOCK } from '../lib/saisiesDecimales';
 
 /**
  * Catalogue natif Iris : prestations, articles et équipements.
@@ -39,6 +41,8 @@ type Famille = typeof FAMILLES[number]['cle'];
 // Onglet « Main d'œuvre » : les prestations marquées main d'œuvre, lues avec les prestations.
 const ONGLET_MAIN_OEUVRE = 'mainOeuvre';
 type Onglet = Famille | typeof ONGLET_MAIN_OEUVRE;
+
+const MOTIF_SAISIE_PRIX = { pattern: MOTIF_PRIX_DEVIS, title: TITRE_PRIX_DEVIS };
 
 const ficheVide = {
   reference: '', nom: '', description: '', categorieId: '', tauxTva: '20', prixVenteHt: '0',
@@ -122,11 +126,17 @@ const Catalogue = () => {
     await charger(famille);
   };
 
-  const champ = (cle: keyof typeof ficheVide, libelle: string, type = 'text', requis = false) => (
+  // Un champ décimal (`motif` donné) est en texte, `inputMode="decimal"`, et non `type="number"`, qu'un navigateur
+  // réglé dans une autre langue lit autrement (« 18,75 » y devenait 1875, #394) ; le serveur lit la virgule.
+  const champ = (cle: keyof typeof ficheVide, libelle: string, type = 'text', requis = false, motif?: { pattern: string; title: string }) => (
     <div className="form-group">
-      <label className="form-label">{libelle}</label>
+      <label className="form-label" htmlFor={`catalogue-${cle}`}>{libelle}</label>
       <input
-        type={type}
+        id={`catalogue-${cle}`}
+        type={motif ? 'text' : type}
+        inputMode={motif ? 'decimal' : undefined}
+        pattern={motif?.pattern}
+        title={motif?.title}
         required={requis}
         step={type === 'number' ? 'any' : undefined}
         value={String(saisie[cle] ?? '')}
@@ -190,14 +200,14 @@ const Catalogue = () => {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
               </select>
             </div>
-            {champ('prixVenteHt', 'Prix de vente HT (€)', 'number')}
-            {champ('tauxTva', 'TVA (%)', 'number')}
+            {champ('prixVenteHt', 'Prix de vente HT (€)', 'text', false, MOTIF_SAISIE_PRIX)}
+            {champ('tauxTva', 'TVA (%)', 'text', true, { pattern: MOTIF_TVA_DEVIS, title: TITRE_TVA_DEVIS })}
             {famille === 'equipements' && champ('fabricant', 'Fabricant')}
             {famille !== 'equipements' && champ('unite', 'Unité')}
             {famille === 'prestations' && champ('dureeIndicativeMin', 'Durée indicative (min)', 'number')}
             {/* Facultatif dans les trois familles : repris comme prix d'achat prévu d'une ligne de devis. */}
-            {champ('prixAchatHt', "Prix d'achat HT (€, facultatif)", 'number')}
-            {famille === 'articles' && champ('stockActuel', 'Stock actuel', 'number')}
+            {champ('prixAchatHt', "Prix d'achat HT (€, facultatif)", 'text', false, MOTIF_SAISIE_PRIX)}
+            {famille === 'articles' && champ('stockActuel', 'Stock actuel', 'text', false, { pattern: MOTIF_STOCK, title: TITRE_STOCK })}
           </div>
           {famille === 'articles' && (
             <label className="flex items-center gap-2 text-sm">

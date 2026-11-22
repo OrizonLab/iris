@@ -1,5 +1,7 @@
 import { Hammer, Pencil, Trash2, Search } from 'lucide-react';
 import { toDateFrancaise, fmtDate, fmtHeures } from '../lib/formats';
+import { valeurSaisie } from '../lib/mainOeuvre';
+import { MOTIF_DEMI_HEURE, TITRE_DEMI_HEURE } from '../lib/saisiesDecimales';
 
 export function ChantierJournalHeures({ pointages, heuresTotal, pointageSearch, setPointageSearch, pointageIntervenantFiltre, setPointageIntervenantFiltre, pointagesIntervenantsDispo, pointageRoleFiltre, setPointageRoleFiltre, pointagesRolesDispo, pointageTri, setPointageTri, pointagesFiltreActif, resetPointagesFiltres, pointagesAffiches, editingPointageId, handlePointageSubmit, intervenants, savingPointage, setEditingPointageId, peutCorrigerTravaux, peutArchiverTravaux, startEditPointage, handleDeletePointage, pointagesAffichesTotal }: {
   pointages: any[];
@@ -102,7 +104,7 @@ export function ChantierJournalHeures({ pointages, heuresTotal, pointageSearch, 
                         {intervenants.length === 0 && <option value={p.intervenantId}>{p.intervenant?.nom}</option>}
                         {intervenants.map((i) => <option key={i.id} value={i.id}>{i.nom} ({i.role})</option>)}
                       </select>
-                      <input required type="number" step="0.5" min="0.5" name="nbrHeures" defaultValue={p.nbrHeures} className="form-input text-sm" />
+                      <input required type="text" inputMode="decimal" pattern={MOTIF_DEMI_HEURE} title={TITRE_DEMI_HEURE} name="nbrHeures" defaultValue={valeurSaisie(p.nbrHeures)} aria-label="Nombre d’heures" className="form-input text-sm" />
                       <input type="text" name="commentaire" defaultValue={p.commentaire || ''} placeholder="Commentaire" className="form-input text-sm" />
                       <input required minLength={3} maxLength={500} type="text" name="motifCorrection" placeholder="Motif de la correction" className="form-input text-sm sm:col-span-2 lg:col-span-3" />
                       <div className="sm:col-span-2 lg:col-span-4 flex gap-2 justify-end">

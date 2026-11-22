@@ -1,4 +1,6 @@
 import { fmtEuro } from '../lib/formats';
+import { nombreSaisi } from '../lib/catalogueDevis';
+import { affichageSaisie, MOTIF_PLAFOND, MOTIF_POURCENTAGE, TITRE_PLAFOND, TITRE_POURCENTAGE } from '../lib/saisiesDecimales';
 
 // Éditeur d'un barème progressif. Une tranche = un plafond et un taux ; la DERNIÈRE peut
 // avoir un plafond vide, ce qui signifie « au-delà, sans borne » (JSON ne représente pas
@@ -25,22 +27,27 @@ export const EditeurBareme = ({ titre, tranches, modifiable, accent, onChange }:
       {lignes.length === 0 && <p className="text-sm text-gray-400 italic mb-3">Aucune tranche.</p>}
       <div className="space-y-2">
         {lignes.map((t, i) => {
-          const plafondCourant = t.plafond === null || t.plafond === '' ? null : Number(t.plafond);
+          // Plafond lu à la virgule comme au point (« 1500,50 ») : `Number` aurait donné NaN, soit « dès NaN € »
+          // sur la tranche suivante. Une saisie hors forme (refusée à l'envoi) ne déplace pas le plancher.
+          const plafondLu = t.plafond === null || t.plafond === '' ? null : nombreSaisi(t.plafond);
+          const plafondCourant = plafondLu !== null && Number.isFinite(plafondLu) ? plafondLu : null;
           const depuis = plancher;
           plancher = plafondCourant ?? plancher;
           return (
             <div key={i} className="flex items-center gap-2">
               <span className="text-xs text-gray-500 w-20 shrink-0">dès {fmtEuro(depuis)}</span>
               <input
-                type="number" min="0" step="any" className="form-input flex-1" style={{ margin: 0 }}
-                placeholder="sans plafond"
-                value={t.plafond ?? ''}
+                type="text" inputMode="decimal" pattern={MOTIF_PLAFOND} title={TITRE_PLAFOND}
+                className="form-input flex-1" style={{ margin: 0 }}
+                placeholder="sans plafond" aria-label={`Plafond de la tranche ${i + 1}`}
+                value={affichageSaisie(t.plafond)}
                 disabled={!modifiable}
                 onChange={(e) => maj(i, 'plafond', e.target.value)}
               />
               <input
-                type="number" min="0" max="100" step="any" className="form-input w-24" style={{ margin: 0 }}
-                value={t.taux}
+                type="text" inputMode="decimal" required pattern={MOTIF_POURCENTAGE} title={TITRE_POURCENTAGE}
+                className="form-input w-24" style={{ margin: 0 }} aria-label={`Taux de la tranche ${i + 1}`}
+                value={affichageSaisie(t.taux)}
                 disabled={!modifiable}
                 onChange={(e) => maj(i, 'taux', e.target.value)}
               />

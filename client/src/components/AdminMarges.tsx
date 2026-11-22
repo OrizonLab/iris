@@ -1,6 +1,9 @@
 import { AvisSansPlanCommercial } from './AvisSansPlanCommercial';
 import { EditeurBareme } from './EditeurBareme';
 import { ReglageTempsPasse } from './ReglageTempsPasse';
+import { MOTIF_PRIX_DEVIS, TITRE_PRIX_DEVIS } from '../lib/catalogueDevis';
+import { valeurSaisie } from '../lib/mainOeuvre';
+import { affichageSaisie, MOTIF_POURCENTAGE, TITRE_POURCENTAGE } from '../lib/saisiesDecimales';
 
 export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, remuneration, setRemuneration, erreurRemuneration, messageRemuneration, enregistrerRemuneration, handleParamsSubmit }: {
   isSuper: boolean;
@@ -41,11 +44,11 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                 <label className="flex flex-wrap items-center gap-3 w-fit">
                   <span className="text-sm font-semibold text-gray-700">Taux d'acompte proposé par défaut</span>
                   <input
-                    type="number" name="tauxAcompteDefaut" min="0" max="100" step="0.01"
-                    defaultValue={parametres?.tauxAcompteDefaut ?? 40}
+                    type="text" inputMode="decimal" name="tauxAcompteDefaut" required pattern={MOTIF_POURCENTAGE}
+                    defaultValue={valeurSaisie(parametres?.tauxAcompteDefaut ?? 40)}
                     className="form-input w-28" style={{ margin: 0 }}
                     aria-describedby="aide-taux-acompte-defaut"
-                    title="Sans effet sur les devis déjà émis."
+                    title={`${TITRE_POURCENTAGE}. Sans effet sur les devis déjà émis.`}
                   />
                   <span className="text-sm text-gray-500">% du TTC</span>
                 </label>
@@ -60,8 +63,8 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                 <label className="flex flex-wrap items-center gap-3 w-fit">
                   <span className="text-sm font-semibold text-gray-700">Marge faible : alerter sous</span>
                   <input
-                    type="number" name="seuilMargeFaible" min="0" max="100" step="0.01"
-                    defaultValue={parametres?.seuilMargeFaible ?? ''}
+                    type="text" inputMode="decimal" name="seuilMargeFaible" pattern={MOTIF_POURCENTAGE} title={TITRE_POURCENTAGE}
+                    defaultValue={valeurSaisie(parametres?.seuilMargeFaible)}
                     className="form-input w-28" style={{ margin: 0 }}
                     aria-label="Seuil de marge faible en pourcentage"
                   />
@@ -192,10 +195,11 @@ export function AdminMarges({ isSuper, estDirecteur, parametres, setParametres, 
                     ['primeSuiviAdministratif', 'Prime de suivi administratif (€)'],
                   ] as const).map(([cle, libelle]) => (
                     <div className="form-group" key={cle}>
-                      <label className="form-label">{libelle}</label>
+                      <label className="form-label" htmlFor={`remuneration-${cle}`}>{libelle}</label>
                       <input
-                        type="number" min="0" step="any" className="form-input"
-                        value={remuneration[cle] ?? 0}
+                        id={`remuneration-${cle}`}
+                        type="text" inputMode="decimal" pattern={MOTIF_PRIX_DEVIS} title={TITRE_PRIX_DEVIS} className="form-input"
+                        value={affichageSaisie(remuneration[cle] ?? 0)}
                         disabled={!isSuper}
                         onChange={(e) => setRemuneration({ ...remuneration, [cle]: e.target.value })}
                       />
