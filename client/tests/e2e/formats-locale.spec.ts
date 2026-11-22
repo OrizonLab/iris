@@ -239,9 +239,10 @@ test('Catalogue, navigateur en anglais : taux de TVA « 5,5 % » et « 20 % » a
 });
 
 // Comptabilité (cadrage v2, point 3 : Comptabilite.tsx:57, :73 et :97) : une règle TVA à 5,5 %, créée à l'écran en tapant
-// « 5,5 », puis retirée. Message d'enregistrement « TVA 5,5 % enregistrée. » : le texte tapé est relu (virgule ramenée au
-// point) puis mis en forme (lectures écartées : « TVA 5,5% enregistrée. », le texte tapé d'avant #499 ; « TVA NaN % », une
-// virgule non relue). Historique « TVA 5,5 % » (et non « TVA 5.5 % », la cible brute), boîte de retrait « Retirer la règle
+// « 5,5 », puis retirée. Message d'enregistrement « TVA 5,5 % enregistrée. » : le taux enregistré, renvoyé par le serveur,
+// est mis en forme (lectures écartées : « TVA 5,5% enregistrée. », le texte tapé d'avant #499 ; « TVA NaN % », une virgule
+// non relue, ou le texte tapé relu pour « 5,5/ », formats-marges-quantites.spec.ts). Historique « TVA 5,5 % » (et non
+// « TVA 5.5 % », la cible brute), boîte de retrait « Retirer la règle
 // TVA 5,5 % ? » et « les émissions futures à 5,5 % », message de retrait « Règle TVA 5,5 % retirée. » (et non « 5.5 % »).
 // Le taux 5,5 % est laissé sans règle à la fin, comme le parcours comptabilite.spec.ts le suppose à son début.
 test('Comptabilité, navigateur en anglais : règle TVA à 5,5 %, enregistrée puis retirée, au format français dans les messages, l’historique et la boîte de retrait', async ({ page, request, session, allerSurPageAdmin }) => {
