@@ -16,6 +16,8 @@
 //    vide sans plafond ; taux de tranche vide ou null refusé (choix par défaut, à confirmer ; avant le lot, lu 0 %, et l'écran,
 //    en convertissant « 12,5 » par `Number`, l'envoyait null : C2 du contrôle de cohérence) ; l'entrée REMUNERATION du
 //    journal d'administration a la même forme qu'une saisie au point.
+//  - heures (#135 point 3 ; N2 de l'audit des droits de #658) : POST /api/heures répond en français à un intervenant
+//    inconnu (404 « Intervenant introuvable. », sans écriture), message désormais affiché par l'écran Heures.
 // Chaque refus : statut et corps exacts, aucune écriture dans toute la base (empreinte de chaque table du schéma public,
 // contenu compris, hors dernière utilisation d'une clé notée sans attente par /api/v1), fiche ou réglage relu identique et
 // journal d'administration inchangé.
