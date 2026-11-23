@@ -7103,9 +7103,9 @@ Le relevé de la session les résume ainsi (seule la phrase du point 2 est cité
 ### Message de Nelson, mot pour mot
 
 ```text
-« 1. Quart d'heure
+1. Quart d'heure
 2. Oui passe au point 2
-3. Je ne comprend pas. Decide ce qui est le mieux en tenant compte de ce qui se fait dans ce genre d'application, sinon exolique moi simplement pour que je puisse y repondre »
+3. Je ne comprend pas. Decide ce qui est le mieux en tenant compte de ce qui se fait dans ce genre d'application, sinon exolique moi simplement pour que je puisse y repondre
 ```
 
 ### Lectures retenues par Claude Code (à corriger par Nelson si besoin)
@@ -7212,7 +7212,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne #663, copi
 Textes de la passation remplacés par la PR documentaire qui consigne #662, copiés sans changement (le texte d'après est dans la passation) :
 
 - « Restent hors du module : les PDF des factures et des avoirs (question ouverte, section 3), `ChantierIndicateurs.tsx` (#388, exception nommée dans la garde statique), les messages du serveur (#588), et des textes déjà en français mais mis en forme à la main, hors de la famille, dont « % du vendu » et « Fin estimée » de la liste des chantiers (`ListeChantiers.tsx`, où « -0 % » reste possible, #212), les taux de TVA »
-- « Choix par défaut, à confirmer : section 4, blocs « A5, #500 », « Correctif #499, #502 » et « Formats restants (#655) » ; détail : [historique](#lot-du-22-11-2026-655). »
+- « Choix par défaut, à confirmer : section 4, blocs « A5, #500 », « Correctif #499, #502 » et « Formats restants (#655) » ; détail : [historique](HISTORIQUE-DECISIONS.md#lot-du-22-11-2026-655). »
 - «     - fiche chantier, achats et heures avec journal, archivage et restauration ;
  »
 - «   - écrans : #212 (« -0 % », « ±0 h » et couleur d'une marge nulle ; traitée en partie par #655, commentaire d'état du 22-11-2026 : l'alerte de marge faible et les marges du tableau de bord et de Performances n'affichent plus « -0 % » ; restent la liste et la fiche chantier, « ±0 h » et la couleur d'une marge nulle), #254 et #258 »
@@ -7226,8 +7226,8 @@ Textes de la passation remplacés par la PR documentaire qui consigne #662, copi
 - « #392 (statut brut d'Administration > Chantiers, 6690084707) »
 - « #392 (6702022925) »
 - « Les assertions « 100.0% » et « -5.3% » de #490 relèvent de #388, que le cadrage de A5 a exclu : A5 ne les met pas à jour. »
-- « les deux derniers (défaut antérieur, #394, fermée par #658 ; question née de #658 sur les heures d'un chantier), sont des choix par défaut »
-- « (suivies dans #444 et #392) »
+- « les deux derniers (défaut antérieur, #394, fermée par #658 ; question née de #658 sur les heures d'un chantier), sont des choix par défaut, à confirmer, décrits en section 4 ; questions, rien n'est tranché) »
+- « à appliquer, non appliquées, à confirmer (suivies dans #444 et #392) »
 - « « annulé avec son devis le JJ-MM-AAAA : motif » et pastille rouge, au lieu de « terminé le … », pour une affaire annulée (#392). »
 - « sur tout `src/` hors l'exception nommée `ChantierIndicateurs.tsx` (#388) ; »
 - « dans la liste des chantiers et dans `ChantierIndicateurs.tsx` (#212, #388). »
