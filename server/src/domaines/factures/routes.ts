@@ -508,9 +508,10 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
   // indépendants de la pièce, le précèdent.
   // Clé d'envoi (lot X, #247 ; décision déléguée par Nelson le 22-11-2026, choix par défaut, à confirmer) : le
   // formulaire tire un UUID à son ouverture, comme celui du compte rendu (lot 3b-3). Un second envoi de la même demande
-  // (deux onglets, réponse perdue, transaction validée qui répond en erreur) rend l'avoir déjà émis, en 200 avec
-  // `dejaEnregistre`, sans rien écrire ; la clé déjà servie pour une autre demande est refusée en 409, sans rien dire de
-  // ce qu'elle porte. Facultative : une demande sans clé suit le comportement d'avant.
+  // (réponse perdue, transaction validée qui répond en erreur) rend l'avoir déjà émis, en 200 avec `dejaEnregistre`,
+  // sans rien écrire ; deux formulaires ouverts (deux onglets) tirent chacun leur clé et restent deux demandes. La clé
+  // déjà servie pour une autre demande est refusée en 409, sans rien dire de ce qu'elle porte. Facultative : une
+  // demande sans clé suit le comportement d'avant.
   app.post('/api/factures/:id/avoirs', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
     let lignes: ReturnType<typeof lignesAvoirPartiel> = [];
     // Même demande : un avoir partiel de cette facture, créé par ce compte, aux mêmes lignes (ordre, désignation,

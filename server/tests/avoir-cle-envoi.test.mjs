@@ -58,6 +58,7 @@ const REFUS = {
   introuvable: 'Facture introuvable.',
   nonCreditable: 'Seule une facture émise ou réglée peut recevoir un avoir partiel.',
   plafondTotal: 'Cet avoir dépasse le montant total restant à créditer sur la facture d’origine.',
+  tauxAbsent: 'Le taux de TVA d’une ligne d’avoir doit être présent sur la facture d’origine.',
   ligneInvalide: 'Ligne d’avoir partiel invalide.',
   gestion: 'Accès réservé à l’administration et à l’assistante technique.',
   identite: 'Identité de la société incomplète : renseignez SIRET dans l’écran Société avant d’émettre.',
@@ -388,7 +389,7 @@ if (!TEST_DATABASE_URL) {
     // l'avoir ou des totaux de ligne, au lieu des lignes, les rendrait en 200 (lecture écartée, nommée à chaque cas). Les lignes
     // équivalentes après lignesAvoirPartiel (désignation entourée d'espaces, nombres en texte à la virgule, nature omise) sont la
     // même demande : une comparaison du corps brut les refuserait (lecture écartée).
-    test('clé déjà servie pour une autre demande : 409 au message exact, corps { error } seul, rien d’écrit — autres lignes (mêmes totaux : quantité et prix, quantité au millième, nature, désignation, ordre, deux lignes fusionnées ; autres totaux : prix d’un centime, ligne en moins, ligne en plus, autre taux), autre compte (super administrateur, directeur ; seconde assistante et administration sur la facture d’une assistante), autre facture du même compte et des mêmes lignes ; les lignes équivalentes après normalisation sont relues en 200', async () => {
+    test('clé déjà servie pour une autre demande : 409 au message exact, corps { error } seul, rien d’écrit — autres lignes (mêmes totaux : quantité et prix, quantité au millième, nature, désignation, ordre, deux lignes fusionnées ; autres totaux : prix d’un centime, ligne en moins, ligne en plus, autre taux), autre compte (super administrateur, directeur ; seconde assistante et administration sur la facture d’une assistante), autre facture du même compte et des mêmes lignes, y compris une facture brouillon (avant le refus du statut) et une ligne à un taux absent de la facture d’origine (avant le refus du taux) ; les lignes équivalentes après normalisation sont relues en 200', async () => {
       const facture = await factureEmise(par('AD'), 'autres demandes', LIGNES_DEUX_TAUX);
       const cle = randomUUID();
       const creation = await avoirCree(facture.id, { lignes: DEUX_LIGNES(), cleEnvoi: cle }, par('AD'));
@@ -415,6 +416,16 @@ if (!TEST_DATABASE_URL) {
       const autreFacture = await factureEmise(par('AD'), 'autre facture même compte', LIGNES_DEUX_TAUX);
       await refuse(() => avoir(autreFacture.id, { lignes: DEUX_LIGNES(), cleEnvoi: cle }, par('AD')), 409, REFUS.cleServie, 'autre facture, même compte, mêmes lignes');
       assert.deepEqual(await avoirsDe(autreFacture.id), []);
+      // Le rejeu passe avant le statut et les taux (cadrage v2, § 2 ; T1 de l'audit des montants de #663, mutants S31 et S32) : la
+      // clé d'une autre facture envoyée sur une facture brouillon, ou déjà servie avec une ligne à un taux absent de la facture
+      // d'origine (5,5 %), reçoit le 409 de la clé. Lectures écartées : statut contrôlé avant la clé (409 « Seule une facture émise ou
+      // réglée… ») ; taux contrôlés avant la clé (400 du taux). Témoins : une clé neuve reçoit ces deux refus.
+      const enBrouillon = await brouillon(par('AD'), 'clé servie sur un brouillon', LIGNES_DEUX_TAUX);
+      await refuse(() => avoir(enBrouillon.id, { lignes: DEUX_LIGNES(), cleEnvoi: cle }, par('AD')), 409, REFUS.cleServie, 'clé d’une autre facture sur une facture brouillon');
+      await refuse(() => avoir(enBrouillon.id, { lignes: DEUX_LIGNES(), cleEnvoi: randomUUID() }, par('AD')), 409, REFUS.nonCreditable, 'témoin : clé neuve sur la facture brouillon');
+      const tauxAbsent = [{ ...a, tauxTva: 5.5 }, b];
+      await refuse(() => avoir(facture.id, { lignes: tauxAbsent, cleEnvoi: cle }, par('AD')), 409, REFUS.cleServie, 'clé déjà servie, ligne à un taux absent de la facture d’origine');
+      await refuse(() => avoir(facture.id, { lignes: tauxAbsent, cleEnvoi: randomUUID() }, par('AD')), 400, REFUS.tauxAbsent, 'témoin : clé neuve, ligne à un taux absent de la facture d’origine');
       // Facture d'une assistante technique : la seconde assistante (même poste, même périmètre) et l'administration ne relisent pas
       // l'avoir de la première.
       const sienne = await factureEmise(par('AT'), 'autre compte assistante');
@@ -512,6 +523,30 @@ if (!TEST_DATABASE_URL) {
         await prisma.companySettings.update({ where: { id: 'singleton' }, data: { siret: identite.siret } });
       }
       assert.deepEqual(await soldes(ouverte.id), ['EMISE', 12, 0, 108]);
+    });
+
+    // Audit des montants de #663 (C1, test de montant) : le rejeu rend l'avoir aux montants figés à son émission, même quand un autre avoir de la
+    // facture, émis entre-temps, change la TVA différentielle qu'une nouvelle demande aux mêmes lignes recevrait. Facture de 10 ×
+    // 21,35 € HT à 10 % ; chaque avoir de 1 × 21,35 € HT : TVA de la base cumulée arrondie au centime, moins celle d'avant (2,135 € →
+    // 2,14 € ; 4,27 € ; 6,405 € → 6,41 € ; 8,54 €). A1 (à clé) : 2,14 € ; A2 (sans clé) : 4,27 − 2,14 = 2,13 € ; A3 (sans clé) :
+    // 6,41 − 4,27 = 2,14 €. Lectures écartées : rejeu admis seulement si une nouvelle demande recevrait les mêmes montants, A1 compté
+    // parmi les précédents (8,54 − 6,41 = 2,13 € après A3 : 409) ou non (4,27 − 2,14 = 2,13 € après A2 : 409) ; montants du rejeu
+    // recalculés au lieu des montants figés.
+    test('rejeu après d’autres avoirs de la facture qui changent la TVA différentielle d’une nouvelle demande aux mêmes lignes : 200 aux montants figés de l’avoir (TVA 2,14 €, TTC 23,49 €), après un avoir intercalé (une nouvelle demande recevrait 2,13 €) comme après deux ; rien d’écrit', async () => {
+      const facture = await factureEmise(par('AD'), 'TVA différentielle intercalée', [ligne('reprise au taux réduit', 10, 21.35, 10)]);
+      const vingtEtUn = () => [ligne('geste au taux réduit', 1, 21.35, 10)];
+      const cle = randomUUID();
+      const creation = await avoirCree(facture.id, { lignes: vingtEtUn(), cleEnvoi: cle }, par('AD'));
+      assert.deepEqual(nombres([creation.totalHt, creation.totalTva, creation.totalTtc]), [21.35, 2.14, 23.49], 'A1 : premier avoir, 2,135 € arrondi à 2,14 €');
+      const a2 = await avoirCree(facture.id, { lignes: vingtEtUn() }, par('AD'));
+      assert.deepEqual(nombres([a2.totalHt, a2.totalTva, a2.totalTtc]), [21.35, 2.13, 23.48], 'A2 : 4,27 − 2,14');
+      await rejoue(() => avoir(facture.id, { lignes: vingtEtUn(), cleEnvoi: cle }, par('AD')), creation, 'rejeu après un avoir intercalé');
+      const a3 = await avoirCree(facture.id, { lignes: vingtEtUn() }, par('AD'));
+      assert.deepEqual(nombres([a3.totalHt, a3.totalTva, a3.totalTtc]), [21.35, 2.14, 23.49], 'A3 : 6,41 − 4,27');
+      await rejoue(() => avoir(facture.id, { lignes: vingtEtUn(), cleEnvoi: cle.toUpperCase() }, par('AD')), creation, 'rejeu après deux avoirs intercalés');
+      assert.deepEqual((await avoirsDe(facture.id)).map((a) => a.id), [creation.id, a2.id, a3.id]);
+      // Facture de 234,85 € TTC (213,50 € HT, 21,35 € de TVA) : 23,49 + 23,48 + 23,49 = 70,46 € crédités, reste dû 164,39 €.
+      assert.deepEqual(await soldes(facture.id), ['EMISE', 70.46, 0, 164.39]);
     });
 
     // Cadrage v2 : « hors périmètre : 404 » ; § 4 : droits inchangés, rejeu rendu au seul compte auteur, dans le périmètre de la

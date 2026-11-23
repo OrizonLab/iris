@@ -1,9 +1,10 @@
 -- Clé d'envoi de la demande de création d'un avoir partiel (lot X, #247 ; décision déléguée par Nelson le 22-11-2026).
 --
--- Un avoir émis est une pièce figée : deux envois de la même demande (deux onglets, réponse perdue puis nouvelle
--- tentative, transaction validée qui répond en erreur) ne doivent pas en émettre deux. Le formulaire tire une clé à son
+-- Un avoir émis est une pièce figée : deux envois de la même demande (réponse perdue puis nouvelle tentative,
+-- transaction validée qui répond en erreur) ne doivent pas en émettre deux. Le formulaire tire une clé à son
 -- ouverture, comme celui du compte rendu d'intervention (`InterventionRapport.cleEnvoi`, lot 3b-3, #268) ; le serveur
--- rend l'avoir qui la porte déjà au lieu d'en émettre un second. Sans rapport avec les envois de documents
+-- rend l'avoir qui la porte déjà au lieu d'en émettre un second. Deux formulaires ouverts, dans deux onglets par
+-- exemple, tirent chacun leur clé : ce sont deux demandes. Sans rapport avec les envois de documents
 -- (`EnvoiDocument`) ni avec l'identifiant de dépôt de la facturation électronique (FE-5).
 --
 -- Aucune reprise de données (règle 4) : les factures, les avoirs existants et les avoirs d'annulation restent sans clé.

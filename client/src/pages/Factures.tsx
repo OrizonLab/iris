@@ -314,9 +314,13 @@ export default function Factures() {
   // Même arithmétique que le serveur, en entiers, y compris la TVA d'un avoir qui suit d'autres
   // avoirs de la facture : l'aperçu annonce le document émis.
   const totauxAvoir = totauxApercuAvoir(lignesAvoir, factureAvoir?.avoirs ?? []);
+  // Les lignes d'une demande en suspens ne se modifient pas : un renvoi doit porter le même corps que sa clé.
+  const lignesAvoirFigees = !!demandeAvoirEnSuspens && demandeAvoirEnSuspens.corps.cleEnvoi === cleAvoir;
   // Tant que la liste n'a pas été relue, la facture affichée peut ignorer un avoir déjà émis : l'aperçu
-  // ne donne aucun montant qu'il ne peut garantir.
-  const montantApercu = (montant: number) => (relectureRequise ? '—' : fmtEuroCentime(montant));
+  // ne donne aucun montant qu'il ne peut garantir. De même pour une demande en suspens (lot X, #247) : son
+  // envoi rend l'avoir qu'elle a peut-être déjà émis, que la liste relue compte parmi les avoirs précédents ;
+  // l'aperçu annoncerait alors la TVA d'un second avoir aux mêmes lignes, que cet envoi n'émettra pas.
+  const montantApercu = (montant: number) => (relectureRequise || lignesAvoirFigees ? '—' : fmtEuroCentime(montant));
 
   // Envoi d'une demande d'avoir partiel, depuis le formulaire ou par « Renvoyer la demande » (même corps, même clé).
   const envoyerDemandeAvoir = async (factureId: string, numeroFacture: string, corps: { lignes: unknown[]; cleEnvoi: string }) => {
@@ -326,6 +330,8 @@ export default function Factures() {
     envoiAvoirEnCours.current = true;
     setEnvoiAvoir(true);
     let relire = false;
+    // Une réponse définitive ne clôt que la demande en suspens de la même clé : celle d'une autre facture reste renvoyable.
+    const clore = () => setDemandeAvoirEnSuspens((enCours) => (enCours?.corps.cleEnvoi === corps.cleEnvoi ? null : enCours));
     // Sans réponse exploitable de l'API (réponse perdue, erreur serveur, réponse sans message), l'avoir a
     // pu être émis : on ne l'affirme ni ne le nie, comme pour une réponse perdue à l'ouverture d'un
     // chantier. La liste est relue avant de libérer le formulaire, pour montrer un avoir émis avant toute
@@ -345,15 +351,17 @@ export default function Factures() {
         // renouvelée ; un 409 (plafond, clé déjà servie pour une autre demande) relit la liste. Une erreur serveur (5xx),
         // même avec un message, ou une réponse sans message, d'une passerelle par exemple, ne dit pas si l'avoir a été émis.
         if (data.error && res.status < 500) {
-          setDemandeAvoirEnSuspens(null);
+          clore();
           setCleAvoir(nouvelleCleEnvoi());
           setErreur(data.error);
           relire = res.status === 409;
         } else await issueInconnue(`réponse inattendue du serveur (${res.status})`);
       } else {
-        setDemandeAvoirEnSuspens(null);
+        clore();
         setCleAvoir(nouvelleCleEnvoi());
-        setFactureAvoir(null);
+        // Seul le formulaire de cette facture se ferme : celui d'une autre facture, ouvert pendant que la demande était
+        // en suspens, garde sa saisie.
+        setFactureAvoir((ouverte) => (ouverte && ouverte.id !== factureId ? ouverte : null));
         // Rejeu : la première demande avait abouti, l'écran nomme l'avoir déjà émis (#247, N5).
         setSucces(data.dejaEnregistre ? `Avoir ${data.numero} déjà émis : la première demande avait abouti.` : `Avoir ${data.numero || ''} créé et émis.`.trim());
         // La liste affichée ne porte pas encore cet avoir : un formulaire rouvert sur cette facture
@@ -380,8 +388,6 @@ export default function Factures() {
     if (fautive >= 0) return setErreur(`Ligne d’avoir ${fautive + 1} : désignation obligatoire, quantité supérieure à zéro et montants numériques attendus (TVA entre 0 et 100).`);
     await envoyerDemandeAvoir(factureAvoir.id, factureAvoir.numero ?? '', { lignes: lignesConverties, cleEnvoi: cleAvoir });
   };
-  // Les lignes d'une demande en suspens ne se modifient pas : un renvoi doit porter le même corps que sa clé.
-  const lignesAvoirFigees = !!demandeAvoirEnSuspens && demandeAvoirEnSuspens.corps.cleEnvoi === cleAvoir;
 
   const creer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
