@@ -62,7 +62,7 @@ GET /api/mentions-legales requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab >
 POST /api/factures/:id/emettre requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#05d1ef8eec83
 POST /api/factures/:id/regler requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#7c4c1669baf6
 POST /api/factures/:id/annuler requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#3331fa97353f
-POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#b5b468df96d7
+POST /api/factures/:id/avoirs requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#743799860d3c
 GET /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#e75e8b253ce9
 POST /api/interventions/:id/facture-temps-passe requireAuth#07b983da0ce5 > requireGestionFactures#29d8d5c7c5d1 > <anonymous>#960cb2d49dfe
 GET /api/reglements requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#c8df78a7855a

@@ -637,16 +637,24 @@ test.describe('Facturation — parcours utilisateur', () => {
     { cas: 'une erreur de passerelle sans message', client: 'avoir-reponse-passerelle', relectureEchouee: true, cause: /réponse inattendue du serveur \(502\)/, perdre: (route: Route) => route.fulfill({ status: 502, contentType: 'text/html', body: '<html><body>502 Bad Gateway</body></html>' }) },
     { cas: 'une erreur serveur avec message', client: 'avoir-reponse-erreur-serveur', relectureEchouee: false, cause: /réponse inattendue du serveur \(500\)/, perdre: (route: Route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Création de l’avoir impossible.' }) }) },
   ];
-  for (const { cas, client: nomClient, cause, perdre } of reponsesSansIssue) test(`${cas} à la création d’un avoir partiel relit la liste puis libère le formulaire`, async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+  // Lot X (#247 ; cadrage v2 du 23-11-2026, § 3, « Tests à adapter ») : la demande en suspens garde sa clé et ses lignes, qui ne
+  // se modifient plus ; le nouvel envoi par le formulaire porte la même clé et les mêmes lignes, et le serveur rend l'avoir déjà
+  // émis (200), que l'écran nomme (note N5 de l'audit de #242). Avant le lot, ce nouvel envoi émettait un second avoir ([12, 12] :
+  // lecture écartée).
+  for (const { cas, client: nomClient, cause, perdre } of reponsesSansIssue) test(`${cas} à la création d’un avoir partiel relit la liste, libère le formulaire, et le nouvel envoi nomme l’avoir déjà émis sans en émettre un second`, async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
     const client = await creerClient(nomClient);
     const page = await allerSurPageAdmin('/factures');
     const facture = await emettreFactureSource(page, client, [['1', '100', '20']]);
-    const avoirsDuClient = async () => {
-      const factures = await (await apiAdmin.get('/factures')).json() as Array<{ type: string; client: { id: string }; totalTtc: number }>;
-      return factures.filter((item) => item.type === 'AVOIR' && item.client.id === client.id).map((avoir) => avoir.totalTtc);
-    };
+    const piecesDuClient = async () => await (await apiAdmin.get('/factures')).json() as Array<{ type: string; numero: string; client: { id: string }; totalTtc: number }>;
+    const avoirsDuClient = async () => (await piecesDuClient()).filter((item) => item.type === 'AVOIR' && item.client.id === client.id).map((avoir) => avoir.totalTtc);
+    const numeroFacture = (await piecesDuClient()).find((item) => item.type === 'FACTURE' && item.client.id === client.id)!.numero;
     await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
     await remplirLigneAvoir(page, 1, '1', '10', '20');
+    // Corps de chaque envoi de la demande, relevés à la sortie du navigateur.
+    const corps: Array<{ lignes: unknown[]; cleEnvoi: string }> = [];
+    page.on('request', (requete) => {
+      if (requete.method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(requete.url())) corps.push(requete.postDataJSON());
+    });
     // Le serveur émet l'avoir, mais sa réponse n'arrive pas au navigateur.
     await page.route('**/api/factures/*/avoirs', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
@@ -658,16 +666,33 @@ test.describe('Facturation — parcours utilisateur', () => {
     const message = page.getByText(/La création de l’avoir n’a pas pu être confirmée/);
     await expect(message).toBeVisible();
     await expect(message).toContainText(cause);
-    await expect(message).toContainText('Vérifiez les avoirs de la facture dans la liste avant de réessayer.');
+    await expect(message).toContainText('Renvoyez la demande : l’avoir ne sera pas émis deux fois.');
+    const enSuspens = page.getByRole('status').filter({ hasText: 'en attente de confirmation' });
+    await expect(enSuspens).toContainText(`Demande d’avoir sur la facture ${numeroFacture} en attente de confirmation.`);
+    await expect(enSuspens.getByRole('button', { name: 'Renvoyer la demande' })).toBeEnabled();
     await expect(facture).toContainText(/Annulation totale impossible : 1 avoir\(s\) partiel\(s\)/);
     await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
     await expect(bouton).toBeEnabled();
+    // Lignes non modifiables tant que la demande est en suspens (cadrage v2, § 3) : ni saisie, ni ligne ajoutée ou retirée.
+    for (const champ of ['Désignation', 'Quantité', 'Prix unitaire HT', 'TVA']) await expect(page.locator(`input[aria-label="${champ} ligne avoir 1"]`)).toBeDisabled();
+    await expect(page.locator('select[aria-label="Nature ligne avoir 1"]')).toBeDisabled();
+    await expect(page.getByRole('button', { name: /Ajouter une ligne d’avoir/ })).toBeDisabled();
     expect(await avoirsDuClient()).toEqual([12]);
     await page.unroute('**/api/factures/*/avoirs');
 
+    const renvoi = page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
     await bouton.click();
-    await expect(page.getByText(/Avoir .* créé et émis/)).toBeVisible();
-    expect(await avoirsDuClient()).toEqual([12, 12]);
+    const reponse = await renvoi;
+    expect(reponse.status(), 'avoir relu par sa clé d’envoi').toBe(200);
+    const relu = await reponse.json() as { numero: string; dejaEnregistre: boolean };
+    expect(relu.dejaEnregistre).toBe(true);
+    await expect(page.getByText(`Avoir ${relu.numero} déjà émis : la première demande avait abouti.`)).toBeVisible();
+    await expect(page.getByText(/créé et émis/)).toHaveCount(0);
+    await expect(enSuspens).toHaveCount(0);
+    expect(await avoirsDuClient()).toEqual([12]);
+    expect(corps).toHaveLength(2);
+    expect(corps[0].cleEnvoi).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(corps[1], 'même clé et mêmes lignes pour le nouvel envoi').toEqual(corps[0]);
   });
 
   // #247 : la liste est relue AVANT de libérer le formulaire. Si cette relecture échoue aussi (réseau
@@ -836,7 +861,10 @@ test.describe('Facturation — parcours utilisateur', () => {
   // poussée en page suivante par l'avoir émis en tête de liste. Cet instantané n'a pas été relu : le
   // formulaire se ferme au lieu d'annoncer, bouton actif, la TVA sans l'avoir émis (2,14 € au lieu de
   // 2,13 € pour le même avoir). Le déplacement est simulé en retirant la facture de la page relue.
-  test('après une issue inconnue, l’avoir dont la facture a quitté la page relue se ferme', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+  // Lot X (#247 ; cadrage v2 du 23-11-2026, § 3, « Tests à adapter ») : la demande en suspens reste affichée, avec
+  // « Renvoyer la demande », même le formulaire fermé (#242) ; le renvoi porte le même corps et la même clé, et l'écran nomme
+  // l'avoir déjà émis (N5), sans en émettre un second (lecture écartée : [23.49, 23.49]).
+  test('après une issue inconnue, l’avoir dont la facture a quitté la page relue se ferme ; « Renvoyer la demande », restée affichée, nomme l’avoir déjà émis sans en émettre un second', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
     const client = await creerClient('avoir-tva-hors-page');
     const page = await allerSurPageAdmin('/factures');
     const facture = await emettreFactureSource(page, client, [['10', '21,35', '10']]);
@@ -844,6 +872,10 @@ test.describe('Facturation — parcours utilisateur', () => {
       const factures = await (await apiAdmin.get('/factures')).json() as Array<{ type: string; client: { id: string }; totalTtc: number }>;
       return factures.filter((item) => item.type === 'AVOIR' && item.client.id === client.id).map((item) => item.totalTtc);
     };
+    const corpsEnvoyes: Array<{ lignes: unknown[]; cleEnvoi: string }> = [];
+    page.on('request', (requete) => {
+      if (requete.method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(requete.url())) corpsEnvoyes.push(requete.postDataJSON());
+    });
     await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
     await remplirLigneAvoir(page, 1, '1', '21,35', '10');
     let perdue = false;
@@ -867,10 +899,283 @@ test.describe('Facturation — parcours utilisateur', () => {
     await expect(page.locator('tbody tr', { hasText: client.raisonSociale }).filter({ hasText: /Avoir/ })).toHaveCount(1);
     await expect(page.locator('tbody tr', { hasText: client.raisonSociale }).filter({ hasText: /Facture/ })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toHaveCount(0);
-    // Le formulaire fermé, la consigne de l'issue inconnue reste affichée.
-    await expect(page.getByText(/La création de l’avoir n’a pas pu être confirmée : réponse inattendue du serveur \(502\)\. Vérifiez les avoirs de la facture dans la liste avant de réessayer\./)).toBeVisible();
+    // Le formulaire fermé, la consigne de l'issue inconnue et la demande en suspens restent affichées.
+    await expect(page.getByText(/La création de l’avoir n’a pas pu être confirmée : réponse inattendue du serveur \(502\)\. Renvoyez la demande : l’avoir ne sera pas émis deux fois\./)).toBeVisible();
+    const enSuspens = page.getByRole('status').filter({ hasText: 'en attente de confirmation' });
+    await expect(enSuspens).toContainText(/Demande d’avoir sur la facture \S+ en attente de confirmation\./);
     await page.unroute('**/api/**');
     expect(await avoirsApi()).toEqual([23.49]);
+
+    const renvoi = page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
+    await enSuspens.getByRole('button', { name: 'Renvoyer la demande' }).click();
+    const reponse = await renvoi;
+    expect(reponse.status(), 'avoir relu par sa clé d’envoi').toBe(200);
+    const relu = await reponse.json() as { numero: string };
+    await expect(page.getByText(`Avoir ${relu.numero} déjà émis : la première demande avait abouti.`)).toBeVisible();
+    await expect(enSuspens).toHaveCount(0);
+    expect(await avoirsApi()).toEqual([23.49]);
+    expect(corpsEnvoyes).toHaveLength(2);
+    expect(corpsEnvoyes[1], 'même corps et même clé pour le renvoi').toEqual(corpsEnvoyes[0]);
+  });
+
+  // Audit des montants de #663 (R1, montant affiché) : après une issue inconnue, la facture restée sur la page relue, le formulaire
+  // garde la demande en suspens (mêmes lignes, même clé), et son envoi rend l'avoir déjà émis (TVA 2,14 €, TTC 23,49 €). La liste
+  // relue porte cet avoir : l'aperçu, qui le compte comme précédent, annoncerait la TVA d'un second avoir aux mêmes lignes (2,13 €,
+  // TTC 23,48 €), que l'envoi n'émettra pas. Tant que la demande est en suspens, l'aperçu n'annonce donc aucun montant (lecture
+  // écartée : 2,13 € et 23,48 € annoncés, l'avoir rendu valant 2,14 € et 23,49 €) ; une nouvelle demande (clé renouvelée) les
+  // annonce de nouveau, avoir émis compris.
+  test('après une issue inconnue, la facture restée sur la page relue, l’aperçu de la demande en suspens n’annonce aucun montant ; son envoi rend l’avoir déjà émis (2,14 € de TVA, 23,49 € TTC)', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+    const client = await creerClient('avoir-apercu-en-suspens');
+    const page = await allerSurPageAdmin('/factures');
+    const facture = await emettreFactureSource(page, client, [['10', '21,35', '10']]);
+    const avoirsApi = async () => {
+      const factures = await (await apiAdmin.get('/factures')).json() as Array<{ type: string; client: { id: string }; totalHt: number; totalTva: number; totalTtc: number }>;
+      return factures.filter((item) => item.type === 'AVOIR' && item.client.id === client.id).map((item) => [item.totalHt, item.totalTva, item.totalTtc]);
+    };
+    await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await remplirLigneAvoir(page, 1, '1', '21,35', '10');
+    const apercu = page.getByTestId('aperçu-avoir');
+    // Premier avoir de la facture : TVA arrondie de 2,135 € à 2,14 €.
+    await expect(apercu).toContainText(/2,14\s*€/);
+    await expect(apercu).toContainText(/23,49\s*€/);
+    await page.route('**/api/factures/*/avoirs', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await route.fetch();
+      return route.fulfill({ status: 502, contentType: 'text/html', body: '<html><body>502 Bad Gateway</body></html>' });
+    });
+    const bouton = page.getByRole('button', { name: /Créer l’avoir partiel/ });
+    await bouton.click();
+    await expect(page.getByText(/La création de l’avoir n’a pas pu être confirmée/)).toBeVisible();
+    // Relecture réussie : la facture et son formulaire sont restés, la demande est en suspens, l'avoir est émis.
+    await expect(facture).toContainText(/Annulation totale impossible : 1 avoir\(s\) partiel\(s\)/);
+    await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
+    await expect(bouton).toBeEnabled();
+    expect(await avoirsApi()).toEqual([[21.35, 2.14, 23.49]]);
+    await expect(apercu).not.toContainText('€');
+    await page.unroute('**/api/factures/*/avoirs');
+    const renvoi = page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
+    await bouton.click();
+    const reponse = await renvoi;
+    expect(reponse.status()).toBe(200);
+    const relu = await reponse.json() as { numero: string; totalHt: number; totalTva: number; totalTtc: number };
+    expect([relu.totalHt, relu.totalTva, relu.totalTtc]).toEqual([21.35, 2.14, 23.49]);
+    await expect(page.getByText(`Avoir ${relu.numero} déjà émis : la première demande avait abouti.`)).toBeVisible();
+    expect(await avoirsApi()).toEqual([[21.35, 2.14, 23.49]]);
+    // Nouvelle demande, clé renouvelée : l'aperçu annonce de nouveau, l'avoir émis compté (2,13 € de TVA, 23,48 € TTC).
+    await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await remplirLigneAvoir(page, 1, '1', '21,35', '10');
+    await expect(apercu).toContainText(/2,13\s*€/);
+    await expect(apercu).toContainText(/23,48\s*€/);
+  });
+
+  // Lot X (#247 ; cadrage v2 du 23-11-2026, § 3, et « Tests à écrire » : « E2E (réponse perdue, « Renvoyer la demande », un seul
+  // avoir, même clé dans les deux corps) »). L'avoir est émis par le serveur, sa réponse se perd : « Renvoyer la demande » renvoie
+  // le même corps avec la même clé, et l'écran nomme l'avoir déjà émis (N5) ; un seul avoir, relu par l'API et affiché dans la
+  // liste (12,00 €). La clé est renouvelée après toute réponse définitive : un nouvel avoir aux mêmes lignes en reçoit une autre
+  // (201, deux avoirs), comme une demande refusée (409) avant d'être renvoyée (lectures écartées : clé gardée après un 200, la même
+  // demande rejouée au lieu d'un second avoir voulu ; clé gardée après un 409, tout renvoi refusé de nouveau).
+  test('réponse perdue après l’émission d’un avoir partiel : « Renvoyer la demande » renvoie le même corps et la même clé, nomme l’avoir déjà émis, un seul avoir ; la clé est renouvelée après un 200 et après un refus', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+    const client = await creerClient('avoir-renvoyer-demande');
+    const page = await allerSurPageAdmin('/factures');
+    const facture = await emettreFactureSource(page, client, [['1', '100', '20']]);
+    const piecesDuClient = async () => (await (await apiAdmin.get('/factures')).json() as Array<{ id: string; type: string; numero: string; client: { id: string }; totalTtc: number }>).filter((item) => item.client.id === client.id);
+    const avoirsDuClient = async () => (await piecesDuClient()).filter((item) => item.type === 'AVOIR');
+    const numeroFacture = (await piecesDuClient()).find((item) => item.type === 'FACTURE')!.numero;
+    const corps: Array<{ lignes: Array<{ designation: string; quantite: number; prixUnitaireHt: number; tauxTva: number }>; cleEnvoi: string }> = [];
+    page.on('request', (requete) => {
+      if (requete.method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(requete.url())) corps.push(requete.postDataJSON());
+    });
+    const reponseAvoir = () => page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
+    const ouvrir = async () => {
+      await facture.getByRole('button', { name: /Créer un avoir partiel/ }).click();
+      await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
+      await remplirLigneAvoir(page, 1, '1', '10', '20');
+    };
+    const bouton = page.getByRole('button', { name: /Créer l’avoir partiel/ });
+
+    // 1. Réponse perdue : le serveur émet l'avoir (201), le navigateur ne reçoit rien.
+    await ouvrir();
+    await page.route('**/api/factures/*/avoirs', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const reponse = await route.fetch();
+      expect(reponse.status(), 'le premier envoi est émis par le serveur').toBe(201);
+      await route.abort('connectionreset');
+    });
+    await bouton.click();
+    await expect(page.getByRole('alert')).toHaveText('La création de l’avoir n’a pas pu être confirmée : impossible de joindre le serveur. Renvoyez la demande : l’avoir ne sera pas émis deux fois.');
+    const enSuspens = page.getByRole('status').filter({ hasText: 'en attente de confirmation' });
+    await expect(enSuspens).toContainText(`Demande d’avoir sur la facture ${numeroFacture} en attente de confirmation.`);
+    await expect(page.locator('input[aria-label="Prix unitaire HT ligne avoir 1"]')).toBeDisabled();
+    expect((await avoirsDuClient()).map((avoir) => avoir.totalTtc)).toEqual([12]);
+    await page.unroute('**/api/factures/*/avoirs');
+
+    // 2. « Renvoyer la demande » : même corps, même clé ; l'avoir déjà émis est rendu (200) et nommé.
+    let attendue = reponseAvoir();
+    await enSuspens.getByRole('button', { name: 'Renvoyer la demande' }).click();
+    let reponse = await attendue;
+    expect(reponse.status(), 'avoir relu par sa clé d’envoi').toBe(200);
+    const [emis] = await avoirsDuClient();
+    await expect(page.getByText(`Avoir ${emis.numero} déjà émis : la première demande avait abouti.`)).toBeVisible();
+    await expect(enSuspens).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toHaveCount(0);
+    expect(corps).toHaveLength(2);
+    expect(corps[0].cleEnvoi).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(corps[1], 'même corps et même clé').toEqual(corps[0]);
+    expect(corps[0].lignes.map((l) => [l.designation, l.quantite, l.prixUnitaireHt, l.tauxTva])).toEqual([['Geste commercial 1', 1, 10, 20]]);
+    // Un seul avoir, relu par l'API et affiché dans la liste au format français.
+    expect((await avoirsDuClient()).map((avoir) => [avoir.numero, avoir.totalTtc])).toEqual([[emis.numero, 12]]);
+    const lignesAvoir = (await afficherFacture(page, client.raisonSociale)).filter({ has: page.getByText('Avoir', { exact: true }) });
+    await expect(lignesAvoir).toHaveCount(1);
+    await expect(lignesAvoir).toContainText(emis.numero);
+    await expect(lignesAvoir).toContainText(/12,00\s*€/);
+    await expect(lignesAvoir).toContainText(/\d{2}-\d{2}-\d{4}/);
+
+    // 3. Clé renouvelée après le 200 : un nouvel avoir aux mêmes lignes est un second avoir voulu (201).
+    await ouvrir();
+    attendue = reponseAvoir();
+    await bouton.click();
+    reponse = await attendue;
+    expect(reponse.status()).toBe(201);
+    await expect(page.getByText(/Avoir \S+ créé et émis\./)).toBeVisible();
+    expect(corps).toHaveLength(3);
+    expect(corps[2].cleEnvoi, 'nouvelle clé après la réponse définitive').not.toBe(corps[0].cleEnvoi);
+    expect((await avoirsDuClient()).map((avoir) => avoir.totalTtc)).toEqual([12, 12]);
+
+    // 4. Clé renouvelée après un refus (409, simulé sans atteindre le serveur) : la liste est relue, le renvoi part avec une
+    // autre clé et émet l'avoir.
+    await expect(facture).toContainText(/Annulation totale impossible : 2 avoir\(s\) partiel\(s\)/);
+    await ouvrir();
+    await page.route('**/api/factures/*/avoirs', (route) => (route.request().method() === 'POST'
+      ? route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Cette clé d’envoi a déjà servi pour une autre demande d’avoir : rouvrez le formulaire.' }) })
+      : route.continue()));
+    const relecture = page.waitForRequest((requete) => /\/api\/factures\?page=/.test(requete.url()));
+    await bouton.click();
+    await expect(page.getByRole('alert')).toHaveText('Cette clé d’envoi a déjà servi pour une autre demande d’avoir : rouvrez le formulaire.');
+    await relecture;
+    await expect(enSuspens).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Nouvel avoir partiel/ })).toBeVisible();
+    await page.unroute('**/api/factures/*/avoirs');
+    await expect(bouton).toBeEnabled();
+    attendue = reponseAvoir();
+    await bouton.click();
+    reponse = await attendue;
+    expect(reponse.status()).toBe(201);
+    expect(corps).toHaveLength(5);
+    expect(corps[4].cleEnvoi, 'nouvelle clé après le refus').not.toBe(corps[3].cleEnvoi);
+    expect(corps[4].lignes).toEqual(corps[3].lignes);
+    expect((await avoirsDuClient()).map((avoir) => avoir.totalTtc)).toEqual([12, 12, 12]);
+  });
+
+  // Audit des droits de #663, N2 : la demande en suspens d'une facture reste renvoyable après la réponse définitive d'une demande
+  // sur une autre facture. Lecture écartée : toute réponse définitive clôt la demande en suspens, quelle qu'en soit la clé (le bloc
+  // « Renvoyer la demande » disparaît alors que l'issue de la première demande reste inconnue).
+  test('une demande d’avoir en suspens reste renvoyable après l’avoir émis sur une autre facture ; son renvoi nomme l’avoir déjà émis, un seul avoir', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+    const clientA = await creerClient('avoir-suspens-autre-a');
+    const clientB = await creerClient('avoir-suspens-autre-b');
+    const page = await allerSurPageAdmin('/factures');
+    await emettreFactureSource(page, clientA, [['1', '100', '20']]);
+    await emettreFactureSource(page, clientB, [['1', '100', '20']]);
+    const pieces = async () => await (await apiAdmin.get('/factures')).json() as Array<{ type: string; numero: string; client: { id: string }; totalTtc: number }>;
+    const avoirsDe = async (clientId: string) => (await pieces()).filter((item) => item.type === 'AVOIR' && item.client.id === clientId).map((item) => item.totalTtc);
+    const numeroA = (await pieces()).find((item) => item.type === 'FACTURE' && item.client.id === clientA.id)!.numero;
+    const bouton = page.getByRole('button', { name: /Créer l’avoir partiel/ });
+    const reponseAvoir = () => page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
+
+    // 1. Facture A : le serveur émet l'avoir, sa réponse se perd.
+    await (await afficherFacture(page, clientA.raisonSociale)).filter({ hasText: 'Facture' }).getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await remplirLigneAvoir(page, 1, '1', '10', '20');
+    await page.route('**/api/factures/*/avoirs', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const reponse = await route.fetch();
+      expect(reponse.status(), 'le premier envoi est émis par le serveur').toBe(201);
+      await route.abort('connectionreset');
+    });
+    await bouton.click();
+    const enSuspens = page.getByRole('status').filter({ hasText: 'en attente de confirmation' });
+    await expect(enSuspens).toContainText(`Demande d’avoir sur la facture ${numeroA} en attente de confirmation.`);
+    await page.unroute('**/api/factures/*/avoirs');
+    expect(await avoirsDe(clientA.id)).toEqual([12]);
+
+    // 2. Facture B : un avoir émis (201), réponse définitive d'une autre demande.
+    await (await afficherFacture(page, clientB.raisonSociale)).filter({ hasText: 'Facture' }).getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await remplirLigneAvoir(page, 1, '1', '10', '20');
+    let attendue = reponseAvoir();
+    await bouton.click();
+    expect((await attendue).status()).toBe(201);
+    await expect(page.getByText(/Avoir \S+ créé et émis\./)).toBeVisible();
+    expect(await avoirsDe(clientB.id)).toEqual([12]);
+    // La demande de la facture A reste en suspens, et renvoyable.
+    await expect(enSuspens).toContainText(`Demande d’avoir sur la facture ${numeroA} en attente de confirmation.`);
+
+    // 3. Son renvoi rend l'avoir déjà émis (200), nommé, sans en émettre un second.
+    attendue = reponseAvoir();
+    await enSuspens.getByRole('button', { name: 'Renvoyer la demande' }).click();
+    const reponse = await attendue;
+    expect(reponse.status(), 'avoir relu par sa clé d’envoi').toBe(200);
+    const relu = await reponse.json() as { numero: string };
+    await expect(page.getByText(`Avoir ${relu.numero} déjà émis : la première demande avait abouti.`)).toBeVisible();
+    await expect(enSuspens).toHaveCount(0);
+    expect(await avoirsDe(clientA.id)).toEqual([12]);
+  });
+
+  // Corrections de l'audit de #663 (demande de Claude Code) : après le succès de « Renvoyer la demande » pour la facture A, seul
+  // le formulaire de A se ferme ; celui de la facture B, ouvert pendant que la demande de A était en suspens, reste ouvert avec sa
+  // saisie, et s'envoie ensuite (201, sa propre clé). Lecture écartée : tout formulaire fermé par la réponse définitive de A
+  // (la saisie de B perdue).
+  test('après le succès de « Renvoyer la demande » pour une facture, le formulaire d’avoir ouvert entre-temps sur une autre facture reste ouvert avec sa saisie', async ({ allerSurPageAdmin, creerClient, apiAdmin }) => {
+    const clientA = await creerClient('avoir-renvoi-formulaire-a');
+    const clientB = await creerClient('avoir-renvoi-formulaire-b');
+    const page = await allerSurPageAdmin('/factures');
+    await emettreFactureSource(page, clientA, [['1', '100', '20']]);
+    await emettreFactureSource(page, clientB, [['1', '100', '20']]);
+    const pieces = async () => await (await apiAdmin.get('/factures')).json() as Array<{ type: string; numero: string; client: { id: string }; totalTtc: number }>;
+    const avoirsDe = async (clientId: string) => (await pieces()).filter((item) => item.type === 'AVOIR' && item.client.id === clientId).map((item) => item.totalTtc);
+    const numeroB = (await pieces()).find((item) => item.type === 'FACTURE' && item.client.id === clientB.id)!.numero;
+    const reponseAvoir = () => page.waitForResponse((reponse) => reponse.request().method() === 'POST' && /\/api\/factures\/[^/]+\/avoirs$/.test(reponse.url()));
+    const formulaire = page.locator('form', { has: page.getByRole('heading', { name: /Nouvel avoir partiel/ }) });
+
+    // 1. Facture A : l'avoir est émis, sa réponse se perd.
+    await (await afficherFacture(page, clientA.raisonSociale)).filter({ hasText: 'Facture' }).getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await remplirLigneAvoir(page, 1, '1', '10', '20');
+    await page.route('**/api/factures/*/avoirs', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await route.fetch();
+      await route.abort('connectionreset');
+    });
+    await page.getByRole('button', { name: /Créer l’avoir partiel/ }).click();
+    const enSuspens = page.getByRole('status').filter({ hasText: 'en attente de confirmation' });
+    await expect(enSuspens).toBeVisible();
+    await page.unroute('**/api/factures/*/avoirs');
+
+    // 2. Formulaire ouvert sur la facture B, saisie en cours.
+    await (await afficherFacture(page, clientB.raisonSociale)).filter({ hasText: 'Facture' }).getByRole('button', { name: /Créer un avoir partiel/ }).click();
+    await expect(formulaire).toContainText(`Facture ${numeroB}`);
+    await remplirLigneAvoir(page, 1, '2', '7,50', '20');
+    await page.locator('input[aria-label="Désignation ligne avoir 1"]').fill('Geste sur la facture B');
+
+    // 3. « Renvoyer la demande » de A : 200, nommé ; le formulaire de B reste ouvert, saisie intacte.
+    let attendue = reponseAvoir();
+    await enSuspens.getByRole('button', { name: 'Renvoyer la demande' }).click();
+    expect((await attendue).status()).toBe(200);
+    await expect(page.getByText(/Avoir \S+ déjà émis : la première demande avait abouti\./)).toBeVisible();
+    await expect(enSuspens).toHaveCount(0);
+    await expect(formulaire).toHaveCount(1);
+    await expect(formulaire).toContainText(`Facture ${numeroB}`);
+    for (const [champ, valeur] of [['Désignation', 'Geste sur la facture B'], ['Quantité', '2'], ['Prix unitaire HT', '7,50'], ['TVA', '20']]) {
+      await expect(page.locator(`input[aria-label="${champ} ligne avoir 1"]`)).toHaveValue(valeur);
+    }
+    expect(await avoirsDe(clientA.id)).toEqual([12]);
+    expect(await avoirsDe(clientB.id)).toEqual([]);
+
+    // 4. Le formulaire de B s'envoie : 201, 2 × 7,50 € HT à 20 % = 18,00 € TTC.
+    const bouton = page.getByRole('button', { name: /Créer l’avoir partiel/ });
+    await expect(bouton).toBeEnabled();
+    attendue = reponseAvoir();
+    await bouton.click();
+    expect((await attendue).status()).toBe(201);
+    await expect(page.getByText(/Avoir \S+ créé et émis\./)).toBeVisible();
+    expect(await avoirsDe(clientB.id)).toEqual([18]);
+    expect(await avoirsDe(clientA.id)).toEqual([12]);
   });
 
   // #236 : un avoir créé dont la liste n'a pas pu être relue ensuite laisse affichée une facture sans cet

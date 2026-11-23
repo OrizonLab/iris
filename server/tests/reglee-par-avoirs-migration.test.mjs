@@ -94,7 +94,9 @@ if (!adminUrl) {
         clientId: ids.client, clientRaisonSociale: 'TEST Client migration réglée par avoirs', type, statut: 'EMISE', numero, factureOrigineId, estAvoirAnnulation: false,
         dateEmission: new Date('2026-09-08T00:00:00.000Z'), dateEcheance: new Date('2026-10-08T00:00:00.000Z'), totalHt: ht, totalTva: tva, totalTtc: ttc,
         origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST migration réglée par avoirs', identiteEmetteurId: ids.identite,
-      } });
+        // Colonnes lues nommées : le client Prisma suit le schéma courant, dont les colonnes ajoutées après cette migration
+        // (Facture.cleEnvoi, lot X) n'existent pas dans cette base.
+      }, select: { id: true } });
       await tx.factureLigne.create({ data: { factureId: creee.id, ordre: 0, designation: `TEST ${numero}`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: ht, tauxTva: 20, totalHt: ht, totalTtc: ttc } });
       await tx.factureVentilationTva.create({ data: { factureId: creee.id, tauxTva: 20, totalHt: ht, totalTva: tva, totalTtc: ttc } });
       const sens = (montant, debit) => (debit === (type === 'FACTURE') ? { debit: montant, credit: 0 } : { debit: 0, credit: montant });
@@ -103,7 +105,7 @@ if (!adminUrl) {
         { factureId: creee.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(ht, false) },
         { factureId: creee.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(tva, false) },
       ] });
-      await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true } });
+      await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true }, select: { id: true } });
       return creee;
     };
     const transaction = (operations) => prisma.$transaction(async (tx) => {
@@ -190,7 +192,7 @@ if (!adminUrl) {
         clientId: ids.client, clientRaisonSociale: 'TEST Client migration réglée par avoirs', type: 'AVOIR', statut: 'BROUILLON', factureOrigineId: ids.f, estAvoirAnnulation: false,
         dateEmission: new Date('2026-09-08T00:00:00.000Z'), dateEcheance: new Date('2026-10-08T00:00:00.000Z'), totalHt: 1, totalTva: 0.2, totalTtc: 1.2,
         origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST nouvel avoir', identiteEmetteurId: ids.identite,
-      } }).then(() => null), differee(ids.f), 'nouvel avoir brouillon');
+      }, select: { id: true } }).then(() => null), differee(ids.f), 'nouvel avoir brouillon');
       assert.equal(await statut(ids.f), 'EMISE');
       // Témoin : la facture couverte en partie (reste dû 100,00 €) n'est pas soldée, et s'écrit.
       const avant = (await db.query('SELECT "updatedAt" FROM "Facture" WHERE "id" = $1', [ids.g])).rows[0].updatedAt;

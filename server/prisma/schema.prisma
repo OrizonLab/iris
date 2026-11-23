@@ -753,6 +753,11 @@ model Facture {
   // ASSISTANTE_TECHNIQUE, et ses avoirs, sont visibles des assistantes techniques (factures/droits.ts).
   // Nul pour les pièces antérieures, visibles de la seule administration.
   creeParType          String?
+  // Clé de la demande de création d'un avoir partiel (lot X, #247), tirée par le formulaire : un second envoi de la
+  // même demande rend l'avoir déjà émis au lieu d'en émettre un second. Posée à la création, puis figée (déclencheur
+  // facture_cle_envoi_figee) ; avoir partiel seulement (contrainte Facture_cleEnvoi_avoir_partiel). Sans rapport avec
+  // les envois de documents (`envois`) ni avec l'identifiant de dépôt de la facturation électronique (FE-5).
+  cleEnvoi             String?   @unique @db.Uuid
   mentionsLegalesVersionId String?
   mentionsLegalesVersion   MentionsLegalesVersion? @relation(fields: [mentionsLegalesVersionId], references: [id], onDelete: Restrict)
   // Identité de l'émetteur copiée à l'émission (lot 6a-1, décision 6) ; absente des pièces

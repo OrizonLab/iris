@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { apiFetch } from '../api';
+import { nouvelleCleEnvoi } from '../lib/cleEnvoi';
 import { ZoneSignature } from './ZoneSignature';
 import type { TraceSignature } from '../lib/traceSignature';
 
@@ -21,16 +22,6 @@ async function envoyer(chemin: string, methode: 'POST' | 'PATCH', corps: unknown
   }
 }
 
-// Clé d'envoi tirée à l'ouverture du formulaire : un nouvel envoi après une réponse perdue retrouve
-// le compte rendu déjà enregistré au lieu d'en figer un second.
-function nouvelleCleEnvoi(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  const octets = crypto.getRandomValues(new Uint8Array(16));
-  octets[6] = (octets[6] & 0x0f) | 0x40;
-  octets[8] = (octets[8] & 0x3f) | 0x80;
-  const hex = Array.from(octets, (octet) => octet.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
 
 function useEnvoiUnique() {
   const enCours = useRef(false);
