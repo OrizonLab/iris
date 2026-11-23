@@ -99,7 +99,9 @@ if (!adminUrl) {
         id, clientId: ids.client, clientRaisonSociale: 'TEST Client migration avoir non nul', type, statut: 'EMISE', numero, factureOrigineId, estAvoirAnnulation,
         dateEmission: new Date('2026-11-09T00:00:00.000Z'), dateEcheance: new Date('2026-12-09T00:00:00.000Z'), totalHt, totalTva: tva, totalTtc: ttc,
         origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST migration avoir non nul', identiteEmetteurId: ids.identite,
-      } });
+        // Colonnes lues nommées : le client Prisma suit le schéma courant, dont les colonnes ajoutées après cette migration
+        // (Facture.cleEnvoi, lot X) n'existent pas dans cette base.
+      }, select: { id: true, totalHt: true, totalTva: true, totalTtc: true } });
       await tx.factureLigne.create({ data: { factureId: creee.id, ordre: 0, designation: `TEST ${numero ?? id}`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: Math.abs(ht), tauxTva: 20, totalHt: ht, totalTtc: Math.round((ht + Math.round(ht * 20) / 100) * 100) / 100 } });
       await tx.factureVentilationTva.create({ data: { factureId: creee.id, tauxTva: 20, totalHt: ht, totalTva: Math.round(ht * 20) / 100, totalTtc: Math.round((ht + Math.round(ht * 20) / 100) * 100) / 100 } });
       const sens = (montant, debit) => (debit === (type === 'FACTURE') ? { debit: montant, credit: 0 } : { debit: 0, credit: montant });
@@ -108,7 +110,7 @@ if (!adminUrl) {
         { factureId: creee.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(Math.max(Math.round((ttc - tva) * 100) / 100, 0), false) },
         { factureId: creee.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(Math.max(tva, 0), false) },
       ] });
-      await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true } });
+      await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true }, select: { id: true } });
       return creee;
     };
     const transaction = (operations) => prisma.$transaction(async (tx) => {
@@ -154,7 +156,7 @@ if (!adminUrl) {
       // Z, facture à 0,00 €, annulée par son avoir d'annulation Z0 à 0,00 €, comme l'API l'écrivait avant le lot.
       ids.z = (await transaction((tx) => piece(tx, { type: 'FACTURE', numero: 'TEST-F-ZERO', ht: 0 }))).id;
       ids.z0 = (await transaction(async (tx) => {
-        await tx.facture.update({ where: { id: ids.z }, data: { statut: 'ANNULEE' } });
+        await tx.facture.update({ where: { id: ids.z }, data: { statut: 'ANNULEE' }, select: { id: true } });
         return piece(tx, { type: 'AVOIR', numero: 'TEST-A-ANNULATION-ZERO', factureOrigineId: ids.z, estAvoirAnnulation: true, ht: 0 });
       })).id;
       // G (120,00 €) et son avoir partiel B de 20,00 € (16,67 € HT, TVA 3,33 €).

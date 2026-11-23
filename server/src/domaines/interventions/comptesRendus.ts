@@ -57,7 +57,6 @@ export function empreinteSignature(rapport: { id: string; contenu: string }, sig
   return crypto.createHash('sha256').update(`${rapport.id}\n${rapport.contenu}\n${signataire}\n${JSON.stringify(trace)}`, 'utf8').digest('hex');
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // PostgreSQL refuse le caractère nul dans un texte, et l'UTF-8 une demi-paire de substitution isolée :
 // ils sont refusés en amont (400) plutôt qu'en erreur serveur. Avec le drapeau u, une paire complète
 // (un emoji) forme un seul point de code et ne correspond pas à \p{Cs}.
@@ -72,9 +71,8 @@ export function motifInterventionValide(valeur: unknown): string | null {
   return motif && !contientCaractereInvalide(motif) ? motif : null;
 }
 
-export function cleEnvoiValide(valeur: unknown): string | null {
-  return typeof valeur === 'string' && UUID.test(valeur) ? valeur.toLowerCase() : null;
-}
+// Déplacée dans commun/validation.ts (lot X, #247), partagée avec l'avoir partiel.
+export { cleEnvoiValide } from '../../commun/validation';
 
 // Clôture sans signature du client (décisions de Nelson des 19 et 20-10-2026) : un motif parmi
 // quatre, et une précision écrite courte pour « autre », consignés au journal.
