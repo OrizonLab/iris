@@ -7,11 +7,13 @@ import { valeurSaisie } from './mainOeuvre';
 // avec le drapeau `v`, et ignore en silence un motif invalide : seule la classe `[.,]`, sans caractère réservé, y
 // figure. Les montants positifs ou nuls et les taux de TVA reprennent les motifs du devis (catalogueDevis.ts).
 
-// Heures d'un chantier à la demi-heure, à partir de 0,5 h, comme l'ancien `step="0.5"` et `min="0.5"` : le serveur
-// admet le centième, mais aucune décision ne fixe la finesse de saisie (question pour Nelson, #394 ; comportement
-// actuel gardé, règle permanente 1). Huit chiffres avant la virgule, comme le serveur.
-export const MOTIF_DEMI_HEURE = String.raw`(?!0+(?:[.,]0+)?$)\d{1,8}(?:[.,](?:00?|50?))?`;
-export const TITRE_DEMI_HEURE = 'Un nombre d’heures à la demi-heure, à partir de 0,5 (par exemple 3,5)';
+// Heures d'un chantier au quart d'heure, à partir de 0,25 h (décision de Nelson du 22-11-2026, soir : « 1. Quart
+// d'heure » ; lot W), aux bornes du serveur (heuresAuQuartDHeure, domaines/chantiers/saisies.ts) : huit chiffres avant
+// la virgule, décimales 0, 00, 25, 5, 50 ou 75. Règle qui touche un montant, gardée dans le code (règle permanente 1).
+// Le motif du devis au temps passé (MOTIF_HEURES_QUART_HEURE, lib/tempsPasse.ts) n'est pas réutilisable : il admet neuf
+// chiffres et trois décimales.
+export const MOTIF_QUART_HEURE_CHANTIER = String.raw`(?!0+(?:[.,]0+)?$)\d{1,8}(?:[.,](?:00?|25|50?|75))?`;
+export const TITRE_QUART_HEURE_CHANTIER = 'Un nombre d’heures au quart d’heure, à partir de 0,25 (par exemple 3,25)';
 
 // Taux en pourcentage de 0 à 100, deux décimales au plus (taux d'acompte par défaut, seuil de marge faible, taux
 // d'une tranche de barème), aux bornes du serveur : trois chiffres au plus, un zéro de tête admis (« 050 »).

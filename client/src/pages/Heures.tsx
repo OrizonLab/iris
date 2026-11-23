@@ -6,7 +6,7 @@ import { companyDateInputValue, formatDateOnly } from '../lib/dateFormatting';
 import { isAdminRole, useCurrentRole } from '../roles';
 import { sommeExacte, coutLigneHeures } from '../lib/montants';
 import { fmtEuroCentime, fmtHeures } from '../lib/formats';
-import { MOTIF_DEMI_HEURE, TITRE_DEMI_HEURE } from '../lib/saisiesDecimales';
+import { MOTIF_QUART_HEURE_CHANTIER, TITRE_QUART_HEURE_CHANTIER } from '../lib/saisiesDecimales';
 
 const Heures = () => {
   const companyTimezone = useCompanyTimezone();
@@ -128,7 +128,7 @@ const Heures = () => {
           
           <div className="flex flex-col">
             <label className="text-sm font-semibold text-gray-600 mb-1">Nombre d'heures (h)</label>
-            <input required type="text" inputMode="decimal" pattern={MOTIF_DEMI_HEURE} title={TITRE_DEMI_HEURE} name="nbrHeures" placeholder="Ex. : 3,5" className="p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all w-full" />
+            <input required type="text" inputMode="decimal" pattern={MOTIF_QUART_HEURE_CHANTIER} title={TITRE_QUART_HEURE_CHANTIER} name="nbrHeures" placeholder="Ex. : 3,25" className="p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all w-full" />
           </div>
           
           <div className="flex flex-col lg:col-span-2">

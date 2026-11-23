@@ -340,11 +340,17 @@ test('Journal des achats de la fiche chantier, Chromium en anglais : montant pr�
   }
 });
 
-// Critères du cadrage v2 : « Heures « 3,5 » → 3,5 ; « 1,25 » refusé par le navigateur, sans écriture » (demi-heure gardée, à
-// partir de 0,5 h ; question de la finesse non tranchée par Nelson) ; point 7 (#135, point 3) : refus du serveur affiché, saisie
-// gardée. Lectures écartées : champ number en anglais (« 3,5 » lu 35 h, multiple du pas 0,5, admis sans refus) ; lecture
-// arrêtée à la virgule (3 h) ; « 1,25 » admis (quart d'heure) ; « 0 » admis ; formulaire vidé sans message après un refus.
-test('Heures, Chromium en anglais : refus du serveur affiché et saisie gardée (#135) ; « 1,25 » et « 0 » refusés par le navigateur, sans écriture ; « 3,5 » enregistré à 3,5 h', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
+// Titre du champ des heures d'un chantier : le message du navigateur quand il refuse la saisie (lot W, cadrage v2, point 3).
+const TITRE_HEURES = 'Un nombre d’heures au quart d’heure, à partir de 0,25 (par exemple 3,25)';
+
+// Lot W (décision de Nelson du 22-11-2026, soir : « 1. Quart d'heure » ; cadrage v2 du lot W, « Critères observables » et
+// « Tests », qui remplacent ici la demi-heure du lot U) : « 3,25 » enregistré à 3,25 h ; « 1,1 », « 0,2 », « 0 » (et les autres
+// saisies refusées des critères : « 1,10 », « 0,05 », « 3,250 », « 123456789 ») refusés par le navigateur, sans envoi, avec le
+// titre en français ; « 3,75 », « 0,25 », « 3,00 » et « 3 » admis par le champ ; placeholder « Ex. : 3,25 ». Lot U, point 7
+// (#135, point 3) : refus du serveur affiché, saisie gardée. Lectures écartées : champ number en anglais (« 3,25 » lu 325 h,
+// admis sans refus) ; lecture arrêtée à la virgule (3 h) ; la demi-heure d'avant le lot (« 3,25 » ou « 0,25 » refusé par le
+// navigateur) ; « 1,1 », « 0,2 » ou « 0,05 » admis (centième) ; « 0 » admis ; formulaire vidé sans message après un refus.
+test('Heures, Chromium en anglais : refus du serveur affiché et saisie gardée (#135) ; « 1,1 », « 0,2 » et « 0 » refusés par le navigateur, sans écriture ; « 3,25 » enregistré à 3,25 h', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
   test.slow();
   const { chantier, intervenant } = await ouvrirChantier(request, session.token, creerClient, 'Heures 394');
   try {
@@ -360,9 +366,10 @@ test('Heures, Chromium en anglais : refus du serveur affiché et saisie gardée 
     await formulaire.locator('select[name="intervenantId"]').selectOption(intervenant.id);
     await formulaire.locator('select[name="chantierId"]').selectOption(chantier.id);
     await commentaire.fill('Pose E2E 394');
-    await saisir(heures, '3,5');
+    await saisir(heures, '3,25');
     await champTexte(heures);
-    await expect(heures).toHaveAttribute('placeholder', 'Ex. : 3,5');
+    await expect(heures).toHaveAttribute('placeholder', 'Ex. : 3,25');
+    await expect(heures).toHaveAttribute('title', TITRE_HEURES);
 
     // Refus du serveur : message affiché, saisie gardée, rien d'écrit.
     await date.fill('31-02-2026');
@@ -370,44 +377,52 @@ test('Heures, Chromium en anglais : refus du serveur affiché et saisie gardée 
     await enregistrer.click();
     const reponseRefus = await refus;
     expect(reponseRefus.status()).toBe(400);
-    expect(reponseRefus.request().postDataJSON()).toMatchObject({ date: '31-02-2026', nbrHeures: '3,5' });
+    expect(reponseRefus.request().postDataJSON()).toMatchObject({ date: '31-02-2026', nbrHeures: '3,25' });
     await expect(page.getByRole('alert')).toHaveText('La date doit être valide au format JJ-MM-AAAA.');
     await expect(date).toHaveValue('31-02-2026');
-    await expect(heures).toHaveValue('3,5');
+    await expect(heures).toHaveValue('3,25');
     await expect(commentaire).toHaveValue('Pose E2E 394');
     await expect(formulaire.locator('select[name="intervenantId"]')).toHaveValue(intervenant.id);
     expect(await pointages()).toEqual([]);
 
-    // Hors forme : « 1,25 » (quart d'heure), « 0 », « 0,05 » refusés par le navigateur, rien n'est envoyé ni écrit.
+    // Hors du quart d'heure : refusés par le navigateur, rien n'est envoyé ni écrit.
     await date.fill(dateDuJour());
-    for (const saisie of ['1,25', '0', '0,05']) {
+    for (const saisie of ['1,1', '0,2', '0', '1,10', '0,05', '3,250', '123456789']) {
       await saisir(heures, saisie);
       expect(await validite(heures), `« ${saisie} »`).toEqual(HORS_MOTIF);
       await enregistrer.click();
       await expect(heures).toHaveValue(saisie);
     }
+    // Au quart d'heure : admis par le champ (rien n'est envoyé ici).
+    for (const saisie of ['3,75', '0,25', '3,00', '3']) {
+      await saisir(heures, saisie);
+      expect(await validite(heures), `« ${saisie} »`).toEqual(ADMIS);
+    }
     expect(envois).toEqual(['POST /api/heures']);
     expect(await pointages()).toEqual([]);
 
-    // « 3,5 » au clavier : envoyé tel quel, enregistré à 3,5 h ; message retiré, formulaire vidé.
-    await saisir(heures, '3,5');
+    // « 3,25 » au clavier : envoyé tel quel, enregistré à 3,25 h ; message retiré, formulaire vidé.
+    await saisir(heures, '3,25');
     const creation = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/heures');
     await enregistrer.click();
     const reponse = await creation;
     expect(reponse.status(), await reponse.text()).toBe(200);
-    expect(reponse.request().postDataJSON()).toMatchObject({ nbrHeures: '3,5', intervenantId: intervenant.id, chantierId: chantier.id });
+    expect(reponse.request().postDataJSON()).toMatchObject({ nbrHeures: '3,25', intervenantId: intervenant.id, chantierId: chantier.id });
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(heures).toHaveValue('');
-    expect((await pointages()).map((p) => [p.nbrHeures, p.commentaire])).toEqual([[3.5, 'Pose E2E 394']]);
+    expect((await pointages()).map((p) => [p.nbrHeures, p.commentaire])).toEqual([[3.25, 'Pose E2E 394']]);
     expect(envois).toEqual(['POST /api/heures', 'POST /api/heures']);
   } finally {
     await cloturer(request, session.token, chantier.id);
   }
 });
 
-// Critère du cadrage v2 : « Journal des heures : pré-rempli à la virgule ». Pointage de départ à 7,5 h, pré-rempli « 7,5 » ;
-// correction « 2,5 ». Lectures écartées : pré-remplissage au point (« 7.5 », avant le lot) ; « 2,5 » lu 25 h ; « 2,25 » admis.
-test('Journal des heures de la fiche chantier, Chromium en anglais : nombre d’heures pré-rempli à la virgule « 7,5 » ; « 2,25 » refusé par le navigateur ; correction « 2,5 » enregistrée à 2,5 h', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
+// Critère du cadrage v2 du lot U : « Journal des heures : pré-rempli à la virgule » ; lot W (cadrage v2, « Tests ») : « journal
+// pré-rempli « 7,5 », « 2,3 » refusé, correction « 2,75 » enregistrée ». Pointage de départ à 7,5 h, pré-rempli « 7,5 » et
+// admis tel quel par le champ. Lectures écartées : pré-remplissage au point (« 7.5 », avant le lot U) ; « 7,5 » refusé par le
+// motif (deux décimales exigées) ; « 2,3 » admis (centième) ; « 2,75 » refusé (demi-heure d'avant le lot W) ou lu 275 h
+// (champ number en anglais).
+test('Journal des heures de la fiche chantier, Chromium en anglais : nombre d’heures pré-rempli à la virgule « 7,5 » ; « 2,3 » refusé par le navigateur ; correction « 2,75 » enregistrée à 2,75 h', async ({ page, request, session, creerClient, allerSurPageAdmin }) => {
   test.slow();
   const { chantier, intervenant } = await ouvrirChantier(request, session.token, creerClient, 'Journal heures 394');
   try {
@@ -427,26 +442,28 @@ test('Journal des heures de la fiche chantier, Chromium en anglais : nombre d’
 
     await ouvrir();
     await expect(heures).toHaveValue('7,5');
+    expect(await validite(heures), 'valeur pré-remplie admise').toEqual(ADMIS);
     await champTexte(heures);
+    await expect(heures).toHaveAttribute('title', TITRE_HEURES);
     // Champ nommé pour les lecteurs d'écran (aria-label « Nombre d’heures », ajouté par le lot).
     await expect(formulaire.getByRole('textbox', { name: 'Nombre d’heures' })).toHaveCount(1);
     await formulaire.locator('input[name="motifCorrection"]').fill('Correction E2E 394');
-    await saisir(heures, '2,25');
+    await saisir(heures, '2,3');
     expect(await validite(heures)).toEqual(HORS_MOTIF);
     await formulaire.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-    await expect(heures).toHaveValue('2,25');
+    await expect(heures).toHaveValue('2,3');
     expect(envois, 'aucune correction envoyée').toEqual([]);
 
-    await saisir(heures, '2,5');
+    await saisir(heures, '2,75');
     const correction = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname === `/api/heures/${pointage.id}`);
     await formulaire.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     const reponse = await correction;
     expect(reponse.status(), await reponse.text()).toBe(200);
-    expect(reponse.request().postDataJSON()).toMatchObject({ nbrHeures: '2,5' });
+    expect(reponse.request().postDataJSON()).toMatchObject({ nbrHeures: '2,75' });
     await expect(page.locator('input[name="motifCorrection"]')).toHaveCount(0);
-    expect(await heuresEnBase()).toEqual([2.5]);
+    expect(await heuresEnBase()).toEqual([2.75]);
     await ouvrir();
-    await expect(heures).toHaveValue('2,5');
+    await expect(heures).toHaveValue('2,75');
     expect(envois).toEqual([`PATCH /api/heures/${pointage.id}`]);
   } finally {
     await cloturer(request, session.token, chantier.id);

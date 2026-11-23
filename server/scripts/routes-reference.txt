@@ -167,8 +167,8 @@ GET /api/achats requireAuth#07b983da0ce5 > listerAchats#57fd2968acbb
 GET /api/v1/achats <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerAchats#57fd2968acbb
 GET /api/heures requireAuth#07b983da0ce5 > listerHeures#b6716193be5c
 GET /api/v1/heures <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerHeures#b6716193be5c
-POST /api/heures requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#eb562afa2a81
-PATCH /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#f7414586d918
+POST /api/heures requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#4dfcaa046d79
+PATCH /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:write"}#c4dc4769916b > <anonymous>#4af2ad7e6e31
 DELETE /api/heures/:id requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#a964dff53d9c
 POST /api/heures/:id/restaurer requireAuth#07b983da0ce5 > <anonymous>{permission="chantiers:archive"}#c4dc4769916b > <anonymous>#bc81f9477fc9
 PATCH /api/chantiers/:id/encaisse requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#ec1f0d417acb

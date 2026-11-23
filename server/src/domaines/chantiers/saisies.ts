@@ -76,6 +76,18 @@ async function journaliserSaisieTravaux(
   } });
 }
 
+// Heures d'un chantier saisies au quart d'heure, à partir de 0,25 h (décision de Nelson du 22-11-2026, soir :
+// « 1. Quart d'heure » ; lot W). Règle qui touche un montant (coût de la main-d'œuvre, marge) : elle reste dans le
+// code, et ne changerait que sur décision de Nelson (règle permanente 1, PARAMETRAGE-CIBLE.md, section 5). La saisie
+// est lue par la règle commune (virgule ou point, huit chiffres, deux décimales), puis doit tomber sur un quart
+// d'heure : 3,25 et 3,00 sont admis, 1,1 et 0,2 refusés. Le serveur reste juge : l'écran ne fait que prévenir avec le
+// même motif (client/src/lib/saisiesDecimales.ts). Les heures d'une intervention restent au centième (hors lot W).
+export const REFUS_HEURES_CHANTIER = 'Le nombre d’heures se saisit au quart d’heure, à partir de 0,25 (par exemple 3,25).';
+export function heuresAuQuartDHeure(valeur: unknown): number | null {
+  const heures = nombreDecimalNonNegatif(valeur, 8);
+  return heures !== null && Math.round(heures * 100) % 25 === 0 ? heures : null;
+}
+
 // Achats
 // Journal des achats, restreint au périmètre du demandeur (cf. perimetreChantiers) et
 // dépouillé des montants du chantier (cf. CHANTIER_LITE_SELECT).
@@ -266,8 +278,8 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
     try {
       const date = dateIsoStricte(req.body.date);
       if (!date) return res.status(400).json({ error: 'La date doit être valide au format JJ-MM-AAAA.' });
-      const nbrHeures = nombreDecimalNonNegatif(req.body.nbrHeures, 8);
-      if (nbrHeures === null) return res.status(400).json({ error: 'Le nombre d’heures doit être strictement positif.' });
+      const nbrHeures = heuresAuQuartDHeure(req.body.nbrHeures);
+      if (nbrHeures === null) return res.status(400).json({ error: REFUS_HEURES_CHANTIER });
       const intervenant = await prisma.intervenant.findUnique({ where: { id: req.body.intervenantId } });
       if (!intervenant) return res.status(404).json({ error: 'Intervenant introuvable.' });
       if (!(await assertChantierWritable(req, res, req.body.chantierId))) return;
@@ -314,8 +326,8 @@ export function enregistrerRoutesSaisiesTravaux(app: Express): void {
         data.date = date;
       }
       if ('nbrHeures' in req.body) {
-        const nbrHeures = nombreDecimalNonNegatif(req.body.nbrHeures, 8);
-        if (nbrHeures === null) return res.status(400).json({ error: 'Le nombre d’heures doit être strictement positif.' });
+        const nbrHeures = heuresAuQuartDHeure(req.body.nbrHeures);
+        if (nbrHeures === null) return res.status(400).json({ error: REFUS_HEURES_CHANTIER });
         data.nbrHeures = nbrHeures;
       }
       if ('commentaire' in req.body) data.commentaire = req.body.commentaire || null;
