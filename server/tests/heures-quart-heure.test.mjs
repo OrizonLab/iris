@@ -105,6 +105,12 @@ const REFUSEES = [
   ['« 3,24 »', '3,24'],
   // Borne de la colonne hors quart : admise avant le lot (99 999 999,99 h).
   ['« 99999999,99 »', '99999999,99'],
+  // Hors quart, dont le produit flottant par 100 tombe juste sous un entier (« 2,01 » × 100 = 200,99999999999997) ou juste
+  // au-dessus (« 2,24 » × 100 = 224,00000000000003) : écarte des centièmes tronqués (Math.floor, Math.trunc : 200, multiple
+  // de 25, donc 2,01 h enregistré) ou pris par excès (Math.ceil : 225, donc 2,24 h enregistré) au lieu de Math.round (audit
+  // des montants de #669).
+  ['« 2,01 »', '2,01'],
+  ['« 2,24 »', '2,24'],
   // Quart négatif : écarte une lecture en valeur absolue (0,25 h).
   ['« -0,25 »', '-0,25'],
   // Valeurs vides : écarte une valeur vide lue 0, ou un message distinct (cadrage v2, point 1 : « Un seul message 400 »).
@@ -563,6 +569,54 @@ if (!TEST_DATABASE_URL) {
         assert.deepEqual(tablesChangees(avant, await empreinte()), [], `« ${valeur} » : rien d’écrit`);
       }
       assert.equal((await pointageEnBase(pointage.id)).nbrHeures.toString(), '7.5');
+    });
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // 9. Règle du serveur sur tout le domaine, en centièmes entiers (audit des montants de #669)
+    // ---------------------------------------------------------------------------------------------------------------
+
+    // heuresAuQuartDHeure lit un nombre flottant, puis le passe en centièmes par Math.round (saisies.ts). Les saisies des
+    // sections 1 et 2 ne jouent que quelques valeurs ; le test client (saisiesDecimales.test.ts) compare le motif à une copie
+    // de la règle, et non au serveur. Ici, la fonction compilée du serveur est comparée à la même règle écrite en centièmes
+    // entiers (BigInt), sans flottant : chaque saisie à 0, 1 ou 2 décimales, à la virgule et au point, pour les entiers de 0 à
+    // 2 000, autour de 16 384 (2^14 : « 16383,01 » × 100 tombe juste, « 16384,01 » × 100 juste sous l'entier) et en haut du
+    // domaine (99 998 000 à 99 999 999), et les mêmes valeurs en nombre JSON. Lectures écartées : des centièmes tronqués (Math.floor, Math.trunc :
+    // « 2,01 », « 2,26 », « 2,51 », « 16384,01 » admis) ou pris par excès (Math.ceil : « 2,24 », « 2,49 » admis), et toute
+    // autre lecture flottante qui s'écarterait du quart d'heure exact.
+    test('règle du serveur exacte sur tout le domaine : heuresAuQuartDHeure comparée à la règle en centièmes entiers, à la virgule, au point et en nombre', async () => {
+      const module = await import('../dist/src/domaines/chantiers/saisies.js');
+      const heuresAuQuartDHeure = module.heuresAuQuartDHeure ?? module.default.heuresAuQuartDHeure;
+      assert.equal(typeof heuresAuQuartDHeure, 'function');
+      const exacte = (texte) => {
+        const lu = /^(\d{1,8})(?:[,.](\d{1,2}))?$/.exec(texte);
+        if (!lu) return false;
+        const centiemes = BigInt(lu[1]) * 100n + BigInt((lu[2] ?? '').padEnd(2, '0'));
+        return centiemes > 0n && centiemes % 25n === 0n;
+      };
+      const ecarts = [];
+      let saisies = 0;
+      const comparer = (valeur, texte) => {
+        saisies += 1;
+        if ((heuresAuQuartDHeure(valeur) !== null) !== exacte(texte) && ecarts.length < 10) ecarts.push(typeof valeur === 'number' ? `${texte} en nombre` : `« ${texte} »`);
+      };
+      const fractions = [...Array.from({ length: 10 }, (_, i) => String(i)), ...Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'))];
+      const entiers = [
+        ...Array.from({ length: 2001 }, (_, i) => i),
+        ...Array.from({ length: 21 }, (_, i) => 16_374 + i),
+        ...Array.from({ length: 2000 }, (_, i) => 99_998_000 + i),
+      ];
+      for (const entier of entiers) {
+        comparer(String(entier), String(entier));
+        for (const fraction of fractions) {
+          for (const separateur of [',', '.']) comparer(`${entier}${separateur}${fraction}`, `${entier}${separateur}${fraction}`);
+          const nombre = Number(`${entier}.${fraction}`);
+          comparer(nombre, String(nombre));
+        }
+      }
+      assert.deepEqual(ecarts, [], `écarts entre le serveur et la règle exacte (${saisies} saisies)`);
+      // Témoins nommés : chacun admis par l'une des lectures écartées, refusé par le serveur ; les quarts voisins admis.
+      assert.deepEqual(['2,01', '2,26', '2,51', '16384,01', '2,24', '2,49', 2.01, 2.24].map((v) => heuresAuQuartDHeure(v)), [null, null, null, null, null, null, null, null]);
+      assert.deepEqual(['2', '2,25', '2,5', '16384', '2,75', 2.25].map((v) => heuresAuQuartDHeure(v)), [2, 2.25, 2.5, 16384, 2.75, 2.25]);
     });
   });
 }
