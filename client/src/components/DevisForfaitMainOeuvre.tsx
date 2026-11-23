@@ -52,7 +52,7 @@ export function ChoixForfaitMainOeuvre({ onAjouter }: { onAjouter: (ligne: Ligne
     {mainsOeuvre && mainsOeuvre.length === 0 && <p role="status" className="text-sm text-gray-600">Aucune main d’œuvre active au catalogue : l’administration la crée dans Catalogue &gt; Main d’œuvre.</p>}
     <div className="grid gap-2 sm:grid-cols-3">
       <label className="text-sm">Main d’œuvre
-        <select aria-label="Main d’œuvre au jour ou à la demi-journée" className="mt-1 w-full border rounded px-2 py-2 bg-white" value={ficheId} disabled={!mainsOeuvre} onChange={(e) => setFicheId(e.target.value)}>
+        <select className="mt-1 w-full border rounded px-2 py-2 bg-white" value={ficheId} disabled={!mainsOeuvre} onChange={(e) => setFicheId(e.target.value)}>
           <option value="">Choisir une main d’œuvre…</option>
           {(mainsOeuvre ?? []).map((f) => <option key={f.id} value={f.id}>{f.nom} · Réf. {f.reference}</option>)}
         </select>

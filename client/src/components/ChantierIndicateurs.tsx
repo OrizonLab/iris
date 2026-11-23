@@ -4,8 +4,8 @@ import { BarBreakdown, type BreakdownRow } from './BarBreakdown';
 import { isAdminRole } from '../roles';
 import { CoutsSuitesChantier } from './CoutsSuitesChantier';
 import { hypotheseCoutHoraire, hypotheseMateriel, type EstimationMarge } from '../lib/suiviChantiers';
-import { arrondiEuro, arrondiCentime } from '../lib/montants';
-import { toDateFrancaise, fmtEuro, fmtHeures } from '../lib/formats';
+import { arrondiEuro } from '../lib/montants';
+import { toDateFrancaise, fmtEuro, fmtHeures, fmtPourcentage } from '../lib/formats';
 import { libelleStatutPiece } from '../lib/libellesFacture';
 
 export type FactureLiee = {
@@ -51,8 +51,8 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
             {showBudgetVendu && (
               <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 flex flex-col justify-center relative overflow-hidden group">
                 <div aria-hidden="true" className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Budget Vendu</div>
-                <div className="text-2xl font-black text-primary-dark z-10">{chantier.budgetGlobalVendu.toLocaleString()} €</div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Montant vendu</div>
+                <div className="text-2xl font-black text-primary-dark z-10">{fmtEuro(chantier.budgetGlobalVendu)}</div>
               </div>
             )}
 
@@ -100,22 +100,22 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
             {chantier.budgetMaterielVendu != null && (
             <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 flex flex-col justify-center relative overflow-hidden group">
               <div aria-hidden="true" className="absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Matériel Prévu</div>
-              <div className="text-2xl font-black text-accent z-10">{chantier.budgetMaterielVendu.toLocaleString()} €</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Budget matériel</div>
+              <div className="text-2xl font-black text-accent z-10">{fmtEuro(chantier.budgetMaterielVendu)}</div>
             </div>
             )}
 
             <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 flex flex-col justify-center relative overflow-hidden group">
               <div aria-hidden="true" className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Heures Prévues</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Heures vendues</div>
               <div className="text-2xl font-black text-purple-600 z-10">{fmtHeures(chantier.heuresVendues)}</div>
             </div>
 
             {chantier.budgetMainOeuvreVendu != null && (
             <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 flex flex-col justify-center relative overflow-hidden group">
               <div aria-hidden="true" className="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Coût MO Prévu</div>
-              <div className="text-2xl font-black text-orange-600 z-10">{chantier.budgetMainOeuvreVendu.toLocaleString()} €</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 z-10">Budget main-d’œuvre</div>
+              <div className="text-2xl font-black text-orange-600 z-10">{fmtEuro(chantier.budgetMainOeuvreVendu)}</div>
             </div>
             )}
           </div>
@@ -123,22 +123,22 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
           {/* Marge Commerciale (admin, ou conducteur responsable sur sa fiche chantier — cf.
               GET /api/chantiers/:id côté serveur —, si activée dans les paramètres) */}
           {showMarge && (
-            <div data-marge-commerciale className={`mb-8 p-6 rounded-xl border-l-8 flex flex-col gap-4 shadow-sm relative overflow-hidden ${affaireAnnulee ? 'bg-gray-50 border-gray-300' : margeAffichee > 0 ? 'bg-emerald-50 border-emerald-500' : 'bg-red-50 border-red-500'}`}>
+            <div data-marge-commerciale className={`mb-8 p-6 rounded-xl border-l-8 flex flex-col gap-4 shadow-sm relative overflow-hidden ${affaireAnnulee ? 'bg-gray-50 border-gray-300' : margeAffichee >= 0 ? 'bg-emerald-50 border-emerald-500' : 'bg-red-50 border-red-500'}`}>
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="z-10 text-center md:text-left">
-                  <div className={`text-xs font-bold uppercase tracking-widest ${affaireAnnulee ? 'text-gray-500' : margeAffichee > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  <div className={`text-xs font-bold uppercase tracking-widest ${affaireAnnulee ? 'text-gray-500' : margeAffichee >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                     Marge Commerciale
                   </div>
                   {affaireAnnulee ? (
                     <div className="text-2xl font-black mt-2 tracking-tight text-gray-600">Affaire annulée</div>
                   ) : (
                     <>
-                      <div className={`text-5xl font-black mt-2 tracking-tight ${margeAffichee > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {margeAffichee.toLocaleString()} €
+                      <div className={`text-5xl font-black mt-2 tracking-tight ${margeAffichee >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                        {fmtEuro(margeAffichee)}
                       </div>
                       {metrics.margePct != null && (
-                        <div className={`text-sm font-bold mt-1 ${margeAffichee > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                          {metrics.margePct.toFixed(1)}% du budget vendu
+                        <div className={`text-sm font-bold mt-1 ${margeAffichee >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {fmtPourcentage(metrics.margePct, 1)} du vendu
                         </div>
                       )}
                     </>
@@ -148,7 +148,7 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
                 {metrics.totalDepenses != null && (
                 <div className="z-10 bg-white/60 backdrop-blur-sm p-4 rounded-lg text-right">
                   <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Dépenses Réelles Cumulées</div>
-                  <div className="font-bold text-2xl text-gray-800">{arrondiCentime(totalDepensesReelles).toLocaleString()} €</div>
+                  <div className="font-bold text-2xl text-gray-800">{fmtEuro(totalDepensesReelles)}</div>
                 </div>
                 )}
               </div>
@@ -160,7 +160,7 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
                     <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Marge estimée en fin de chantier</div>
                     <div className={`text-2xl font-black ${arrondiEuro(metrics.margeEstimee) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                       {fmtEuro(metrics.margeEstimee)}
-                      <span className="text-sm font-bold ml-2">{(metrics.margeEstimeePct ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %</span>
+                      <span className="text-sm font-bold ml-2">{fmtPourcentage(metrics.margeEstimeePct ?? 0, 1)}</span>
                     </div>
                   </div>
                   <ul className="mt-2 mb-0 pl-4 text-xs text-gray-600 space-y-0.5">
@@ -184,15 +184,15 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
                   <Package size={18} className="text-accent" /> Consommation Matériel
                 </h3>
                 <div className="text-right">
-                  <span className="text-xl font-black text-accent">{depenseMaterielReelle.toLocaleString()} €</span>
-                  {chantier.budgetMaterielVendu != null && <span className="text-sm font-semibold text-gray-400 ml-1">/ {chantier.budgetMaterielVendu.toLocaleString()} €</span>}
+                  <span className="text-xl font-black text-accent">{fmtEuro(depenseMaterielReelle)}</span>
+                  {chantier.budgetMaterielVendu != null && <span className="text-sm font-semibold text-gray-400 ml-1">/ {fmtEuro(chantier.budgetMaterielVendu)}</span>}
                 </div>
               </div>
               {chantier.budgetMaterielVendu != null && (
                 <>
                   <ProgressMeter value={depenseMaterielReelle} max={chantier.budgetMaterielVendu} color="blue" striped />
                   <div className="mt-2 text-right text-xs font-bold text-gray-500">
-                    {((depenseMaterielReelle / Math.max(1, chantier.budgetMaterielVendu)) * 100).toFixed(1)}%
+                    {fmtPourcentage((depenseMaterielReelle / Math.max(1, chantier.budgetMaterielVendu)) * 100, 0)}
                   </div>
                 </>
               )}
@@ -209,18 +209,18 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
                   <Wallet size={18} className="text-orange-500" /> Coût Main d'Œuvre
                 </h3>
                 <div className="text-right">
-                  <span className="text-xl font-black text-orange-600">{arrondiCentime(coutMainOeuvreReel).toLocaleString()} €</span>
-                  {chantier.budgetMainOeuvreVendu != null && <span className="text-sm font-semibold text-gray-400 ml-1">/ {chantier.budgetMainOeuvreVendu.toLocaleString()} €</span>}
+                  <span className="text-xl font-black text-orange-600">{fmtEuro(coutMainOeuvreReel)}</span>
+                  {chantier.budgetMainOeuvreVendu != null && <span className="text-sm font-semibold text-gray-400 ml-1">/ {fmtEuro(chantier.budgetMainOeuvreVendu)}</span>}
                 </div>
               </div>
               {chantier.budgetMainOeuvreVendu != null && <ProgressMeter value={coutMainOeuvreReel} max={chantier.budgetMainOeuvreVendu} color="orange" striped />}
               <div className="mt-2 flex justify-between items-center text-xs font-bold">
-                <span className={arrondiCentime(manqueAGagnerMainOeuvre) > 0 ? 'text-red-600' : 'text-gray-300'}>
-                  {arrondiCentime(manqueAGagnerMainOeuvre) > 0 ? `Manque à gagner : -${arrondiCentime(manqueAGagnerMainOeuvre).toLocaleString()} €` : ''}
+                <span className={arrondiEuro(manqueAGagnerMainOeuvre) > 0 ? 'text-red-600' : 'text-gray-300'}>
+                  {arrondiEuro(manqueAGagnerMainOeuvre) > 0 ? `Manque à gagner : ${fmtEuro(-manqueAGagnerMainOeuvre)}` : ''}
                 </span>
                 {chantier.budgetMainOeuvreVendu != null && (
                   <span className="text-gray-500">
-                    {((coutMainOeuvreReel / Math.max(1, chantier.budgetMainOeuvreVendu)) * 100).toFixed(1)}%
+                    {fmtPourcentage((coutMainOeuvreReel / Math.max(1, chantier.budgetMainOeuvreVendu)) * 100, 0)}
                   </span>
                 )}
               </div>
@@ -241,7 +241,7 @@ export function ChantierIndicateurs({ showBudgetVendu, chantier, userRole, handl
               </div>
               <ProgressMeter value={heuresRealisees} max={chantier.heuresVendues} color="purple" striped />
               <div className="mt-2 text-right text-xs font-bold text-gray-500">
-                {((heuresRealisees / Math.max(1, chantier.heuresVendues)) * 100).toFixed(1)}%
+                {fmtPourcentage((heuresRealisees / Math.max(1, chantier.heuresVendues)) * 100, 0)}
               </div>
             </div>
           </div>

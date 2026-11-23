@@ -356,8 +356,8 @@ const Dashboard = () => {
                         <div className="font-bold text-gray-800 truncate group-hover:text-accent transition-colors">{c.nom}</div>
                         <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
                           <span>{c.client}</span>
-                          <span>Devis: {c.numeroDevis || 'N/A'}</span>
-                          {c.responsable?.name && <span>Resp: {c.responsable.name}</span>}
+                          {c.numeroDevis && <span>Référence de l'affaire : {c.numeroDevis}</span>}
+                          {c.responsable?.name && <span>Resp. : {c.responsable.name}</span>}
                         </div>
                         <div className="mt-1.5 empty:hidden"><AlertesChantier chantier={c} /></div>
                       </div>
@@ -410,7 +410,7 @@ const Dashboard = () => {
                       <div className="font-semibold text-gray-600 truncate group-hover:text-accent transition-colors">{c.nom}</div>
                       <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
                         <span>{c.client}</span>
-                        <span>Devis: {c.numeroDevis || 'N/A'}</span>
+                        {c.numeroDevis && <span>Référence de l'affaire : {c.numeroDevis}</span>}
                       </div>
                     </div>
                     <span className="hidden sm:inline-block text-xs font-semibold text-gray-400 shrink-0">

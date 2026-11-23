@@ -12,6 +12,7 @@ import { AdminUtilisateurs } from '../components/AdminUtilisateurs';
 import { AdminModules } from '../components/AdminModules';
 import type { MainOeuvreResumee } from '../lib/mainOeuvre';
 import { fmtEuro, fmtHeures } from '../lib/formats';
+import { libelleStatutChantier } from '../lib/statutsChantier';
 
 // Onglets ouverts hors droits de l'administration, par capacité et non par type de compte :
 // - les référentiels du Journal des Achats, que le conducteur de travaux, le responsable et
@@ -614,7 +615,7 @@ const Admin = () => {
                     <h4 className="font-bold text-lg text-primary break-words">
                       <Link to={`/chantiers/${c.id}`} className="hover:underline">{c.nom}</Link>
                     </h4>
-                    <span className="text-sm text-muted break-words">Client : {c.client} | Devis : {c.numeroDevis || 'Non spécifié'}</span>
+                    <span className="text-sm text-muted break-words">Client : {c.client}{c.numeroDevis ? ` | Référence de l'affaire : ${c.numeroDevis}` : ''}</span>
                     {/* Titulaire et commercial se modifient depuis la fiche (bouton « Modifier »),
                         par exemple au départ d'un conducteur en cours de chantier. */}
                     <div className="text-sm text-muted mt-0.5">Responsable : {c.responsable
@@ -629,25 +630,25 @@ const Admin = () => {
                     )}
                   </div>
                   <span className="badge" style={{ backgroundColor: 'var(--color-primary-dark)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem' }}>
-                    {c.statut}
+                    {libelleStatutChantier(c.statut)}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t">
                   <div>
-                    <div className="text-xs text-muted uppercase">Global Vendu</div>
+                    <div className="text-xs text-muted uppercase">Montant vendu</div>
                     {/* Vendu nul (null) : non communiqué au directeur ni à l'assistante technique sans la rentabilité des chantiers (réponse de Nelson du 06-11-2026). */}
                     <div className="font-bold">{c.budgetGlobalVendu == null ? '—' : fmtEuro(c.budgetGlobalVendu)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted uppercase">Heures Vendues</div>
+                    <div className="text-xs text-muted uppercase">Heures vendues</div>
                     <div className="font-bold">{fmtHeures(c.heuresVendues)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted uppercase">Matériel</div>
+                    <div className="text-xs text-muted uppercase">Budget matériel</div>
                     <div className="font-bold text-accent">{fmtEuro(c.budgetMaterielVendu)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted uppercase">Main d'Œuvre</div>
+                    <div className="text-xs text-muted uppercase">Budget main-d’œuvre</div>
                     <div className="font-bold" style={{color: '#8b5cf6'}}>{fmtEuro(c.budgetMainOeuvreVendu)}</div>
                   </div>
                 </div>

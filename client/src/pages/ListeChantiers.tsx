@@ -11,7 +11,7 @@ import {
   type ChantierSuivi, type FiltreChantiers, type TriChantiers,
 } from '../lib/suiviChantiers';
 import { arrondiEuro } from '../lib/montants';
-import { fmtEuro, fmtHeures } from '../lib/formats';
+import { fmtEuro, fmtHeures, fmtPourcentage, fmtSoldeHeures, soldeHeuresArrondi } from '../lib/formats';
 
 type ChantierListe = ChantierSuivi & { metrics?: ChantierSuivi['metrics'] & { diffHeures?: number } };
 
@@ -186,7 +186,7 @@ const ListeChantiers = () => {
                     <div className="font-bold text-gray-800">{c.nom}</div>
                     <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
                       <span>{c.client}</span>
-                      <span>Devis : {c.numeroDevis || 'N/A'}</span>
+                      {c.numeroDevis && <span>Référence de l'affaire : {c.numeroDevis}</span>}
                       {c.responsable?.name && <span>Resp. : {c.responsable.name}</span>}
                       {metrics.joursSansSaisie != null && <span>Dernière saisie : {ancienneteSaisie(metrics.joursSansSaisie)}</span>}
                     </div>
@@ -215,13 +215,13 @@ const ListeChantiers = () => {
                           </span>
                           {metrics.margePct != null && (
                             <div className={`text-xs font-semibold mt-1 ${arrondiEuro(margeCommerciale) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                              {metrics.margePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} % du vendu
+                              {fmtPourcentage(metrics.margePct, 1)} du vendu
                             </div>
                           )}
                           {c.statut === 'EN_COURS' && metrics.margeEstimee != null && metrics.margeEstimeePct != null && (
                             <div className="text-xs text-gray-500 mt-1 whitespace-nowrap" data-marge-estimee title="Marge estimée en fin de chantier : détail des hypothèses sur la fiche">
                               Fin estimée : <strong className={arrondiEuro(metrics.margeEstimee) >= 0 ? 'text-gray-700' : 'text-red-700'}>{fmtEuro(metrics.margeEstimee)}</strong>
-                              {' · '}{metrics.margeEstimeePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %
+                              {' · '}{fmtPourcentage(metrics.margeEstimeePct, 1)}
                             </div>
                           )}
                         </>
@@ -231,14 +231,14 @@ const ListeChantiers = () => {
                         <span className="inline-flex flex-col items-end gap-1" title="Rentabilité non communiquée pour ce chantier">
                           <span className="text-gray-400 text-sm" aria-hidden="true">—</span>
                           <span className="sr-only">Rentabilité non communiquée ;</span>
-                          <span className={`inline-block px-3 py-1 rounded-md font-bold text-xs whitespace-nowrap ${diffHeures >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                            Solde : {diffHeures > 0 ? '+' : ''}{fmtHeures(diffHeures)}
+                          <span className={`inline-block px-3 py-1 rounded-md font-bold text-xs whitespace-nowrap ${soldeHeuresArrondi(diffHeures) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                            Solde : {fmtSoldeHeures(diffHeures)}
                           </span>
                         </span>
                       )
                     ) : (
-                      <span className={`inline-block px-3 py-1 rounded-md font-bold text-sm whitespace-nowrap ${diffHeures >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                        {diffHeures > 0 ? '+' : ''}{fmtHeures(diffHeures)}
+                      <span className={`inline-block px-3 py-1 rounded-md font-bold text-sm whitespace-nowrap ${soldeHeuresArrondi(diffHeures) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {fmtSoldeHeures(diffHeures)}
                       </span>
                     )}
                   </td>

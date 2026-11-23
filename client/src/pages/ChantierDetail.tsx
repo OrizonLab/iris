@@ -12,7 +12,7 @@ import { jourCivilChantierIso, jourCivilEntrepriseIso, joursCivilsEntre } from '
 import { archivagesRestaurables } from '../lib/archivesRestaurables';
 import { RapportClientChantier } from '../components/RapportClientChantier';
 import type { EstimationMarge } from '../lib/suiviChantiers';
-import { sommeExacte, differenceExacte, arrondiCentime } from '../lib/montants';
+import { sommeExacte, differenceExacte, arrondiEuro } from '../lib/montants';
 import { fmtDate } from '../lib/formats';
 import { ChantierEnTete } from '../components/ChantierEnTete';
 import { ChantierIndicateurs, type FactureLiee } from '../components/ChantierIndicateurs';
@@ -599,8 +599,9 @@ const ChantierDetail = () => {
   const manqueAGagnerMainOeuvre = heuresDepassement * tauxHoraireMoyen;
   const margeCommerciale: number | null = metrics.margeCommerciale ?? null;
   const showMarge = margeCommerciale !== null;
-  // Arrondie au centime : la couleur suit le montant affiché (0,004 € s'affiche 0 €).
-  const margeAffichee = arrondiCentime(margeCommerciale ?? 0);
+  // Arrondie à l'euro, comme la liste et le tableau de bord (lot V, #388) : la couleur suit le montant affiché, une marge
+  // nulle est verte (`>= 0`), et 0,40 € s'affiche 0 €.
+  const margeAffichee = arrondiEuro(margeCommerciale ?? 0);
   const showBudgetVendu = chantier.budgetGlobalVendu != null;
   const estimation: EstimationMarge | null = metrics.estimation ?? null;
 
