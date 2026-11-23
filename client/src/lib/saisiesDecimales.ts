@@ -7,13 +7,18 @@ import { valeurSaisie } from './mainOeuvre';
 // avec le drapeau `v`, et ignore en silence un motif invalide : seule la classe `[.,]`, sans caractère réservé, y
 // figure. Les montants positifs ou nuls et les taux de TVA reprennent les motifs du devis (catalogueDevis.ts).
 
-// Heures d'un chantier au quart d'heure, à partir de 0,25 h (décision de Nelson du 22-11-2026, soir : « 1. Quart
-// d'heure » ; lot W), aux bornes du serveur (heuresAuQuartDHeure, domaines/chantiers/saisies.ts) : huit chiffres avant
-// la virgule, décimales 0, 00, 25, 5, 50 ou 75. Règle qui touche un montant, gardée dans le code (règle permanente 1).
-// Le motif du devis au temps passé (MOTIF_HEURES_QUART_HEURE, lib/tempsPasse.ts) n'est pas réutilisable : il admet neuf
-// chiffres et trois décimales.
+// Heures saisies au quart d'heure, aux bornes du serveur (heuresAuQuartDHeure, commun/validation.ts) : huit chiffres
+// avant la virgule, décimales 0, 00, 25, 5, 50 ou 75. Règle qui touche un montant, gardée dans le code (règle
+// permanente 1 ; choix par défaut, à confirmer). Le motif du devis au temps passé (MOTIF_HEURES_QUART_HEURE,
+// lib/tempsPasse.ts) n'est pas réutilisable : il admet neuf chiffres et trois décimales.
+// - Heures d'un chantier, à partir de 0,25 h (décision de Nelson du 22-11-2026, soir : « 1. Quart d'heure » ; lot W).
 export const MOTIF_QUART_HEURE_CHANTIER = String.raw`(?!0+(?:[.,]0+)?$)\d{1,8}(?:[.,](?:00?|25|50?|75))?`;
 export const TITRE_QUART_HEURE_CHANTIER = 'Un nombre d’heures au quart d’heure, à partir de 0,25 (par exemple 3,25)';
+// - Heures d'une intervention, zéro compris (réponse de Nelson du 23-11-2026 : « les heures sur une intervention Passe
+//   au quart d'heure » ; lot Z) : zéro heure reste admis avec un motif, que l'écran exige avant l'envoi. Le titre
+//   n'indique aucun sens d'arrondi : le technicien saisit ce qu'il veut (réponse de Nelson du 24-11-2026).
+export const MOTIF_QUART_HEURE_INTERVENTION = String.raw`\d{1,8}(?:[.,](?:00?|25|50?|75))?`;
+export const TITRE_QUART_HEURE_INTERVENTION = 'Un nombre d’heures au quart d’heure (par exemple 1,25), ou 0 avec un motif';
 
 // Taux en pourcentage de 0 à 100, deux décimales au plus (taux d'acompte par défaut, seuil de marge faible, taux
 // d'une tranche de barème), aux bornes du serveur : trois chiffres au plus, un zéro de tête admis (« 050 »).
