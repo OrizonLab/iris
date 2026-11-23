@@ -806,7 +806,7 @@ AD | GET /api/chantiers/:id/envois | chantier-termine | défaut | 200
 AD | GET /api/chantiers/:id/envois | inexistant | défaut | 404 « Chantier introuvable »
 AD | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 200
 AD | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 200
-AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 AD | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 200
 AD | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 200
 AD | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 200
@@ -1520,7 +1520,7 @@ AD-COM | GET /api/chantiers/:id/envois | chantier-termine | défaut | 200
 AD-COM | GET /api/chantiers/:id/envois | inexistant | défaut | 404 « Chantier introuvable »
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 200
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 200
-AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 200
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 200
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 200
@@ -2428,7 +2428,7 @@ AT | GET /api/chantiers/:id/envois | chantier-termine | défaut | 403 « Accès 
 AT | GET /api/chantiers/:id/envois | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 AT | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 200
 AT | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 200
-AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 AT | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 200
 AT | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 200
 AT | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 200
@@ -5284,7 +5284,7 @@ CT | GET /api/chantiers/:id/envois | chantier-termine | défaut | 403 « Accès 
 CT | GET /api/chantiers/:id/envois | inexistant | défaut | 403 « Accès réservé aux administrateurs »
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 404 « Chantier introuvable »
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 404 « Chantier introuvable »
-CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 CT | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 404 « Chantier introuvable »
 CT | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 404 « Chantier introuvable »
 CT | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 404 « Chantier introuvable »
@@ -7620,7 +7620,7 @@ DIR | GET /api/chantiers/:id/envois | chantier-termine | défaut | 200
 DIR | GET /api/chantiers/:id/envois | inexistant | défaut | 404 « Chantier introuvable »
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 200
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 200
-DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 200
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 200
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 200
@@ -9960,7 +9960,7 @@ SA | GET /api/chantiers/:id/envois | chantier-termine | défaut | 200
 SA | GET /api/chantiers/:id/envois | inexistant | défaut | 404 « Chantier introuvable »
 SA | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | 200
 SA | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | 200
-SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 404 « Chantier introuvable »
+SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | 200
 SA | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | 200
 SA | GET /api/chantiers/:id/journal-saisies | chantier-com | défaut | 200
 SA | GET /api/chantiers/:id/journal-saisies | chantier-com-titulaire | défaut | 200
