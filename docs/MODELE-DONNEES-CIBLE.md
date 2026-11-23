@@ -21,6 +21,8 @@
 
 `Facture` gagne deux origines facultatives, `contratId` et `echeanceId`. Une échéance ne produit qu'une facture.
 
+*Champ déjà implémenté, hors de cette proposition (#663, lot X, 23-11-2026 ; [historique](HISTORIQUE-DECISIONS.md#lot-du-23-11-2026-663))* : `Facture.cleEnvoi`, la clé d'envoi (clé d'idempotence) de la création d'un avoir partiel : `uuid`, facultatif, unique, posé seulement sur un avoir partiel (contrainte en base) et figé par un déclencheur ; même mécanisme que `InterventionRapport.cleEnvoi`. Elle est distincte des `envois` (`EnvoiDocument`) et du `trackingId` de la facturation électronique (FE-5).
+
 **Location et financeurs** : `Financeur` porte l'identité de l'organisme (par exemple Grenke). Une location passe par un financeur ; un abonnement est facturé par l'entreprise à son client (A4). Ce que produit l'échéancier d'un contrat `LOCATION` reste ouvert (plus bas). Les simulations passeront par l'API du financeur ; elles ne créent rien dans Iris tant qu'elles ne sont pas acceptées (`SimulationFinancement` : contrat ou devis, financeur, paramètres envoyés, réponse reçue, date).
 
 ## Règlements (lot pilote 1, décision A3)
