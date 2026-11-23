@@ -3,7 +3,7 @@ import type { Express } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma, transactionVerifiee } from '../../db';
 import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, gereLesChantiersEnCours, isAdminRole, litToutesLesAffaires } from '../../droits/roles';
-import { perimetreChantiers } from '../../droits/perimetres';
+import { perimetreChantiers, perimetreChantiersAnnulesCompris } from '../../droits/perimetres';
 import { voitMontantsChantier, voitCoutMainOeuvre, saisieSelonDroits } from '../../droits/visibilite';
 import { type AuthRequest, requireAuth } from '../../http/auth';
 import { blockCommercial, requireAdmin } from '../../http/gardes';
@@ -201,13 +201,14 @@ export function enregistrerRoutesChantiers(app: Express): void {
     }
   });
 
-  // Journal append-only des saisies Travaux. Il est lisible uniquement dans le même périmètre
-  // que la fiche chantier : une trace ne doit jamais devenir une porte latérale vers une affaire.
+  // Journal append-only des saisies Travaux. Il est lisible dans le périmètre de lecture des chantiers,
+  // affaires annulées comprises (cf. perimetreChantiersAnnulesCompris), compris dans celui de la fiche :
+  // une trace ne doit jamais devenir une porte latérale vers une affaire.
   app.get('/api/chantiers/:id/journal-saisies', requireAuth, async (req, res) => {
     try {
       const chantierId = paramId(req);
       const chantier = await prisma.chantier.findFirst({
-        where: { id: chantierId, ...perimetreChantiers(req) },
+        where: { id: chantierId, ...perimetreChantiersAnnulesCompris(req) },
         select: { id: true },
       });
       if (!chantier) return res.status(404).json({ error: 'Chantier introuvable' });

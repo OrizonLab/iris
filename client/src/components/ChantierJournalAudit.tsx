@@ -2,8 +2,9 @@ import { RotateCcw } from 'lucide-react';
 import { formatCompanyDate, instantaneLisible } from '../lib/dateFormatting';
 import { changementAffaire, titreEntreeJournal } from '../lib/journalChantier';
 
-export function ChantierJournalAudit({ journalSaisies, companyTimezone, peutArchiverTravaux, archivesRestaurables, handleRestore, savingAchat, savingPointage }: {
+export function ChantierJournalAudit({ journalSaisies, journalLisible, companyTimezone, peutArchiverTravaux, archivesRestaurables, handleRestore, savingAchat, savingPointage }: {
   journalSaisies: any[];
+  journalLisible: boolean;
   companyTimezone: string;
   peutArchiverTravaux: boolean;
   archivesRestaurables: Set<string>;
@@ -17,7 +18,9 @@ export function ChantierJournalAudit({ journalSaisies, companyTimezone, peutArch
             <h2 id="journal-saisies-titre" className="font-bold text-primary-dark">Journal d’audit des saisies</h2>
             <p className="text-sm text-gray-500 mt-1">Historique immuable des créations, corrections et archivages du chantier, et des changements de son client, de son titulaire, de son commercial et de son encaissement.</p>
           </div>
-          {journalSaisies.length === 0 ? (
+          {!journalLisible ? (
+            <p className="px-6 py-5 text-sm italic text-gray-400">Journal d’audit indisponible.</p>
+          ) : journalSaisies.length === 0 ? (
             <p className="px-6 py-5 text-sm italic text-gray-400">Aucune entrée au journal de ce chantier.</p>
           ) : (
             <div className="divide-y divide-gray-100">

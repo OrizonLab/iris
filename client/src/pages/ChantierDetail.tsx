@@ -41,6 +41,8 @@ const ChantierDetail = () => {
   const { libelleBaremeReduit } = useModules();
   const [chantier, setChantier] = useState<any>(null);
   const [journalSaisies, setJournalSaisies] = useState<any[]>([]);
+  // Faux tant que le journal n'a pas été lu : l'écran ne dit jamais « aucune entrée » d'un journal qu'il n'a pas pu lire.
+  const [journalLisible, setJournalLisible] = useState(false);
   const archivesRestaurables = useMemo(() => archivagesRestaurables(journalSaisies), [journalSaisies]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -396,10 +398,13 @@ const ChantierDetail = () => {
       if (res.status === 404) { setNotFound(true); return; }
       const data = await res.json();
       setChantier(data);
+      setJournalLisible(false);
+      setJournalSaisies([]);
       const journalRes = await apiFetch(`/chantiers/${id}/journal-saisies`);
       if (journalRes.ok) {
         const journal = await journalRes.json();
         setJournalSaisies(Array.isArray(journal) ? journal : []);
+        setJournalLisible(Array.isArray(journal));
       }
     } catch (e) {
       console.error(e);
@@ -732,7 +737,8 @@ const ChantierDetail = () => {
         </div>
 
         <ChantierJournalAudit
-          journalSaisies={journalSaisies} companyTimezone={companyTimezone} peutArchiverTravaux={peutArchiverTravaux}
+          // « Restaurer » n'est pas proposé sur une affaire annulée : le serveur refuse toute écriture à tous (409).
+          journalSaisies={journalSaisies} journalLisible={journalLisible} companyTimezone={companyTimezone} peutArchiverTravaux={peutArchiverTravaux && chantier.statut !== 'ANNULE'}
           archivesRestaurables={archivesRestaurables} handleRestore={handleRestore} savingAchat={savingAchat}
           savingPointage={savingPointage}
         />

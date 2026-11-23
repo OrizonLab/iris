@@ -22,11 +22,23 @@ import type { ApiRequest } from '../http/cles-api';
 // Une affaire ANNULÉE sort du périmètre de tout le monde, administrateurs compris : elle
 // n'a plus à peser sur une liste, un coût, une marge ou une commission. Elle n'est pas
 // perdue pour autant — GET /api/chantiers/:id la rend toujours, avec le motif de son
-// annulation, et c'est bien là qu'on va la chercher quand on veut comprendre.
+// annulation, et c'est bien là qu'on va la chercher quand on veut comprendre ; son journal
+// d'audit aussi (cf. perimetreChantiersAnnulesCompris).
 export const AFFAIRE_NON_ANNULEE = { statut: { not: 'ANNULE' } } as const;
 
 export function perimetreChantiers(req: express.Request): Prisma.ChantierWhereInput {
   return { ...AFFAIRE_NON_ANNULEE, ...perimetreDemandeur(req) };
+}
+
+// Le même périmètre de lecture, affaires annulées comprises : celui du journal d'audit d'un
+// chantier (GET /api/chantiers/:id/journal-saisies ; lot Y, #136 point 1, R1 du passage
+// hebdomadaire #661 ; choix par défaut, à confirmer). Il est compris dans celui de la fiche,
+// qui a sa règle propre (isOwner) : un commercial titulaire, ou un compte commercial d'un autre
+// type, lit la fiche sans ce journal (règle historique, harmonisée en D2, décision 8 de
+// docs/MODELE-DROITS-CIBLE.md). Le journal est figé après l'annulation (toute écriture y est
+// refusée) : à périmètre inchangé, chacun n'y lit que ce qu'il pouvait y lire avant l'annulation.
+export function perimetreChantiersAnnulesCompris(req: express.Request): Prisma.ChantierWhereInput {
+  return perimetreDemandeur(req);
 }
 
 function perimetreDemandeur(req: express.Request): Prisma.ChantierWhereInput {
