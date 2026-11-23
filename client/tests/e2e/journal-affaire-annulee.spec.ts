@@ -161,3 +161,38 @@ test('un journal illisible n’est jamais présenté comme vide : « Journal d�
   await expect(journalDe(pageCommercial)).not.toContainText(AUCUNE_ENTREE);
   await expect(entree(pageCommercial, 'Achat — archivage')).toHaveCount(0);
 });
+
+// T1 de l'audit droits et sécurité de #667 : la relecture qui suit une action dans la page (ici « Restaurer ») remet l'état
+// du journal à « non lu » avant de le relire. Sans cette remise (ChantierDetail.tsx, fetchChantier), un journal devenu
+// illisible garderait à l'écran les entrées de la lecture précédente, présentées comme le journal à jour.
+test('relecture après une action : un journal devenu illisible ne garde pas les entrées de la lecture précédente, il se dit « Journal d’audit indisponible. »', async ({ allerSurPageAdmin, creerClient, request, session, page }) => {
+  test.slow();
+  const token = session.token;
+  const suffixe = `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
+  const nom = `E2E Journal relu lot Y ${suffixe}`;
+  const motif = `Achat archivé puis restauré ${suffixe}`;
+  const client = await creerClient('journal relu lot Y');
+  const { chantier } = await affaireConvertie(request, token, client.id, nom);
+  await achatArchive(request, token, chantier.id, suffixe, motif);
+
+  const lecture = reponseDuJournal(page, chantier.id);
+  await allerSurPageAdmin(`/chantiers/${chantier.id}`);
+  expect((await lecture).status()).toBe(200);
+  await expect(page.getByRole('heading', { name: nom, exact: true })).toBeVisible();
+  await entreesDeLAchat(page, motif);
+
+  // La restauration réussit ; la relecture du journal qui la suit échoue (500).
+  const chemin = `**/api/chantiers/${chantier.id}/journal-saisies`;
+  await page.route(chemin, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Error fetching journal des saisies' }) }));
+  page.once('dialog', (dialogue) => dialogue.accept(`Restauration E2E ${suffixe}`));
+  const restauration = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/restaurer'));
+  const relecture = page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === `/api/chantiers/${chantier.id}/journal-saisies`);
+  await journalDe(page).getByRole('button', { name: 'Restaurer' }).click();
+  expect((await restauration).ok(), 'restauration admise sur une affaire en cours').toBe(true);
+  expect((await relecture).status()).toBe(500);
+  await expect(page.getByRole('heading', { name: nom, exact: true })).toBeVisible();
+  await expect(journalDe(page).getByText(INDISPONIBLE, { exact: true })).toBeVisible();
+  await expect(journalDe(page)).not.toContainText(AUCUNE_ENTREE);
+  await expect(entree(page, 'Achat — archivage')).toHaveCount(0);
+  await page.unroute(chemin);
+});
