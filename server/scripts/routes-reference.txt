@@ -112,7 +112,7 @@ PUT /api/me/theme requireAuth#07b983da0ce5 > <anonymous>#16df72f47e17
 GET /api/chantiers requireAuth#07b983da0ce5 > listerChantiers#be67b1095dc1
 GET /api/v1/chantiers <anonymous>{scope="chantiers:read"}#4aeb6d464b38 > listerChantiers#be67b1095dc1
 GET /api/chantiers/:id requireAuth#07b983da0ce5 > <anonymous>#591e47468d4a
-GET /api/chantiers/:id/journal-saisies requireAuth#07b983da0ce5 > <anonymous>#4373de266aea
+GET /api/chantiers/:id/journal-saisies requireAuth#07b983da0ce5 > <anonymous>#c7622fd3e444
 GET /api/chantiers/:id/document.pdf requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > imprimerRapportChantier#a1c8ca5e6196
 GET /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > lireEnvoisRapportChantier#686d69fd2e44
 POST /api/chantiers/:id/envois requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > envoyerRapportChantier#b8c79c1eee9b

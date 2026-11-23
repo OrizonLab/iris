@@ -31093,4 +31093,291 @@ if (!TEST_DATABASE_URL) {
         'fonctions SECURITY DEFINER : corps exact, tel que l’écrit 20261009120000_journal_regles_comptables');
     });
   });
+
+  // Lot Y (cadrage v2 du 23-11-2026, qui fait foi ; R1 du passage hebdomadaire #661, point 1 de #136 ; choix par défaut, à
+  // confirmer, micro-arbitrage de droits, règle 5) : le journal d'audit d'un chantier (GET /api/chantiers/:id/journal-saisies)
+  // suit le périmètre de lecture des chantiers (perimetreDemandeur), affaires annulées comprises
+  // (perimetreChantiersAnnulesCompris). Avant le lot, il filtrait par perimetreChantiers, qui ajoute AFFAIRE_NON_ANNULEE :
+  // le journal d'une affaire annulée répondait 404 « Chantier introuvable » à tous, administration comprise, alors que sa
+  // fiche restait lisible. Critères observables du cadrage v2 : affaire annulée, journal lisible (200, entrées exactes) par
+  // SA, AD, DIR, AT, le titulaire, le responsable de sa branche et son commercial ; le technicien titulaire sans montants ;
+  // les autres comptes hors administration sans taux ni coût de main-d'œuvre ; hors du périmètre de lecture, 404
+  // « Chantier introuvable », sur une affaire annulée comme en cours ; le commercial titulaire garde la fiche sans le
+  // journal (écart fiche / journal hors périmètre du lot, harmonisé en D2, décision 8 de la cible) ; affaire en cours
+  // inchangée. Lectures écartées, chacune par un test nommé : l'ancien filtre (404 pour tous sur l'affaire annulée) ;
+  // l'option « administration seule » de #136 (404 pour AT, le titulaire, le responsable et le commercial) ; un journal
+  // sans périmètre (200 pour le conducteur tiers, le responsable hors branche et le commercial titulaire) ; la règle de la
+  // fiche, isOwner (200 pour le commercial titulaire) ; un masquage perdu sur l'affaire annulée (taux lu hors
+  // administration, montant lu par le technicien).
+  describe('Journal d’audit d’une affaire annulée (lot Y, #136 point 1, #661 R1) : lisible au périmètre de lecture des chantiers, entrées exactes et montants masqués comme sur une affaire en cours ; 404 hors périmètre ; commercial titulaire : fiche sans journal', () => {
+    const suffixe = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const PAS_TROUVE = { error: 'Chantier introuvable' };
+    const MOTIF_ACHAT = 'TEST Lot Y achat saisi en double';
+    const MOTIF_HEURE = 'TEST Lot Y heures saisies sur la mauvaise affaire';
+    const MOTIF_ANNULATION = 'TEST Lot Y client renonce avant tout démarrage';
+    // Valeurs distinctes : un montant lu à la place d'un taux, ou l'inverse, se voit.
+    const MONTANT_ACHAT = 123.45;
+    const TAUX_FICHE = 41.37;
+    const HEURES = 2.5;
+    // Clés retirées par saisieSelonDroits (droits/visibilite.ts) : le taux et le coût de main-d'œuvre hors administration,
+    // et en plus le montant pour le technicien.
+    const CLES_TAUX = ['tauxHoraireApplique', 'tauxHoraireCharge', 'prixVenteHoraireApplique'];
+    const CLES_MONTANTS = ['montantHT', ...CLES_TAUX];
+    const CLES_MASQUEES = { complet: [], 'sans taux': CLES_TAUX, 'sans montants': CLES_MONTANTS };
+    let sa = {};
+    let saId = '';
+    let saNom = '';
+    const comptes = {};
+    let client = null, categorie = null, fournisseur = null, intervenant = null;
+    // Affaires du bloc : chacune porte les mêmes quatre écritures (achat et heures créés puis archivés par le super
+    // administrateur), dans le même ordre.
+    const affaires = {};
+    const jeton = (cle) => ({ Authorization: `Bearer ${jwt.sign({ id: comptes[cle].id }, process.env.JWT_SECRET)}` });
+    const envoyer = (methode, chemin, auth, corps) => request(app)[methode](chemin).set(auth).send(corps);
+    const lireJournal = (chantierId, auth) => request(app).get(`/api/chantiers/${chantierId}/journal-saisies`).set(auth);
+    const lireFiche = (chantierId, auth) => request(app).get(`/api/chantiers/${chantierId}`).set(auth);
+    // Journal tel que la base le garde, du plus récent au plus ancien (ordre de la route), sérialisé comme une réponse JSON.
+    const journalEnBase = async (chantierId) => JSON.parse(JSON.stringify(await prisma.journalSaisieChantier.findMany({ where: { chantierId }, orderBy: { createdAt: 'desc' } })));
+    const sans = (cles) => (valeur) => {
+      if (!valeur || typeof valeur !== 'object') return valeur;
+      const copie = { ...valeur };
+      for (const cle of cles) delete copie[cle];
+      return copie;
+    };
+    const masquer = (entrees, cles) => entrees.map((entree) => ({ ...entree, avant: sans(cles)(entree.avant), apres: sans(cles)(entree.apres) }));
+    // Empreinte de ce qu'une lecture ne doit jamais toucher : les affaires du bloc, leurs saisies et leur journal.
+    const empreinte = async () => {
+      const ids = Object.values(affaires).map((a) => a.chantier.id).sort();
+      return JSON.stringify([
+        await prisma.chantier.findMany({ where: { id: { in: ids } }, orderBy: { id: 'asc' } }),
+        await prisma.achatReel.findMany({ where: { chantierId: { in: ids } }, orderBy: { id: 'asc' } }),
+        await prisma.pointageHeure.findMany({ where: { chantierId: { in: ids } }, orderBy: { id: 'asc' } }),
+        await prisma.journalSaisieChantier.findMany({ where: { chantierId: { in: ids } }, orderBy: { id: 'asc' } }),
+      ]);
+    };
+
+    // Scénario de #136 : affaire ouverte par la conversion d'un devis signé, au titulaire et au commercial donnés ; un achat
+    // et des heures saisis puis archivés (une affaire commencée ne s'annule pas : les saisies archivées le permettent) ;
+    // puis, pour une affaire annulée, le devis annulé avec elle.
+    const affaireAvecJournal = async (nom, { responsableId, commercialId, annulee }) => {
+      const devis = await envoyer('post', '/api/devis', sa, {
+        clientId: client.id, objet: `TEST Lot Y ${nom} ${suffixe}`, lignes: [{ designation: 'Pose', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }],
+      });
+      assert.equal(devis.status, 201, JSON.stringify(devis.body));
+      assert.equal((await envoyer('put', `/api/devis/${devis.body.id}/statut`, sa, { statut: 'ENVOYE' })).status, 200);
+      const signature = await envoyer('post', `/api/devis/${devis.body.id}/signature`, sa, { signataire: 'TEST Signataire lot Y', confirme: true });
+      assert.equal(signature.status, 201, JSON.stringify(signature.body));
+      const conversion = await envoyer('post', `/api/devis/${devis.body.id}/convertir`, sa, { cible: 'CHANTIER', responsableId, commercialId });
+      assert.equal(conversion.status, 201, JSON.stringify(conversion.body));
+      const chantier = conversion.body;
+      const achat = await envoyer('post', '/api/achats', sa, { chantierId: chantier.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date: '01-10-2026', description: `TEST Lot Y achat ${nom}`, montantHT: MONTANT_ACHAT });
+      assert.equal(achat.status, 200, JSON.stringify(achat.body));
+      const heure = await envoyer('post', '/api/heures', sa, { chantierId: chantier.id, intervenantId: intervenant.id, date: '02-10-2026', nbrHeures: HEURES, commentaire: `TEST Lot Y heures ${nom}` });
+      assert.equal(heure.status, 200, JSON.stringify(heure.body));
+      const archivageAchat = await envoyer('delete', `/api/achats/${achat.body.id}`, sa, { motifArchivage: MOTIF_ACHAT });
+      assert.deepEqual([archivageAchat.status, archivageAchat.body], [200, { success: true }]);
+      const archivageHeure = await envoyer('delete', `/api/heures/${heure.body.id}`, sa, { motifArchivage: MOTIF_HEURE });
+      assert.deepEqual([archivageHeure.status, archivageHeure.body], [200, { success: true }]);
+      if (annulee) {
+        const annulation = await envoyer('post', `/api/devis/${devis.body.id}/annulation`, sa, { motif: MOTIF_ANNULATION });
+        assert.equal(annulation.status, 200, JSON.stringify(annulation.body));
+        assert.equal(annulation.body.chantierArchive, chantier.id);
+      }
+      const relu = await prisma.chantier.findUniqueOrThrow({ where: { id: chantier.id } });
+      assert.deepEqual([relu.statut, relu.responsableId, relu.commercialId], [annulee ? 'ANNULE' : 'EN_COURS', responsableId, commercialId]);
+      return { devis: devis.body, chantier, achat: achat.body, heure: heure.body, nom };
+    };
+
+    before(async () => {
+      const secours = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
+      assert.equal(secours.status, 200);
+      sa = { Authorization: `Bearer ${secours.body.token}` };
+      ({ id: saId, name: saNom } = await prisma.user.findUniqueOrThrow({ where: { email: 'secours@iris.test' } }));
+      // Comptes rejouables sur une base conservée : upsert, rôle, état et rattachement remis à chaque passage.
+      //   responsable ─┬─ conducteur (titulaire des affaires A et E)
+      //                └─ technicien (titulaire de l'affaire T)
+      //   responsableHorsBranche ── conducteurTiers (une branche non vide, qui ne contient aucun titulaire du bloc)
+      const compte = async (cle, role, responsableHierarchiqueId = null) => {
+        const email = `lot-y.${cle}@iris.test`;
+        const donnees = { role, actif: true, permissions: [], estCommercial: false, accesFinance: false, responsableHierarchiqueId };
+        comptes[cle] = await prisma.user.upsert({ where: { email }, update: donnees, create: { email, name: `TEST Lot Y ${cle}`, ...donnees } });
+      };
+      await compte('responsable', 'RESPONSABLE');
+      await compte('responsableHorsBranche', 'RESPONSABLE');
+      await compte('conducteur', 'CONDUCTEUR_TRAVAUX', comptes.responsable.id);
+      await compte('technicien', 'TECHNICIEN', comptes.responsable.id);
+      await compte('conducteurTiers', 'CONDUCTEUR_TRAVAUX', comptes.responsableHorsBranche.id);
+      for (const [cle, role] of [['admin', 'ADMIN'], ['directeur', 'DIRECTEUR'], ['assistante', 'ASSISTANTE_TECHNIQUE'], ['commercial', 'COMMERCIAL'], ['commercialTitulaire', 'COMMERCIAL']]) await compte(cle, role);
+      const cree = await envoyer('post', '/api/clients', sa, { raisonSociale: `TEST Client lot Y ${suffixe}` });
+      assert.equal(cree.status, 201, JSON.stringify(cree.body));
+      client = cree.body;
+      await completerIdentiteClient(client.id);
+      categorie = await prisma.categorie.create({ data: { nom: `TEST Catégorie lot Y ${suffixe}` } });
+      fournisseur = await prisma.fournisseur.create({ data: { nom: `TEST Fournisseur lot Y ${suffixe}` } });
+      intervenant = await prisma.intervenant.create({ data: { nom: `TEST Intervenant lot Y ${suffixe}`, role: 'Technicien', tauxHoraireCharge: TAUX_FICHE } });
+      // A : affaire annulée, conducteur titulaire ; T : affaire annulée, technicien titulaire ; C : affaire annulée, compte
+      // COMMERCIAL mis titulaire ; E : affaire en cours, conducteur titulaire (témoin « inchangée ») ; EC : affaire en
+      // cours, compte COMMERCIAL mis titulaire.
+      affaires.A = await affaireAvecJournal('annulée conducteur', { responsableId: comptes.conducteur.id, commercialId: comptes.commercial.id, annulee: true });
+      affaires.T = await affaireAvecJournal('annulée technicien', { responsableId: comptes.technicien.id, commercialId: comptes.commercial.id, annulee: true });
+      affaires.C = await affaireAvecJournal('annulée commercial titulaire', { responsableId: comptes.commercialTitulaire.id, commercialId: comptes.commercial.id, annulee: true });
+      affaires.E = await affaireAvecJournal('en cours conducteur', { responsableId: comptes.conducteur.id, commercialId: comptes.commercial.id, annulee: false });
+      affaires.EC = await affaireAvecJournal('en cours commercial titulaire', { responsableId: comptes.commercialTitulaire.id, commercialId: comptes.commercial.id, annulee: false });
+    });
+
+    // Comptes admis sur les affaires A et E (conducteur titulaire), et ce qu'ils lisent des instantanés.
+    const ADMIS = [
+      ['le super administrateur', () => sa, 'complet'],
+      ['l’administrateur', () => jeton('admin'), 'complet'],
+      ['le directeur', () => jeton('directeur'), 'complet'],
+      ['l’assistante technique', () => jeton('assistante'), 'sans taux'],
+      ['le conducteur titulaire', () => jeton('conducteur'), 'sans taux'],
+      ['le responsable de la branche du titulaire', () => jeton('responsable'), 'sans taux'],
+      ['le commercial de l’affaire', () => jeton('commercial'), 'sans taux'],
+    ];
+    // Comptes hors du périmètre de lecture des affaires A et E : 404, comme leur fiche.
+    const HORS_PERIMETRE = [
+      ['un conducteur tiers', () => jeton('conducteurTiers')],
+      ['un responsable hors de la branche du titulaire (qui a sa propre branche)', () => jeton('responsableHorsBranche')],
+      ['un technicien qui n’est pas titulaire', () => jeton('technicien')],
+      ['un commercial qui n’est ni le commercial ni le titulaire de l’affaire', () => jeton('commercialTitulaire')],
+    ];
+
+    // Lecture admise : 200, les entrées exactes de la base (identifiants, auteur, motif, instant compris), dans l'ordre de la
+    // route, instantanés masqués selon le compte ; puis les valeurs témoins nommées, pour que l'attendu ne dépende pas
+    // seulement du masque recalculé ici.
+    const verifierLectureAdmise = async (affaire, qui, auth, lecture) => {
+      const enBase = await journalEnBase(affaire.chantier.id);
+      const lu = await lireJournal(affaire.chantier.id, auth);
+      assert.equal(lu.status, 200, `${qui} : ${JSON.stringify(lu.body)}`);
+      assert.deepEqual(lu.body, masquer(enBase, CLES_MASQUEES[lecture]), `${qui} : entrées exactes, ${lecture}`);
+      assert.deepEqual(lu.body.map((e) => [e.cible, e.action]), [['HEURE', 'ARCHIVAGE'], ['ACHAT', 'ARCHIVAGE'], ['HEURE', 'CREATION'], ['ACHAT', 'CREATION']], `${qui} : ordre`);
+      const [heureArchivee, achatArchive, heureCreee, achatCree] = lu.body;
+      const instantanes = lu.body.flatMap((entree) => [entree.avant, entree.apres]).filter(Boolean);
+      assert.equal(instantanes.length, 6, `${qui} : création (après), archivage (avant et après), pour l’achat et les heures`);
+      for (const instantane of instantanes) assert.equal(instantane.chantierId, affaire.chantier.id, qui);
+      if (lecture === 'complet') {
+        assert.equal(achatCree.apres.montantHT, MONTANT_ACHAT, `${qui} : montant de l’achat lu`);
+        assert.equal(achatArchive.avant.montantHT, MONTANT_ACHAT, qui);
+        assert.equal(heureCreee.apres.tauxHoraireApplique, TAUX_FICHE, `${qui} : taux appliqué lu (administration)`);
+        assert.equal(heureArchivee.avant.tauxHoraireApplique, TAUX_FICHE, qui);
+      }
+      if (lecture === 'sans taux') {
+        assert.equal(achatCree.apres.montantHT, MONTANT_ACHAT, `${qui} : montant de l’achat lu (hors technicien)`);
+        assert.equal(achatArchive.apres.montantHT, MONTANT_ACHAT, qui);
+        for (const instantane of instantanes) for (const cle of CLES_TAUX) assert.equal(cle in instantane, false, `${qui} : ${cle} retiré hors administration`);
+      }
+      if (lecture === 'sans montants') {
+        for (const instantane of instantanes) for (const cle of CLES_MONTANTS) assert.equal(cle in instantane, false, `${qui} : ${cle} retiré pour le technicien`);
+        assert.equal(achatCree.apres.description, `TEST Lot Y achat ${affaire.nom}`, `${qui} : le reste de la saisie est lu`);
+      }
+      assert.equal(heureCreee.apres.nbrHeures, HEURES, `${qui} : nombre d’heures toujours lu`);
+      assert.equal(heureArchivee.apres.motifArchivage, MOTIF_HEURE, qui);
+    };
+    const verifierRefus = async (affaire, qui, auth) => {
+      const lu = await lireJournal(affaire.chantier.id, auth);
+      assert.deepEqual([lu.status, lu.body], [404, PAS_TROUVE], `${qui} : journal`);
+      const fiche = await lireFiche(affaire.chantier.id, auth);
+      assert.deepEqual([fiche.status, fiche.body], [404, PAS_TROUVE], `${qui} : fiche, même réponse que le journal`);
+    };
+
+    test('scénario de #136 : achat et heures saisis puis archivés, devis annulé ; le journal de l’affaire annulée garde ses quatre entrées exactes, de la plus récente à la plus ancienne, intactes en base, et la restauration y est refusée (409) sans rien écrire', async () => {
+      const { chantier, achat, heure } = affaires.A;
+      const enBase = await journalEnBase(chantier.id);
+      // Ordre de la route : l'instant d'insertion décroissant (archivage des heures, puis de l'achat, puis création des
+      // heures, puis de l'achat). Ni la conversion ni l'annulation du devis n'écrivent à ce journal.
+      assert.deepEqual(enBase.map((e) => [e.cible, e.action, e.cibleId, e.motif, e.auteurId, e.auteurNom]), [
+        ['HEURE', 'ARCHIVAGE', heure.id, MOTIF_HEURE, saId, saNom],
+        ['ACHAT', 'ARCHIVAGE', achat.id, MOTIF_ACHAT, saId, saNom],
+        ['HEURE', 'CREATION', heure.id, null, saId, saNom],
+        ['ACHAT', 'CREATION', achat.id, null, saId, saNom],
+      ]);
+      assert.deepEqual(enBase.map((e) => [e.avant === null, e.apres === null]), [[false, false], [false, false], [true, false], [true, false]]);
+      // Le journal reste intact en base, montants et taux compris : seul ce que la route en rend est masqué.
+      assert.equal(enBase[2].apres.tauxHoraireApplique, TAUX_FICHE);
+      assert.equal(enBase[3].apres.montantHT, MONTANT_ACHAT);
+      assert.ok(enBase[0].apres.archivedAt && enBase[1].apres.archivedAt, 'l’archivage garde l’instant de l’archivage');
+      const fiche = await lireFiche(chantier.id, sa);
+      assert.equal(fiche.status, 200, JSON.stringify(fiche.body));
+      assert.deepEqual([fiche.body.statut, fiche.body.motifAnnulation], ['ANNULE', MOTIF_ANNULATION]);
+      await verifierLectureAdmise(affaires.A, 'le super administrateur', sa, 'complet');
+      // Le journal est figé après l'annulation : restaurer une saisie archivée y est refusé à tous, administration comprise
+      // (raison pour laquelle l'écran ne propose plus « Restaurer » sur une affaire annulée).
+      const avant = await empreinte();
+      for (const [route, id] of [['achats', achat.id], ['heures', heure.id]]) {
+        const refus = await envoyer('post', `/api/${route}/${id}/restaurer`, sa, { motifRestauration: 'TEST Lot Y restauration refusée' });
+        assert.deepEqual([refus.status, refus.body], [409, { error: 'Cette affaire est annulée : plus aucune saisie n’y est possible.' }], route);
+      }
+      assert.equal(await empreinte(), avant, 'aucune écriture : ni saisie restaurée, ni entrée au journal');
+      assert.deepEqual(await journalEnBase(chantier.id), enBase);
+    });
+
+    test('affaire annulée : le super administrateur, l’administrateur et le directeur lisent le journal entier ; l’assistante technique, le conducteur titulaire, le responsable de sa branche et le commercial de l’affaire le lisent sans taux ni coût de main-d’œuvre, montants des achats compris ; la fiche leur est lisible aussi', async () => {
+      const avant = await empreinte();
+      for (const [qui, auth, lecture] of ADMIS) {
+        await verifierLectureAdmise(affaires.A, qui, auth(), lecture);
+        const fiche = await lireFiche(affaires.A.chantier.id, auth());
+        assert.deepEqual([fiche.status, fiche.body.statut], [200, 'ANNULE'], `${qui} : fiche`);
+      }
+      assert.equal(await empreinte(), avant, 'une lecture n’écrit rien');
+    });
+
+    test('affaire annulée au technicien titulaire : il lit son journal sans aucun montant (ni montant d’achat, ni taux) ; le responsable de sa branche le lit sans taux ; l’administration le lit entier ; le conducteur, qui n’en est pas titulaire, reçoit 404', async () => {
+      const avant = await empreinte();
+      await verifierLectureAdmise(affaires.T, 'le technicien titulaire', jeton('technicien'), 'sans montants');
+      const fiche = await lireFiche(affaires.T.chantier.id, jeton('technicien'));
+      assert.deepEqual([fiche.status, fiche.body.statut], [200, 'ANNULE'], 'fiche du technicien titulaire');
+      await verifierLectureAdmise(affaires.T, 'le responsable de la branche du technicien', jeton('responsable'), 'sans taux');
+      await verifierLectureAdmise(affaires.T, 'l’administrateur', jeton('admin'), 'complet');
+      await verifierRefus(affaires.T, 'le conducteur, qui n’est pas titulaire de cette affaire', jeton('conducteur'));
+      assert.equal(await empreinte(), avant, 'une lecture n’écrit rien');
+    });
+
+    test('affaire annulée hors du périmètre de lecture : 404 « Chantier introuvable » au journal comme à la fiche (conducteur tiers, responsable hors branche, technicien non titulaire, commercial étranger à l’affaire) ; identifiant inconnu : 404, administration comprise', async () => {
+      const avant = await empreinte();
+      for (const [qui, auth] of HORS_PERIMETRE) await verifierRefus(affaires.A, qui, auth());
+      for (const id of ['00000000-0000-0000-0000-000000000000', 'inexistant']) {
+        for (const [qui, auth] of [['le super administrateur', sa], ['le conducteur', jeton('conducteur')]]) {
+          const lu = await lireJournal(id, auth);
+          assert.deepEqual([lu.status, lu.body], [404, PAS_TROUVE], `${qui}, identifiant ${id}`);
+        }
+      }
+      assert.equal(await empreinte(), avant, 'un refus n’écrit rien');
+    });
+
+    test('témoin de l’écart gardé (hors périmètre du lot, harmonisé en D2) : un compte COMMERCIAL mis titulaire lit la fiche de son affaire, annulée ou en cours, mais pas son journal (404) ; le commercial de l’affaire, lui, lit ce journal sans taux', async () => {
+      const avant = await empreinte();
+      for (const [affaire, statut] of [[affaires.C, 'ANNULE'], [affaires.EC, 'EN_COURS']]) {
+        const fiche = await lireFiche(affaire.chantier.id, jeton('commercialTitulaire'));
+        assert.deepEqual([fiche.status, fiche.body.statut, fiche.body.responsableId], [200, statut, comptes.commercialTitulaire.id], `fiche, ${statut}`);
+        const lu = await lireJournal(affaire.chantier.id, jeton('commercialTitulaire'));
+        assert.deepEqual([lu.status, lu.body], [404, PAS_TROUVE], `journal, ${statut}`);
+        await verifierLectureAdmise(affaire, `le commercial de l’affaire (${statut})`, jeton('commercial'), 'sans taux');
+        await verifierLectureAdmise(affaire, `le super administrateur (${statut})`, sa, 'complet');
+      }
+      assert.equal(await empreinte(), avant, 'une lecture n’écrit rien');
+    });
+
+    test('affaire en cours, inchangée : mêmes comptes admis avec les mêmes masques, mêmes refus 404 au journal comme à la fiche', async () => {
+      const avant = await empreinte();
+      for (const [qui, auth, lecture] of ADMIS) {
+        await verifierLectureAdmise(affaires.E, qui, auth(), lecture);
+        const fiche = await lireFiche(affaires.E.chantier.id, auth());
+        assert.deepEqual([fiche.status, fiche.body.statut], [200, 'EN_COURS'], `${qui} : fiche`);
+      }
+      for (const [qui, auth] of HORS_PERIMETRE) await verifierRefus(affaires.E, qui, auth());
+      assert.equal(await empreinte(), avant, 'une lecture n’écrit rien');
+    });
+
+    test('route de session seulement : une clé d’intégration, même avec chantiers:read, ne lit pas le journal d’une affaire annulée (401), ni une requête sans session (401)', async () => {
+      const cle = await envoyer('post', '/api/admin/api-keys', sa, { nom: `TEST Lot Y clé chantiers ${suffixe}`, scopes: ['chantiers:read'] });
+      assert.equal(cle.status, 201, JSON.stringify(cle.body));
+      const avant = await empreinte();
+      const parCle = await lireJournal(affaires.A.chantier.id, { Authorization: `Bearer ${cle.body.apiKey}` });
+      assert.deepEqual([parCle.status, parCle.body], [401, { error: 'Session expirée ou invalide' }]);
+      const sansSession = await request(app).get(`/api/chantiers/${affaires.A.chantier.id}/journal-saisies`);
+      assert.deepEqual([sansSession.status, sansSession.body], [401, { error: 'Authentification requise' }]);
+      assert.equal(await empreinte(), avant, 'un refus n’écrit rien');
+    });
+  });
 }
