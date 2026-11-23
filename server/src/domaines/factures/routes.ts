@@ -599,12 +599,14 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
           totalHt, totalTva, totalTtc, createdById: req.user!.id, creeParType: req.user!.role, emisLe: now, lignes: { create: lignes }, ventilationTva: { create: ventilationTva },
           ecrituresComptables: { create: ecritures }, cleEnvoi,
         }, include: factureInclude });
-        await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true } });
+        // L'avoir rendu est celui relu après le scellement des écritures : un rejeu, qui relit la base, rend alors
+        // exactement le même corps (`updatedAt` compris).
+        const avoirScelle = await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true }, include: factureInclude });
         await tx.journalFacture.create({ data: { factureId: avoir.id, acteurId: req.user!.id, action: 'CREATION_AVOIR_PARTIEL', detail: `Avoir partiel de la facture ${facture.numero}` } });
         // L'avoir baisse le reste dû : une facture qu'il solde passe « réglée », réglée en partie ou non (lecture
         // retenue de la réponse de Nelson du 09-11-2026, reglements/metier.ts).
         await synchroniserStatutReglement(tx, facture.id, req.user!.id, `avoir partiel ${numero}`);
-        return { avoir: { ...avoir, ecrituresScellees: true } };
+        return { avoir: avoirScelle };
       });
       if ('erreur' in resultat) return res.status(resultat.erreur === 'NOT_FOUND' ? 404 : 409).json({ error: resultat.erreur === 'NOT_FOUND' ? 'Facture introuvable.' : 'Seule une facture émise ou réglée peut recevoir un avoir partiel.' });
       if ('existant' in resultat) return repondreExistant(resultat.existant!);

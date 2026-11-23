@@ -544,7 +544,7 @@ export default function Factures() {
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-medium">Lignes à créditer</h3>
-              <button type="button" className="btn btn-secondary" onClick={() => setLignesAvoir((lignesActuelles) => [...lignesActuelles, nouvelleLigne()])}>
+              <button type="button" className="btn btn-secondary" disabled={lignesAvoirFigees} onClick={() => setLignesAvoir((lignesActuelles) => [...lignesActuelles, nouvelleLigne()])}>
                 <Plus size={16} /> Ajouter une ligne d’avoir
               </button>
             </div>
