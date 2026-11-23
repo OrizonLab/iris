@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { fmtDate, fmtEuro, fmtEuroCentime, fmtHeures, fmtMontantDocument, fmtNombreHeures, fmtPourcentage, toDateFrancaise } from '../src/lib/formats.ts';
+import { fmtDate, fmtEuro, fmtEuroCentime, fmtHeures, fmtMontantDocument, fmtNombreHeures, fmtPourcentage, fmtSoldeHeures, soldeHeuresArrondi, toDateFrancaise } from '../src/lib/formats.ts';
 import { jourFrancais } from '../src/lib/dateFormatting.ts';
 import { arrondiCentime, arrondiEuro, sommeExacte } from '../src/lib/montants.ts';
 import { formatEuros, formatHeures } from '../src/lib/mainOeuvre.ts';
@@ -320,6 +320,68 @@ test('heures (#499, point 2) : formatHeures est l’alias de fmtHeures ; « 3.0 
   assert.deepEqual(ecarts(HEURES, (q) => q.toLocaleString('fr-FR', { maximumFractionDigits: 3 }), (q) => fmtNombreHeures(q, 3)), []);
 });
 
+// Lot V, #212 (cadrage v2, « Liste » ; consigne de Claude Code pour les noms) : le solde d'heures de la liste des chantiers
+// (heures vendues moins heures réalisées, `diffHeures` du serveur, à quatre décimales au plus) est arrondi au centième ;
+// signe et couleur se lisent sur cette valeur arrondie, celle qu'on affiche ; « 0 h » s'écrit sans signe (et en vert : la
+// couleur suit `soldeHeuresArrondi(…) >= 0`). Avant le lot (8f2a133), ListeChantiers.tsx écrivait
+// `${diffHeures > 0 ? '+' : ''}${fmtHeures(diffHeures)}`, et colorait sur `diffHeures >= 0` : « +0 h » pour 0,004 h, « -0 h »
+// en rouge pour -0,004 h. Arrondi d'une moitié : vers l'extérieur, comme arrondiCentime (#198) et comme Intl, qui écrit déjà
+// fmtHeures(-0,005) « -0,01 h » (consigne de Claude Code : « arrondiCentime, moitié vers l'extérieur, jamais -0 »).
+test('solde d’heures (fmtSoldeHeures, soldeHeuresArrondi, lot V) : arrondi au centième, signe lu sur la valeur arrondie, « 0 h » sans signe, jamais « +0 h » ni « -0 h »', () => {
+  const avantLeLot = (diff: number) => `${diff > 0 ? '+' : ''}${fmtHeures(diff)}`;
+  // Cas nominaux : signe « + » devant un excédent, « - » devant un dépassement, décimales sans zéro inutile, espace ordinaire
+  // avant « h » (fmtHeures).
+  assert.equal(fmtSoldeHeures(1.25), '+1,25 h');
+  assert.equal(fmtSoldeHeures(-0.5), '-0,5 h');
+  assert.equal(fmtSoldeHeures(2), '+2 h');
+  assert.equal(fmtSoldeHeures(0), '0 h');
+  assert.equal(fmtSoldeHeures(-0), '0 h');
+  // Écart qui s'arrondit à zéro (#212) : « 0 h ». Lectures écartées : « +0 h » (signe lu sur la valeur brute, 0,004 > 0) et
+  // « -0 h » (Intl sur -0,004), les textes d'avant le lot.
+  assert.equal(avantLeLot(0.004), '+0 h', 'témoin : texte d’avant le lot');
+  assert.equal(avantLeLot(-0.004), '-0 h', 'témoin : texte d’avant le lot');
+  for (const diff of [0.004, -0.004, 0.0049, -0.0049, 0.0001, -0.0001]) {
+    assert.equal(fmtSoldeHeures(diff), '0 h', String(diff));
+    assert.ok(Object.is(soldeHeuresArrondi(diff), 0), `${diff} : 0, et non -0 (la couleur et le signe se lisent sur cette valeur)`);
+  }
+  // Juste au-delà du demi-centième, la valeur affichée n'est plus nulle : le signe revient. Lecture écartée : un seuil lu sur
+  // la valeur brute à une autre précision (0,006 → « 0 h » si l'on arrondissait au dixième).
+  assert.equal(fmtSoldeHeures(0.006), '+0,01 h');
+  assert.equal(fmtSoldeHeures(-0.006), '-0,01 h');
+  assert.equal(soldeHeuresArrondi(-0.006), -0.01);
+  // Moitié, vers l'extérieur : -0,005 h → « -0,01 h ». Lecture écartée : Math.round (-0,5 → -0, soit « 0 h » et du vert),
+  // qui n'arrondit pas comme le texte d'Intl (fmtHeures(-0,005) s'écrit « -0,01 h »).
+  assert.equal(fmtHeures(-0.005), '-0,01 h', 'témoin : arrondi d’Intl');
+  assert.equal(Math.round(-0.005 * 100) / 100 === 0, true, 'témoin : Math.round ramène -0,005 à zéro');
+  assert.equal(fmtSoldeHeures(-0.005), '-0,01 h');
+  assert.equal(soldeHeuresArrondi(-0.005), -0.01);
+  assert.equal(fmtSoldeHeures(0.005), '+0,01 h');
+  // Décimal exact (#198) : 1,005 h → « +1,01 h ». Lectures écartées : toFixed(2) sur le flottant (« 1.00 »), Math.round(1,005 ×
+  // 100) = 100 (« +1 h »).
+  assert.equal((1.005).toFixed(2), '1.00', 'témoin : toFixed sur le flottant');
+  assert.equal(Math.round(1.005 * 100), 100, 'témoin : Math.round sur le flottant');
+  assert.equal(fmtSoldeHeures(1.005), '+1,01 h');
+  assert.equal(soldeHeuresArrondi(1.005), 1.01);
+  // Au plus deux décimales : 18,756 h → « +18,76 h » (et non « +18,756 h »), -18,754 h → « -18,75 h » ; milliers en U+202F.
+  assert.equal(fmtSoldeHeures(18.756), '+18,76 h');
+  assert.equal(fmtSoldeHeures(-18.754), '-18,75 h');
+  assert.equal(fmtSoldeHeures(1234.5), `+1${FINE}234,5 h`);
+  assert.equal(fmtSoldeHeures(-1234.567), `-1${FINE}234,57 h`);
+  // Signe affiché et valeur arrondie toujours d'accord, sur toute la grille des écarts du serveur (dix-millièmes) autour de
+  // zéro : « + » si et seulement si la valeur arrondie est positive, « - » si et seulement si elle est négative, et le texte
+  // est celui de fmtHeures sur cette valeur. Lecture écartée : un signe ou une couleur décidés sur la valeur brute.
+  for (let dixMilliemes = -300; dixMilliemes <= 300; dixMilliemes += 1) {
+    const diff = dixMilliemes / 10_000;
+    const arrondi = soldeHeuresArrondi(diff);
+    const texte = fmtSoldeHeures(diff);
+    assert.equal(arrondi, Math.sign(dixMilliemes) * Math.round(Math.abs(dixMilliemes) / 100) / 100 || 0, `${diff} : arrondi au centième, moitié vers l'extérieur`);
+    assert.equal(texte, `${arrondi > 0 ? '+' : ''}${fmtHeures(arrondi)}`, `${diff} : texte`);
+    assert.equal(texte.startsWith('+'), arrondi > 0, `${diff} : « + » seulement pour une valeur affichée positive`);
+    assert.equal(texte.startsWith('-'), arrondi < 0, `${diff} : « - » seulement pour une valeur affichée négative`);
+    assert.doesNotMatch(texte, /^[+-]0 h$/, `${diff} : jamais « +0 h » ni « -0 h »`);
+  }
+});
+
 // --- Liste fermée de l'inventaire (C4 et C6 du contrôle du cadrage) ---
 // Garde sur les sources : elle échoue si l'une des fonctions locales de l'inventaire, ou l'un de ses toLocaleString()
 // sans locale, subsiste. Elle ne porte que sur cette liste, relevée par le cadrage sur 1d9eb57 (lignes de e39f005
@@ -330,11 +392,9 @@ test('heures (#499, point 2) : formatHeures est l’alias de fmtHeures ; « 3.0 
 const racineClient = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = (relatif: string) => readFileSync(path.join(racineClient, 'src', relatif), 'utf8');
 
-// Exception nommée (C6) : la fiche chantier garde ses dix toLocaleString() sans locale (l. 54, 103, 117, 136, 150, 186,
-// 187, 211, 212 et 218), suivis par #388 ; A5 n'y a changé que l'import du module.
-const EXCEPTIONS: Record<string, string> = {
-  'components/ChantierIndicateurs.tsx': '#388 : montants de la fiche chantier sans locale française ni deux décimales',
-};
+// Exception nommée retirée (lot V, #388 ; cadrage v2, « Tests ») : la fiche chantier (ChantierIndicateurs.tsx), qui gardait
+// ses dix toLocaleString() sans locale et ses quatre toFixed(1)}% depuis A5 (C6), passe au module ; elle est désormais vue par
+// toutes les gardes de ce fichier, comme les autres écrans (famille « euro près » de FAMILLE_PAR_FICHIER).
 
 // Fonctions locales de l'inventaire, retirées : [fichier, fonction, ligne sur e39f005].
 const FONCTIONS_LOCALES: [string, string, number][] = [
@@ -381,9 +441,9 @@ const SANS_LOCALE: [string, number[]][] = [
 const TO_LOCALE_SANS_LOCALE = /\.toLocaleString\(\s*\)/;
 const lignesSansLocale = (texte: string) => texte.split('\n').flatMap((ligne, rang) => (TO_LOCALE_SANS_LOCALE.test(ligne) ? [rang + 1] : []));
 
-// fmtPourcentage (#499, cadrage version 2, point 1) : nom du module, qu'aucun écran ne redéfinit ; ce n'est pas une famille
-// de montant (FAMILLES_MONTANT, plus bas, ne le compte pas).
-const NOMS_DU_MODULE = ['fmtEuro', 'fmtEuroCentime', 'fmtMontantDocument', 'fmtNombreHeures', 'fmtHeures', 'fmtPourcentage', 'toDateFrancaise', 'fmtDate'];
+// fmtPourcentage (#499, cadrage version 2, point 1), fmtSoldeHeures et soldeHeuresArrondi (lot V, #212) : noms du module,
+// qu'aucun écran ne redéfinit ; ce ne sont pas des familles de montant (FAMILLES_MONTANT, plus bas, ne les compte pas).
+const NOMS_DU_MODULE = ['fmtEuro', 'fmtEuroCentime', 'fmtMontantDocument', 'fmtNombreHeures', 'fmtHeures', 'fmtSoldeHeures', 'soldeHeuresArrondi', 'fmtPourcentage', 'toDateFrancaise', 'fmtDate'];
 const IMPORT_DU_MODULE = /from '(?:\.\.\/lib|\.)\/formats'/;
 const fichiersSources = (dossier: string): string[] => readdirSync(dossier).flatMap((nom) => {
   const chemin = path.join(dossier, nom);
@@ -408,10 +468,6 @@ test('liste fermée de l’inventaire : aucune fonction de format locale ni mont
     const restants = lignesSansLocale(source(fichier));
     assert.deepEqual(restants, [], `${fichier} : toLocaleString() sans locale aux lignes ${restants.join(', ')} (inventaire : l. ${lignes.join(', ')} sur e39f005)`);
     assert.match(source(fichier), IMPORT_DU_MODULE, `${fichier} : le module lib/formats est employé`);
-  }
-  // L'exception nommée n'entre dans aucune liste ; sa garde reste à #388.
-  for (const fichier of Object.keys(EXCEPTIONS)) {
-    assert.ok(![...FONCTIONS_LOCALES, ...FONCTIONS_GARDEES, ...SANS_LOCALE].some(([f]) => f === fichier), `${fichier} : exception (${EXCEPTIONS[fichier]})`);
   }
 });
 
@@ -552,6 +608,12 @@ const FAMILLE_PAR_FICHIER: [string, string][] = [
   ['lib/suiviChantiers.ts', 'centime en devise'],
   ['pages/Admin.tsx', 'euro près'],
   ['pages/Achats.tsx', 'euro près'],
+  // Lot V, #388 (cadrage v2, « Formats de la fiche » ; choix par défaut, à confirmer, règle 5) : la fiche chantier emploie une
+  // seule famille, l'euro près, pour tous ses montants (budgets, marge du jour, dépenses réelles cumulées, matériel réel,
+  // coût de main-d'œuvre, manque à gagner), comme la liste des chantiers et le journal des achats de la fiche ; « 1 234,56 € »
+  // y devient « 1 235 € » (effet visible déclaré). Lecture écartée : le centime en devise de la marge et des dépenses d'avant
+  // le lot (arrondiCentime(…).toLocaleString()).
+  ['components/ChantierIndicateurs.tsx', 'euro près'],
 ];
 
 test('famille de montant de chaque fichier : celle de son texte d’avant #205 (ou choisie par #499), et elle seule ; tout fichier qui met en forme un montant est lié à la sienne', () => {
@@ -603,13 +665,13 @@ test('famille de montant de chaque fichier : celle de son texte d’avant #205 (
   for (const [fichier, famille] of FAMILLE_PAR_FICHIER) {
     assert.deepEqual(famillesEmployees(source(fichier), fichier), [famille], `${fichier} : familles de montant employées`);
   }
-  // Liste close : tout fichier de src/ qui emploie une famille y figure, hors le module et l'exception nommée (#388) ; et
-  // toute enveloppe exportée d'une famille (alias, flèche ou fonction réduite à une expression) est comptée dans
+  // Liste close : tout fichier de src/ qui emploie une famille y figure, hors le module (sans exception depuis le lot V,
+  // #388) ; et toute enveloppe exportée d'une famille (alias, flèche ou fonction réduite à une expression) est comptée dans
   // FAMILLES_MONTANT.
   const sources = path.join(racineClient, 'src');
   for (const chemin of fichiersSources(sources)) {
     const relatif = path.relative(sources, chemin).split(path.sep).join('/');
-    if (relatif === 'lib/formats.ts' || relatif in EXCEPTIONS) continue;
+    if (relatif === 'lib/formats.ts') continue;
     const fichierArbre = arbre(readFileSync(chemin, 'utf8'), chemin);
     if (famillesDe(fichierArbre).length) assert.ok(FAMILLE_PAR_FICHIER.some(([f]) => f === relatif), `${relatif} : met en forme un montant ; sa famille est à fixer dans FAMILLE_PAR_FICHIER`);
     for (const nom of enveloppesDeFamille(fichierArbre)) {
@@ -730,9 +792,9 @@ test('témoin des gardes : elles reconnaissent les formes de l’inventaire, et 
 });
 
 // --- #499, cadrage du correctif, version 2, point 8 : gardes étendues à tout src/ ---
-// Après #499, plus aucun montant, heure ou pourcentage ne s'écrit hors du module dans client/src, hors l'exception nommée
-// (ChantierIndicateurs.tsx, #388). Les appels sont relevés par le parseur TypeScript : un commentaire ou une chaîne qui les
-// nomme ne compte pas (montants.ts cite `toFixed` dans deux commentaires).
+// Après #499, plus aucun montant, heure ou pourcentage ne s'écrit hors du module dans client/src ; l'exception nommée
+// (ChantierIndicateurs.tsx, #388) est retirée par le lot V. Les appels sont relevés par le parseur TypeScript : un
+// commentaire ou une chaîne qui les nomme ne compte pas (montants.ts cite `toFixed` dans deux commentaires).
 const sourcesDuClient = () => {
   const sources = path.join(racineClient, 'src');
   return fichiersSources(sources).map((chemin) => ({ relatif: path.relative(sources, chemin).split(path.sep).join('/'), texte: readFileSync(chemin, 'utf8') }));
@@ -764,8 +826,8 @@ const appelsSansLocale = (texte: string, fichier: string) => appelsRetenus(texte
   return !premier || (ts.isIdentifier(premier) && premier.text === 'undefined');
 });
 
-// toFixed restants dans src/ hors l'exception nommée, liste fermée (cadrage v2, point 8 ; lignes sur 39ad174) : aucun
-// n'est un affichage. Clé : le fichier et le texte de l'appel, plutôt que la ligne, qu'une modification voisine déplace.
+// toFixed restants dans tout src/, liste fermée (cadrage v2 de #499, point 8 ; lignes sur 39ad174) : aucun n'est un
+// affichage. Depuis le lot V (#388), la fiche chantier n'en garde aucun : ses quatre toFixed(1)}% passent à fmtPourcentage. Clé : le fichier et le texte de l'appel, plutôt que la ligne, qu'une modification voisine déplace.
 const TO_FIXED_RESTANTS: [string, string][] = [
   // montants.ts l. 38 : arrondi d'un rapport sur sa valeur exacte en binaire ; rend un nombre, jamais affiché.
   ['lib/montants.ts', 'Math.abs(montant).toFixed(decimales)'],
@@ -782,7 +844,7 @@ const TO_FIXED_RESTANTS: [string, string][] = [
 ];
 const triees = (paires: [string, string][]) => [...paires].sort(([a, b], [c, d]) => (a === c ? b.localeCompare(d) : a.localeCompare(c)));
 
-test('#499 v2 : liste fermée des toFixed restants dans src/ (aucun n’est un affichage), hors l’exception nommée', () => {
+test('#499 v2 et lot V : liste fermée des toFixed restants dans tout src/ (aucun n’est un affichage), sans exception', () => {
   // Témoins : le parseur relève un toFixed d'un affichage de 8a47a50 (Heures.tsx:195), et non un toFixed cité dans un
   // commentaire ou une chaîne.
   assert.deepEqual(appelsToFixed('<td>{coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)} €</td>', 'extrait.tsx').map(([, t]) => t), ['coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique).toFixed(2)']);
@@ -790,13 +852,15 @@ test('#499 v2 : liste fermée des toFixed restants dans src/ (aucun n’est un a
   assert.deepEqual(appelsToFixed('const a = b?.toFixed(1);', 'extrait.ts').map(([, t]) => t), ['b?.toFixed(1)']);
   const restants: [string, string][] = [];
   const lignes: string[] = [];
+  // Témoins, recopiés de 8f2a133 : les pourcentages de la fiche chantier (ChantierIndicateurs.tsx:195, :223 et :244).
+  assert.equal(appelsToFixed('{((depenseMaterielReelle / Math.max(1, chantier.budgetMaterielVendu)) * 100).toFixed(1)}%', 'extrait.tsx').length, 1);
+  assert.equal(appelsToFixed('{metrics.margePct.toFixed(1)}% du budget vendu', 'extrait.tsx').length, 1);
   for (const { relatif, texte } of sourcesDuClient()) {
-    if (relatif in EXCEPTIONS) continue;
     for (const [ligne, appel] of appelsToFixed(texte, relatif)) { restants.push([relatif, appel]); lignes.push(`${relatif}:${ligne} ${appel}`); }
   }
   assert.deepEqual(triees(restants), triees(TO_FIXED_RESTANTS), `toFixed relevés :\n${lignes.join('\n')}`);
-  // L'exception nommée en garde (fiche chantier, #388) : elle n'entre pas dans cette liste.
-  assert.ok(appelsToFixed(source('components/ChantierIndicateurs.tsx'), 'components/ChantierIndicateurs.tsx').length > 0, 'témoin : l’exception nommée garde des toFixed');
+  // La fiche chantier, ancienne exception nommée, n'en garde aucun.
+  assert.deepEqual(appelsToFixed(source('components/ChantierIndicateurs.tsx'), 'components/ChantierIndicateurs.tsx'), []);
 });
 
 test('#499 v2 : plus aucun montant au point décimal (toFixed suivi de « € ») dans aucun fichier de src/', () => {
@@ -808,7 +872,7 @@ test('#499 v2 : plus aucun montant au point décimal (toFixed suivi de « € »
   }
 });
 
-test('#499 v2 : aucun toLocaleString() sans locale dans src/, hors l’exception nommée', () => {
+test('#499 v2 et lot V : aucun toLocaleString() sans locale dans tout src/, sans exception', () => {
   // Témoins, recopiés de 8a47a50 : budgets d'Administration > Chantiers (Admin.tsx:642 et :650), achat (Achats.tsx:127).
   assert.equal(appelsSansLocale("<div>{c.budgetGlobalVendu == null ? '—' : `${c.budgetGlobalVendu.toLocaleString()} €`}</div>", 'extrait.tsx').length, 1);
   assert.equal(appelsSansLocale('<div>{c.budgetMaterielVendu.toLocaleString()} €</div>', 'extrait.tsx').length, 1);
@@ -821,8 +885,10 @@ test('#499 v2 : aucun toLocaleString() sans locale dans src/, hors l’exception
   for (const extrait of ["x.toLocaleString('fr-FR')", "x.toLocaleString('fr-FR', { maximumFractionDigits: 1 })", "new Intl.NumberFormat('fr-FR').format(r.taux)", "new Intl.DateTimeFormat('en-CA', { timeZone: f })", "// x.toLocaleString() sans locale\nconst t = 'x.toLocaleString()';"]) {
     assert.deepEqual(appelsSansLocale(extrait, 'extrait.ts'), [], extrait);
   }
+  // Témoins, recopiés de 8f2a133 : le montant vendu et la marge de la fiche chantier (ChantierIndicateurs.tsx:55 et :137).
+  assert.equal(appelsSansLocale('<div className="text-2xl font-black text-primary-dark z-10">{chantier.budgetGlobalVendu.toLocaleString()} €</div>', 'extrait.tsx').length, 1);
+  assert.equal(appelsSansLocale('{margeAffichee.toLocaleString()} €', 'extrait.tsx').length, 1);
   for (const { relatif, texte } of sourcesDuClient()) {
-    if (relatif in EXCEPTIONS) continue;
     const restants = appelsSansLocale(texte, relatif);
     assert.deepEqual(restants, [], `${relatif} : format sans locale, l. ${restants.map(([l]) => l).join(', ')}`);
   }
@@ -919,24 +985,109 @@ test('#499 v2 : motifs ciblés des heures et des taux bruts ; témoins de 8a47a5
   ]) assert.deepEqual(trouve(extrait), [], extrait);
   const relevees: [string, string, string][] = [];
   for (const { relatif, texte } of sourcesDuClient()) {
-    if (relatif in EXCEPTIONS) continue;
     for (const [nom, motif] of MOTIFS_BRUTS) for (const brute of occurrences(texte, motif)) relevees.push([relatif, nom, brute]);
   }
   assert.deepEqual(relevees, ECRITURES_NUES_GARDEES);
 });
 
-// T1 du contrôle de cohérence (N6 de #499) : l'exception nommée ne reste que tant qu'elle sert. La fiche chantier
-// (ChantierIndicateurs.tsx, #388) garde au moins un toLocaleString() sans locale ou un pourcentage au point décimal ;
-// sinon, le test demande de la retirer.
-test('#499 v2 : l’exception nommée (ChantierIndicateurs.tsx, #388) reste nécessaire, sinon elle est à retirer d’EXCEPTIONS', () => {
-  assert.deepEqual(Object.keys(EXCEPTIONS), ['components/ChantierIndicateurs.tsx']);
-  for (const fichier of Object.keys(EXCEPTIONS)) {
-    const texte = source(fichier);
-    const defauts = appelsSansLocale(texte, fichier).length + occurrences(texte, TO_FIXED_POURCENT).length;
-    assert.ok(defauts > 0, `${fichier} : plus aucun toLocaleString() sans locale ni toFixed(…)}% ; l’exception (${EXCEPTIONS[fichier]}) n’est plus nécessaire, la retirer d’EXCEPTIONS`);
+// Lot V (#388, cadrage v2, « Tests », T1 du contrôle du cadrage) : plus aucun pourcentage écrit à la main hors de
+// fmtPourcentage. Les motifs ci-dessus ne voient qu'un toFixed(…) ou une expression nue avant « % » ; un pourcentage mis en
+// forme à la main avec une locale (« {x.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} % ») leur échappait : sur
+// 8f2a133, la liste des chantiers (« % du vendu », « Fin estimée », ListeChantiers.tsx:218 et :224) et la marge estimée de
+// la fiche (ChantierIndicateurs.tsx:163) pouvaient ainsi écrire « -0 % » (#212). Relevé par le parseur TypeScript : toute
+// expression suivie d'un texte qui commence par « % », dans un texte JSX (« {expr} % »), un gabarit (« `${expr} %` ») ou une
+// concaténation (« expr + ' %' »), hors du module et hors d'une propriété CSS de dimension ou d'un attribut `style` (« width:
+// `${pct}%` »). Le relevé de tout src/ est comparé à une liste fermée.
+const PROPRIETES_CSS = new Set(['width', 'height', 'left', 'right', 'top', 'bottom', 'minWidth', 'maxWidth', 'flexBasis']);
+const SUIVI_DE_POURCENT = /^\s*%/;
+const pourcentagesALaMain = (texte: string, fichier: string) => {
+  const fichierArbre = arbre(texte, fichier);
+  const trouves: string[] = [];
+  const nomDe = (nom: ts.Node) => (ts.isIdentifier(nom) || ts.isStringLiteral(nom) ? nom.text : '');
+  // `css` : le nœud est la valeur d'une propriété CSS de dimension, ou dans un attribut `style` (arbre sans liens parents,
+  // le contexte descend avec la visite).
+  const visiter = (noeud: ts.Node, css: boolean) => {
+    if (ts.isJsxElement(noeud) || ts.isJsxFragment(noeud)) {
+      noeud.children.forEach((enfant, rang) => {
+        const suivant = noeud.children[rang + 1];
+        if (ts.isJsxExpression(enfant) && enfant.expression && suivant && ts.isJsxText(suivant) && SUIVI_DE_POURCENT.test(suivant.text)) trouves.push(enfant.expression.getText(fichierArbre));
+      });
+    }
+    if (!css && ts.isTemplateSpan(noeud) && SUIVI_DE_POURCENT.test(noeud.literal.text)) trouves.push(noeud.expression.getText(fichierArbre));
+    if (!css && ts.isBinaryExpression(noeud) && noeud.operatorToken.kind === ts.SyntaxKind.PlusToken
+      && (ts.isStringLiteral(noeud.right) || ts.isNoSubstitutionTemplateLiteral(noeud.right)) && SUIVI_DE_POURCENT.test(noeud.right.text)) {
+      trouves.push(noeud.left.getText(fichierArbre));
+    }
+    const enCss = css || (ts.isJsxAttribute(noeud) && noeud.name.getText(fichierArbre) === 'style') || (ts.isPropertyAssignment(noeud) && PROPRIETES_CSS.has(nomDe(noeud.name)));
+    ts.forEachChild(noeud, (enfant) => { visiter(enfant, enCss); });
+  };
+  visiter(fichierArbre, false);
+  return trouves;
+};
+// Pourcentages écrits à la main gardés dans src/, liste fermée (relevé sur la tête du lot V) : aucun n'est un pourcentage des
+// écrans de chantier ; ils sont hors du lot (cadrage v2, « Hors périmètre »).
+const POURCENTAGES_A_LA_MAIN_GARDES: [string, string][] = [
+  // Taux de TVA d'une ligne au temps passé, au forfait ou d'une fiche de main d'œuvre, déjà en français (virgule).
+  ['components/CatalogueMainOeuvre.tsx', "String(f.tauxTva).replace('.', ',')"],
+  ['components/DevisForfaitMainOeuvre.tsx', "String(ligne.tauxTva).replace('.', ',')"],
+  ['components/DevisTempsPasse.tsx', "String(ligne.tauxTva).replace('.', ',')"],
+  // Taux de TVA de l'aperçu de la facture au temps passé et des règles TVA de la comptabilité, en fr-FR.
+  ['components/FactureTempsPasse.tsx', "ligne.tauxTva.toLocaleString('fr-FR')"],
+  ['pages/Comptabilite.tsx', "new Intl.NumberFormat('fr-FR').format(r.taux)"],
+  // Acompte exigé de l'historique des devis (#571), en fr-FR, deux décimales au plus.
+  ['pages/Devis.tsx', "(d.tauxAcompte ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })"],
+  // Hypothèse de la marge estimée (« matériel vendu × 85 % »), entier en fr-FR (lib/suiviChantiers.ts, `nombre`).
+  ['lib/suiviChantiers.ts', 'nombre((e.ratioMateriel ?? 1) * 100, 0)'],
+  // Arrêts d'un dégradé conique (CSS, hors d'une propriété de dimension) : « ${from}% ${cumulative}% ».
+  ['pages/Statistiques.tsx', 'from'],
+  ['pages/Statistiques.tsx', 'cumulative'],
+];
+
+test('lot V (T1) : aucun pourcentage écrit à la main hors de fmtPourcentage dans src/, hors d’une liste fermée ; la fiche et la liste des chantiers n’en gardent aucun', () => {
+  // Témoins, recopiés de 8f2a133 : « % du vendu » et « Fin estimée » de la liste (ListeChantiers.tsx:218 et :224), marge
+  // estimée et pourcentages de la fiche (ChantierIndicateurs.tsx:163, :141 et :195).
+  for (const [extrait, attendu] of [
+    ["<div>{metrics.margePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} % du vendu</div>", "metrics.margePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })"],
+    ["<div>Fin estimée : <strong>{fmtEuro(metrics.margeEstimee)}</strong>{' · '}{metrics.margeEstimeePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %\n</div>", "metrics.margeEstimeePct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })"],
+    ["<span className=\"text-sm font-bold ml-2\">{(metrics.margeEstimeePct ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %</span>", "(metrics.margeEstimeePct ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })"],
+    ['<div>{metrics.margePct.toFixed(1)}% du budget vendu</div>', 'metrics.margePct.toFixed(1)'],
+    ['<div>{((depenseMaterielReelle / Math.max(1, chantier.budgetMaterielVendu)) * 100).toFixed(1)}%</div>', '((depenseMaterielReelle / Math.max(1, chantier.budgetMaterielVendu)) * 100).toFixed(1)'],
+    // Autres écritures du même défaut : gabarit, concaténation, format d'Intl, nombre nu.
+    ["const t = `${p.toLocaleString('fr-FR')} % du vendu`;", "p.toLocaleString('fr-FR')"],
+    ["const t = p.toLocaleString('fr-FR') + ' %';", "p.toLocaleString('fr-FR')"],
+    ["<td>{new Intl.NumberFormat('fr-FR').format(p)}%</td>", "new Intl.NumberFormat('fr-FR').format(p)"],
+    ['<td>{pct} %</td>', 'pct'],
+  ] as [string, string][]) assert.deepEqual(pourcentagesALaMain(extrait, 'extrait.tsx'), [attendu], extrait);
+  // Ni un appel du module (qui écrit lui-même « % »), ni le « % » du CSS, ni un texte qui ne commence pas par « % ».
+  for (const extrait of [
+    '<div>{fmtPourcentage(metrics.margePct, 1)} du vendu</div>',
+    "<div>Fin estimée : <strong>{fmtEuro(m)}</strong>{' · '}{fmtPourcentage(metrics.margeEstimeePct, 1)}</div>",
+    '<div style={{ width: `${pct}%` }} />',
+    "<div style={{ width: `${Math.min(100, percent)}%`, backgroundColor: c }} />",
+    'const style = { height: `${heightPct}%` };',
+    '<span>{nombre} pièces, 100% garanties</span>',
+  ]) assert.deepEqual(pourcentagesALaMain(extrait, 'extrait.tsx'), [], extrait);
+  const releves: [string, string][] = [];
+  for (const { relatif, texte } of sourcesDuClient()) {
+    if (relatif === 'lib/formats.ts') continue;
+    for (const expression of pourcentagesALaMain(texte, relatif)) releves.push([relatif, expression]);
   }
-  // fmtPourcentage est un nom du module, et non une famille de montant.
-  assert.ok(NOMS_DU_MODULE.includes('fmtPourcentage'));
-  assert.ok(!Object.hasOwn(FAMILLES_MONTANT, 'fmtPourcentage'));
-  assert.match(source('lib/formats.ts'), /export const fmtPourcentage = \(valeur: number, decimalesMax: 0 \| 1 \| 2\) =>/);
+  assert.deepEqual(triees(releves), triees(POURCENTAGES_A_LA_MAIN_GARDES), `pourcentages écrits à la main :\n${releves.map(([f, e]) => `${f} ${e}`).join('\n')}`);
+  for (const fichier of ['components/ChantierIndicateurs.tsx', 'pages/ListeChantiers.tsx', 'pages/ChantierDetail.tsx', 'pages/Dashboard.tsx', 'pages/Admin.tsx']) {
+    assert.deepEqual(pourcentagesALaMain(source(fichier), fichier), [], `${fichier} : pourcentage écrit à la main`);
+  }
+});
+
+// fmtPourcentage, fmtSoldeHeures et soldeHeuresArrondi sont des noms du module, et non des familles de montant : un écran qui
+// les emploie n'a pas à figurer dans FAMILLE_PAR_FICHIER pour autant (assertions reprises du test « l'exception nommée reste
+// nécessaire », supprimé avec l'exception par le lot V).
+test('fmtPourcentage, fmtSoldeHeures et soldeHeuresArrondi : noms du module, exportés par lui seul, et non des familles de montant', () => {
+  for (const nom of ['fmtPourcentage', 'fmtSoldeHeures', 'soldeHeuresArrondi']) {
+    assert.ok(NOMS_DU_MODULE.includes(nom), nom);
+    assert.ok(!Object.hasOwn(FAMILLES_MONTANT, nom), nom);
+  }
+  const module = source('lib/formats.ts');
+  assert.match(module, /export const fmtPourcentage = \(valeur: number, decimalesMax: 0 \| 1 \| 2\) =>/);
+  assert.match(module, /export const fmtSoldeHeures = \(valeur: number\)/);
+  assert.match(module, /export const soldeHeuresArrondi = \(valeur: number\)/);
 });

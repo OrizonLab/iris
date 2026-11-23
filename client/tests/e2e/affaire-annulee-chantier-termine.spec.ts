@@ -173,9 +173,9 @@ test('le conducteur titulaire d’un chantier terminé n’y trouve plus « Modi
 // couvre aussi le chantier terminé (cadrage, point 5) :
 //  - bloc de facturation [data-facturation] : « Affaire annulée » à la place de « Reste à facturer : … » ; le facturé HT et
 //    les factures liées, qui sont des faits, restent (points 1 et 7) ;
-//  - carte de marge [data-marge-commerciale] : son titre reste ; « Affaire annulée » remplace le montant et le « % du budget
-//    vendu », sur un style neutre, sans couleur liée au signe (point 2) ; « Dépenses Réelles Cumulées » reste à
-//    l'administration ;
+//  - carte de marge [data-marge-commerciale] : son titre reste ; « Affaire annulée » remplace le montant et le « % du vendu »
+//    (« % du budget vendu » avant le lot V), sur un style neutre, sans couleur liée au signe (point 2) ; « Dépenses Réelles
+//    Cumulées » reste à l'administration ;
 //  - bloc d'alertes de l'en-tête [data-alertes-fiche] : la seule pastille « Affaire annulée », ni « Dans le budget » ni
 //    aucune alerte (point 3) ;
 //  - marge estimée [data-estimation] : toujours absente (point 6).
@@ -186,7 +186,10 @@ test('le conducteur titulaire d’un chantier terminé n’y trouve plus « Modi
 // chaque format affiché se distingue des autres lectures :
 //  - le reste à facturer s'affiche à l'euro, la moitié arrondie vers l'extérieur (fmtEuro) : « 1 235 € », et non
 //    « 1 234,56 € » (au centime) ni « 1 234 € » (tronqué) ;
-//  - la marge s'affiche au centime (toLocaleString) : « 1 234,56 € », suivie de « 100.0% du budget vendu ».
+//  - la marge s'affiche de même depuis le lot V (#388, cadrage v2, « Formats de la fiche » : fmtEuro pour tous les montants
+//    de la fiche, choix par défaut, à confirmer) : « 1 235 € », suivie de « 100 % du vendu » (fmtPourcentage, une décimale au
+//    plus). Lectures écartées : « 1 234,56 € » et « 100.0% du budget vendu », les textes d'avant le lot (toLocaleString(),
+//    toFixed(1)), « 1 234 € » (tronqué), « 100,0 % » (zéro inutile).
 // Le budget vendu, de même valeur, reste affiché hors de ces blocs : chaque absence est bornée à son bloc. Chaque parcours
 // lit d'abord ces montants sur la même fiche encore en cours (témoin), puis vérifie qu'ils ont quitté leur bloc une fois
 // l'affaire annulée : l'absence porte sur le texte réellement affiché, et non sur un format supposé. Les blocs sont enfin lus
@@ -202,8 +205,11 @@ type FicheLue = Chantier & {
 const BUDGET_483 = 1234.56;
 // Formats affichés d'une affaire vendue 1 234,56 € HT, sans facture ni dépense.
 const RESTE_AFFICHE = /Reste à facturer : 1\s235\s€/;
-const AU_CENTIME = /1\s234,56\s€/;
-const POURCENTAGE_AFFICHE = '100.0% du budget vendu';
+// Montant de la marge (en grand dans sa carte) et du montant vendu, à l'euro près (lot V) : milliers en U+202F, espace
+// ordinaire avant « € ».
+const MARGE_AFFICHEE = /^1\u202F235\u0020€$/;
+const A_L_EURO = /1\u202F235\u0020€/;
+const POURCENTAGE_AFFICHE = '100 % du vendu';
 // Toute lecture de 1 234,56 € (au centime, à l'euro arrondi ou tronqué, avec ou sans séparateur) : absente des blocs masqués.
 const LECTURES_DU_BUDGET = /1\s?23[45]/;
 // Couleurs liées au signe de la marge (vert si positive, rouge sinon) ou d'une alerte.
@@ -213,7 +219,10 @@ const blocFacturation = (page: Page) => page.locator('[data-facturation]');
 const carteMarge = (page: Page) => page.locator('[data-marge-commerciale]');
 const blocAlertes = (page: Page) => page.locator('[data-alertes-fiche]');
 const margeEstimee = (page: Page) => page.locator('[data-estimation]');
-const carteBudgetVendu = (page: Page) => page.getByText('Budget Vendu', { exact: true }).locator('..');
+// Carte « Montant vendu » (« Budget Vendu » avant le lot V ; #390, cadrage v2, « Noms »).
+const carteMontantVendu = (page: Page) => page.getByText('Montant vendu', { exact: true }).locator('..');
+// Montant de la marge, écrit en grand dans sa carte, à part de la marge estimée et des dépenses réelles de la même carte.
+const montantDeLaMarge = (page: Page) => carteMarge(page).locator('div.text-5xl');
 
 // Affaire vendue 1 234,56 € HT (une ligne de main-d'œuvre), ouverte comme par chantierConverti : conversion d'un devis signé.
 async function affaireVendue(request: APIRequestContext, token: string, clientId: string, nom: string, responsableId?: string) {
@@ -258,7 +267,7 @@ async function attendreMontantsAffiches(page: Page, { estimation, alertes }: { e
   await expect(facturation).toContainText(RESTE_AFFICHE);
   await expect(facturation).not.toContainText('Affaire annulée');
   const marge = carteMarge(page);
-  await expect(marge).toContainText(AU_CENTIME);
+  await expect(montantDeLaMarge(page)).toHaveText(MARGE_AFFICHEE);
   await expect(marge).toContainText(POURCENTAGE_AFFICHE);
   await expect(marge).not.toContainText('Affaire annulée');
   // Couleurs de la marge, positive ici : celles que l'affaire annulée doit perdre.
@@ -288,6 +297,8 @@ async function attendreAffaireAnnulee(page: Page, { factureHt, restes, administr
   await expect(titre).toBeVisible();
   await expect(marge).toContainText('Affaire annulée');
   await expect(marge).not.toContainText(LECTURES_DU_BUDGET);
+  // Ni « … % du vendu » (témoin : attendreMontantsAffiches le lit sur la même fiche en cours), ni l'ancien « du budget vendu ».
+  await expect(marge).not.toContainText('du vendu');
   await expect(marge).not.toContainText('du budget vendu');
   await expect(marge).not.toContainText('%');
   await expect(marge).not.toHaveClass(COULEUR_DU_SIGNE);
@@ -318,7 +329,7 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     const client = await creerClient('affaire annulée 483');
     const { devis, chantier } = await affaireVendue(request, token, client.id, nom);
 
-    // Témoin : en cours, la fiche affiche le reste à facturer (1 235 €), la marge (1 234,56 €, 100.0 %), la marge estimée,
+    // Témoin : en cours, la fiche affiche le reste à facturer (1 235 €), la marge (1 235 €, 100 %), la marge estimée,
     // et ses alertes ou « Dans le budget ».
     const page = await allerSurPageAdmin(`/chantiers/${chantier.id}`);
     await expect(enTete(page, nom).getByText('En cours', { exact: true })).toBeVisible();
@@ -335,8 +346,8 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     await expect(enTete(page, nom).getByText('Annulé', { exact: true })).toBeVisible();
     // Facturé HT : 0 €. Reste à facturer et marge : 1 234,56 €, qui ne doivent plus se lire dans leur bloc sous aucune forme.
     await attendreAffaireAnnulee(page, { factureHt: '0', restes: LECTURES_DU_BUDGET, administration: true });
-    // Le budget vendu, un fait, reste affiché, au format même de la marge masquée.
-    await expect(carteBudgetVendu(page)).toContainText(AU_CENTIME);
+    // Le montant vendu, un fait, reste affiché, au format même de la marge masquée (à l'euro près, lot V).
+    await expect(carteMontantVendu(page)).toContainText(A_L_EURO);
   });
 
   test('l’administration ouvre une affaire annulée après une facture annulée par son avoir et une facture réduite d’un avoir partiel : le facturé HT et les factures liées restent, le reste à facturer et la marge sont masqués', async ({ allerSurPageAdmin, creerClient, request, session }) => {
@@ -383,7 +394,7 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     await expect(facturation).toContainText(/Reste à facturer : 985\s€/);
     const facturesLiees = page.getByRole('region', { name: 'Factures liées' });
     await expect(facturesLiees.locator('tbody tr')).toHaveCount(4);
-    await expect(carteMarge(page)).toContainText(AU_CENTIME);
+    await expect(montantDeLaMarge(page)).toHaveText(MARGE_AFFICHEE);
     await expect(carteMarge(page)).toContainText(POURCENTAGE_AFFICHE);
     await attendreAlertesAffichees(page, avant.metrics.alertes);
 
@@ -406,7 +417,7 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
       await expect(ligne.locator('td').nth(1)).toHaveText(piece.type);
       await expect(ligne.locator('td').nth(4)).toHaveText(new RegExp(`^\\s*${piece.totalHt}\\s€\\s*$`));
     }
-    await expect(carteBudgetVendu(page)).toContainText(AU_CENTIME);
+    await expect(carteMontantVendu(page)).toContainText(A_L_EURO);
   });
 
   test('le conducteur titulaire d’une affaire annulée lit « Affaire annulée » aux trois mêmes emplacements que l’administration', async ({ connexion, creerClient, request, session }) => {
@@ -515,7 +526,9 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
   // son devis (course connue, docs/ROADMAP-PASSATION.md, « Saisie sur un chantier pendant l'annulation de son devis », non
   // corrigée). Pour l'éprouver sans provoquer la course, la vraie réponse de GET /api/chantiers/:id est complétée dans le
   // navigateur des six alertes connues (point 3 : en perte, marge faible, dépassements, sans saisie) et d'une marge de
-  // −65,44 € (−5,3 %), celle d'un achat de 1 300 € resté sur l'affaire. Les autres champs viennent de la base.
+  // −65,44 € (−5,3 %), celle d'un achat de 1 300 € resté sur l'affaire. Les autres champs viennent de la base. Depuis le lot V
+  // (#388), cette marge s'affiche à l'euro près, « -65 € », et son pourcentage « -5,3 % du vendu » (« -65,44 € » et
+  // « -5.3% du budget vendu » avant).
   test('l’administration ouvre une affaire annulée dont la fiche porte des alertes et une marge négative : ni pastille d’alerte, ni montant, ni rouge, seul « Affaire annulée »', async ({ allerSurPageAdmin, creerClient, page, request, session }) => {
     test.slow();
     const token = session.token;
@@ -540,8 +553,8 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     for (const code of ALERTES_INJECTEES) await expect(blocAlertes(page).locator(`[data-alerte="${code}"]`)).toBeVisible();
     await expect(blocAlertes(page).locator('[data-alerte="EN_PERTE"]')).toHaveText(/En perte 65\s€/);
     const marge = carteMarge(page);
-    await expect(marge).toContainText(/[-−]65,44\s€/);
-    await expect(marge).toContainText(/[-−]5\.3% du budget vendu/);
+    await expect(montantDeLaMarge(page)).toHaveText(/^-65\u0020€$/);
+    await expect(marge).toContainText('-5,3 % du vendu');
     await expect(marge).toHaveClass(/(?:^|\s)bg-red-50(?:\s|$)/);
     await expect(marge.getByText('Marge Commerciale', { exact: true })).toHaveClass(/(?:^|\s)text-red-700(?:\s|$)/);
     await expect(blocFacturation(page)).toContainText(RESTE_AFFICHE);
@@ -588,8 +601,9 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     const { chantier } = await affaireVendue(request, token, client.id, nom);
     const categorie = await appel<{ id: string }>(request, token, 'post', '/categories', { nom: `Catégorie E2E 483 ${suffixe}` }, 200);
     const fournisseur = await appel<{ id: string }>(request, token, 'post', '/fournisseurs', { nom: `Fournisseur E2E 483 ${suffixe}` }, 200);
-    // 1 300 € d'achats pour 1 234,56 € vendus : marge de −65,44 € (−5,3 % du budget vendu), en perte ; rien de facturé, le
-    // reste à facturer vaut le budget vendu.
+    // 1 300 € d'achats pour 1 234,56 € vendus : marge de −65,44 € (−5,3 % du vendu), en perte, affichée « -65 € » à l'euro
+    // près depuis le lot V (#388) ; rien de facturé, le reste à facturer vaut le budget vendu. Lectures écartées : « -65,44 € »
+    // et « -5.3% du budget vendu » (textes d'avant le lot), « -66 € » (arrondi vers le bas).
     await appel(request, token, 'post', '/achats', { chantierId: chantier.id, categorieId: categorie.id, fournisseurId: fournisseur.id, date: dateDuJour(), description: `Matériel E2E 483 ${suffixe}`, montantHT: 1300 }, 200);
     await cloturer(request, token, chantier.id);
     const lu = await appel<FicheLue>(request, token, 'get', `/chantiers/${chantier.id}`);
@@ -602,8 +616,8 @@ test.describe('Correctif #483 : fiche d’une affaire annulée, montants masqué
     await expect(facturation).toContainText(RESTE_AFFICHE);
     await expect(facturation).not.toContainText('Affaire annulée');
     const marge = carteMarge(page);
-    await expect(marge).toContainText(/[-−]65,44\s€/);
-    await expect(marge).toContainText(/[-−]5\.3% du budget vendu/);
+    await expect(montantDeLaMarge(page)).toHaveText(/^-65\u0020€$/);
+    await expect(marge).toContainText('-5,3 % du vendu');
     await expect(marge).not.toContainText('Affaire annulée');
     await expect(marge).toHaveClass(/(?:^|\s)bg-red-50(?:\s|$)/);
     await expect(marge.getByText('Marge Commerciale', { exact: true })).toHaveClass(/(?:^|\s)text-red-700(?:\s|$)/);

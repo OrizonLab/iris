@@ -30,11 +30,14 @@ const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 // Les quatre champs, dans l'ordre de `numericFields` (cadrage, « Place de la validation »), avec le plafond de
 // leur colonne, ce plafond plus un centime, et leur message (cadrage, « Choix par défaut », B2 : apostrophe
-// typographique, le champ nommé comme l'étiquette du formulaire « Modifier »).
+// typographique, le champ nommé comme l'étiquette du formulaire « Modifier »). Lot V (#390, cadrage v2, « Noms » ; règle 5,
+// choix par défaut, à confirmer) : le montant vendu porte un seul nom, « Montant vendu », sur la carte, dans « Modifier » et
+// dans le refus 400, comme dans le refus 403 (REFUS_RENTABILITE, inchangé) ; lecture écartée : « Le budget global… », le
+// message d'avant le lot.
 const CHAMPS = [
   {
     champ: 'budgetGlobalVendu', plafond: '9999999999.99', depassement: '10000000000.00', tropDeZeros: '00000000001',
-    message: 'Le budget global doit être un montant positif ou nul, d’au plus 10 chiffres avant la virgule et 2 après.',
+    message: 'Le montant vendu doit être positif ou nul, d’au plus 10 chiffres avant la virgule et 2 après.',
   },
   {
     champ: 'budgetMaterielVendu', plafond: '9999999999.99', depassement: '10000000000.00', tropDeZeros: '00000000001',

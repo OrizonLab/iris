@@ -50,7 +50,7 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
                 ) : <input readOnly value={chantier.client} className="form-input bg-gray-50" />}
               </div>
               <div className="form-group mb-0">
-                <label className="form-label">N° de Devis</label>
+                <label className="form-label">Référence de l'affaire</label>
                 {/* Obligatoire, sauf sur un chantier antérieur créé sans devis : l'exiger
                     ici interdirait toute autre correction sur sa fiche. */}
                 <input
@@ -58,7 +58,7 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
                   name="numeroDevis"
                   defaultValue={chantier.numeroDevis || ''}
                   className="form-input"
-                  placeholder="Référence d'affaire (ex : A26-0001)"
+                  placeholder="Référence de l'affaire (ex : A26-0001)"
                 />
               </div>
               <div className="form-group mb-0 md:col-span-2">
@@ -105,24 +105,24 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
                   modifie) ; sinon le champ arriverait vide et l'enregistrer l'écraserait. */}
               {chantier.budgetGlobalVendu != null && (
                 <div className="form-group mb-0">
-                  <label className="form-label font-bold text-primary">Budget Global (€ HT)</label>
+                  <label className="form-label font-bold text-primary">Montant vendu (€ HT)</label>
                   <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetGlobalVendu" defaultValue={valeurSaisie(chantier.budgetGlobalVendu)} className="form-input" />
                 </div>
               )}
               <div className="form-group mb-0">
-                <label className="form-label">Total Heures Vendues (h)</label>
+                <label className="form-label">Heures vendues (h)</label>
                 <input required type="text" inputMode="decimal" pattern="\d{1,8}([.,]\d{1,2})?" title="Nombre d’heures positif ou nul, deux décimales au plus (par exemple 18,75)" name="heuresVendues" defaultValue={valeurSaisie(chantier.heuresVendues)} className="form-input" />
               </div>
               {/* Budgets par poste : seulement pour qui les voit (le serveur refuse qu'un technicien les modifie). */}
               {chantier.budgetMaterielVendu != null && (
                 <div className="form-group mb-0">
-                  <label className="form-label">Dont Matériel (€ HT)</label>
+                  <label className="form-label">Budget matériel (€ HT)</label>
                   <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetMaterielVendu" defaultValue={valeurSaisie(chantier.budgetMaterielVendu)} className="form-input" />
                 </div>
               )}
               {chantier.budgetMainOeuvreVendu != null && (
                 <div className="form-group mb-0">
-                  <label className="form-label">Dont Main d'Œuvre (€ HT)</label>
+                  <label className="form-label">Budget main-d’œuvre (€ HT)</label>
                   <input required type="text" inputMode="decimal" pattern="\d{1,10}([.,]\d{1,2})?" title="Montant positif ou nul, deux décimales au plus (par exemple 1 250,50 s’écrit 1250,50)" name="budgetMainOeuvreVendu" defaultValue={valeurSaisie(chantier.budgetMainOeuvreVendu)} className="form-input" />
                 </div>
               )}

@@ -68,11 +68,14 @@ test('#499 : écrans Travaux, budgets et achat à l’euro près, coût d’une 
     await expect(page.getByRole('heading', { name: 'Base de données des Chantiers' })).toBeVisible();
     const carte = page.locator('div.p-4.bg-white.border').filter({ hasText: chantier.nom });
     const valeur = (libelle: string) => carte.getByText(libelle, { exact: true }).locator('xpath=following-sibling::div[1]');
-    await expect(valeur('Global Vendu')).toHaveText(/^2\u202F345\u0020€$/);
-    await expect(valeur('Matériel')).toHaveText(/^1\u202F234\u0020€$/);
-    await expect(valeur('Main d\'Œuvre')).toHaveText(/^1\u202F111\u0020€$/);
+    // Libellés du lot V (#390, cadrage v2, « Noms » ; règle 5, choix par défaut, à confirmer) : « Montant vendu », « Budget
+    // matériel », « Budget main-d’œuvre », « Heures vendues » (« Global Vendu », « Matériel », « Main d'Œuvre », « Heures
+    // Vendues » avant), comme sur la fiche et dans « Modifier ».
+    await expect(valeur('Montant vendu')).toHaveText(/^2\u202F345\u0020€$/);
+    await expect(valeur('Budget matériel')).toHaveText(/^1\u202F234\u0020€$/);
+    await expect(valeur('Budget main-d’œuvre')).toHaveText(/^1\u202F111\u0020€$/);
     // Heures vendues par fmtHeures : « 18,75 h », et non « 18.75 h » (nombre brut d'avant #499).
-    await expect(valeur('Heures Vendues')).toHaveText(/^18,75\u0020h$/);
+    await expect(valeur('Heures vendues')).toHaveText(/^18,75\u0020h$/);
 
     // 2. Journal des achats : 1 234,50 € HT à l'euro près, « 1 235 € » (moitié vers l'extérieur). Lectures écartées : « 1 234,5 € »
     // d'avant #499 (toLocaleString() sans locale, ici en français), le centime en devise ou la forme des documents

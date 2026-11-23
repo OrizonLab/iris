@@ -636,7 +636,8 @@ test('Devis, ligne au jour, Chromium en anglais : « 1,5 » jour et « 0 » refu
   await choisirClient(page, client);
   await page.getByRole('textbox', { name: 'Objet' }).fill(objet);
   const bloc = page.getByRole('group', { name: 'Main d’œuvre au jour ou à la demi-journée', exact: true });
-  await bloc.getByRole('combobox', { name: 'Main d’œuvre au jour ou à la demi-journée', exact: true }).selectOption(mainOeuvre.id);
+  // Liste nommée par son libellé visible, « Main d’œuvre », distinct de la légende du groupe (lot V, note W1 de #390).
+  await bloc.getByRole('combobox', { name: 'Main d’œuvre', exact: true }).selectOption(mainOeuvre.id);
   await bloc.getByRole('button', { name: 'Ajouter la ligne au jour ou à la demi-journée', exact: true }).click();
   const ligne = page.getByRole('group', { name: 'Ligne au jour ou à la demi-journée', exact: true });
   await expect(ligne).toHaveCount(1);

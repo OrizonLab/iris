@@ -24,6 +24,15 @@ export const fmtNombreHeures = (heures: number, decimalesMax: 2 | 3 = 2) => Numb
 // Le même nombre suivi de « h » : « 18,75 h », « 8 h ».
 export const fmtHeures = (heures: number, decimalesMax: 2 | 3 = 2) => `${fmtNombreHeures(heures, decimalesMax)} h`;
 
+// Solde d'heures (vendues moins réalisées) arrondi au centième, moitié vers l'extérieur, comme les montants : un écart
+// qui s'arrondit à zéro vaut 0, jamais -0. Le signe et la couleur se lisent sur cette valeur, celle qu'on affiche
+// (lot V, #212) ; « +1,25 h », « -0,5 h », et « 0 h » sans signe, jamais « +0 h » ni « -0 h ».
+export const soldeHeuresArrondi = (valeur: number) => arrondiCentime(valeur);
+export const fmtSoldeHeures = (valeur: number) => {
+  const solde = soldeHeuresArrondi(valeur);
+  return `${solde > 0 ? '+' : ''}${fmtHeures(solde)}`;
+};
+
 // Pourcentage exprimé en pour cent (12.5 → « 12,5 % »), en français, avec au plus `decimalesMax` décimales, sans zéro
 // inutile, et une espace ordinaire avant « % », comme les pourcentages déjà affichés en français (#499) ; jamais
 // « -0 % ». Chaque usage déclare ses décimales : marges et taux de dépassement 1, avancements et objectifs 0, taux de

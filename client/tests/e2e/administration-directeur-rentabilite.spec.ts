@@ -74,8 +74,9 @@ test.describe('Administration > Chantiers ouverte au directeur sans la rentabili
       await expect(vueDirecteur.getByRole('heading', { name: 'Base de données des Chantiers' })).toBeVisible();
       const carte = vueDirecteur.locator('div.p-4.bg-white.border').filter({ hasText: chantier.nom });
       await expect(carte).toBeVisible();
-      // Valeur affichée sous le libellé « Global Vendu » de la carte du chantier.
-      await expect(carte.getByText('Global Vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText('—');
+      // Valeur affichée sous le libellé « Montant vendu » de la carte du chantier (« Global Vendu » avant le lot V : un seul
+      // nom par valeur, #390, cadrage v2, « Noms », choix par défaut, à confirmer).
+      await expect(carte.getByText('Montant vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText('—');
       // Aucun « 240 € » sur la carte (le nom du chantier porte un horodatage, qui peut contenir « 240 » sans euro).
       await expect(carte).not.toContainText(/240\s€/);
       // Témoin : l'administrateur, sous le même réglage, lit le vendu.
@@ -83,7 +84,7 @@ test.describe('Administration > Chantiers ouverte au directeur sans la rentabili
       contextes.push(vueAdmin.context());
       await vueAdmin.goto('/admin', { waitUntil: 'networkidle' });
       const carteAdmin = vueAdmin.locator('div.p-4.bg-white.border').filter({ hasText: chantier.nom });
-      await expect(carteAdmin.getByText('Global Vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^240\s€$/);
+      await expect(carteAdmin.getByText('Montant vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^240\s€$/);
     } finally {
       await request.patch(`${api}/chantiers/${chantier.id}/statut`, { headers, data: { statut: 'TERMINE' } }).catch(() => undefined);
       for (const contexte of contextes) await contexte.close().catch(() => undefined);

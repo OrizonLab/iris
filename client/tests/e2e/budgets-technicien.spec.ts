@@ -82,7 +82,9 @@ test('un technicien consulte son chantier sans montant ni alerte de dépassement
     await vueTechnicien.goto(`/chantiers/${chantier.id}`, { waitUntil: 'networkidle' });
     await expect(vueTechnicien.locator('[data-consultation-seule]')).toContainText('n’est pas autorisé à modifier une affaire');
     await expect(vueTechnicien.getByText('/ 2 h')).toBeVisible();
-    const SECTIONS_DE_MONTANTS = ['Matériel Prévu', 'Coût MO Prévu', 'Consommation Matériel', 'Coût Main d\'Œuvre', 'Achats par catégorie', 'Achats du chantier'];
+    // Cartes des budgets par poste : « Budget matériel » et « Budget main-d’œuvre » depuis le lot V (« Matériel Prévu » et
+    // « Coût MO Prévu » avant ; #390, cadrage v2, « Noms », choix par défaut, à confirmer). Le témoin du N+1, plus bas, les lit.
+    const SECTIONS_DE_MONTANTS = ['Budget matériel', 'Budget main-d’œuvre', 'Consommation Matériel', 'Coût Main d\'Œuvre', 'Achats par catégorie', 'Achats du chantier'];
     for (const section of SECTIONS_DE_MONTANTS) {
       await expect(vueTechnicien.getByText(section, { exact: true })).toHaveCount(0);
     }

@@ -1,11 +1,10 @@
 import { Calendar, User, Clock3, Briefcase, MapPin } from 'lucide-react';
 import { isAdminRole } from '../roles';
-import { jourCivilChantier } from '../lib/dateFormatting';
+import { formatCompanyDate, jourCivilChantier } from '../lib/dateFormatting';
 import { AlertesChantier } from './AlertesChantier';
 import { ancienneteSaisie } from '../lib/suiviChantiers';
 import { toDateFrancaise } from '../lib/formats';
-
-const STATUT_LABELS: Record<string, string> = { EN_COURS: 'En cours', TERMINE: 'Terminé', ANNULE: 'Annulé' };
+import { libelleStatutChantier } from '../lib/statutsChantier';
 
 export function ChantierEnTete({ chantier, isTermine, libelleBaremeReduit, userRole, handleToggleEncaisse, savingEncaisse, companyTimezone, joursEcoules, metrics, editingCommercial, savingCommercial, handleAssignCommercial, setEditingCommercial, commerciaux, canEditCommercial, startEditCommercial }: {
   chantier: any;
@@ -31,7 +30,7 @@ export function ChantierEnTete({ chantier, isTermine, libelleBaremeReduit, userR
             <div className="flex items-center gap-3 flex-wrap mb-2">
               <h2 className="text-3xl font-extrabold text-primary-dark tracking-tight m-0">{chantier.nom}</h2>
               <span className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${isTermine ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-accent'}`}>
-                {STATUT_LABELS[chantier.statut] || chantier.statut}
+                {libelleStatutChantier(chantier.statut)}
               </span>
               {chantier.types?.map((t: string) => (
                 <span key={t} className="text-[11px] font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">{t}</span>
@@ -56,8 +55,8 @@ export function ChantierEnTete({ chantier, isTermine, libelleBaremeReduit, userR
               ))}
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-600">
-              <span className="flex items-center gap-1.5"><strong className="text-gray-800">Client:</strong> {chantier.client}</span>
-              <span className="flex items-center gap-1.5"><strong className="text-gray-800">Devis:</strong> {chantier.numeroDevis || 'N/A'}</span>
+              <span className="flex items-center gap-1.5"><strong className="text-gray-800">Client :</strong> {chantier.client}</span>
+              {chantier.numeroDevis && <span className="flex items-center gap-1.5"><strong className="text-gray-800">Référence de l'affaire :</strong> {chantier.numeroDevis}</span>}
               {chantier.adresse && (
                 <span className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400" /> {chantier.adresse}</span>
               )}
@@ -67,7 +66,11 @@ export function ChantierEnTete({ chantier, isTermine, libelleBaremeReduit, userR
               <span className="flex items-center gap-1.5">
                 <Calendar size={14} className="text-gray-400" />
                 Démarré le {jourCivilChantier(chantier.dateDebut, companyTimezone)}
-                {isTermine && chantier.dateFin ? ` — terminé le ${jourCivilChantier(chantier.dateFin, companyTimezone)} (${joursEcoules} j)` : ` (il y a ${joursEcoules} j)`}
+                {/* Affaire annulée (lot V, #392) : ni « terminé le » ni nombre de jours, mais la date d'annulation, au jour civil de
+                    la société, et le motif s'il est enregistré, comme un contrat annulé avec son devis. */}
+                {chantier.statut === 'ANNULE'
+                  ? ` — annulé avec son devis${chantier.annuleLe ? ` le ${formatCompanyDate(chantier.annuleLe, companyTimezone)}` : ''}${chantier.motifAnnulation ? ` : ${chantier.motifAnnulation}` : ''}`
+                  : isTermine && chantier.dateFin ? ` — terminé le ${jourCivilChantier(chantier.dateFin, companyTimezone)} (${joursEcoules} j)` : ` (il y a ${joursEcoules} j)`}
               </span>
               {metrics.joursSansSaisie != null && (
                 <span className="flex items-center gap-1.5" data-derniere-saisie>
