@@ -335,6 +335,8 @@ Dans les tableaux, « blockCommercial » se lit « tous sauf COM et DIR » et «
 
 `perimetreChantiers` (387-389) ajoute `statut ≠ ANNULE` pour tout le monde, administrateurs compris (`AFFAIRE_NON_ANNULEE`, 385). Elle sert à la liste (3286), au journal d'un chantier (3372), aux achats (5065), aux heures (5220), à l'historique d'un client (5850) et aux statistiques (7059, 7165, 7482, 7571). Conséquence : le journal des saisies d'une affaire annulée est fermé à tous, administrateurs compris, alors que sa fiche reste lisible (A4.2).
 
+*Note de suite, 23-11-2026 : le constat ci-dessus décrit le code à `84e27a1`. Depuis #667 (lot Y, `afed682`, R1 du passage hebdomadaire #661, point 1 de #136), `GET /api/chantiers/:id/journal-saisies` n'emploie plus `perimetreChantiers` mais `perimetreChantiersAnnulesCompris` (alias de `perimetreDemandeur`, `server/src/droits/perimetres.ts`) : le journal d'une affaire annulée est lisible par les comptes qui lisent la fiche par ce périmètre, et non plus fermé à tous. Les autres usages de `perimetreChantiers` cités ci-dessus sont inchangés. Choix par défaut, à confirmer : [`MODELE-DROITS-COMPTES.md`](MODELE-DROITS-COMPTES.md) et [`MODELE-DROITS-CIBLE.md`](MODELE-DROITS-CIBLE.md), section 4.2, note 1.*
+
 ### A4.2 Fiche d'un chantier (`GET /api/chantiers/:id`) : règle propre, `server/index.ts:3332-3339`
 
 Lecture admise pour un admin, ou si `isOwner` : compte DIR, **ou `commercialId = moi` (tout rôle), ou `responsableId = moi` (tout rôle)**, ou RESP dont la branche contient le titulaire. Pas de filtre sur `ANNULE` : la fiche d'une affaire annulée reste lisible. Écart interne : un COM titulaire d'un chantier voit sa fiche, mais pas ce chantier dans sa liste (395).
