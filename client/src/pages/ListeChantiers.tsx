@@ -363,7 +363,7 @@ const ListeChantiers = () => {
               type="search"
               value={recherche}
               onChange={(e) => majParametre('q', e.target.value, '')}
-              placeholder="Rechercher un chantier, un client, un n° de devis, un responsable…"
+              placeholder="Rechercher un chantier, un client, une référence d'affaire, un responsable…"
               className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm"
             />
           </label>

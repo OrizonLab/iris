@@ -124,8 +124,10 @@ test('rapport client : l’administration télécharge le PDF du serveur, sans m
 
   const page = await allerSurPageAdmin(`/chantiers/${chantier.id}`);
   await expect(page.getByRole('heading', { name: nom })).toBeVisible();
-  // Les montants existent et l'administration les voit sur la fiche : le rapport client ne passe pas à vide.
-  await expect(page.locator('main')).toContainText(/4\s?321,09/);
+  // Les montants existent et l'administration les voit sur la fiche : le rapport client ne passe pas à vide. Le montant vendu
+  // de 4 321,09 € HT s'y lit à l'euro près depuis le lot V (#388, cadrage v2, « Formats de la fiche » : fmtEuro, milliers en
+  // U+202F, espace ordinaire avant « € ») : « 4 321 € » (« 4 321,09 € » avant le lot).
+  await expect(page.getByText('Montant vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^4\u202F321\u0020€$/);
 
   // Trois boutons, dans l'ordre : « Modifier », « Rapport interne (PDF) », « Rapport client (PDF) ».
   const boutonClient = page.getByTestId('rapport-client-pdf');

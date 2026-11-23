@@ -218,16 +218,28 @@ test('lot V, navigateur en anglais : fiche, « Modifier », liste, tableau de bo
     //    « -12,50 € » (au centime), « -12 € » (Math.round, arrondi au pair) ;
     //  - 18,79 h pour 18,75, 187,90 € : 0,04 h × 10 = 0,40 € → rien ; lecture écartée : « -0.4 € » ou « -0,40 € », affiché avant
     //    le lot (arrondi au centime positif), à côté d'un montant à l'euro près.
-    let realisees = { heuresRealisees: 20, moReel: 200 };
+    let realisees: Partial<Metriques> = { heuresRealisees: 20, moReel: 200 };
     await remplacerReponse(page, `/api/chantiers/${A.id}`, (lue: Fiche) => ({ ...lue, metrics: { ...lue.metrics, ...realisees } }));
     await page.reload({ waitUntil: 'networkidle' });
     await expect(mainOeuvre.locator('div.mt-2 > span').first()).toHaveText(exactement('Manque à gagner : -13 €'));
     await expect(mainOeuvre.locator('div.mt-2 > span').first()).toHaveClass(classe('text-red-600'));
-    realisees = { heuresRealisees: 18.79, moReel: 187.9 };
+    // Même réponse, avec un matériel réel de 875,50 € et des dépenses réelles cumulées de 1 000,50 € (affichage seul) : chaque
+    // montant réel de la fiche est à l'euro près, moitié vers l'extérieur, comme les budgets (cadrage v2, « Formats de la
+    // fiche ») : « 188 € » de main-d'œuvre (187,90 €), « 876 € » de matériel, « 1 001 € » de dépenses. Lectures écartées : le
+    // texte d'avant le lot mis en français sans changer sa précision, « 187,9 € », « 875,5 € » et « 1 000,5 € »
+    // (toLocaleString('fr-FR') au centime) ; « 187,90 € », « 875,50 € », « 1 000,50 € » (centime en devise) ; « 875 € » et
+    // « 1 000 € » (troncature ou arrondi au pair). Consommations : 875,5 / 1 000,5 = 87,51 % → « 88 % » ; 187,9 / 234,06 =
+    // 80,28 % → « 80 % ».
+    realisees = { heuresRealisees: 18.79, moReel: 187.9, materielReel: 875.5, totalDepenses: 1000.5 };
     await page.reload({ waitUntil: 'networkidle' });
     await expect(heures.locator('div.mb-2 > div.text-right > span').first()).toHaveText(exactement('18,79 h'));
     await expect(mainOeuvre.locator('div.mt-2 > span').first()).toHaveText('');
     await expect(page.locator('main')).not.toContainText('Manque à gagner');
+    await expect(mainOeuvre.locator('div.mb-2 > div.text-right > span')).toHaveText([exactement('188 €'), exactement('/ 234 €')]);
+    await expect(mainOeuvre.locator('div.mt-2 > span').last()).toHaveText(exactement('80 %'));
+    await expect(materiel.locator('div.mb-2 > div.text-right > span')).toHaveText([exactement('876 €'), exactement(`/ 1${FINE}001 €`)]);
+    await expect(materiel.locator('div.mt-2')).toHaveText(exactement('88 %'));
+    await expect(valeurSous(marge, 'Dépenses Réelles Cumulées')).toHaveText(exactement(`1${FINE}001 €`));
     await page.unrouteAll({ behavior: 'ignoreErrors' });
 
     // 2. Fiche de B, marge nulle (1 000 € vendus, 1 000 € d'achats) : « 0 € » et « 0 % du vendu », en vert (une seule règle,
@@ -257,6 +269,20 @@ test('lot V, navigateur en anglais : fiche, « Modifier », liste, tableau de bo
     await expect(marge).toHaveClass(classe('bg-emerald-50'));
     await expect(estimation.locator('div.text-2xl')).toHaveText(new RegExp('^0\\u0020€\\s*0\\u0020%$'));
     await expect(page.locator('main')).not.toContainText(/[-−]0(?:[.,]0)?\s?%/);
+    // Le titre, le montant et le pourcentage suivent la même règle que le cadre : vert pour « 0 € ». Lecture écartée : la
+    // couleur d'un de ces éléments lue sur la valeur brute (-0,30 €), en rouge à côté d'un cadre vert.
+    for (const element of [marge.getByText('Marge Commerciale', { exact: true }), marge.locator('div.text-5xl'), marge.getByText(/du vendu$/)]) {
+      await expect(element).toHaveClass(classe('text-emerald-700'));
+    }
+    // Marge de -0,50 € (injectée, affichage seul) : arrondie à l'euro moitié vers l'extérieur (arrondiEuro, cadrage v2), elle
+    // s'affiche « -1 € », en rouge. Lecture écartée : Math.round, qui ramène -0,5 à 0 (« 0 € » en vert ; de même « -12 € » pour
+    // -12,50 €), alors que fmtEuro et la liste écrivent « -1 € ».
+    await remplacerReponse(page, `/api/chantiers/${C.id}`, (lue: Fiche) => ({ ...lue, metrics: { ...lue.metrics, margeCommerciale: -0.5, margePct: -0.05 } }));
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(marge.locator('div.text-5xl')).toHaveText(exactement('-1 €'));
+    await expect(marge.locator('div.text-5xl')).toHaveClass(classe('text-red-700'));
+    await expect(marge).toHaveClass(classe('bg-red-50'));
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
 
     // 4. Liste des chantiers.
     await page.goto('/chantiers', { waitUntil: 'networkidle' });
@@ -297,7 +323,12 @@ test('lot V, navigateur en anglais : fiche, « Modifier », liste, tableau de bo
         ...ch,
         // Liste mixte : B sans référence d'affaire (témoin : A garde la sienne).
         numeroDevis: scenario === 'liste mixte' && ch.id === B.id ? null : ch.numeroDevis,
-        metrics: { ...ch.metrics, diffHeures: soldes[ch.id], ...(rentabiliteMasquee ? { margeCommerciale: null, margePct: null, margeEstimee: null, margeEstimeePct: null } : {}) },
+        metrics: {
+          ...ch.metrics, diffHeures: soldes[ch.id],
+          ...(rentabiliteMasquee ? { margeCommerciale: null, margePct: null, margeEstimee: null, margeEstimeePct: null } : {}),
+          // Liste mixte : marge de A à 12,25 % du vendu (affichage seul), pour lire les décimales de « % du vendu ».
+          ...(scenario === 'liste mixte' && ch.id === A.id ? { margePct: 12.25 } : {}),
+        },
       };
     }));
     await page.reload({ waitUntil: 'networkidle' });
@@ -316,6 +347,9 @@ test('lot V, navigateur en anglais : fiche, « Modifier », liste, tableau de bo
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByRole('columnheader', { name: 'Marge' })).toBeVisible();
     await expect(celluleMarge(A.id).locator('span').first()).toHaveText(exactement('+235 €'));
+    // « % du vendu » de la liste à une décimale au plus (fmtPourcentage(…, 1), comme la fiche) : 12,25 % → « 12,3 % du vendu ».
+    // Lectures écartées : « 12 % » (aucune décimale, comme l'avancement), « 12,25 % » (deux), « 12,2 % » (troncature).
+    await expect(celluleMarge(A.id).getByText(/du vendu$/)).toHaveText(exactement('12,3 % du vendu'));
     const soldeMixte = (id: string) => celluleMarge(id).getByText(/^Solde :/);
     await expect(soldeMixte(B.id)).toHaveText(exactement('Solde : 0 h'));
     await expect(soldeMixte(B.id)).toHaveClass(classe('bg-emerald-100'));
