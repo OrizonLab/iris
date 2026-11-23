@@ -328,7 +328,7 @@ Ces choix par défaut, simplifications ou cas ignorés heurtent une exigence obl
 |---|---|---|
 | #35 | Export comptable sans période ni journal ; journal des factures sans avant ni après (issue ouverte, **sans l'étiquette `suivi-audit`** : fiche de reste à faire et de dette relevée avant la mise en service) | FE-10 pour la piste d'audit ; l'export reste à #35 |
 | #243 | Cohérence interne des pièces émises non garantie en base | Préalable utile à FE-2 : le modèle canonique suppose des totaux cohérents |
-| #247 | Double clic sur « Créer l'avoir partiel » : deux avoirs émis et numérotés | Correctif propre à Iris, au plus tard avec FE-5 : garde du formulaire et clé d'idempotence côté serveur (correctif proposé par l'issue). Le `trackingId` de FE-5 ne dédoublonne qu'un même dépôt : deux avoirs distincts seraient déposés tous deux |
+| #247 | Double clic sur « Créer l'avoir partiel » : deux avoirs émis et numérotés | Correctif propre à Iris, au plus tard avec FE-5 : garde du formulaire et clé d'idempotence côté serveur (correctif proposé par l'issue). **Issue fermée par #663 (lot X, 23-11-2026)** : la clé d'envoi de la création d'un avoir partiel (`Facture.cleEnvoi`) est **implémentée** ([historique](HISTORIQUE-DECISIONS.md#lot-du-23-11-2026-663)). Le `trackingId` de FE-5 reste distinct : il ne dédoublonne qu'un même dépôt, et deux avoirs distincts seraient déposés tous deux |
 | #352 | Brouillon bloqué par la chronologie | FE-6 (date de la nouvelle facture) |
 | #536 | N3 : preuve d'envoi non reproductible | FE-5 |
 | #540 | N7 : devis `A26-0001` et avoir `A2026-0001` | FE-1 (préfixes ; Q-20) |
