@@ -2,4 +2,5 @@
 // n'affiche jamais le code brut (« EN_COURS », « ANNULE »). Un code inconnu est rendu tel quel, plutôt que masqué.
 export const LIBELLES_STATUT_CHANTIER: Record<string, string> = { EN_COURS: 'En cours', TERMINE: 'Terminé', ANNULE: 'Annulé' };
 
-export const libelleStatutChantier = (statut: string) => LIBELLES_STATUT_CHANTIER[statut] ?? statut;
+// `Object.hasOwn` : une clé héritée (« toString », « constructor ») n'est pas un libellé, et le code est rendu tel quel.
+export const libelleStatutChantier = (statut: string) => (Object.hasOwn(LIBELLES_STATUT_CHANTIER, statut) ? LIBELLES_STATUT_CHANTIER[statut] : statut);

@@ -99,8 +99,10 @@ test('fiche chantier, Chromium en anglais : « 18,75 » heures vendues et « 125
     await expect(modifier).toBeVisible();
   };
   const champ = (etiquette: string) => page.locator('.form-group', { has: page.getByText(etiquette, { exact: true }) }).locator('input');
-  const heures = champ('Total Heures Vendues (h)');
-  const budget = champ('Budget Global (€ HT)');
+  // Étiquettes de « Modifier » depuis le lot V (#390, cadrage v2, « Noms » ; « Total Heures Vendues (h) » et « Budget Global
+  // (€ HT) » avant).
+  const heures = champ('Heures vendues (h)');
+  const budget = champ('Montant vendu (€ HT)');
 
   // Champs texte décimaux, pré-remplis à la virgule (« 12,5 », « 980,4 ») : valeurs de départ lues par le serveur.
   await ouvrir();
@@ -134,12 +136,13 @@ test('fiche chantier, Chromium en anglais : « 18,75 » heures vendues et « 125
   await expect(modifier).toHaveCount(0);
   expect(await relire()).toEqual([18.75, 1250.5]);
 
-  // Affichés à la française : « 18,75 h » (heures prévues) ; budget vendu « 1 250,5 € » (milliers en U+202F). La carte du
-  // budget écrit le montant par `toLocaleString()`, sans deux décimales fixes (#388, ouverte, hors périmètre) : l'expression
-  // admet aussi « 1 250,50 € », qu'en donnera le correctif. Elle écarte « 125 050 € » (#394), « 1,250.5 € » (anglais),
-  // « 1 250 € » ou « 1 251 € » (euro près).
-  await expect(page.getByText('Heures Prévues', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText('18,75 h');
-  await expect(page.getByText('Budget Vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^1 250,50? €$/);
+  // Affichés à la française : « 18,75 h » (carte « Heures vendues ») ; montant vendu à l'euro près depuis le lot V (#388,
+  // cadrage v2, « Formats de la fiche » : fmtEuro, moitié vers l'extérieur ; choix par défaut, à confirmer) : 1 250,50 €
+  // s'affiche « 1 251 € », milliers en U+202F, espace ordinaire avant « € ». Lectures écartées : « 125 050 € » ou « 125 051 € »
+  // (#394), « 1 250,5 € » (toLocaleString(), texte d'avant le lot), « 1 250,50 € » (au centime), « 1 250 € » (troncature ou
+  // arrondi au pair).
+  await expect(page.getByText('Heures vendues', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText('18,75 h');
+  await expect(page.getByText('Montant vendu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^1\u202F251\u0020€$/);
   // Rouverte, la fenêtre reprend les valeurs enregistrées, à la virgule.
   await ouvrir();
   await expect(heures).toHaveValue('18,75');

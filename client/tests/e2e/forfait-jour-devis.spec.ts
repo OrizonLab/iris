@@ -73,7 +73,14 @@ test('fiche de main d’œuvre avec ses prix de la demi-journée, puis devis com
   // « au forfait », pris par les prestations d'unité « forfait ».
   const ajouter = bloc.getByRole('button', { name: 'Ajouter la ligne au jour ou à la demi-journée', exact: true });
   await expect(ajouter).toBeDisabled();
-  await bloc.getByRole('combobox', { name: 'Main d’œuvre au jour ou à la demi-journée', exact: true }).selectOption(mainOeuvre.id);
+  // Note W1 de la vérification n° 3 de #384 (#390 ; lot V, cadrage v2, « W1 ») : la liste des mains d'œuvre est nommée par son
+  // libellé visible, « Main d’œuvre », et non plus du même nom que la légende du groupe qui la contient (un lecteur d'écran
+  // l'annonçait deux fois). Témoin : le groupe porte toujours ce nom. Lecture écartée : un `aria-label` gardé sur la liste.
+  await expect(bloc).toHaveCount(1);
+  await expect(bloc.getByRole('combobox', { name: 'Main d’œuvre au jour ou à la demi-journée' })).toHaveCount(0);
+  const listeMainOeuvre = bloc.getByRole('combobox', { name: 'Main d’œuvre', exact: true });
+  await expect(listeMainOeuvre).toHaveCount(1);
+  await listeMainOeuvre.selectOption(mainOeuvre.id);
   await expect(bloc.getByRole('combobox', { name: 'Tarif du forfait' }).locator('option')).toHaveText(['Hors contrat — 300,00 € HT', 'Sous contrat — 280,00 € HT']);
   await expect(bloc.getByTestId('prix-forfait-propose')).toHaveText('300,00 € HT par jour');
   await ajouter.click();
@@ -91,12 +98,12 @@ test('fiche de main d’œuvre avec ses prix de la demi-journée, puis devis com
 
   // Main d'œuvre sans prix de la demi-journée : l'ajout reste inactif, avec la raison.
   await bloc.getByRole('combobox', { name: 'Forfait de la main d’œuvre' }).selectOption('DEMI_JOURNEE');
-  await bloc.getByRole('combobox', { name: 'Main d’œuvre au jour ou à la demi-journée', exact: true }).selectOption(sansDemi.id);
+  await listeMainOeuvre.selectOption(sansDemi.id);
   await expect(bloc.getByRole('combobox', { name: 'Tarif du forfait' }).locator('option')).toHaveText(['Hors contrat — non réglé', 'Sous contrat — non réglé']);
   await expect(bloc.getByRole('status')).toContainText('n’a pas de prix de la demi-journée hors contrat');
   await expect(ajouter).toBeDisabled();
 
-  await bloc.getByRole('combobox', { name: 'Main d’œuvre au jour ou à la demi-journée', exact: true }).selectOption(mainOeuvre.id);
+  await listeMainOeuvre.selectOption(mainOeuvre.id);
   await bloc.getByRole('combobox', { name: 'Tarif du forfait' }).selectOption('SOUS_CONTRAT');
   await expect(bloc.getByTestId('prix-forfait-propose')).toHaveText('150,50 € HT par demi-journée');
   await ajouter.click();

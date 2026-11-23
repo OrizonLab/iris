@@ -12,6 +12,10 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // montants refusée plutôt que faussée » (#394, cadrage v3, point 2, choix par défaut, à confirmer), les champs de
 // « Modifier » sont des champs texte décimaux : un `pattern` (deux décimales au plus, 8 chiffres avant la virgule pour
 // les heures, 10 pour les budgets) remplace `min="0"` et le pas de 0,01, et la valeur pré-remplie s'écrit à la virgule.
+// Lot V (#390, cadrage v2, « Noms » ; règle 5, choix par défaut, à confirmer) : une seule valeur, un seul nom, « Heures
+// vendues » sur la carte de la fiche (« Heures Prévues » avant) et « Heures vendues (h) » dans « Modifier » (« Total Heures
+// Vendues (h) » avant) ; les budgets s'appellent « Montant vendu (€ HT) », « Budget matériel (€ HT) » et « Budget
+// main-d’œuvre (€ HT) » (« Budget Global (€ HT) », « Dont Matériel (€ HT) », « Dont Main d'Œuvre (€ HT) » avant).
 
 type Chantier = { id: string; nom: string; heuresVendues: number };
 
@@ -52,8 +56,8 @@ async function preparer(request: APIRequestContext, token: string, creerClient: 
   return { chantier, nomIntervenant };
 }
 
-// Carte « Heures Prévues » et carte « Consommation Heures » (heures réalisées, puis « / » heures vendues) de la fiche.
-const heuresPrevues = (page: Page) => page.getByText('Heures Prévues', { exact: true }).locator('xpath=following-sibling::div[1]');
+// Carte « Heures vendues » et carte « Consommation Heures » (heures réalisées, puis « / » heures vendues) de la fiche.
+const carteHeuresVendues = (page: Page) => page.getByText('Heures vendues', { exact: true }).locator('xpath=following-sibling::div[1]');
 const consommationHeures = (page: Page) => page.getByRole('heading', { name: 'Consommation Heures' }).locator('xpath=following-sibling::div[1]/span');
 // Carte « Heures par intervenant » : la valeur écrite à côté du nom de l'intervenant.
 const heuresIntervenant = (page: Page, nom: string) => page.getByRole('heading', { name: 'Heures par intervenant' }).locator('xpath=..')
@@ -71,7 +75,7 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
   // « 0.75 h » (toFixed) ni « 0,8 h ».
   await allerSurPageAdmin(`/chantiers/${chantier.id}`);
   await expect(page.getByRole('heading', { name: chantier.nom })).toBeVisible();
-  await expect(heuresPrevues(page)).toHaveText('18,75 h');
+  await expect(carteHeuresVendues(page)).toHaveText('18,75 h');
   await expect(consommationHeures(page)).toHaveText(['0,75 h', '/ 18,75 h']);
   // Carte « Heures par intervenant » (C1 du contrôle de cohérence de #384) : les mêmes heures pointées, « 0,75 h », et non
   // « 0.8 h » (toFixed(1)), qui contredisait « 0,75 h » de la carte voisine.
@@ -82,7 +86,7 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
   const ligne = page.locator(`tr[data-chantier="${chantier.id}"]`);
   await expect(ligne.locator('td').nth(1).locator('div').first()).toHaveText('0,75 h / 18,75 h');
 
-  // « Modifier » : le champ « Total Heures Vendues (h) » admet chaque valeur au centième. Au pas de 0,5, compté depuis la
+  // « Modifier » : le champ « Heures vendues (h) » admet chaque valeur au centième. Au pas de 0,5, compté depuis la
   // valeur d'origine du champ, le navigateur refusait 20 depuis 18,75, puis 18,75 depuis 18,5. Depuis #394 (cadrage v3,
   // point 2), c'est un champ texte décimal à `pattern`, pré-rempli à la virgule (« 18,75 ») ; la virgule et le point sont
   // admis à la saisie.
@@ -102,7 +106,7 @@ test('chantier de 18,75 heures vendues ouvert d’un devis au jour et à la demi
     expect((await enregistrement).status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toHaveCount(0);
     expect(await relire()).toBe(attendu);
-    await expect(heuresPrevues(page)).toHaveText(affiche);
+    await expect(carteHeuresVendues(page)).toHaveText(affiche);
     await expect(consommationHeures(page)).toHaveText(['0,75 h', `/ ${affiche}`]);
   };
 
@@ -143,10 +147,10 @@ test('« Modifier » : « -5 », trois décimales et une valeur au-delà de la c
   const { chantier } = await preparer(request, session.token, creerClient);
   // Étiquette, nom, plafond de la colonne (admis) et première valeur au-delà (refusée), selon les bornes du serveur.
   const CHAMPS = [
-    ['Budget Global (€ HT)', 'budgetGlobalVendu', '9999999999,99', '10000000000'],
-    ['Total Heures Vendues (h)', 'heuresVendues', '99999999,99', '100000000'],
-    ['Dont Matériel (€ HT)', 'budgetMaterielVendu', '9999999999,99', '10000000000'],
-    ['Dont Main d\'Œuvre (€ HT)', 'budgetMainOeuvreVendu', '9999999999,99', '10000000000'],
+    ['Montant vendu (€ HT)', 'budgetGlobalVendu', '9999999999,99', '10000000000'],
+    ['Heures vendues (h)', 'heuresVendues', '99999999,99', '100000000'],
+    ['Budget matériel (€ HT)', 'budgetMaterielVendu', '9999999999,99', '10000000000'],
+    ['Budget main-d’œuvre (€ HT)', 'budgetMainOeuvreVendu', '9999999999,99', '10000000000'],
   ] as const;
   const relire = async () => {
     const fiche = await (await request.get(`${api}/chantiers/${chantier.id}`, { headers: { Authorization: `Bearer ${session.token}` } })).json() as Record<string, unknown>;
@@ -210,7 +214,7 @@ test('« Modifier » : « -5 », trois décimales et une valeur au-delà de la c
   // 100 000 000 heures, formulaire privé de la validation du navigateur (`noValidate`) : le serveur les refuse (au-delà
   // des 8 chiffres de la colonne), son message s'affiche, et « Modifier » reste ouvert avec la saisie. Rien n'est
   // enregistré.
-  const heures = champ('Total Heures Vendues (h)');
+  const heures = champ('Heures vendues (h)');
   await heures.fill('100000000');
   await heures.evaluate((element) => { (element as HTMLInputElement).form!.noValidate = true; });
   const reponse = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname === `/api/chantiers/${chantier.id}`);

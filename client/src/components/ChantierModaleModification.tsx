@@ -58,7 +58,7 @@ export function ChantierModaleModification({ setEditingChantier, handleChantierS
                   name="numeroDevis"
                   defaultValue={chantier.numeroDevis || ''}
                   className="form-input"
-                  placeholder="Référence d'affaire (ex : A26-0001)"
+                  placeholder="Référence de l'affaire (ex : A26-0001)"
                 />
               </div>
               <div className="form-group mb-0 md:col-span-2">

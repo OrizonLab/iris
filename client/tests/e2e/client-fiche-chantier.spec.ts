@@ -88,9 +88,10 @@ test('#111 : client de la fiche chantier hors des 200 premiers, réaffecté puis
     await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toBeVisible();
   };
 
-  // En-tête de la fiche : le libellé client du chantier (Chantier.client).
-  const enTeteClient = page.locator('span', { has: page.locator('strong', { hasText: /^Client:$/ }) });
-  await expect(enTeteClient).toHaveText(`Client: ${initial.raisonSociale}`);
+  // En-tête de la fiche : le libellé client du chantier (Chantier.client), sous « Client : » (« Client: » avant le lot V, #392 :
+  // espace avant le deux-points, à la française).
+  const enTeteClient = page.locator('span', { has: page.locator('strong', { hasText: /^Client :$/ }) });
+  await expect(enTeteClient).toHaveText(`Client : ${initial.raisonSociale}`);
 
   // 1. Pendant le chargement (retardé) de la liste des clients, le sélecteur est désactivé : un
   //    renommage s'enregistre quand même, sans envoyer le client.
@@ -131,7 +132,7 @@ test('#111 : client de la fiche chantier hors des 200 premiers, réaffecté puis
   expect((await lireChantier()).clientId).toBe(autre.id);
   // Le libellé suit le nouveau client (décision de Nelson du 16-10-2026) : en-tête de la fiche,
   // et chantier proposé à une intervention SAV du nouveau client, plus à celle de l'ancien.
-  await expect(enTeteClient).toHaveText(`Client: ${autre.raisonSociale}`);
+  await expect(enTeteClient).toHaveText(`Client : ${autre.raisonSociale}`);
   const sav = await page.context().newPage();
   await sav.goto('/interventions', { waitUntil: 'networkidle' });
   await sav.getByRole('button', { name: 'Nouvelle intervention' }).click();
@@ -206,7 +207,7 @@ test('changement de client tracé au journal de la fiche, puis refusé une fois 
   const page = await allerSurPageAdmin(`/chantiers/${chantier.id}`);
   const journal = page.getByRole('region', { name: 'Journal d’audit des saisies' });
   const traces = journal.getByText('Client de l’affaire — changement', { exact: true });
-  const enTeteClient = page.locator('span', { has: page.locator('strong', { hasText: /^Client:$/ }) });
+  const enTeteClient = page.locator('span', { has: page.locator('strong', { hasText: /^Client :$/ }) });
   const select = page.getByRole('combobox', { name: 'Client du chantier' });
   const choisir = async (client: { id: string; raisonSociale: string }) => {
     await page.getByRole('button', { name: 'Modifier', exact: true }).first().click();
@@ -216,13 +217,13 @@ test('changement de client tracé au journal de la fiche, puis refusé une fois 
     await select.selectOption(client.id);
     await expect(select).toHaveValue(client.id);
   };
-  await expect(enTeteClient).toHaveText(`Client: ${premier.raisonSociale}`);
+  await expect(enTeteClient).toHaveText(`Client : ${premier.raisonSociale}`);
   await expect(traces).toHaveCount(0);
 
   // 1. Changement de client : la fiche suit, et le journal dit qui l'a fait, avant et après.
   await choisir(second);
   expect((await enregistrer(page, chantier.id)).clientId).toBe(second.id);
-  await expect(enTeteClient).toHaveText(`Client: ${second.raisonSociale}`);
+  await expect(enTeteClient).toHaveText(`Client : ${second.raisonSociale}`);
   await expect(traces).toHaveCount(1);
   await expect(journal.getByText(`Avant : ${premier.raisonSociale}`, { exact: true })).toBeVisible();
   await expect(journal.getByText(`Après : ${second.raisonSociale}`, { exact: true })).toBeVisible();
@@ -242,7 +243,7 @@ test('changement de client tracé au journal de la fiche, puis refusé une fois 
   // La fenêtre reste ouverte avec la saisie ; relue, la fiche n'a pas changé.
   await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toBeVisible();
   await page.reload({ waitUntil: 'networkidle' });
-  await expect(enTeteClient).toHaveText(`Client: ${second.raisonSociale}`);
+  await expect(enTeteClient).toHaveText(`Client : ${second.raisonSociale}`);
   await expect(traces).toHaveCount(1);
 });
 
@@ -264,7 +265,8 @@ test('#204 : « Modifier le chantier » envoie l’adresse et le budget global s
     await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toBeVisible();
   };
   const adresse = page.getByPlaceholder('Adresse du site');
-  const budget = page.locator('.form-group', { has: page.getByText('Budget Global (€ HT)', { exact: true }) }).locator('input');
+  // Champ du montant vendu, « Montant vendu (€ HT) » depuis le lot V (« Budget Global (€ HT) » avant ; #390, cadrage v2, « Noms »).
+  const budget = page.locator('.form-group', { has: page.getByText('Montant vendu (€ HT)', { exact: true }) }).locator('input');
 
   // 1. À l'ouverture, les deux champs reprennent le chantier ; enregistrés sans retouche, ils partent tels quels.
   await ouvrirEdition();

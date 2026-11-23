@@ -13,7 +13,7 @@ const api = `http://127.0.0.1:${process.env.E2E_API_PORT || '3001'}/api`;
 // son poste, la fiche montre toutes celles de l'affaire) ; libellé de la case.
 //
 // Parcours dans Chromium, libellés français, dates JJ-MM-AAAA, montants au format français :
-//  1. sur une affaire en cours d'un conducteur, elle ouvre « Modifier » (sans « Budget Global », réglage décoché), change le
+//  1. sur une affaire en cours d'un conducteur, elle ouvre « Modifier » (sans « Montant vendu », réglage décoché), change le
 //     nom, la date de fin, le budget matériel et le barème réduit, et réaffecte l'affaire à un second client par le sélecteur
 //     « Client du chantier » (v4, C1 ; T1 de l'audit des droits de #515) ; l'API relit chaque champ, le client et son libellé,
 //     et l'entrée CHANGEMENT_CLIENT à son nom ;
@@ -70,7 +70,9 @@ test('assistante technique : elle modifie la fiche d’une affaire en cours d’
   for (const entree of ['Journal des achats', 'Journal des heures']) await expect(menuDe(page).getByRole('link', { name: entree, exact: true }), entree).toBeVisible();
   await expect(menuDe(page).getByRole('link', { name: 'Statistiques', exact: true })).toHaveCount(0);
 
-  // 1. Fiche d'une affaire en cours dont elle n'est pas titulaire : « Modifier », sans « Budget Global » (réglage décoché).
+  // 1. Fiche d'une affaire en cours dont elle n'est pas titulaire : « Modifier », sans « Montant vendu » (réglage décoché).
+  // Le champ se repère par son nom (`budgetGlobalVendu`), indépendant du libellé ; témoin du libellé dans
+  // chantiers-formats-anglais.spec.ts.
   await page.goto(`/chantiers/${affaire.id}`, { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: affaire.nom })).toBeVisible();
   await page.getByRole('button', { name: 'Modifier', exact: true }).first().click();
@@ -97,9 +99,12 @@ test('assistante technique : elle modifie la fiche d’une affaire en cours d’
   expect(reponse.request().postDataJSON()).not.toHaveProperty('budgetGlobalVendu');
   expect(reponse.request().postDataJSON().clientId).toBe(second.id);
   await expect(page.getByRole('heading', { name: 'Modifier le chantier' })).toHaveCount(0);
-  // Elle reste sur la fiche (elle lit toutes les affaires), au nouveau nom, budget matériel au format français.
+  // Elle reste sur la fiche (elle lit toutes les affaires), au nouveau nom, budget matériel au format français, à l'euro près
+  // depuis le lot V (#388, cadrage v2, « Formats de la fiche » : fmtEuro, « 1 234,56 € » devient « 1 235 € », effet visible
+  // déclaré ; carte « Budget matériel », « Matériel Prévu » avant). Lectures écartées : « 1 234,56 € » (texte d'avant le lot),
+  // « 1 234 € » (troncature).
   await expect(page.getByRole('heading', { name: nouveauNom })).toBeVisible();
-  await expect(page.getByText('Matériel Prévu', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^1\s?234,56\s€$/);
+  await expect(page.getByText('Budget matériel', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(/^1\u202F235\u0020€$/);
   const relue = await relire(affaire.id);
   // Client et libellé relus ; changement journalisé à son nom (CHANGEMENT_CLIENT).
   expect([relue.clientId, relue.client]).toEqual([second.id, second.raisonSociale]);
@@ -160,7 +165,8 @@ test('assistante technique : elle modifie la fiche d’une affaire en cours d’
 });
 
 // Cadrage v4, C5 (d), classé C (montants) : l'administration coche la case dans Administration > Marges ; sur la fiche,
-// l'assistante technique voit le vendu (« Budget Vendu », 240 €) et la marge (« Marge Commerciale », 240 − 61,35 = 178,65 €),
+// l'assistante technique voit le vendu (« Montant vendu », 240 €) et la marge (« Marge Commerciale », 240 − 61,35 = 178,65 €,
+// affichée « 179 € » à l'euro près depuis le lot V, #388, et « 74,4 % du vendu »),
 // sans « Facturé HT » ni « Factures liées » (facture émise de 100,00 € HT). Avant : case décochée, ni vendu ni marge.
 // Témoin : l'administration lit les deux encarts de la facturation. Lectures écartées : réglage sans effet (vendu toujours
 // masqué) ; facturation ouverte avec la rentabilité (le cas du directeur) ; marge sans l'achat (240 €).
@@ -188,7 +194,7 @@ test.describe('rentabilité des assistantes techniques réglée par l’administ
     await envoyer('put', '/parametres', { rentabiliteAssistantesTechniques: false });
 
     const encarts = (page: Page) => ({
-      vendu: page.getByText('Budget Vendu', { exact: true }),
+      vendu: page.getByText('Montant vendu', { exact: true }),
       marge: page.locator('[data-marge-commerciale]'),
       facture: page.getByText('Facturé HT', { exact: true }),
       factures: page.getByRole('region', { name: 'Factures liées' }),
@@ -234,7 +240,11 @@ test.describe('rentabilité des assistantes techniques réglée par l’administ
     const apres = encarts(vueAssistante);
     await expect(apres.vendu.locator('xpath=following-sibling::div[1]')).toHaveText(/^240\s€$/);
     await expect(apres.marge).toContainText('Marge Commerciale');
-    await expect(apres.marge).toContainText(/178,65\s€/);
+    // Marge de 178,65 € à l'euro près, moitié vers l'extérieur : « 179 € » ; 178,65 / 240 = 74,4375 %, une décimale au plus :
+    // « 74,4 % du vendu ». Lectures écartées : « 178,65 € » (au centime, texte d'avant le lot V), « 178 € » (troncature) ;
+    // « 74.4% du budget vendu » (toFixed(1), avant le lot), « 74 % » (aucune décimale), « 74,44 % » (deux décimales).
+    await expect(apres.marge.locator('div.text-5xl')).toHaveText(/^179\u0020€$/);
+    await expect(apres.marge.getByText(/du vendu$/)).toHaveText(/^74,4\u0020% du vendu$/);
     await expect(apres.facture).toHaveCount(0);
     await expect(apres.factures).toHaveCount(0);
     await expect(vueAssistante.locator('main')).not.toContainText('Reste à facturer');
