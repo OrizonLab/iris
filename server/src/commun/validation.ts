@@ -34,3 +34,11 @@ export function booleenStrict(corps: unknown, cle: string, options: { obligatoir
   const valeur = objet[cle];
   return typeof valeur === 'boolean' ? { ok: true, valeur } : refus;
 }
+
+// Clé d'envoi tirée par un formulaire (compte rendu d'intervention, lot 3b-3 ; avoir partiel, lot X, #247) : un UUID,
+// mis en minuscules, sinon rien. Un second envoi de la même clé retrouve la pièce déjà enregistrée au lieu d'en figer une
+// seconde.
+const UUID_CLE_ENVOI = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function cleEnvoiValide(valeur: unknown): string | null {
+  return typeof valeur === 'string' && UUID_CLE_ENVOI.test(valeur) ? valeur.toLowerCase() : null;
+}

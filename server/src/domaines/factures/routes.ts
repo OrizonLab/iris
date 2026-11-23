@@ -11,7 +11,7 @@ import {
   decimalToNumber, PLAFOND_MONTANT, FactureInvalideError, tauxUtilises, baseHtDuTaux, tvaDuTaux, arrondiCommercialLigneHt,
   centimesTtcLigne, centimes, sommeExacte, differenceExacte,
 } from '../../commun/montants';
-import { nombreDecimalNonNegatif } from '../../commun/validation';
+import { cleEnvoiValide, nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
 import { csvComptable } from '../../commun/csv';
 import { getCompanySettings } from '../administration/metier';
@@ -504,16 +504,46 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
   // concurrentes avant le contrôle cumulatif des plafonds HT, TVA et TTC, quel que soit l'auteur des avoirs.
   // Administration, et assistante technique sur les factures de son poste (AT-4 ; décisions du 09-11-2026) :
   // une facture hors de son périmètre lui répond 404, relue sous le verrou, avant tout refus propre à la pièce ;
-  // seul le 400 de lignes mal formées ou à 0,00 €, lu avant la transaction et indépendant de la pièce, le précède.
+  // seuls les 400 de lignes mal formées ou à 0,00 € et d'une clé d'envoi mal formée, lus avant la transaction et
+  // indépendants de la pièce, le précèdent.
+  // Clé d'envoi (lot X, #247 ; décision déléguée par Nelson le 22-11-2026, choix par défaut, à confirmer) : le
+  // formulaire tire un UUID à son ouverture, comme celui du compte rendu (lot 3b-3). Un second envoi de la même demande
+  // (deux onglets, réponse perdue, transaction validée qui répond en erreur) rend l'avoir déjà émis, en 200 avec
+  // `dejaEnregistre`, sans rien écrire ; la clé déjà servie pour une autre demande est refusée en 409, sans rien dire de
+  // ce qu'elle porte. Facultative : une demande sans clé suit le comportement d'avant.
   app.post('/api/factures/:id/avoirs', requireAuth, requireGestionFactures, async (req: AuthRequest, res) => {
+    let lignes: ReturnType<typeof lignesAvoirPartiel> = [];
+    // Même demande : un avoir partiel de cette facture, créé par ce compte, aux mêmes lignes (ordre, désignation,
+    // nature, quantité, prix unitaire HT et taux, comparés en décimal après la normalisation de lignesAvoirPartiel).
+    // Sinon, rendre l'avoir annoncerait à l'écran une pièce qui ne correspond pas aux montants saisis.
+    const repondreExistant = (existant: Prisma.FactureGetPayload<{ include: typeof factureInclude }>) => {
+      const memesLignes = existant.lignes.length === lignes.length && lignes.every((ligne, index) => {
+        const figee = existant.lignes[index];
+        return figee.ordre === ligne.ordre && figee.designation === ligne.designation && figee.nature === ligne.nature
+          && figee.quantite.equals(ligne.quantite) && figee.prixUnitaireHt.equals(ligne.prixUnitaireHt) && figee.tauxTva.equals(ligne.tauxTva);
+      });
+      if (existant.type !== 'AVOIR' || existant.estAvoirAnnulation || existant.factureOrigineId !== paramId(req) || existant.createdById !== req.user!.id || !memesLignes) {
+        return res.status(409).json({ error: 'Cette clé d’envoi a déjà servi pour une autre demande d’avoir : rouvrez le formulaire.' });
+      }
+      return res.status(200).json(decimalToNumber({ ...existant, dejaEnregistre: true }));
+    };
+    const presente = req.body?.cleEnvoi !== undefined && req.body?.cleEnvoi !== null;
+    const cleEnvoi = presente ? cleEnvoiValide(req.body.cleEnvoi) : null;
     try {
-      const lignes = lignesAvoirPartiel(req.body?.lignes);
+      lignes = lignesAvoirPartiel(req.body?.lignes);
+      if (presente && !cleEnvoi) return res.status(400).json({ error: 'Clé d’envoi de l’avoir invalide : rouvrez le formulaire.' });
       const resultat = await transactionVerifiee(async (tx) => {
         // PostgreSQL verrouille la facture source jusqu’à la fin de la transaction ; sans ce
         // verrou, deux auteurs pourraient chacun lire le même reliquat puis le dépasser.
         await tx.$queryRaw`SELECT 1 FROM "Facture" WHERE "id" = ${paramId(req)} FOR UPDATE`;
         const facture = await tx.facture.findFirst({ where: pieceVisible(paramId(req), req.user?.role), include: { lignes: true, ventilationTva: true, avoirs: { include: { lignes: true, ventilationTva: true } } } });
         if (!facture) return { erreur: 'NOT_FOUND' as const };
+        // Rejeu, sous le verrou et dans le périmètre, avant tout autre contrôle et toute écriture (statut, taux,
+        // plafonds, identité de l'émetteur, numéro) : une facture que l'avoir a soldée reste rejouable.
+        if (cleEnvoi) {
+          const existant = await tx.facture.findUnique({ where: { cleEnvoi }, include: factureInclude });
+          if (existant) return { existant };
+        }
         if (facture.type !== 'FACTURE' || !['EMISE', 'REGLEE'].includes(facture.statut)) return { erreur: 'NOT_CREDITABLE' as const };
         const tauxSource = new Set(tauxUtilises(facture.lignes));
         for (const taux of tauxUtilises(lignes)) if (!tauxSource.has(taux)) throw new FactureInvalideError('Le taux de TVA d’une ligne d’avoir doit être présent sur la facture d’origine.');
@@ -567,7 +597,7 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
           origine: facture.origine, chantierId: facture.chantierId, interventionId: facture.interventionId, contratMaintenanceId: facture.contratMaintenanceId,
           motifHorsAffaire: facture.motifHorsAffaire, mentionsLegalesVersionId: facture.mentionsLegalesVersionId, identiteEmetteurId,
           totalHt, totalTva, totalTtc, createdById: req.user!.id, creeParType: req.user!.role, emisLe: now, lignes: { create: lignes }, ventilationTva: { create: ventilationTva },
-          ecrituresComptables: { create: ecritures },
+          ecrituresComptables: { create: ecritures }, cleEnvoi,
         }, include: factureInclude });
         await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true } });
         await tx.journalFacture.create({ data: { factureId: avoir.id, acteurId: req.user!.id, action: 'CREATION_AVOIR_PARTIEL', detail: `Avoir partiel de la facture ${facture.numero}` } });
@@ -577,11 +607,19 @@ export function enregistrerRoutesEmissionFactures(app: Express): void {
         return { avoir: { ...avoir, ecrituresScellees: true } };
       });
       if ('erreur' in resultat) return res.status(resultat.erreur === 'NOT_FOUND' ? 404 : 409).json({ error: resultat.erreur === 'NOT_FOUND' ? 'Facture introuvable.' : 'Seule une facture émise ou réglée peut recevoir un avoir partiel.' });
+      if ('existant' in resultat) return repondreExistant(resultat.existant!);
       return res.status(201).json(decimalToNumber(resultat.avoir));
     } catch (error) {
       if (error instanceof ImputationIncompletError || error instanceof IdentiteEmetteurIncompleteError) return res.status(409).json({ error: error.message });
       if (error instanceof FactureInvalideError) return res.status(400).json({ error: error.message });
       if (error instanceof AvoirPlafondError) return res.status(409).json({ error: error.message });
+      // Même clé sur deux factures en même temps : la seconde bute sur l'index unique de la clé (et non du numéro ni de
+      // l'avoir total), puis relit l'avoir de la première, hors transaction, pour le rendre ou refuser la demande.
+      const cible = (error as { code?: string; meta?: { target?: unknown } }).code === 'P2002' ? String((error as { meta?: { target?: unknown } }).meta?.target ?? '') : '';
+      if (cleEnvoi && cible.includes('cleEnvoi')) {
+        const existant = await prisma.facture.findUnique({ where: { cleEnvoi }, include: factureInclude }).catch(() => null);
+        if (existant) return repondreExistant(existant);
+      }
       if ((error as { code?: string }).code === 'P2002') return res.status(409).json({ error: 'Avoir total déjà créé ou numéro déjà attribué, veuillez relire la facture.' });
       return res.status(500).json({ error: 'Création de l’avoir partiel impossible.' });
     }

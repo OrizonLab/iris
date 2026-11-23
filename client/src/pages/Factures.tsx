@@ -15,6 +15,7 @@ import RepereDejaFacturee from '../components/RepereDejaFacturee';
 import { corpsFactureTempsPasse, type ApercuFactureTempsPasse } from '../lib/factureTempsPasse';
 import { sourcesFacturables } from '../lib/sourcesFacture';
 import { fmtEuroCentime } from '../lib/formats';
+import { nouvelleCleEnvoi } from '../lib/cleEnvoi';
 
 type Client = { id: string; raisonSociale: string };
 type Origine = 'CHANTIER' | 'INTERVENTION' | 'CONTRAT' | 'HORS_AFFAIRE';
@@ -133,6 +134,13 @@ export default function Factures() {
   // avoir déjà émis (#247). Toute relecture réussie et non dépassée par une plus récente, dont
   // « Actualiser », le libère.
   const [relectureRequise, setRelectureRequise] = useState(false);
+  // Clé d'envoi de l'avoir partiel (lot X, #247) : tirée à l'ouverture du formulaire, gardée tant que l'issue d'un envoi
+  // est inconnue, renouvelée après toute réponse définitive. Un renvoi de la même demande rend l'avoir déjà émis au lieu
+  // d'en émettre un second (le serveur la compare à l'auteur, à la facture et aux lignes).
+  const [cleAvoir, setCleAvoir] = useState('');
+  // Demande dont l'issue est inconnue (réponse perdue, erreur serveur, réponse sans message) : gardée avec sa clé et son
+  // corps, même si le formulaire se ferme (facture sortie de la page relue, #242), pour être renvoyée telle quelle.
+  const [demandeAvoirEnSuspens, setDemandeAvoirEnSuspens] = useState<{ factureId: string; numeroFacture: string; corps: { lignes: unknown[]; cleEnvoi: string } } | null>(null);
   const [factureTraceId, setFactureTraceId] = useState<string | null>(null);
   // Facture dont les règlements reçus sont affichés, en lecture, sous la liste.
   const [factureReglements, setFactureReglements] = useState<Facture | null>(null);
@@ -288,6 +296,7 @@ export default function Factures() {
     setSucces('');
     setFactureAvoir(facture);
     setLignesAvoir([nouvelleLigne()]);
+    setCleAvoir(nouvelleCleEnvoi());
   };
 
   const modifierLigneAvoir = <Champ extends keyof Ligne>(index: number, champ: Champ, valeur: Ligne[Champ]) => {
@@ -309,6 +318,58 @@ export default function Factures() {
   // ne donne aucun montant qu'il ne peut garantir.
   const montantApercu = (montant: number) => (relectureRequise ? '—' : fmtEuroCentime(montant));
 
+  // Envoi d'une demande d'avoir partiel, depuis le formulaire ou par « Renvoyer la demande » (même corps, même clé).
+  const envoyerDemandeAvoir = async (factureId: string, numeroFacture: string, corps: { lignes: unknown[]; cleEnvoi: string }) => {
+    if (envoiAvoirEnCours.current) return;
+    setErreur('');
+    setSucces('');
+    envoiAvoirEnCours.current = true;
+    setEnvoiAvoir(true);
+    let relire = false;
+    // Sans réponse exploitable de l'API (réponse perdue, erreur serveur, réponse sans message), l'avoir a
+    // pu être émis : on ne l'affirme ni ne le nie, comme pour une réponse perdue à l'ouverture d'un
+    // chantier. La liste est relue avant de libérer le formulaire, pour montrer un avoir émis avant toute
+    // nouvelle soumission ; si cette relecture échoue, `relectureRequise` garde le bouton désactivé (#247).
+    // La demande reste renvoyable avec sa clé : un renvoi n'émettra pas l'avoir deux fois (lot X).
+    const issueInconnue = async (cause: string) => {
+      setDemandeAvoirEnSuspens({ factureId, numeroFacture, corps });
+      setErreur(`La création de l’avoir n’a pas pu être confirmée : ${cause}. Renvoyez la demande : l’avoir ne sera pas émis deux fois.`);
+      setRelectureRequise(true);
+      await charger();
+    };
+    try {
+      const res = await apiFetch(`/factures/${factureId}/avoirs`, { method: 'POST', body: JSON.stringify(corps) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Un refus métier de l'API (4xx) porte son message : l'avoir n'a pas été émis, la demande est close et la clé
+        // renouvelée ; un 409 (plafond, clé déjà servie pour une autre demande) relit la liste. Une erreur serveur (5xx),
+        // même avec un message, ou une réponse sans message, d'une passerelle par exemple, ne dit pas si l'avoir a été émis.
+        if (data.error && res.status < 500) {
+          setDemandeAvoirEnSuspens(null);
+          setCleAvoir(nouvelleCleEnvoi());
+          setErreur(data.error);
+          relire = res.status === 409;
+        } else await issueInconnue(`réponse inattendue du serveur (${res.status})`);
+      } else {
+        setDemandeAvoirEnSuspens(null);
+        setCleAvoir(nouvelleCleEnvoi());
+        setFactureAvoir(null);
+        // Rejeu : la première demande avait abouti, l'écran nomme l'avoir déjà émis (#247, N5).
+        setSucces(data.dejaEnregistre ? `Avoir ${data.numero} déjà émis : la première demande avait abouti.` : `Avoir ${data.numero || ''} créé et émis.`.trim());
+        // La liste affichée ne porte pas encore cet avoir : un formulaire rouvert sur cette facture
+        // annoncerait la TVA sans lui. Le prochain envoi attend donc une relecture réussie (#236).
+        setRelectureRequise(true);
+        relire = true;
+      }
+    } catch {
+      await issueInconnue('impossible de joindre le serveur');
+    } finally {
+      envoiAvoirEnCours.current = false;
+      setEnvoiAvoir(false);
+    }
+    if (relire) await charger();
+  };
+
   const creerAvoirPartiel = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!factureAvoir || envoiAvoirEnCours.current) return;
@@ -317,43 +378,10 @@ export default function Factures() {
     const lignesConverties = lignesAvoir.map((ligne) => ({ ...ligne, designation: ligne.designation.trim(), quantite: nombreFr(ligne.quantite), prixUnitaireHt: nombreFr(ligne.prixUnitaireHt), tauxTva: nombreFr(ligne.tauxTva) }));
     const fautive = lignesConverties.findIndex((ligne) => !ligne.designation || ligne.quantite === null || ligne.quantite <= 0 || ligne.prixUnitaireHt === null || ligne.prixUnitaireHt < 0 || ligne.tauxTva === null || ligne.tauxTva < 0 || ligne.tauxTva > 100);
     if (fautive >= 0) return setErreur(`Ligne d’avoir ${fautive + 1} : désignation obligatoire, quantité supérieure à zéro et montants numériques attendus (TVA entre 0 et 100).`);
-    envoiAvoirEnCours.current = true;
-    setEnvoiAvoir(true);
-    let cree = false;
-    // Sans réponse exploitable de l'API (réponse perdue, erreur serveur, réponse sans message), l'avoir a
-    // pu être émis : on ne l'affirme ni ne le nie, comme pour une réponse perdue à l'ouverture d'un
-    // chantier. La liste est relue avant de libérer le formulaire, pour montrer un avoir émis avant toute
-    // nouvelle soumission ; si cette relecture échoue, `relectureRequise` garde le bouton désactivé (#247).
-    const issueInconnue = async (cause: string) => {
-      setErreur(`La création de l’avoir n’a pas pu être confirmée : ${cause}. Vérifiez les avoirs de la facture dans la liste avant de réessayer.`);
-      setRelectureRequise(true);
-      await charger();
-    };
-    try {
-      const res = await apiFetch(`/factures/${factureAvoir.id}/avoirs`, { method: 'POST', body: JSON.stringify({ lignes: lignesConverties }) });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        // Un refus métier de l'API (4xx) porte son message : l'avoir n'a pas été émis. Une erreur serveur
-        // (5xx), même avec un message, ou une réponse sans message, d'une passerelle par exemple, ne dit
-        // pas si l'avoir a été émis.
-        if (data.error && res.status < 500) setErreur(data.error);
-        else await issueInconnue(`réponse inattendue du serveur (${res.status})`);
-        return;
-      }
-      setFactureAvoir(null);
-      setSucces(`Avoir ${data.numero || ''} créé et émis.`.trim());
-      // La liste affichée ne porte pas encore cet avoir : un formulaire rouvert sur cette facture
-      // annoncerait la TVA sans lui. Le prochain envoi attend donc une relecture réussie (#236).
-      setRelectureRequise(true);
-      cree = true;
-    } catch {
-      await issueInconnue('impossible de joindre le serveur');
-    } finally {
-      envoiAvoirEnCours.current = false;
-      setEnvoiAvoir(false);
-    }
-    if (cree) await charger();
+    await envoyerDemandeAvoir(factureAvoir.id, factureAvoir.numero ?? '', { lignes: lignesConverties, cleEnvoi: cleAvoir });
   };
+  // Les lignes d'une demande en suspens ne se modifient pas : un renvoi doit porter le même corps que sa clé.
+  const lignesAvoirFigees = !!demandeAvoirEnSuspens && demandeAvoirEnSuspens.corps.cleEnvoi === cleAvoir;
 
   const creer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -491,6 +519,12 @@ export default function Factures() {
       </div>
 
       {erreur && <p role="alert" className="text-red-600">{erreur}</p>}
+      {demandeAvoirEnSuspens && (
+        <div role="status" className="flex flex-wrap items-center gap-3 text-sm text-amber-800">
+          <span>Demande d’avoir sur la facture {demandeAvoirEnSuspens.numeroFacture} en attente de confirmation.</span>
+          <button type="button" className="btn btn-secondary" disabled={envoiAvoir} onClick={() => void envoyerDemandeAvoir(demandeAvoirEnSuspens.factureId, demandeAvoirEnSuspens.numeroFacture, demandeAvoirEnSuspens.corps)}>Renvoyer la demande</button>
+        </div>
+      )}
       {erreurListe && <p className="text-red-600">{erreurListe}</p>}
       <p data-testid="derniere-date-facture" className="text-sm text-gray-600">Dernière facture numérotée : {derniereDateEmission === undefined ? (erreurListe ? 'indisponible' : 'en cours de chargement') : derniereDateEmission ? formatDate(derniereDateEmission) : 'aucune'}.</p>
       {succes && <p className="text-emerald-700">{succes}</p>}
@@ -514,6 +548,7 @@ export default function Factures() {
                 <Plus size={16} /> Ajouter une ligne d’avoir
               </button>
             </div>
+            <fieldset disabled={lignesAvoirFigees} className="m-0 min-w-0 space-y-3 border-0 p-0">
             {lignesAvoir.map((ligne, index) => (
               <div key={index} className="grid gap-3 rounded-lg border bg-white p-3 sm:grid-cols-12">
                 <input required className="form-input sm:col-span-4" value={ligne.designation} onChange={(e) => modifierLigneAvoir(index, 'designation', e.target.value)} placeholder="Désignation" aria-label={`Désignation ligne avoir ${index + 1}`} />
@@ -529,6 +564,7 @@ export default function Factures() {
                 </button>
               </div>
             ))}
+            </fieldset>
           </section>
           <div data-testid="aperçu-avoir" className="grid gap-3 rounded-lg border bg-white p-3 text-sm sm:grid-cols-3">
             <span><strong>Total HT</strong><br />{montantApercu(totauxAvoir.totalHt)}</span>
