@@ -6,7 +6,7 @@ import type { ApiRequest } from '../http/cles-api';
 
 // --- Périmètre de lecture du domaine chantier ---
 // Une même liste (achats, heures, chantiers) ne montre pas la même chose selon qui la
-// demande. Deux natures de porteur, deux façons de le décider, et aucun porteur ne lit rien :
+// demande. Deux natures de porteur, deux façons de le décider ; sans porteur, rien n'est lu :
 //
 //   - session humaine : le RÔLE décide. Un administrateur, un directeur ou une assistante
 //     technique voit tout (cf. litToutesLesAffaires) ; un
@@ -24,8 +24,9 @@ import type { ApiRequest } from '../http/cles-api';
 //
 // Renvoie un filtre Prisma applicable à un champ `chantier` imbriqué comme à un chantier
 // racine ; `{}` signifie « aucune restriction », `{ id: { in: [] } }` « aucun chantier ».
-// L'appelant écrit le périmètre APRÈS ses propres clés (`{ id, ...perimetre }`) : écrit
-// avant, une clé `id` de l'appelant remplacerait le filtre fermé et rouvrirait la lecture.
+// L'appelant écrit le périmètre APRÈS ses propres clés (`{ id, ...perimetre }`), ou le
+// compose dans un `AND` (`{ AND: [{ id }, perimetre] }`, comme pieceVisible pour les factures) :
+// écrit avant, une clé `id` de l'appelant remplacerait le filtre fermé et rouvrirait la lecture.
 // Une affaire ANNULÉE sort du périmètre de tout le monde, administrateurs compris : elle
 // n'a plus à peser sur une liste, un coût, une marge ou une commission. Elle n'est pas
 // perdue pour autant — GET /api/chantiers/:id la rend toujours, avec le motif de son

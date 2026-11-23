@@ -83,16 +83,18 @@ describe('Lot AA (#668, N1) : périmètre de lecture des chantiers sans porteur 
     assert.deepEqual(perimetreChantiersAnnulesCompris(cle), {});
   });
 
-  // Comportement inchangé pour les comptes qui lisent toute la société (litToutesLesAffaires : administration, dont le
-  // directeur, et assistante technique), et pour les comptes à périmètre (conducteur, technicien, responsable et sa branche,
-  // commercial) : le lot ne touche que l'absence de porteur.
-  test('les comptes gardent leur périmètre : super administrateur, administrateur, directeur et assistante technique sans restriction ; conducteur, technicien, responsable et commercial restreints comme avant', () => {
+  // Comportement inchangé pour les onze types de compte : ceux qui lisent toute la société (litToutesLesAffaires :
+  // administration, dont le directeur, et assistante technique), et ceux à périmètre (conducteur, technicien, directeur
+  // commercial, assistante commerciale et comptable par leur titulaire, responsable et sa branche, commercial) : le lot ne
+  // touche que l'absence de porteur.
+  test('les onze types de compte gardent leur périmètre : super administrateur, administrateur, directeur et assistante technique sans restriction ; conducteur, technicien, directeur commercial, assistante commerciale, comptable, responsable et commercial restreints comme avant', () => {
     const { perimetreChantiers, perimetreChantiersAnnulesCompris } = perimetres;
     for (const role of ['SUPERADMIN', 'ADMIN', 'DIRECTEUR', 'ASSISTANTE_TECHNIQUE']) {
       assert.deepEqual(perimetreChantiers(compte(role)), NON_ANNULEE, role);
       assert.deepEqual(perimetreChantiersAnnulesCompris(compte(role)), {}, role);
     }
-    for (const role of ['CONDUCTEUR_TRAVAUX', 'TECHNICIEN']) {
+    // Directeur commercial, assistante commerciale et comptable : la règle « tous les autres » (responsableId = moi).
+    for (const role of ['CONDUCTEUR_TRAVAUX', 'TECHNICIEN', 'DIRECTEUR_COMMERCIAL', 'ASSISTANTE_COMMERCIALE', 'COMPTABLE']) {
       assert.deepEqual(perimetreChantiers(compte(role, 'u1')), { ...NON_ANNULEE, responsableId: 'u1' }, role);
       assert.deepEqual(perimetreChantiersAnnulesCompris(compte(role, 'u1')), { responsableId: 'u1' }, role);
     }
