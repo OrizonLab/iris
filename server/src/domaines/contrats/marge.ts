@@ -19,8 +19,9 @@ import { auCentime, ventesHeuresAuCentime } from '../interventions/margeSav';
 // - une heure sans prix figé (intervenant sans main d'œuvre le jour de la saisie, ou heure saisie avant ce lot)
 //   garde son coût, n'est pas vendue et rend la marge incomplète (« Coût gardé, signalée (Recommandé) »).
 // Lectures retenues et choix par défaut de montant, à confirmer par Nelson (validation comptable) :
-// - arrondi au centime ligne par ligne, ventes et coûts, comme la marge à l'heure d'un SAV hors contrat (la
-//   convention commune reste une question ouverte de la passation, section 3) ;
+// - arrondi au centime ligne par ligne, ventes et coûts, comme la marge à l'heure d'un SAV hors contrat (choisi par
+//   Nelson le 15-11-2026 ; c'est aussi, depuis sa réponse du 24-11-2026, « Arrindir chaque ligne », la convention
+//   commune du coût de la main-d'œuvre, cf. coutLigneHeuresAuCentime, lot AB) ;
 // - le matériel inclus d'une intervention annulée, ou d'un contrat annulé, compte à son coût, comme leurs heures ;
 // - une intervention sans instantané de couverture (aucun chemin de l'API n'en crée ; données antérieures à la
 //   migration 20260925100000 seulement) suit la politique matériel actuelle du contrat.

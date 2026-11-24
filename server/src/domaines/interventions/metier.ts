@@ -5,6 +5,7 @@ import type { AuthRequest } from '../../http/auth';
 import { paramId } from '../../http/requete';
 import { aujourdHuiEntreprise, dateIsoStricte, dateSeuleEnJourCivil } from '../../commun/dates';
 import { valeurJournal } from '../../commun/journal-administration';
+import { coutLigneHeuresAuCentime } from '../../commun/montants';
 
 // Même principe pour l'affaire rattachée à une intervention SAV, que voient le technicien
 // affecté et toute la chaîne de son responsable : de quoi la nommer, jamais son montant vendu.
@@ -107,10 +108,10 @@ export async function journaliserCoutIntervention(tx: Prisma.TransactionClient, 
 }
 
 export function totalHeuresInterventionAuCentime(heures: Array<{ nbrHeures: Prisma.Decimal; tauxHoraireApplique: Prisma.Decimal }>): Prisma.Decimal {
-  // Les coûts de main-d’œuvre se calculent et s'arrondissent ligne par ligne : aucune
-  // conversion Number ne doit intervenir avant l'agrégation, sinon le binaire dérive.
+  // Les coûts de main-d’œuvre se calculent et s'arrondissent ligne par ligne (coutLigneHeuresAuCentime, convention
+  // unique, lot AB) : aucune conversion Number ne doit intervenir avant l'agrégation, sinon le binaire dérive.
   return heures.reduce(
-    (total, heure) => total.plus(new Prisma.Decimal(heure.nbrHeures).mul(heure.tauxHoraireApplique).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)),
+    (total, heure) => total.plus(coutLigneHeuresAuCentime(heure.nbrHeures, heure.tauxHoraireApplique)),
     new Prisma.Decimal(0),
   ).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 }

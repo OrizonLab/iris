@@ -148,8 +148,9 @@ export function trierChantiers<T extends ChantierSuivi>(chantiers: T[], tri: Tri
 
 const nombre = (valeur: number, decimales = 0) => valeur.toLocaleString('fr-FR', { maximumFractionDigits: decimales });
 // Montant d'une alerte : à l'euro, sauf sous 1 €, où l'euro afficherait « +0 € » pour un
-// dépassement réel : au centime alors. Sous le demi-centime (coûts de main-d'œuvre à quatre
-// décimales), aucun montant juste ne s'affiche : null, et le libellé reste sans montant.
+// dépassement réel : au centime alors. Sous le demi-centime (une projection à plus de deux
+// décimales ; les coûts de main-d'œuvre sont au centime depuis le lot AB), aucun montant juste ne
+// s'affiche : null, et le libellé reste sans montant.
 const montantAlerte = (valeur: number): string | null => {
   if (Math.abs(valeur) >= 1) return nombre(arrondiEuro(valeur));
   const centimes = arrondiCentime(valeur);
