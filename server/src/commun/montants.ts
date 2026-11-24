@@ -70,8 +70,19 @@ export const centimes = (n: number) => Math.round((n + Number.EPSILON) * 100) / 
 export const sommeExacte = (...termes: unknown[]): number =>
   termes.reduce<Prisma.Decimal>((somme, terme) => somme.plus(Number(terme)), new Prisma.Decimal(0)).toNumber();
 export const differenceExacte = (a: unknown, b: unknown): number => new Prisma.Decimal(Number(a)).minus(Number(b)).toNumber();
-// Heures × taux horaire : quatre décimales au plus, calculées exactement.
-export const produitExact = (a: unknown, b: unknown): number => new Prisma.Decimal(Number(a)).times(Number(b)).toNumber();
+// Coût d'une ligne de main-d'œuvre : heures × taux horaire chargé figé sur la ligne, en décimal exact, arrondi au
+// centime, moitié vers le haut. C'est la convention unique du coût de la main-d'œuvre, partout (chantier, intervention,
+// SAV, contrat) : chaque ligne est arrondie au centime avant d'être additionnée (réponse de Nelson du 24-11-2026 à la
+// question « Quelle convention retenir partout ? » : « Arrindir chaque ligne » ; lot AB). Une ligne est une saisie
+// d'heures (un pointage, une heure d'intervention), et « moitié vers le haut » (0,005 € donne 0,01 €) suit les autres
+// arrondis de montant d'Iris : deux lectures retenues, à confirmer avec la validation comptable. Les durées ne sont
+// jamais arrondies (#253, point 2) ; les sommes de lignes restent exactes (sommeExacte).
+export const coutLigneHeuresAuCentime = (heures: Prisma.Decimal.Value, taux: Prisma.Decimal.Value): Prisma.Decimal =>
+  new Prisma.Decimal(heures).mul(taux).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+// La même, pour des heures et un taux déjà repassés en nombre (decimalToNumber) : deux décimales en base, que relit
+// exactement l'écriture la plus courte du nombre.
+export const coutLigneHeures = (heures: unknown, taux: unknown): number =>
+  coutLigneHeuresAuCentime(Number(heures), Number(taux)).toNumber();
 // a × b ÷ c en décimal (précision 20), sans repasser par un nombre entre le produit et le
 // quotient : retombe exactement sur a quand b = c.
 export const regleDeTroisExacte = (a: unknown, b: unknown, c: unknown): number =>

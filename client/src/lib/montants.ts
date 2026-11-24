@@ -3,8 +3,10 @@
 // Additionner des nombres à virgule dépend de l'ordre des termes et s'écarte parfois de la
 // somme exacte : 12,50 € devient 12,4999…, puis s'affiche 12 € une fois arrondi à l'euro.
 // Montants, heures et taux ont deux décimales en base ; les coûts de main-d'œuvre et les
-// dépenses qu'envoie le serveur en ont quatre au plus (heures × taux). On additionne donc
-// des entiers (centièmes ou dix-millièmes), et l'on ne divise qu'une fois.
+// dépenses qu'envoie le serveur aussi, chaque ligne d'heures × taux y étant arrondie au
+// centime (lot AB, réponse de Nelson du 24-11-2026). Certaines projections en gardent
+// davantage. On additionne donc des entiers (centièmes ou dix-millièmes), et l'on ne divise
+// qu'une fois.
 
 export function sommeExacte(valeurs: Iterable<number>, decimales = 2): number {
   const facteur = 10 ** decimales;

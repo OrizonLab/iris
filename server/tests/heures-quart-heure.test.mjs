@@ -22,8 +22,9 @@
 // heuresAuQuartDHeure est déplacée dans commun/validation.ts, avec un paramètre « zéro admis », et re-exportée par
 // domaines/chantiers/saisies.ts, d'où la section 9 l'importe ; ce fichier, rejoué après le déplacement, prouve que les heures
 // d'un chantier n'en changent pas. Les heures d'une intervention sont jouées dans heures-intervention-quart-heure.test.mjs.
-// Montants : le coût d'une ligne reste heures × taux figé, en décimal exact (point 5 : « Aucun calcul ») ; chaque valeur est
-// choisie pour qu'une autre lecture plausible donne un autre résultat, et la lecture écartée est écrite en commentaire.
+// Montants : le coût d'une ligne reste heures × taux figé (point 5 : « Aucun calcul »), arrondi au centime ligne par ligne depuis
+// le lot AB (réponse de Nelson du 24-11-2026, « Arrindir chaque ligne ») ; chaque valeur est choisie pour qu'une autre lecture
+// plausible donne un autre résultat, et la lecture écartée est écrite en commentaire.
 //
 // Fichier propre au lot, avec sa base jetable (modèle : saisies-decimales.test.mjs) : `node --test` exécute les fichiers en
 // parallèle, et api.test.mjs purge les données « TEST » de TEST_DATABASE_URL. TEST_DATABASE_URL ne sert ici que de connexion
@@ -160,7 +161,8 @@ if (!TEST_DATABASE_URL) {
     // --- Données ---
     const fiches = {};
     const chantiers = {};
-    // Taux horaire de la fiche, avec des centimes : 3,25 h × 37,85 € = 123,0125 €, qu'un arrondi au centime par ligne changerait.
+    // Taux horaire de la fiche, avec des centimes : 3,25 h × 37,85 € = 123,0125 €, compté 123,01 € (arrondi au centime par ligne,
+    // lot AB), et non 123,0125 €.
     const TAUX = '37.85';
     const creerChantier = (nom, responsableId, extra = {}) => prisma.chantier.create({ data: {
       nom: `TEST Chantier lot W ${nom} ${suffixe()}`, client: 'TEST Client lot W', dateDebut: new Date('2026-10-01T00:00:00Z'),
@@ -401,26 +403,28 @@ if (!TEST_DATABASE_URL) {
     });
 
     // ---------------------------------------------------------------------------------------------------------------
-    // 4. Coût de la main-d'œuvre et marge : heures × taux figé, inchangés
+    // 4. Coût de la main-d'œuvre et marge : heures × taux figé, arrondi au centime par ligne (lot AB)
     // ---------------------------------------------------------------------------------------------------------------
 
     // Cadrage v2, « Critères observables » : « Coût d'une ligne et marge : heures × taux, inchangés » ; point 5 : « Aucun
-    // calcul ». Deux saisies, « 3,25 » h et « 0,25 » h, au taux de 37,85 € copié de la fiche ; puis la fiche passe à 52 €
-    // (modifiée après coup) et la première ligne est corrigée à « 3,75 » h : elle garde son taux figé.
-    //  - Après les créations : 3,5 h ; main-d'œuvre 3,25 × 37,85 + 0,25 × 37,85 = 123,0125 + 9,4625 = 132,475 € ; marge
-    //    1 000 − 132,475 = 867,525 €. Lectures écartées : un arrondi au centime par ligne (123,01 + 9,46 = 132,47) ; « 3,25 »
-    //    lu 3 h (113,55 + 9,4625 = 123,0125) ou 3,5 h (132,475 + 9,4625 = 141,9375) ou 3,3 h (124,905 + 9,4625 = 134,3675) ;
-    //    « 0,25 » refusé (123,0125 seul).
-    //  - Après la correction : 4 h ; 3,75 × 37,85 + 9,4625 = 141,9375 + 9,4625 = 151,40 € ; marge 848,60 €. Lectures
-    //    écartées : le taux de la fiche réappliqué (3,75 × 52 + 9,4625 = 204,4625) ; la correction ignorée (132,475).
-    test('coût et marge : « 3,25 » h et « 0,25 » h à 37,85 € font 132,475 € de main-d’œuvre ; corrigée à « 3,75 » h après une hausse de la fiche à 52 €, la ligne garde son taux figé : 151,40 €, marge 848,60 €', async () => {
+    // calcul ». Depuis le lot AB (réponse de Nelson du 24-11-2026, « Arrindir chaque ligne » ; cadrage v2 du lot AB, « Tests
+    // existants à recalculer »), le coût de chaque ligne est arrondi au centime, moitié vers le haut, avant la somme. Deux
+    // saisies, « 3,25 » h et « 0,25 » h, au taux de 37,85 € copié de la fiche ; puis la fiche passe à 52 € (modifiée après coup)
+    // et la première ligne est corrigée à « 3,75 » h : elle garde son taux figé.
+    //  - Après les créations : 3,5 h ; main-d'œuvre 3,25 × 37,85 = 123,0125 → 123,01 et 0,25 × 37,85 = 9,4625 → 9,46, soit
+    //    132,47 € ; marge 1 000 − 132,47 = 867,53 €. Lectures écartées : la somme exacte d'avant le lot (123,0125 + 9,4625 =
+    //    132,475, marge 867,525) ; « 3,25 » lu 3 h (113,55 + 9,46 = 123,01) ou 3,5 h (132,48 + 9,46 = 141,94) ou 3,3 h
+    //    (124,91 + 9,46 = 134,37) ; « 0,25 » refusé (123,01 seul).
+    //  - Après la correction : 4 h ; 3,75 × 37,85 = 141,9375 → 141,94, plus 9,46 : 151,40 € ; marge 848,60 €. Lectures
+    //    écartées : le taux de la fiche réappliqué (3,75 × 52 + 9,46 = 204,46) ; la correction ignorée (132,47).
+    test('coût et marge : « 3,25 » h et « 0,25 » h à 37,85 € font 132,47 € de main-d’œuvre (chaque ligne arrondie au centime, lot AB) ; corrigée à « 3,75 » h après une hausse de la fiche à 52 €, la ligne garde son taux figé : 151,40 €, marge 848,60 €', async () => {
       const fiche = await creerFiche('coût');
       const chantier = await creerChantier('coût', comptes.CT.id);
       const metriques = async () => (await ok(appeler('get', `/api/chantiers/${chantier.id}`, comptes.SA.auth))).metrics;
       const premiere = await ok(creer(comptes.CT.auth, corpsCreation(chantier.id, '3,25', { intervenantId: fiche.id })));
       await ok(creer(comptes.CT.auth, corpsCreation(chantier.id, '0,25', { intervenantId: fiche.id })));
       const avant = await metriques();
-      assert.deepEqual([avant.heuresRealisees, avant.moReel, avant.totalDepenses, avant.margeBrute], [3.5, 132.475, 132.475, 867.525]);
+      assert.deepEqual([avant.heuresRealisees, avant.moReel, avant.totalDepenses, avant.margeBrute], [3.5, 132.47, 132.47, 867.53]);
       await prisma.intervenant.update({ where: { id: fiche.id }, data: { tauxHoraireCharge: '52' } });
       await ok(corriger(comptes.CT.auth, premiere.id, corpsCorrection('3,75')));
       assert.equal((await pointageEnBase(premiere.id)).tauxHoraireApplique.toString(), TAUX, 'taux figé à la saisie');

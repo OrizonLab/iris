@@ -6,7 +6,7 @@ import { voitMontantsChantier, voitCoutMainOeuvre } from '../../droits/visibilit
 import { type AuthRequest, requireAuth } from '../../http/auth';
 import { requireAdmin, requireTravauxRead } from '../../http/gardes';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, jourCivilEntreprise, ajouterJoursCivils } from '../../commun/dates';
-import { decimalToNumber, sommeExacte, differenceExacte, produitExact } from '../../commun/montants';
+import { decimalToNumber, sommeExacte, differenceExacte, coutLigneHeures } from '../../commun/montants';
 import { getParametres } from '../parametres/metier';
 import { getCompanySettings } from '../administration/metier';
 import { TYPES_CHANTIER } from '../chantiers/metier';
@@ -390,7 +390,7 @@ export function enregistrerRoutesStatistiques(app: Express): void {
       for (const p of pointages) {
         const cur = byIntervenant[p.intervenantId] || { heures: 0, cout: 0 };
         cur.heures = sommeExacte(cur.heures, p.nbrHeures);
-        cur.cout = sommeExacte(cur.cout, produitExact(p.nbrHeures, p.tauxHoraireApplique));
+        cur.cout = sommeExacte(cur.cout, coutLigneHeures(p.nbrHeures, p.tauxHoraireApplique));
         byIntervenant[p.intervenantId] = cur;
       }
 

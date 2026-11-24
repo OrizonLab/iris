@@ -23,8 +23,9 @@
 //  - le matériel garde sa lecture et son message (« Montant invalide. ») ; aucune route d'intégration n'écrit d'heures d'une
 //    intervention (inventaire du contrôle : « ni /api/v1 (aucune route d'intervention) »).
 // Montants (point 5 : « Aucun calcul ne change ») : le coût d'une ligne reste heures × taux figé, arrondi au centime ligne par
-// ligne dans les coûts de l'intervention, exact dans la marge du chantier d'une suite ; chaque valeur est choisie pour qu'une
-// autre lecture plausible donne un autre résultat, et la lecture écartée est écrite en commentaire.
+// ligne dans les coûts de l'intervention et, depuis le lot AB (réponse de Nelson du 24-11-2026, « Arrindir chaque ligne »), dans
+// la marge du chantier d'une suite ; chaque valeur est choisie pour qu'une autre lecture plausible donne un autre résultat, et
+// la lecture écartée est écrite en commentaire.
 //
 // Fichier propre au lot, avec sa base jetable (modèle : heures-quart-heure.test.mjs, lot W) : `node --test` exécute les fichiers
 // en parallèle, et api.test.mjs purge les données « TEST » de TEST_DATABASE_URL. TEST_DATABASE_URL ne sert ici que de connexion
@@ -506,11 +507,12 @@ if (!TEST_DATABASE_URL) {
     //    main-d'œuvre 132,47 €, matériel 0, total 132,47 €. Lectures écartées : un arrondi unique du total exact (132,475 → 132,48) ;
     //    « 1,25 » lu 1 h (37,85 + 85,16 = 123,01) ou 1,3 h (49,21 + 85,16 = 134,37) ; « 2,25 » arrondi au quart supérieur ou à la
     //    demi-heure (2,5 h : 47,31 + 94,63 = 141,94).
-    //  - Marge du chantier (GET /api/chantiers/:id, metrics) : les coûts des suites s'y ajoutent en décimal exact (sommeExacte,
-    //    produitExact) : 47,3125 + 85,1625 = 132,475 € ; marge 1 000 − 132,475 = 867,525 € ; leurs heures restent hors des heures
-    //    réalisées (0, décision du 27-10-2026). Lectures écartées : les centimes par ligne de la vue SAV (132,47, marge 867,53) ;
-    //    les heures de la suite comptées dans les heures réalisées (3,5).
-    test('coûts et marge : « 1,25 » h, « 2,25 » h et « 0 » h d’une suite à 37,85 € font 132,47 € de main-d’œuvre dans ses coûts (centime par ligne) et 132,475 € dans la marge de son chantier (867,525 €), heures réalisées inchangées', async () => {
+    //  - Marge du chantier (GET /api/chantiers/:id, metrics) : depuis le lot AB (cadrage v2 du lot AB, complément N6 du contrôle
+    //    de mode 2 de #675), les coûts des suites s'y ajoutent ligne par ligne arrondis au centime (coutLigneHeures), comme dans
+    //    les coûts de la suite : 47,31 + 85,16 + 0 = 132,47 € ; marge 1 000 − 132,47 = 867,53 € ; leurs heures restent hors des
+    //    heures réalisées (0, décision du 27-10-2026). Lectures écartées : la somme exacte d'avant le lot (47,3125 + 85,1625 =
+    //    132,475, marge 867,525) ; les heures de la suite comptées dans les heures réalisées (3,5).
+    test('coûts et marge : « 1,25 » h, « 2,25 » h et « 0 » h d’une suite à 37,85 € font 132,47 € de main-d’œuvre dans ses coûts et dans la marge de son chantier (867,53 €), chaque ligne arrondie au centime (lot AB), heures réalisées inchangées', async () => {
       const intervention = await nouvelle('suite', 'coût');
       await ok(creer(comptes.TECH.auth, intervention.id, corpsCreation('1,25')), 201);
       await ok(creer(comptes.TECH.auth, intervention.id, corpsCreation('2,25')), 201);
@@ -519,7 +521,7 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(couts.heures.map((h) => h.nbrHeures).sort(), [0, 1.25, 2.25]);
       assert.deepEqual([couts.totalMainOeuvreHT, couts.totalMaterielHT, couts.totalCoutsHT], [132.47, 0, 132.47]);
       const { metrics } = await ok(appeler('get', `/api/chantiers/${intervention.chantier.id}`, comptes.SA.auth));
-      assert.deepEqual([metrics.heuresRealisees, metrics.moReel, metrics.totalDepenses, metrics.margeBrute], [0, 132.475, 132.475, 867.525]);
+      assert.deepEqual([metrics.heuresRealisees, metrics.moReel, metrics.totalDepenses, metrics.margeBrute], [0, 132.47, 132.47, 867.53]);
     });
 
     // ---------------------------------------------------------------------------------------------------------------

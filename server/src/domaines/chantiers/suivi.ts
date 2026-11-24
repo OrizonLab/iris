@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, jourCivilEntreprise, aujourdHuiEntreprise, dateSeuleEnJourCivil } from '../../commun/dates';
-import { decimalToNumber, sommeExacte, differenceExacte, produitExact, regleDeTroisExacte } from '../../commun/montants';
+import { decimalToNumber, sommeExacte, differenceExacte, coutLigneHeures, regleDeTroisExacte } from '../../commun/montants';
 import type { Parametres } from '../parametres/metier';
 import { getCompanySettings } from '../administration/metier';
 import { chantierSansCoutMainOeuvre, chantierSansMontants } from './droits';
@@ -27,8 +27,11 @@ export async function contexteSuivi(avecEstimation: boolean): Promise<ContexteSu
   const fuseauHoraire = societe.fuseauHoraire || FUSEAU_HORAIRE_PAR_DEFAUT;
   const contexte: ContexteSuivi = { aujourdhui: aujourdHuiEntreprise(fuseauHoraire), fuseauHoraire, coutHoraireSociete: null, ratioMaterielHistorique: null };
   if (!avecEstimation) return contexte;
+  // Coût horaire moyen de la société : la somme des coûts des pointages, chacun arrondi au centime (convention de
+  // coutLigneHeures, lot AB), rapportée à leurs heures. Sur un numeric, ROUND arrondit la moitié en s'éloignant de
+  // zéro, ce qui revient à « moitié vers le haut » pour un coût positif.
   const [cout] = await prisma.$queryRaw<{ valeur: Prisma.Decimal | null }[]>(Prisma.sql`
-    SELECT SUM(p."nbrHeures" * p."tauxHoraireApplique") / NULLIF(SUM(p."nbrHeures"), 0) AS valeur
+    SELECT SUM(ROUND(p."nbrHeures" * p."tauxHoraireApplique", 2)) / NULLIF(SUM(p."nbrHeures"), 0) AS valeur
     FROM "PointageHeure" p JOIN "Chantier" c ON c."id" = p."chantierId"
     WHERE p."archivedAt" IS NULL AND c."statut" <> 'ANNULE'`);
   const [ratio] = await prisma.$queryRaw<{ valeur: Prisma.Decimal | null }[]>(Prisma.sql`
@@ -65,13 +68,14 @@ export function computeChantierMetrics(chantier: any, params: Parametres, canSee
   const pointages: any[] = (chantier.pointages || []).filter((p: any) => !p.archivedAt);
 
   // Sommes exactes, indépendantes de l'ordre des lignes (#198) : les alertes de
-  // dépassement ci-dessous comparent ces totaux au vendu, au centime près.
+  // dépassement ci-dessous comparent ces totaux au vendu, au centime près. Le coût de chaque
+  // ligne de main-d'œuvre est d'abord arrondi au centime (coutLigneHeures, lot AB).
   let materielReel = achats.reduce((s: number, a: any) => sommeExacte(s, a.montantHT), 0);
   let heuresRealisees = 0;
   let moReel = 0;
   for (const p of pointages) {
     heuresRealisees = sommeExacte(heuresRealisees, p.nbrHeures);
-    moReel = sommeExacte(moReel, produitExact(p.nbrHeures, p.tauxHoraireApplique));
+    moReel = sommeExacte(moReel, coutLigneHeures(p.nbrHeures, p.tauxHoraireApplique));
   }
   // Intervention issue du devis qui a aussi ouvert le chantier (cf. avecCoutsSuites) : rattachée au
   // chantier, elle n'est pas une intervention SAV (décision de Nelson du 27-10-2026 à 21:41 UTC). Elle
@@ -82,7 +86,7 @@ export function computeChantierMetrics(chantier: any, params: Parametres, canSee
   const coutsInterventionDevis = { heures: 0, coutMainOeuvre: 0, materiel: 0 };
   for (const h of interventionDevis.heures) {
     coutsInterventionDevis.heures = sommeExacte(coutsInterventionDevis.heures, h.nbrHeures);
-    coutsInterventionDevis.coutMainOeuvre = sommeExacte(coutsInterventionDevis.coutMainOeuvre, produitExact(h.nbrHeures, h.tauxHoraireApplique));
+    coutsInterventionDevis.coutMainOeuvre = sommeExacte(coutsInterventionDevis.coutMainOeuvre, coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique));
   }
   for (const a of interventionDevis.achats) coutsInterventionDevis.materiel = sommeExacte(coutsInterventionDevis.materiel, a.montantHT);
   heuresRealisees = sommeExacte(heuresRealisees, coutsInterventionDevis.heures);
@@ -97,7 +101,7 @@ export function computeChantierMetrics(chantier: any, params: Parametres, canSee
   const coutsSuites = { heures: 0, coutMainOeuvre: 0, materiel: 0 };
   for (const h of suites.heures) {
     coutsSuites.heures = sommeExacte(coutsSuites.heures, h.nbrHeures);
-    coutsSuites.coutMainOeuvre = sommeExacte(coutsSuites.coutMainOeuvre, produitExact(h.nbrHeures, h.tauxHoraireApplique));
+    coutsSuites.coutMainOeuvre = sommeExacte(coutsSuites.coutMainOeuvre, coutLigneHeures(h.nbrHeures, h.tauxHoraireApplique));
   }
   for (const a of suites.achats) coutsSuites.materiel = sommeExacte(coutsSuites.materiel, a.montantHT);
   materielReel = sommeExacte(materielReel, coutsSuites.materiel);

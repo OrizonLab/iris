@@ -1924,22 +1924,42 @@ if (!TEST_DATABASE_URL) {
     });
 
     test('coût horaire et ratio matériel viennent des saisies réelles de la société', async () => {
-      // Références recalculées ici indépendamment de la requête SQL du serveur.
-      const pointages = await prisma.pointageHeure.findMany({ where: { archivedAt: null, chantier: { statut: { not: 'ANNULE' } } } });
-      const heures = pointages.reduce((s, p) => s + Number(p.nbrHeures), 0);
-      const coutHoraire = heures > 0 ? pointages.reduce((s, p) => s + Number(p.nbrHeures) * Number(p.tauxHoraireApplique), 0) / heures : null;
-      const termines = await prisma.chantier.findMany({ where: { statut: 'TERMINE', budgetMaterielVendu: { gt: 0 } }, include: { achats: { where: { archivedAt: null } } } });
-      const vendu = termines.reduce((s, c) => s + Number(c.budgetMaterielVendu), 0);
-      const ratio = vendu > 0 ? termines.reduce((s, c) => s + c.achats.reduce((t, a) => t + Number(a.montantHT), 0), 0) / vendu : null;
+      // Références recalculées ici indépendamment de la requête SQL du serveur. Coût horaire de la société : la somme des
+      // coûts des pointages, chacun arrondi au centime moitié vers le haut, rapportée à leurs heures (lot AB, réponse de
+      // Nelson du 24-11-2026, « Arrindir chaque ligne » ; lecture L4). Une ligne dont le coût a un reste sous le centime
+      // (3,25 h × 37,85 € = 123,0125 €, compté 123,01 €) est posée le temps du test sur le chantier endormi, à la date de sa
+      // dernière saisie (son délai sans saisie ne change pas) : sans elle, la base pourrait ne compter que des coûts ronds, et
+      // la somme exacte des produits (lecture écartée, avant le lot AB) se confondrait avec la règle.
+      const { Prisma } = await import('@prisma/client');
+      const auteur = await prisma.user.findUniqueOrThrow({ where: { email: 'suivi.conducteur@iris.test' } });
+      const intervenant = await prisma.intervenant.create({ data: { nom: 'TEST Suivi intervenant lot AB', role: 'Technicien', tauxHoraireCharge: '37.85' } });
+      const ligne = await prisma.pointageHeure.create({ data: {
+        date: new Date(`${ilYa30Jours}T00:00:00Z`), intervenantId: intervenant.id, chantierId: endormi.id, nbrHeures: '3.25', tauxHoraireApplique: '37.85',
+        createdById: auteur.id, updatedById: auteur.id,
+      } });
+      try {
+        const pointages = await prisma.pointageHeure.findMany({ where: { archivedAt: null, chantier: { statut: { not: 'ANNULE' } } } });
+        const heures = pointages.reduce((s, p) => s + Number(p.nbrHeures), 0);
+        const somme = (cout) => pointages.reduce((s, p) => s.plus(cout(p)), new Prisma.Decimal(0)).toNumber();
+        const coutHoraire = heures > 0 ? somme((p) => new Prisma.Decimal(p.nbrHeures).mul(p.tauxHoraireApplique).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)) / heures : null;
+        const coutHoraireExact = heures > 0 ? somme((p) => new Prisma.Decimal(p.nbrHeures).mul(p.tauxHoraireApplique)) / heures : null;
+        assert.ok(Math.abs(coutHoraire - coutHoraireExact) > 1e-6, 'témoin : la somme exacte des produits donne un autre coût horaire');
+        const termines = await prisma.chantier.findMany({ where: { statut: 'TERMINE', budgetMaterielVendu: { gt: 0 } }, include: { achats: { where: { archivedAt: null } } } });
+        const vendu = termines.reduce((s, c) => s + Number(c.budgetMaterielVendu), 0);
+        const ratio = vendu > 0 ? termines.reduce((s, c) => s + c.achats.reduce((t, a) => t + Number(a.montantHT), 0), 0) / vendu : null;
 
-      const { sansHeure: vue } = await lire('/api/chantiers', auth);
-      const e = vue.metrics.estimation;
-      assert.equal(e.sourceCoutHoraire, coutHoraire === null ? 'VENDU' : 'SOCIETE');
-      assert.equal(e.sourceMateriel, ratio === null ? 'VENDU' : 'HISTORIQUE');
-      if (coutHoraire !== null) assert.ok(Math.abs(e.coutHoraireReference - coutHoraire) < 1e-6, `${e.coutHoraireReference} ≠ ${coutHoraire}`);
-      assert.ok(Math.abs(e.ratioMateriel - (ratio ?? 1)) < 1e-6, `${e.ratioMateriel} ≠ ${ratio ?? 1}`);
-      const attendu = 2000 - (coutHoraire === null ? 1500 : 20 * coutHoraire) - 500 * (ratio ?? 1);
-      assert.ok(Math.abs(vue.metrics.margeEstimee - attendu) < 1e-6, `${vue.metrics.margeEstimee} ≠ ${attendu}`);
+        const { sansHeure: vue } = await lire('/api/chantiers', auth);
+        const e = vue.metrics.estimation;
+        assert.equal(e.sourceCoutHoraire, 'SOCIETE');
+        assert.equal(e.sourceMateriel, ratio === null ? 'VENDU' : 'HISTORIQUE');
+        assert.ok(Math.abs(e.coutHoraireReference - coutHoraire) < 1e-6, `${e.coutHoraireReference} ≠ ${coutHoraire}`);
+        assert.ok(Math.abs(e.ratioMateriel - (ratio ?? 1)) < 1e-6, `${e.ratioMateriel} ≠ ${ratio ?? 1}`);
+        const attendu = 2000 - 20 * coutHoraire - 500 * (ratio ?? 1);
+        assert.ok(Math.abs(vue.metrics.margeEstimee - attendu) < 1e-6, `${vue.metrics.margeEstimee} ≠ ${attendu}`);
+      } finally {
+        await prisma.pointageHeure.delete({ where: { id: ligne.id } });
+        await prisma.intervenant.delete({ where: { id: intervenant.id } });
+      }
     });
 
     test('un chantier sans saisie depuis le délai réglé est signalé à tous ceux qui le voient', async () => {
@@ -21239,7 +21259,7 @@ if (!TEST_DATABASE_URL) {
       await achat(suite.id, 25.5);
       await achat(suite.id, 99, true); // archivé : hors marge
       const suiteDeSuite = await suiteDe(suite.id);
-      await heure(suiteDeSuite.id, 0.25, 37.5); // produit exact 9,375 €
+      await heure(suiteDeSuite.id, 0.25, 37.5); // produit exact 9,375 €, compté 9,38 € (lot AB : chaque ligne arrondie au centime)
       const suiteAnnulee = await suiteDe(initiale.id);
       await heure(suiteAnnulee.id, 1, 40);
       await annuler(suiteAnnulee.id); // la dépense faite reste comptée
@@ -21251,8 +21271,12 @@ if (!TEST_DATABASE_URL) {
 
       // Heures réalisées : les 2 h du chantier seules ; les 2,75 h des suites en restent hors, leur coût compté
       // (décision de Nelson du 27-10-2026 à 21:41 UTC, « Oui il faut sortir les heures »).
-      const attendu = { heuresRealisees: 2, moReel: 189.375, materielReel: 25.5, totalDepenses: 214.875, margeCommerciale: 785.125 };
-      const coutsSuitesAttendus = { heures: 2.75, coutMainOeuvre: 109.375, materiel: 25.5 };
+      // Lot AB (réponse de Nelson du 24-11-2026, « Arrindir chaque ligne ») : chaque ligne est arrondie au centime avant la
+      // somme. Main-d'œuvre : 80 (chantier) + 60 (suite) + 9,38 (suite de la suite, 9,375 arrondi) + 40 (suite annulée) =
+      // 189,38 €, dont suites 60 + 9,38 + 40 = 109,38 € ; dépenses 189,38 + 25,5 = 214,88 € ; marge 1 000 − 214,88 = 785,12 €.
+      // Lecture écartée : la somme exacte d'avant le lot (189,375, 109,375, 214,875 et 785,125 €).
+      const attendu = { heuresRealisees: 2, moReel: 189.38, materielReel: 25.5, totalDepenses: 214.88, margeCommerciale: 785.12 };
+      const coutsSuitesAttendus = { heures: 2.75, coutMainOeuvre: 109.38, materiel: 25.5 };
       const detail = await ficheChantier(chantier.id);
       for (const [cle, valeur] of Object.entries(attendu)) assert.equal(detail.metrics[cle], valeur, `fiche : ${cle}`);
       assert.deepEqual(detail.metrics.coutsSuites, coutsSuitesAttendus);
@@ -21272,7 +21296,7 @@ if (!TEST_DATABASE_URL) {
       const stats = await request(app).get('/api/stats/conducteurs').set(admin);
       assert.equal(stats.status, 200, JSON.stringify(stats.body));
       const duConducteur = stats.body.find((u) => u.id === comptes.conducteur.id);
-      assert.deepEqual([duConducteur.depensesTotal, duConducteur.margeTotal], [214.875, 785.125]);
+      assert.deepEqual([duConducteur.depensesTotal, duConducteur.margeTotal], [214.88, 785.12]);
     });
 
     test('détail des suites masqué comme le reste du réel : sans coût de main-d’œuvre pour le conducteur, sans montant pour le technicien', async () => {

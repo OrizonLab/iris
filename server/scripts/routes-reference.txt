@@ -255,7 +255,7 @@ GET /api/stats/global requireAuth#07b983da0ce5 > <anonymous>#df5b32801d07
 GET /api/stats/conducteurs requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#e679e6ebe566
 GET /api/stats/conducteurs/assiduite requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#a9e036d8d362
 GET /api/stats/chantiers-repartition requireAuth#07b983da0ce5 > requireAdmin#72440b3191ab > <anonymous>#a6d4620276c4
-GET /api/stats/intervenants requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#6930e6226651
+GET /api/stats/intervenants requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#266885ecf49c
 GET /api/stats/fournisseurs requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#0cad5c59e893
 GET /api/stats/types-chantiers requireAuth#07b983da0ce5 > requireTravauxRead#7ee74c0efa19 > <anonymous>#e403d98394dc
 GET /api/stats/commerciaux requireAuth#07b983da0ce5 > <anonymous>#3ec062c1a65f
