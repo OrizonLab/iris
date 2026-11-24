@@ -7,6 +7,20 @@ export function nombreDecimalNonNegatif(value: unknown, maxIntegerDigits: number
   return Number.isFinite(nombre) && (nombre > 0 || (zeroAutorise && nombre === 0)) ? nombre : null;
 }
 
+// Heures saisies au quart d'heure, règle commune aux heures d'un chantier (décision de Nelson du 22-11-2026, soir :
+// « 1. Quart d'heure » ; lot W) et à celles d'une intervention (réponse de Nelson du 23-11-2026 : « les heures sur une
+// intervention Passe au quart d'heure » ; lot Z). Règle qui touche un montant (coût de la main-d'œuvre, marges, facture
+// au temps passé) : elle reste dans le code et ne changerait que sur décision de Nelson (règle permanente 1,
+// PARAMETRAGE-CIBLE.md, section 5) ; « serveur juge » et « constante » sont des choix par défaut, à confirmer. La saisie
+// est lue par la règle commune (virgule ou point, huit chiffres, deux décimales), puis doit tomber sur un quart d'heure :
+// 3,25 et 3,00 sont admis, 1,1 et 0,2 refusés. Aucune valeur n'est arrondie : une saisie hors du quart d'heure est
+// refusée. Zéro n'est admis que sur demande (zeroAutorise) : refusé sur un chantier, admis sur une intervention, où la
+// route exige alors un motif. L'écran ne fait que prévenir avec le même motif (client/src/lib/saisiesDecimales.ts).
+export function heuresAuQuartDHeure(valeur: unknown, zeroAutorise = false): number | null {
+  const heures = nombreDecimalNonNegatif(valeur, 8, zeroAutorise);
+  return heures !== null && Math.round(heures * 100) % 25 === 0 ? heures : null;
+}
+
 export function motifCorrectionValide(value: unknown): string | null {
   const motif = typeof value === 'string' ? value.trim() : '';
   // Même métrique Unicode que PostgreSQL : un emoji est un caractère métier, pas deux unités UTF-16.

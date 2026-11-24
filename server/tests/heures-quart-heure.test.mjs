@@ -16,7 +16,12 @@
 //  - une heure déjà enregistrée hors du quart d'heure reste telle quelle (point 4, règle 4 : aucune reprise) : une correction
 //    qui ne touche pas aux heures, un archivage et une restauration l'admettent ; renvoyer ses heures telles quelles est refusé ;
 //  - aucune clé d'intégration n'écrit d'heures d'un chantier (point 1 : « Seules ces deux routes écrivent des heures d'un
-//    chantier ») ; heures d'une intervention hors lot (point 5), non jouées ici.
+//    chantier »).
+// Les heures d'une intervention, hors du lot W (point 5), passent aussi au quart d'heure, zéro compris avec son motif, par le
+// lot Z (réponse de Nelson du 23-11-2026 : « les heures sur une intervention Passe au quart d'heure ») : la règle
+// heuresAuQuartDHeure est déplacée dans commun/validation.ts, avec un paramètre « zéro admis », et re-exportée par
+// domaines/chantiers/saisies.ts, d'où la section 9 l'importe ; ce fichier, rejoué après le déplacement, prouve que les heures
+// d'un chantier n'en changent pas. Les heures d'une intervention sont jouées dans heures-intervention-quart-heure.test.mjs.
 // Montants : le coût d'une ligne reste heures × taux figé, en décimal exact (point 5 : « Aucun calcul ») ; chaque valeur est
 // choisie pour qu'une autre lecture plausible donne un autre résultat, et la lecture écartée est écrite en commentaire.
 //

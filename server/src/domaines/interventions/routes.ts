@@ -8,7 +8,7 @@ import { blockCommercial, blockCommercialEtAssimiles, blockTechnicien } from '..
 import { paramId } from '../../http/requete';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, anneeEntreprise, dateIsoStricte } from '../../commun/dates';
 import { decimalToNumber } from '../../commun/montants';
-import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide } from '../../commun/validation';
+import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide, heuresAuQuartDHeure } from '../../commun/validation';
 import { getCompanySettings } from '../administration/metier';
 import { requirePlanningActif, PLANNING_EVENT_INCLUDE, validatePlanningEvent } from '../planning/metier';
 import { verrouillerContratMaintenance } from '../contrats/metier';
@@ -36,6 +36,14 @@ class RefusIntervention extends Error {}
 class InterventionHorsPerimetre extends Error {}
 
 const HEURES_DATE_FUTURE = 'Des heures se déclarent une fois faites : la date ne peut pas dépasser aujourd’hui.';
+// Heures d'une intervention saisies au quart d'heure (réponse de Nelson du 23-11-2026 : « les heures sur une
+// intervention Passe au quart d'heure » ; lot Z), zéro compris : zéro heure reste admis avec son motif obligatoire.
+// Règle commune avec les heures d'un chantier (heuresAuQuartDHeure, commun/validation.ts, où sa raison est écrite) ;
+// aucune saisie n'est arrondie. Les coûts SAV reprennent les heures telles que saisies (décision du 19-10-2026, #253,
+// point 2) : seule la finesse de saisie change. Le message ne cite pas de plancher, zéro étant admis. Aucun sens
+// d'arrondi n'est imposé au technicien (réponse de Nelson du 24-11-2026 : « Il saisit ce qu'il veut, ce sera les regle
+// en interne et la methodologie pour savoir comment le facturer en cas de intervention au temps passé. »).
+export const REFUS_HEURES_INTERVENTION = 'Le nombre d’heures se saisit au quart d’heure (par exemple 1,25).';
 // Instantané du journal SAV d'un changement de statut qui laisse le créneau en place.
 const AVEC_CLIENT = { client: { select: { id: true, raisonSociale: true } } } as const;
 const MOTIF_ANNULATION_INVALIDE = 'Un motif de 3 à 500 caractères sans caractère de contrôle est obligatoire pour annuler l’intervention.';
@@ -133,9 +141,10 @@ export function enregistrerRoutesInterventions(app: Express): void {
       if (req.user!.role !== ROLE_TECHNICIEN) return res.status(403).json({ error: 'Saisie d’heures réservée au technicien affecté.' });
       if (!interventionCoutEligible(intervention)) return res.status(409).json({ error: 'Cette intervention ne peut pas recevoir de coûts.' });
       await verifierAffaireDeLaSuite(prisma, intervention, req.user!.role, false);
-      const dateSaisie = dateIsoStricte(req.body?.date); const nbrHeures = nombreDecimalNonNegatif(req.body?.nbrHeures, 8, true);
+      const dateSaisie = dateIsoStricte(req.body?.date); const nbrHeures = heuresAuQuartDHeure(req.body?.nbrHeures, true);
       const motif = motifCorrectionValide(req.body?.motif);
-      if (!dateSaisie || nbrHeures === null) return res.status(400).json({ error: 'Date ou nombre d’heures invalide.' });
+      if (!dateSaisie) return res.status(400).json({ error: 'La date doit être valide au format JJ-MM-AAAA.' });
+      if (nbrHeures === null) return res.status(400).json({ error: REFUS_HEURES_INTERVENTION });
       const date = dateHeuresIntervention(dateSaisie, (await getCompanySettings()).fuseauHoraire || FUSEAU_HORAIRE_PAR_DEFAUT);
       if (!date) return res.status(400).json({ error: HEURES_DATE_FUTURE });
       if (nbrHeures === 0 && !motif) return res.status(400).json({ error: 'Un motif de 3 à 500 caractères est obligatoire pour zéro heure.' });
@@ -204,7 +213,11 @@ export function enregistrerRoutesInterventions(app: Express): void {
         data.date = date;
       }
       const cleMontant = heures ? 'nbrHeures' : 'montantHT';
-      if (cleMontant in body) { const valeur = nombreDecimalNonNegatif(body[cleMontant], heures ? 8 : 10, true); if (valeur === null) return res.status(400).json({ error: 'Montant invalide.' }); data[cleMontant] = valeur; }
+      if (cleMontant in body) {
+        const valeur = heures ? heuresAuQuartDHeure(body[cleMontant], true) : nombreDecimalNonNegatif(body[cleMontant], 10, true);
+        if (valeur === null) return res.status(400).json({ error: heures ? REFUS_HEURES_INTERVENTION : 'Montant invalide.' });
+        data[cleMontant] = valeur;
+      }
       if (heures && 'commentaire' in body) data.commentaire = body.commentaire ? String(body.commentaire).trim() : null;
       if (achats && 'description' in body) { const description = String(body.description || '').trim(); if (!description) return res.status(400).json({ error: 'Description obligatoire.' }); data.description = description; }
       if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucun champ à corriger.' });

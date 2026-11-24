@@ -42,6 +42,16 @@
 // témoin en décimal exact (BigInt, hors de l'application) dans le premier test, et chaque lecture plausible écartée y est calculée
 // et vérifiée distincte de l'attendu ; la lecture écartée est aussi écrite en commentaire à côté de chaque attendu.
 //
+// Lot Z (réponse de Nelson du 23-11-2026, mot pour mot : « les heures sur une intervention Passe au quart d'heure » ; cadrage v2 du
+// lot Z, « Tests », « À adapter, montants ») : les heures saisies par le technicien se saisissent au quart d'heure, et les saisies
+// d'avant (0,20 h, 2,10 h, 1,60 h, 0,60 h) sont refusées. Elles deviennent 0,25 h, 1,75 h et 1,25 h. Avec un pas de 15 minutes, des
+// saisies au quart d'heure tombent toujours sur le pas : l'arrondi au pas au-delà du minimum n'y joue plus. Les trois scénarios qui
+// l'éprouvent (nouvelle facture, suite, minimum réappliqué) figent donc un pas de 45 minutes sur leur devis, le seul des pas admis
+// (15, 30, 45 ou 60 minutes) qui, au-delà du minimum de 15 minutes et à 0,01 € l'heure, tombe sur un demi-centime (2,5 h → 0,025 €),
+// si bien que l'arrondi commercial reste départagé de l'arrondi au pair et de la troncature. Chaque scénario garde ce qu'il éprouve :
+// facture à 0,00 € au minimum (0,25 h, le minimum atteint) ; nouvelle facture arrondie au pas, au-delà du minimum, au prix, au
+// minimum et au pas figés ; heures de la suite comptées ; minimum figé réappliqué sur la seconde facture, au pas et à la TVA figés.
+//
 // Comme les fichiers récents (taux-horaire-et-cloture.test.mjs), ce fichier crée sur le serveur de TEST_DATABASE_URL une base
 // jetable qui n'appartient qu'à lui (« test » comme mot, suffixe tiré au hasard), la migre (`prisma migrate deploy`), la sert à
 // l'application montée en mémoire, puis la supprime (#552 : suppression retentée, connexion administrative toujours fermée dans un
@@ -99,6 +109,13 @@ const exact = {
     if (centiMinutes <= p) return BigInt(plancher);
     return BigInt(plancher) + ((centiMinutes - p + s - 1n) / s) * BigInt(pas);
   },
+  // Lecture écartée : tranches du pas arrondies au plus proche (et non commencées) au-delà du plancher.
+  minutesAuPlusProche: (centiemesHeure, plancher, pas) => {
+    const centiMinutes = centiemesHeure * 60n;
+    const p = BigInt(plancher) * 100n; const s = BigInt(pas) * 100n;
+    if (centiMinutes <= p) return BigInt(plancher);
+    return BigInt(plancher) + ((2n * (centiMinutes - p) + s) / (2n * s)) * BigInt(pas);
+  },
   milliemesHeure: (minutes) => (minutes * 2000n + 60n) / 120n,
   // Produit quantité (millièmes d'heure) × prix (centimes) : millièmes de centime. Lectures de l'arrondi au centime.
   arrondi: (p) => (p + 500n) / 1000n,
@@ -120,21 +137,23 @@ const factureTempsPasse = (heures, { plancher = 15, pas = 15, prix = '0.01', tau
 };
 const euros = (centimes) => Number(centimes) / 100;
 
-// --- Jeu de montants (plancher et pas figés sur chaque devis du fichier : 15 minutes, réglages posés avant les devis) ---
-const PLANCHER = 15; const PAS = 15;
-// Scénario « 0,01 €/h » (critère « nouvelle facture positive ») : 0,20 h saisies, facturées 0,25 h (plancher), 0,0025 € → 0,00 € ;
-// puis 2,10 h ajoutées sur l'intervention terminée : 2,30 h = 138 min, facturées 150 min = 2,5 h, 0,025 € → 0,03 € HT, TVA 0,006 €
-// → 0,01 €, TTC 0,04 €.
-const H_ZERO = '0.2';
-const H_AJOUT = '2.1';
+// --- Jeu de montants (plancher et pas figés sur chaque devis du fichier : 15 minutes, réglages posés avant les devis ; pas de
+// 45 minutes sur les devis de la nouvelle facture, de la suite et du minimum réappliqué, lot Z) ---
+const PLANCHER = 15; const PAS = 15; const PAS_45 = 45;
+// Scénario « 0,01 €/h » (critère « nouvelle facture positive »), devis au pas de 45 min : 0,25 h saisies, facturées 0,25 h
+// (minimum atteint), 0,0025 € → 0,00 € ; puis 1,75 h ajoutées sur l'intervention terminée : 2 h = 120 min, au-delà du minimum de
+// 105 min, trois tranches de 45 min commencées, facturées 150 min = 2,5 h, 0,025 € → 0,03 € HT, TVA 0,006 € → 0,01 €, TTC 0,04 €.
+const H_ZERO = '0.25';
+const H_AJOUT = '1.75';
 const ATTENDU_ZERO = { quantite: 0.25, ht: 0, tva: 0, ttc: 0 };
 const ATTENDU_NOUVELLE = { quantite: 2.5, ht: 0.03, tva: 0.01, ttc: 0.04, ligneTtc: 0.04 };
 // Facture émise à 0,01 € (critère « refusée avec une facture émise à 0,01 € ») : 1 h à 0,01 €/h, HT 0,01 €, TVA 0,002 € → 0,00 €,
 // TTC 0,01 €.
 const H_CENTIME = '1';
 const ATTENDU_CENTIME = { quantite: 1, ht: 0.01, tva: 0, ttc: 0.01 };
-// Suite (fixture théorique) : 0,75 h sur l'intervention, 1,60 h sur sa suite, 2,35 h = 141 min, facturées 150 min = 2,5 h.
-const H_SUITE = { intervention: '0.75', suite: '1.6' };
+// Suite (fixture théorique), devis au pas de 45 min : 0,75 h sur l'intervention, 1,25 h sur sa suite, 2 h = 120 min, facturées
+// 15 + 3 × 45 = 150 min = 2,5 h.
+const H_SUITE = { intervention: '0.75', suite: '1.25' };
 const ATTENDU_SUITE = { quantite: 2.5, ht: 0.03, tva: 0.01, ttc: 0.04, ligneTtc: 0.04 };
 // Réglages de la société et prix du catalogue changés après la signature (copie figée), lectures écartées : minimum de 8 h et
 // main d'œuvre à 45,50 €/h.
@@ -394,34 +413,46 @@ if (!TEST_DATABASE_URL) {
 
     // Règle du rédacteur des tests (montants) : chaque attendu recalculé en décimal exact, hors de l'application, et chaque lecture
     // écartée calculée et distincte de l'attendu.
-    test('témoin des montants : factures au temps passé recalculées en décimal exact (0,20 h à 0,01 €/h → 0,00 € ; 0,20 h + 2,10 h → 0,03 € HT, 0,01 € de TVA, 0,04 € TTC ; 1 h → 0,01 € TTC ; 0,75 h + 1,60 h de la suite → 0,04 € TTC), chaque lecture écartée distincte de l’attendu', () => {
-      // Facture à 0,00 € par l'arrondi : 0,20 h (12 min) → plancher 15 min → 0,25 h × 0,01 € = 0,0025 € → 0,00 €.
+    test('témoin des montants : factures au temps passé recalculées en décimal exact (0,25 h à 0,01 €/h → 0,00 € ; 0,25 h + 1,75 h au pas de 45 min → 0,03 € HT, 0,01 € de TVA, 0,04 € TTC ; 1 h → 0,01 € TTC ; 0,75 h + 1,25 h de la suite au pas de 45 min → 0,04 € TTC), chaque lecture écartée distincte de l’attendu', () => {
+      // Facture à 0,00 € par l'arrondi : 0,25 h (15 min) → minimum de 15 min atteint → 0,25 h × 0,01 € = 0,0025 € → 0,00 €, au pas
+      // de 15 min comme au pas de 45 min (le pas ne joue qu'au-delà du minimum).
       const zero = factureTempsPasse([H_ZERO]);
       assert.deepEqual([zero.minutes, zero.milliemes, zero.ht, zero.tva, zero.ttc], [15n, 250n, 0n, 0n, 0n]);
       assert.deepEqual([Number(zero.milliemes) / 1000, euros(zero.ht), euros(zero.tva), euros(zero.ttc)], [ATTENDU_ZERO.quantite, ATTENDU_ZERO.ht, ATTENDU_ZERO.tva, ATTENDU_ZERO.ttc]);
+      assert.deepEqual(factureTempsPasse([H_ZERO], { pas: PAS_45 }), zero, 'facture à 0,00 € identique au pas de 45 min');
       // Lecture écartée : arrondi au centime supérieur (0,01 €, la facture ne serait pas à 0,00 €).
       assert.equal(factureTempsPasse([H_ZERO], { arrondi: exact.superieur }).ht, 1n, 'lecture écartée : arrondi au supérieur');
 
-      // Nouvelle facture : toutes les heures de l'intervention, celles de la facture à 0,00 € comprises (elle ne compte plus).
-      const nouvelle = factureTempsPasse([H_ZERO, H_AJOUT]);
-      assert.deepEqual([nouvelle.centiemes, nouvelle.minutes, nouvelle.milliemes, nouvelle.ht, nouvelle.tva, nouvelle.ttc, nouvelle.ligneTtc], [230n, 150n, 2500n, 3n, 1n, 4n, 4n]);
+      // Nouvelle facture, devis au pas de 45 min : toutes les heures de l'intervention, celles de la facture à 0,00 € comprises
+      // (elle ne compte plus) : 0,25 h + 1,75 h = 2 h = 120 min → 15 min + 3 × 45 min = 150 min = 2,5 h → 0,025 € → 0,03 € HT.
+      const nouvelle = factureTempsPasse([H_ZERO, H_AJOUT], { pas: PAS_45 });
+      assert.deepEqual([nouvelle.centiemes, nouvelle.minutes, nouvelle.milliemes, nouvelle.ht, nouvelle.tva, nouvelle.ttc, nouvelle.ligneTtc], [200n, 150n, 2500n, 3n, 1n, 4n, 4n]);
       assert.deepEqual([Number(nouvelle.milliemes) / 1000, euros(nouvelle.ht), euros(nouvelle.tva), euros(nouvelle.ttc), euros(nouvelle.ligneTtc)], [ATTENDU_NOUVELLE.quantite, ATTENDU_NOUVELLE.ht, ATTENDU_NOUVELLE.tva, ATTENDU_NOUVELLE.ttc, ATTENDU_NOUVELLE.ligneTtc]);
       const ecartees = {
-        // Seules les heures ajoutées après la facture à 0,00 € : 2,10 h = 126 min → 135 min = 2,25 h → 0,0225 € → 0,02 €.
-        'heures ajoutées seules': factureTempsPasse([H_AJOUT]).ht,
-        // Quantité de la facture à 0,00 € déduite : 2,5 h − 0,25 h = 2,25 h → 0,02 €.
+        // Seules les heures ajoutées après la facture à 0,00 € : 1,75 h = 105 min → 15 + 2 × 45 = 105 min → 0,0175 € → 0,02 €.
+        'heures ajoutées seules': factureTempsPasse([H_AJOUT], { pas: PAS_45 }).ht,
+        // Quantité de la facture à 0,00 € déduite : 2,5 h − 0,25 h = 2,25 h → 0,0225 € → 0,02 €.
         'facture à 0,00 € déduite': exact.arrondi((nouvelle.milliemes - zero.milliemes) * exact.unites('0.01', 2)),
-        // Heures brutes, sans plancher ni pas : 2,3 h → 0,023 € → 0,02 €.
-        'heures brutes': exact.arrondi(exact.unites('2.3', 3) * 1n),
+        // Heures brutes, sans minimum ni pas : 2 h → 0,02 €.
+        'heures brutes': exact.arrondi(exact.unites('2', 3) * 1n),
+        // Pas le plus proche au lieu du pas commencé : 105 min au-delà du minimum, 2,33 tranches → 2 → 105 min → 0,02 €.
+        'pas le plus proche': exact.arrondi(exact.milliemesHeure(exact.minutesAuPlusProche(nouvelle.centiemes, PLANCHER, PAS_45)) * 1n),
+        // Minimum ignoré : tranches de 45 min dès la première minute, 120 min → 135 min = 2,25 h → 0,02 €.
+        'minimum ignoré': factureTempsPasse([H_ZERO, H_AJOUT], { plancher: 0, pas: PAS_45 }).ht,
         // Arrondi du HT : troncature et arrondi au pair (0,025 € → 0,02 €).
-        troncature: factureTempsPasse([H_ZERO, H_AJOUT], { arrondi: exact.tronque }).ht,
-        'arrondi au pair': factureTempsPasse([H_ZERO, H_AJOUT], { arrondi: exact.auPair }).ht,
+        troncature: factureTempsPasse([H_ZERO, H_AJOUT], { pas: PAS_45, arrondi: exact.tronque }).ht,
+        'arrondi au pair': factureTempsPasse([H_ZERO, H_AJOUT], { pas: PAS_45, arrondi: exact.auPair }).ht,
         // Minimum de la société changé après la signature (8 h) au lieu du minimum figé du devis : 8 h → 0,08 €.
-        'réglage du jour': factureTempsPasse([H_ZERO, H_AJOUT], { plancher: MINIMUM_APRES_COUP }).ht,
+        'minimum du jour': factureTempsPasse([H_ZERO, H_AJOUT], { plancher: MINIMUM_APRES_COUP, pas: PAS_45 }).ht,
+        // Pas de la société revenu à 15 min après la signature au lieu du pas figé de 45 min : 120 min → 2 h → 0,02 €.
+        'pas du jour': factureTempsPasse([H_ZERO, H_AJOUT], { pas: PAS }).ht,
         // Prix du catalogue changé après la signature (45,50 €/h) au lieu du prix figé : 2,5 × 45,50 € = 113,75 €.
-        'prix du catalogue du jour': factureTempsPasse([H_ZERO, H_AJOUT], { prix: PRIX_APRES_COUP }).ht,
+        'prix du catalogue du jour': factureTempsPasse([H_ZERO, H_AJOUT], { pas: PAS_45, prix: PRIX_APRES_COUP }).ht,
       };
-      assert.deepEqual(ecartees, { 'heures ajoutées seules': 2n, 'facture à 0,00 € déduite': 2n, 'heures brutes': 2n, troncature: 2n, 'arrondi au pair': 2n, 'réglage du jour': 8n, 'prix du catalogue du jour': 11375n });
+      assert.deepEqual(ecartees, {
+        'heures ajoutées seules': 2n, 'facture à 0,00 € déduite': 2n, 'heures brutes': 2n, 'pas le plus proche': 2n, 'minimum ignoré': 2n, troncature: 2n, 'arrondi au pair': 2n,
+        'minimum du jour': 8n, 'pas du jour': 2n, 'prix du catalogue du jour': 11375n,
+      });
       for (const [lecture, ht] of Object.entries(ecartees)) assert.notEqual(ht, nouvelle.ht, `lecture écartée « ${lecture} » distincte de l’attendu`);
       // TVA tronquée (0,006 € → 0,00 €, TTC 0,03 €) : écartée.
       assert.equal(exact.tvaTronquee(nouvelle.ht, 20), 0n);
@@ -434,14 +465,22 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual([Number(centime.milliemes) / 1000, euros(centime.ht), euros(centime.tva), euros(centime.ttc)], [ATTENDU_CENTIME.quantite, ATTENDU_CENTIME.ht, ATTENDU_CENTIME.tva, ATTENDU_CENTIME.ttc]);
       assert.notEqual(centime.ttc, 0n, 'une facture à 0,01 € n’est pas à 0,00 €');
 
-      // Suite : 0,75 h + 1,60 h = 2,35 h = 141 min → 150 min = 2,5 h → 0,03 € HT, 0,01 € de TVA, 0,04 € TTC. Lectures écartées : heures
-      // de la suite oubliées (0,75 h → 45 min → 0,0075 € → 0,01 €) ; heures brutes (2,35 h → 0,0235 € → 0,02 €) ; troncature (0,02 €).
-      const suite = factureTempsPasse([H_SUITE.intervention, H_SUITE.suite]);
+      // Suite, devis au pas de 45 min : 0,75 h + 1,25 h = 2 h = 120 min → 150 min = 2,5 h → 0,03 € HT, 0,01 € de TVA, 0,04 € TTC.
+      // Lectures écartées : heures de la suite oubliées (0,75 h = 45 min → 15 + 45 = 60 min → 0,01 €) ; heures de l'intervention
+      // oubliées (1,25 h = 75 min → 15 + 2 × 45 = 105 min → 0,0175 € → 0,02 €) ; heures brutes (2 h → 0,02 €) ; pas le plus proche
+      // (105 min → 0,02 €) ; troncature (0,02 €).
+      const suite = factureTempsPasse([H_SUITE.intervention, H_SUITE.suite], { pas: PAS_45 });
       assert.deepEqual([suite.minutes, suite.milliemes, suite.ht, suite.tva, suite.ttc, suite.ligneTtc], [150n, 2500n, 3n, 1n, 4n, 4n]);
       assert.deepEqual([Number(suite.milliemes) / 1000, euros(suite.ht), euros(suite.tva), euros(suite.ttc), euros(suite.ligneTtc)], [ATTENDU_SUITE.quantite, ATTENDU_SUITE.ht, ATTENDU_SUITE.tva, ATTENDU_SUITE.ttc, ATTENDU_SUITE.ligneTtc]);
-      for (const ht of [factureTempsPasse([H_SUITE.intervention]).ht, exact.arrondi(exact.unites('2.35', 3)), factureTempsPasse([H_SUITE.intervention, H_SUITE.suite], { arrondi: exact.tronque }).ht]) {
-        assert.notEqual(ht, suite.ht);
-      }
+      const ecarteesSuite = [
+        factureTempsPasse([H_SUITE.intervention], { pas: PAS_45 }).ht,
+        factureTempsPasse([H_SUITE.suite], { pas: PAS_45 }).ht,
+        exact.arrondi(exact.unites('2', 3)),
+        exact.arrondi(exact.milliemesHeure(exact.minutesAuPlusProche(suite.centiemes, PLANCHER, PAS_45)) * 1n),
+        factureTempsPasse([H_SUITE.intervention, H_SUITE.suite], { pas: PAS_45, arrondi: exact.tronque }).ht,
+      ];
+      assert.deepEqual(ecarteesSuite, [1n, 2n, 2n, 2n, 2n]);
+      for (const ht of ecarteesSuite) assert.notEqual(ht, suite.ht);
     });
 
     // Critères « Facture au temps passé » et « La facture à 0,00 € n'est ni modifiée ni annulée par la création », sur le cas réel à
@@ -500,29 +539,32 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Critères « créée malgré une facture émise à 0,00 € sur l'intervention » et « montants de la nouvelle facture relus en base et
-    // comparés à un témoin en décimal exact » ; copie figée (prix du catalogue et minimum de la société changés après la signature).
+    // comparés à un témoin en décimal exact » ; copie figée (prix du catalogue, minimum et pas de la société changés après la
+    // signature). Devis au pas de 45 min (lot Z : au pas de 15 min, des saisies au quart d'heure ne s'arrondissent plus au pas).
     // Lectures écartées (témoin des montants) : heures ajoutées seules (0,02 €), facture à 0,00 € déduite (0,02 €), heures brutes
-    // (0,02 €), troncature ou arrondi au pair (0,02 €), réglage du jour (0,08 €), prix du catalogue du jour (113,75 €), TVA tronquée
-    // (TTC 0,03 €).
-    test('main d’œuvre à 0,01 €/h : 0,20 h facturées 0,25 h arrondies à 0,00 €, émise ; 2,10 h ajoutées sur l’intervention terminée ; nouvelle facture créée par l’assistante technique : 2,5 h, 0,03 € HT, 0,01 € de TVA, 0,04 € TTC, relus en base (lignes, ventilation, journal, écritures) au prix et au minimum figés du devis ; émise, elle bloque à son tour (messages exacts, sans le numéro de la facture à 0,00 €)', async () => {
-      const mo = await mainOeuvre('0.01', 'à un centime, prix changé après coup');
-      const { devis, intervention } = await chaine(mo, '0,01 €/h nouvelle facture', [H_ZERO]);
-      const zero = await creee(intervention.id, par('AD'));
-      assert.deepEqual(nombres([zero.totalHt, zero.totalTva, zero.totalTtc]), [ATTENDU_ZERO.ht, ATTENDU_ZERO.tva, ATTENDU_ZERO.ttc]);
-      assert.deepEqual(montantsEnBase(await enBase(zero.id)).lignes, [[0, 'PRESTATION', ATTENDU_ZERO.quantite, 0.01, 20, 0, 0]]);
-      const fZero = await emettre(zero.id, par('AD'));
-      assert.deepEqual([fZero.statut, Number(fZero.totalTtc)], ['EMISE', 0]);
-      const photoZero = await photo(fZero.id);
-      // Copie figée : la main d'œuvre passe à 45,50 €/h et le minimum de la société à 8 h, après la signature.
+    // (0,02 €), pas le plus proche (0,02 €), minimum ignoré (0,02 €), troncature ou arrondi au pair (0,02 €), minimum du jour
+    // (0,08 €), pas du jour (0,02 €), prix du catalogue du jour (113,75 €), TVA tronquée (TTC 0,03 €).
+    test('main d’œuvre à 0,01 €/h : 0,25 h facturées 0,25 h (minimum) arrondies à 0,00 €, émise ; 1,75 h ajoutées sur l’intervention terminée ; nouvelle facture créée par l’assistante technique : 2 h saisies, 2,5 h facturées au pas figé de 45 min, 0,03 € HT, 0,01 € de TVA, 0,04 € TTC, relus en base (lignes, ventilation, journal, écritures) au prix, au minimum et au pas figés du devis ; émise, elle bloque à son tour (messages exacts, sans le numéro de la facture à 0,00 €)', async () => {
       const reglages = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } });
       try {
+        // Pas de 45 min, figé ensuite sur le devis avec le minimum de 15 min.
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_45 }));
+        const mo = await mainOeuvre('0.01', 'à un centime, prix changé après coup');
+        const { devis, intervention } = await chaine(mo, '0,01 €/h nouvelle facture', [H_ZERO], { plancher: PLANCHER, pas: PAS_45 });
+        const zero = await creee(intervention.id, par('AD'));
+        assert.deepEqual(nombres([zero.totalHt, zero.totalTva, zero.totalTtc]), [ATTENDU_ZERO.ht, ATTENDU_ZERO.tva, ATTENDU_ZERO.ttc]);
+        assert.deepEqual(montantsEnBase(await enBase(zero.id)).lignes, [[0, 'PRESTATION', ATTENDU_ZERO.quantite, 0.01, 20, 0, 0]]);
+        const fZero = await emettre(zero.id, par('AD'));
+        assert.deepEqual([fZero.statut, Number(fZero.totalTtc)], ['EMISE', 0]);
+        const photoZero = await photo(fZero.id);
+        // Copie figée : la main d'œuvre passe à 45,50 €/h, le minimum de la société à 8 h et son pas à 15 min, après la signature.
         await ok(appeler('put', `/catalogue/prestations/${mo.id}`, { estMainOeuvre: true, reference: mo.reference, nom: mo.nom, tauxTva: '20', prixVenteHt: PRIX_APRES_COUP, prixJourHorsContratHt: '0', prixHeureSousContratHt: '0', prixJourSousContratHt: '0', heuresParJour: '7' }));
-        await ok(appeler('put', '/parametres', { tempsMinimumMinutes: MINIMUM_APRES_COUP }));
+        await ok(appeler('put', '/parametres', { tempsMinimumMinutes: MINIMUM_APRES_COUP, pasTempsPasseMinutes: PAS }));
         // Heures ajoutées sur l'intervention terminée (admis).
         await saisirHeures(intervention.id, H_AJOUT);
         const lu = await ok(apercu(intervention.id, par('AT')));
         assert.deepEqual(await ok(apercu(intervention.id, par('AD'))), lu, 'même aperçu pour l’administration');
-        assert.deepEqual([lu.heures.saisies, lu.heures.minutesFacturees, lu.heures.facturees, lu.heures.plancherMinutes, lu.heures.pasMinutes], [2.3, 150, ATTENDU_NOUVELLE.quantite, PLANCHER, PAS]);
+        assert.deepEqual([lu.heures.saisies, lu.heures.minutesFacturees, lu.heures.facturees, lu.heures.plancherMinutes, lu.heures.pasMinutes], [2, 150, ATTENDU_NOUVELLE.quantite, PLANCHER, PAS_45]);
         assert.deepEqual([lu.totalHt, lu.totalTva, lu.totalTtc], [ATTENDU_NOUVELLE.ht, ATTENDU_NOUVELLE.tva, ATTENDU_NOUVELLE.ttc]);
         const nouvelle = await ok(creer(intervention.id, par('AT'), lu.totalHt), 201);
         assert.deepEqual([nouvelle.statut, nouvelle.tempsPasse, nouvelle.creeParType, ...nombres([nouvelle.totalHt, nouvelle.totalTva, nouvelle.totalTtc])], ['BROUILLON', true, ROLE_AT, ATTENDU_NOUVELLE.ht, ATTENDU_NOUVELLE.tva, ATTENDU_NOUVELLE.ttc]);
@@ -534,7 +576,7 @@ if (!TEST_DATABASE_URL) {
           ventilation: [[20, ATTENDU_NOUVELLE.ht, ATTENDU_NOUVELLE.tva, ATTENDU_NOUVELLE.ttc]],
         });
         assert.deepEqual([enBaseNouvelle.totalHt.toString(), enBaseNouvelle.totalTva.toString(), enBaseNouvelle.totalTtc.toString()], ['0.03', '0.01', '0.04'], 'valeurs décimales exactes en base');
-        assert.deepEqual(enBaseNouvelle.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 2,3 h saisies sur l’intervention et 0 suite facturable, 2,5 h facturées (minimum 15 min, puis tranches de 15 min) ; devis ${devis.numero} v${devis.version}`]]);
+        assert.deepEqual(enBaseNouvelle.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 2 h saisies sur l’intervention et 0 suite facturable, 2,5 h facturées (minimum 15 min, puis tranches de 45 min) ; devis ${devis.numero} v${devis.version}`]]);
         assert.deepEqual(await photo(fZero.id), photoZero, 'facture à 0,00 € inchangée par la création');
 
         // Émise par elle : écritures relues en base (client au débit, vente et TVA au crédit).
@@ -567,51 +609,61 @@ if (!TEST_DATABASE_URL) {
     // base : une facture à 0,00 € sur une suite ne s'obtient pas par l'API (la saisie ligne par ligne y est refusée, une suite ne
     // reçoit pas de facture au temps passé). Le brouillon est écrit comme le ferait POST /api/factures (lignes, ventilation, journal,
     // type du créateur), puis émis par l'API. Lectures écartées : brouillon de la suite ignoré (création admise) ; facture à 0,00 € de
-    // la suite qui compte (création refusée) ; heures de la suite oubliées (0,01 € au lieu de 0,03 €).
-    test('suite (fixture théorique écrite en base) : brouillon à 0,00 € de la suite bloquant (messages exacts), émis par l’API à 0,00 €, puis facture au temps passé de l’intervention admise : heures de l’intervention et de sa suite, 2,5 h, 0,04 € TTC relus en base ; la facture de la suite inchangée', async () => {
-      const { devis, intervention } = await devisConverti(mainOeuvreCentime, 'suite');
-      await affecter(intervention.id);
-      await saisirHeures(intervention.id, H_SUITE.intervention);
-      await terminer(intervention.id);
-      const suite = await ok(appeler('post', `/interventions/${intervention.id}/suites`, {}), 201);
-      await affecter(suite.id);
-      await saisirHeures(suite.id, H_SUITE.suite);
-      await terminer(suite.id);
-      // La saisie ligne par ligne sur la suite est refusée par l'API (d'où la fixture).
-      await refuse(() => appeler('post', '/factures', { clientId: client.id, dateEmission: jour().fr, dateEcheance: jour().fr, origine: 'INTERVENTION', interventionId: suite.id, lignes: LIGNES_ZERO }), 409,
-        `L’intervention ${intervention.reference} est au temps passé : sa facture, et celle de ses suites, reprend les heures saisies. Créez-la par « Facture au temps passé ».`, 'facture saisie ligne par ligne sur la suite');
-      const jourIso = new Date(`${jour().iso}T00:00:00.000Z`);
-      const fixture = await transactionVerifiee((tx) => tx.facture.create({ data: {
-        clientId: client.id, clientRaisonSociale: client.raisonSociale, origine: 'INTERVENTION', interventionId: suite.id, tempsPasse: false,
-        dateEmission: jourIso, dateEcheance: jourIso, totalHt: 0, totalTva: 0, totalTtc: 0, createdById: comptes.AD.id, creeParType: 'ADMIN',
-        lignes: { create: [{ ordre: 0, designation: 'TEST zéro fixture théorique de la suite', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 0, tauxTva: 20, totalHt: 0, totalTtc: 0 }] },
-        ventilationTva: { create: [{ tauxTva: 20, totalHt: 0, totalTva: 0, totalTtc: 0 }] },
-        journal: { create: [{ acteurId: comptes.AD.id, action: 'CREATION_BROUILLON', detail: 'Origine INTERVENTION' }] },
-      } }));
-      // Brouillon à 0,00 € sur la suite : il compte. Lecture écartée : « toute facture à 0,00 € » (brouillon exclu : la création
-      // passerait, l'index ne retenant que les factures marquées « au temps passé »).
-      await refusTempsPasse(intervention.id, 'brouillon', 'brouillon à 0,00 € sur la suite', ATTENDU_SUITE.ht);
-      await repereVaut('INTERVENTION', suite.id, true, 'suite, brouillon à 0,00 €');
-      const emiseSuite = await emettre(fixture.id, par('AD'));
-      assert.deepEqual([emiseSuite.statut, emiseSuite.interventionId, emiseSuite.tempsPasse, Number(emiseSuite.totalTtc)], ['EMISE', suite.id, false, 0]);
-      const photoSuite = await photo(fixture.id);
-      await repereVaut('INTERVENTION', suite.id, false, 'suite, facture émise à 0,00 € seule');
-      await repereVaut('INTERVENTION', intervention.id, false, 'intervention sans facture, sa suite facturée à 0,00 €');
+    // la suite qui compte (création refusée) ; heures de la suite oubliées (0,01 € au lieu de 0,03 €) ; heures de l'intervention
+    // oubliées, heures brutes ou pas le plus proche (0,02 €). Devis au pas de 45 min (lot Z : au pas de 15 min, des saisies au quart
+    // d'heure ne s'arrondissent plus au pas).
+    test('suite (fixture théorique écrite en base) : brouillon à 0,00 € de la suite bloquant (messages exacts), émis par l’API à 0,00 €, puis facture au temps passé de l’intervention admise au pas figé de 45 min : 0,75 h de l’intervention et 1,25 h de sa suite, 2,5 h facturées, 0,04 € TTC relus en base ; la facture de la suite inchangée', async () => {
+      const reglages = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } });
+      try {
+        // Pas de 45 min, figé ensuite sur le devis avec le minimum de 15 min (lot Z).
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_45 }));
+        const { devis, intervention } = await devisConverti(mainOeuvreCentime, 'suite', { plancher: PLANCHER, pas: PAS_45 });
+        await affecter(intervention.id);
+        await saisirHeures(intervention.id, H_SUITE.intervention);
+        await terminer(intervention.id);
+        const suite = await ok(appeler('post', `/interventions/${intervention.id}/suites`, {}), 201);
+        await affecter(suite.id);
+        await saisirHeures(suite.id, H_SUITE.suite);
+        await terminer(suite.id);
+        // La saisie ligne par ligne sur la suite est refusée par l'API (d'où la fixture).
+        await refuse(() => appeler('post', '/factures', { clientId: client.id, dateEmission: jour().fr, dateEcheance: jour().fr, origine: 'INTERVENTION', interventionId: suite.id, lignes: LIGNES_ZERO }), 409,
+          `L’intervention ${intervention.reference} est au temps passé : sa facture, et celle de ses suites, reprend les heures saisies. Créez-la par « Facture au temps passé ».`, 'facture saisie ligne par ligne sur la suite');
+        const jourIso = new Date(`${jour().iso}T00:00:00.000Z`);
+        const fixture = await transactionVerifiee((tx) => tx.facture.create({ data: {
+          clientId: client.id, clientRaisonSociale: client.raisonSociale, origine: 'INTERVENTION', interventionId: suite.id, tempsPasse: false,
+          dateEmission: jourIso, dateEcheance: jourIso, totalHt: 0, totalTva: 0, totalTtc: 0, createdById: comptes.AD.id, creeParType: 'ADMIN',
+          lignes: { create: [{ ordre: 0, designation: 'TEST zéro fixture théorique de la suite', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 0, tauxTva: 20, totalHt: 0, totalTtc: 0 }] },
+          ventilationTva: { create: [{ tauxTva: 20, totalHt: 0, totalTva: 0, totalTtc: 0 }] },
+          journal: { create: [{ acteurId: comptes.AD.id, action: 'CREATION_BROUILLON', detail: 'Origine INTERVENTION' }] },
+        } }));
+        // Brouillon à 0,00 € sur la suite : il compte. Lecture écartée : « toute facture à 0,00 € » (brouillon exclu : la création
+        // passerait, l'index ne retenant que les factures marquées « au temps passé »).
+        await refusTempsPasse(intervention.id, 'brouillon', 'brouillon à 0,00 € sur la suite', ATTENDU_SUITE.ht);
+        await repereVaut('INTERVENTION', suite.id, true, 'suite, brouillon à 0,00 €');
+        const emiseSuite = await emettre(fixture.id, par('AD'));
+        assert.deepEqual([emiseSuite.statut, emiseSuite.interventionId, emiseSuite.tempsPasse, Number(emiseSuite.totalTtc)], ['EMISE', suite.id, false, 0]);
+        const photoSuite = await photo(fixture.id);
+        await repereVaut('INTERVENTION', suite.id, false, 'suite, facture émise à 0,00 € seule');
+        await repereVaut('INTERVENTION', intervention.id, false, 'intervention sans facture, sa suite facturée à 0,00 €');
 
-      const lu = await ok(apercu(intervention.id, par('AD')));
-      assert.deepEqual(await ok(apercu(intervention.id, par('AT'))), lu, 'même aperçu pour l’assistante technique');
-      assert.deepEqual([lu.heures.intervention, lu.heures.suites.map((s) => [s.id, s.heures]), lu.heures.saisies, lu.heures.facturees], [0.75, [[suite.id, 1.6]], 2.35, ATTENDU_SUITE.quantite]);
-      const facture = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
-      const relue = await enBase(facture.id);
-      assert.deepEqual(montantsEnBase(relue), {
-        totaux: [ATTENDU_SUITE.ht, ATTENDU_SUITE.tva, ATTENDU_SUITE.ttc],
-        lignes: [[0, 'PRESTATION', ATTENDU_SUITE.quantite, 0.01, 20, ATTENDU_SUITE.ht, ATTENDU_SUITE.ligneTtc]],
-        ventilation: [[20, ATTENDU_SUITE.ht, ATTENDU_SUITE.tva, ATTENDU_SUITE.ttc]],
-      });
-      assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 2,35 h saisies sur l’intervention et 1 suite facturable, 2,5 h facturées (minimum 15 min, puis tranches de 15 min) ; devis ${devis.numero} v${devis.version}`]]);
-      assert.deepEqual(await photo(fixture.id), photoSuite, 'facture à 0,00 € de la suite inchangée');
-      // Le brouillon créé compte : refus suivants au message qui ne cite que lui.
-      await refusTempsPasse(intervention.id, 'brouillon', 'brouillon au temps passé à côté de la facture à 0,00 € de la suite', ATTENDU_SUITE.ht);
+        const lu = await ok(apercu(intervention.id, par('AD')));
+        assert.deepEqual(await ok(apercu(intervention.id, par('AT'))), lu, 'même aperçu pour l’assistante technique');
+        assert.deepEqual([lu.heures.intervention, lu.heures.suites.map((s) => [s.id, s.heures]), lu.heures.saisies, lu.heures.facturees], [0.75, [[suite.id, 1.25]], 2, ATTENDU_SUITE.quantite]);
+        const facture = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
+        const relue = await enBase(facture.id);
+        assert.deepEqual(montantsEnBase(relue), {
+          totaux: [ATTENDU_SUITE.ht, ATTENDU_SUITE.tva, ATTENDU_SUITE.ttc],
+          lignes: [[0, 'PRESTATION', ATTENDU_SUITE.quantite, 0.01, 20, ATTENDU_SUITE.ht, ATTENDU_SUITE.ligneTtc]],
+          ventilation: [[20, ATTENDU_SUITE.ht, ATTENDU_SUITE.tva, ATTENDU_SUITE.ttc]],
+        });
+        assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 2 h saisies sur l’intervention et 1 suite facturable, 2,5 h facturées (minimum 15 min, puis tranches de 45 min) ; devis ${devis.numero} v${devis.version}`]]);
+        assert.deepEqual(await photo(fixture.id), photoSuite, 'facture à 0,00 € de la suite inchangée');
+        // Le brouillon créé compte : refus suivants au message qui ne cite que lui.
+        await refusTempsPasse(intervention.id, 'brouillon', 'brouillon au temps passé à côté de la facture à 0,00 € de la suite', ATTENDU_SUITE.ht);
+      } finally {
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: reglages.pasTempsPasseMinutes, tempsMinimumMinutes: reglages.tempsMinimumMinutes }));
+      }
+      assert.deepEqual(await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } }), { pasTempsPasseMinutes: PAS, tempsMinimumMinutes: PLANCHER });
     });
 
     // Critères « Repère » : émise à 0,00 € seule → faux ; brouillon à 0,00 € → vrai ; émise à 0,01 € → vrai ; annulée → faux
@@ -808,28 +860,38 @@ if (!TEST_DATABASE_URL) {
     // la première minute. Avec un plancher égal au pas (15 min, tests précédents), cette lecture donne le même temps facturé : le devis
     // porte ici un pas de 45 min au-delà d'un plancher de 15 min. Croisés avec les réglages et le catalogue changés après la facture à
     // 0,00 € : pas de la société (60 min) et TVA de la main d'œuvre (10 %), au lieu du pas figé du devis et de la TVA figée de sa ligne.
-    test('minimum figé réappliqué sur la nouvelle facture, au pas figé du devis (45 min) et à la TVA figée de sa ligne : 0,20 h (facture à 0,00 €) puis 0,60 h ajoutées → 1 h facturée, 0,01 € HT, 0,00 € de TVA, 0,01 € TTC, malgré le pas de la société (60 min) et la TVA du catalogue (10 %) changés après la facture à 0,00 €', async () => {
-      const PAS_DEVIS = 45; const PAS_APRES_COUP = 60; const H_AJOUT_45 = '0.6';
-      // Témoin en décimal exact : 0,20 h = 12 min → plancher 15 min → 0,25 h × 0,01 € = 0,0025 € → 0,00 € ; 0,80 h = 48 min →
-      // 15 min + une tranche de 45 min = 60 min = 1 h → 0,01 € HT, TVA 0,002 € → 0,00 €, TTC 0,01 €.
-      const zeroAttendu = factureTempsPasse([H_ZERO], { pas: PAS_DEVIS });
+    // Lot Z : les heures se saisissent au quart d'heure ; 0,20 h puis 0,60 h deviennent 0,25 h puis 1,75 h, choisies pour que le pas
+    // joue au-delà du minimum (105 min, 2,33 tranches de 45 min) et que chaque lecture écartée change le HT ou la TVA.
+    test('minimum figé réappliqué sur la nouvelle facture, au pas figé du devis (45 min) et à la TVA figée de sa ligne : 0,25 h (facture à 0,00 €) puis 1,75 h ajoutées → 2,5 h facturées, 0,03 € HT, 0,01 € de TVA, 0,04 € TTC, malgré le pas de la société (60 min) et la TVA du catalogue (10 %) changés après la facture à 0,00 €', async () => {
+      const PAS_APRES_COUP = 60; const H_AJOUT_45 = '1.75';
+      // Témoin en décimal exact : 0,25 h = 15 min → minimum de 15 min → 0,25 h × 0,01 € = 0,0025 € → 0,00 € ; 2 h = 120 min →
+      // 15 min + trois tranches de 45 min commencées = 150 min = 2,5 h → 0,025 € → 0,03 € HT, TVA 0,006 € → 0,01 €, TTC 0,04 €.
+      const zeroAttendu = factureTempsPasse([H_ZERO], { pas: PAS_45 });
       assert.deepEqual([zeroAttendu.minutes, zeroAttendu.ht, zeroAttendu.ttc], [15n, 0n, 0n]);
-      const attendu = factureTempsPasse([H_ZERO, H_AJOUT_45], { pas: PAS_DEVIS });
-      assert.deepEqual([attendu.centiemes, attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [80n, 60n, 1000n, 1n, 0n, 1n, 1n]);
-      // Lectures écartées, distinctes de l'attendu : minimum non réappliqué (48 min → deux tranches de 45 min = 90 min = 1,5 h →
-      // 0,015 € → 0,02 € HT) ; pas de la société du jour (15 min + une tranche de 60 min = 75 min = 1,25 h, quantité distincte, même HT).
-      const sansMinimum = exact.milliemesHeure(exact.minutesFacturees(attendu.centiemes, 0, PAS_DEVIS));
-      assert.deepEqual([sansMinimum, exact.arrondi(sansMinimum * 1n)], [1500n, 2n]);
+      const attendu = factureTempsPasse([H_ZERO, H_AJOUT_45], { pas: PAS_45 });
+      assert.deepEqual([attendu.centiemes, attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [200n, 150n, 2500n, 3n, 1n, 4n, 4n]);
+      // Lectures écartées, distinctes de l'attendu : minimum non réappliqué (120 min → trois tranches de 45 min = 135 min = 2,25 h →
+      // 0,0225 € → 0,02 € HT) ; pas de la société du jour (15 min + deux tranches de 60 min = 135 min = 2,25 h → 0,02 € HT) ; TVA du
+      // catalogue du jour (10 % de 0,03 € = 0,003 € → 0,00 €, TTC 0,03 €) ; heures brutes (2 h → 0,02 €) ; pas le plus proche (105 min
+      // au-delà du minimum, 2,33 tranches → 2 → 105 min = 1,75 h → 0,0175 € → 0,02 €).
+      const sansMinimum = exact.milliemesHeure(exact.minutesFacturees(attendu.centiemes, 0, PAS_45));
+      assert.deepEqual([sansMinimum, exact.arrondi(sansMinimum * 1n)], [2250n, 2n]);
       assert.notEqual(exact.arrondi(sansMinimum * 1n), attendu.ht, 'lecture écartée « minimum non réappliqué » distincte de l’attendu');
       const pasDuJour = exact.milliemesHeure(exact.minutesFacturees(attendu.centiemes, PLANCHER, PAS_APRES_COUP));
-      assert.equal(pasDuJour, 1250n);
-      assert.notEqual(pasDuJour, attendu.milliemes, 'lecture écartée « pas de la société du jour » distincte de l’attendu');
+      assert.deepEqual([pasDuJour, exact.arrondi(pasDuJour * 1n)], [2250n, 2n]);
+      assert.notEqual(pasDuJour, attendu.milliemes, 'lecture écartée « pas de la société du jour » distincte de l’attendu (quantité)');
+      assert.notEqual(exact.arrondi(pasDuJour * 1n), attendu.ht, 'lecture écartée « pas de la société du jour » distincte de l’attendu (HT)');
+      const tvaDuJour = factureTempsPasse([H_ZERO, H_AJOUT_45], { pas: PAS_45, taux: 10 });
+      assert.deepEqual([tvaDuJour.tva, tvaDuJour.ttc], [0n, 3n]);
+      assert.notEqual(tvaDuJour.ttc, attendu.ttc, 'lecture écartée « TVA du catalogue du jour » distincte de l’attendu');
+      assert.notEqual(exact.arrondi(exact.unites('2', 3)), attendu.ht, 'lecture écartée « heures brutes » distincte de l’attendu');
+      assert.notEqual(exact.arrondi(exact.milliemesHeure(exact.minutesAuPlusProche(attendu.centiemes, PLANCHER, PAS_45)) * 1n), attendu.ht, 'lecture écartée « pas le plus proche » distincte de l’attendu');
 
       const reglages = await prisma.parametres.findUniqueOrThrow({ where: { id: 'singleton' }, select: { pasTempsPasseMinutes: true, tempsMinimumMinutes: true } });
       try {
-        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_DEVIS, tempsMinimumMinutes: PLANCHER }));
+        await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: PAS_45, tempsMinimumMinutes: PLANCHER }));
         const mo = await mainOeuvre('0.01', 'à un centime, pas de 45 min');
-        const { devis, intervention } = await chaine(mo, 'minimum réappliqué', [H_ZERO], { plancher: PLANCHER, pas: PAS_DEVIS });
+        const { devis, intervention } = await chaine(mo, 'minimum réappliqué', [H_ZERO], { plancher: PLANCHER, pas: PAS_45 });
         const zero = await creee(intervention.id, par('AD'));
         assert.deepEqual([...nombres([zero.totalHt, zero.totalTva, zero.totalTtc])], [0, 0, 0]);
         const fZero = await emettre(zero.id, par('AD'));
@@ -841,7 +903,7 @@ if (!TEST_DATABASE_URL) {
         await saisirHeures(intervention.id, H_AJOUT_45);
         const lu = await ok(apercu(intervention.id, par('AT')));
         assert.deepEqual(await ok(apercu(intervention.id, par('AD'))), lu, 'même aperçu pour l’administration');
-        assert.deepEqual([lu.heures.saisies, lu.heures.minutesSaisies, lu.heures.plancherMinutes, lu.heures.pasMinutes, lu.heures.minutesFacturees, lu.heures.facturees], [0.8, 48, PLANCHER, PAS_DEVIS, Number(attendu.minutes), Number(attendu.milliemes) / 1000]);
+        assert.deepEqual([lu.heures.saisies, lu.heures.minutesSaisies, lu.heures.plancherMinutes, lu.heures.pasMinutes, lu.heures.minutesFacturees, lu.heures.facturees], [2, 120, PLANCHER, PAS_45, Number(attendu.minutes), Number(attendu.milliemes) / 1000]);
         assert.deepEqual([lu.totalHt, lu.totalTva, lu.totalTtc], [euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]);
         const nouvelle = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
         const relue = await enBase(nouvelle.id);
@@ -850,8 +912,8 @@ if (!TEST_DATABASE_URL) {
           lignes: [[0, 'PRESTATION', Number(attendu.milliemes) / 1000, 0.01, 20, euros(attendu.ht), euros(attendu.ligneTtc)]],
           ventilation: [[20, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]],
         });
-        assert.deepEqual([relue.totalHt.toString(), relue.totalTva.toString(), relue.totalTtc.toString()], ['0.01', '0', '0.01'], 'valeurs décimales exactes en base');
-        assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 0,8 h saisies sur l’intervention et 0 suite facturable, 1 h facturées (minimum 15 min, puis tranches de 45 min) ; devis ${devis.numero} v${devis.version}`]]);
+        assert.deepEqual([relue.totalHt.toString(), relue.totalTva.toString(), relue.totalTtc.toString()], ['0.03', '0.01', '0.04'], 'valeurs décimales exactes en base');
+        assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 2 h saisies sur l’intervention et 0 suite facturable, 2,5 h facturées (minimum 15 min, puis tranches de 45 min) ; devis ${devis.numero} v${devis.version}`]]);
         assert.deepEqual(await photo(fZero.id), photoZero, 'facture à 0,00 € inchangée par la création');
       } finally {
         await ok(appeler('put', '/parametres', { pasTempsPasseMinutes: reglages.pasTempsPasseMinutes, tempsMinimumMinutes: reglages.tempsMinimumMinutes }));

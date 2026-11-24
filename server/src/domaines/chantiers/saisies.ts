@@ -11,7 +11,7 @@ import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { dateIsoStricte } from '../../commun/dates';
 import { decimalToNumber } from '../../commun/montants';
-import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide, booleenStrict } from '../../commun/validation';
+import { nombreDecimalNonNegatif, motifCorrectionValide, motifRestaurationValide, booleenStrict, heuresAuQuartDHeure } from '../../commun/validation';
 import { valeurJournal } from '../../commun/journal-administration';
 import { CHANTIER_LITE_SELECT, journaliserChangementChantier } from './metier';
 import { requireTravauxWrite, requireTravauxArchive, RefusChantier, REFUS_AFFAIRE_ANNULEE_ENCAISSEMENT, chantierSelonRentabilite } from './droits';
@@ -77,16 +77,12 @@ async function journaliserSaisieTravaux(
 }
 
 // Heures d'un chantier saisies au quart d'heure, à partir de 0,25 h (décision de Nelson du 22-11-2026, soir :
-// « 1. Quart d'heure » ; lot W). Règle qui touche un montant (coût de la main-d'œuvre, marge) : elle reste dans le
-// code, et ne changerait que sur décision de Nelson (règle permanente 1, PARAMETRAGE-CIBLE.md, section 5). La saisie
-// est lue par la règle commune (virgule ou point, huit chiffres, deux décimales), puis doit tomber sur un quart
-// d'heure : 3,25 et 3,00 sont admis, 1,1 et 0,2 refusés. Le serveur reste juge : l'écran ne fait que prévenir avec le
-// même motif (client/src/lib/saisiesDecimales.ts). Les heures d'une intervention restent au centième (hors lot W).
+// « 1. Quart d'heure » ; lot W). La règle est commune aux heures d'une intervention (lot Z) : heuresAuQuartDHeure,
+// commun/validation.ts, où sa raison est écrite ; zéro y est refusé pour un chantier. Le serveur reste juge : l'écran ne
+// fait que prévenir avec le même motif (client/src/lib/saisiesDecimales.ts). Le message cite le plancher de 0,25 h,
+// propre au chantier (choix par défaut, à confirmer).
+export { heuresAuQuartDHeure };
 export const REFUS_HEURES_CHANTIER = 'Le nombre d’heures se saisit au quart d’heure, à partir de 0,25 (par exemple 3,25).';
-export function heuresAuQuartDHeure(valeur: unknown): number | null {
-  const heures = nombreDecimalNonNegatif(valeur, 8);
-  return heures !== null && Math.round(heures * 100) % 25 === 0 ? heures : null;
-}
 
 // Achats
 // Journal des achats, restreint au périmètre du demandeur (cf. perimetreChantiers) et

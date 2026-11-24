@@ -87,9 +87,9 @@ GET /api/interventions/journee requireAuth#07b983da0ce5 > blockCommercial#990744
 GET /api/interventions/:id requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#4d7dee0b11a1
 GET /api/interventions/:id/document.pdf requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#540caccce552
 GET /api/interventions/:id/couts requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#cf770672fe56
-POST /api/interventions/:id/couts/heures requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#bc91eb39fd8d
+POST /api/interventions/:id/couts/heures requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#50a889967ea1
 POST /api/interventions/:id/couts/achats requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#ecb2f2a84911
-PATCH /api/interventions/:id/couts/:type/:coutId requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#4bf9500165b8
+PATCH /api/interventions/:id/couts/:type/:coutId requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#12977fe280fc
 POST /api/interventions/:id/couts/:type/:coutId/:action requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#ce676d97a40b
 GET /api/interventions/:id/journal-saisies requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#6d9623c26cdd
 POST /api/interventions/:id/rapports requireAuth#07b983da0ce5 > blockCommercial#9907446cb529 > <anonymous>#a829e5e2fbfc

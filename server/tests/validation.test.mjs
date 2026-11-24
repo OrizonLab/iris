@@ -1250,3 +1250,75 @@ describe('Lot #587 : drapeau d’un corps d’API lu en booléen strict (booleen
     }
   });
 });
+
+// Lot Z : heures d'une intervention au quart d'heure, zéro compris (réponse de Nelson du 23-11-2026, mot pour mot : « les
+// heures sur une intervention Passe au quart d'heure »). Cadrage v2 du lot Z, point 2 et « Tests » (« Unitaire serveur :
+// heuresAuQuartDHeure avec et sans zéro (validation.test.mjs, par dist/src/commun/validation.js) ») : la règle du lot W passe dans
+// commun/validation.ts avec un second paramètre `zeroAutorise = false`, comme nombreDecimalNonNegatif. Sans lui (heures d'un
+// chantier, lot W), zéro reste refusé ; avec lui (heures d'une intervention), zéro est admis ; dans les deux cas, une saisie
+// hors du quart d'heure est refusée, jamais arrondie, et la valeur admise est rendue telle que lue. La fonction compilée est
+// comparée à la même règle écrite en centièmes entiers (BigInt), sans flottant, sur les saisies à 0, 1 ou 2 décimales, à la
+// virgule, au point et en nombre, de 0 à 300 h, autour de 16 384 h (2^14) et de 99 999 900 à 99 999 999 h. Mutants tués
+// (cadrage, « Tests ») : contrôle retiré (« 1,1 » admis), zéro refusé avec `zeroAutorise` ou admis sans lui, pas de 0,50 (« 1,25 »
+// refusé), arrondi au lieu du refus (« 1,1 » rendu 1), trois décimales admises (« 3,250 »).
+describe('Heures au quart d’heure, avec et sans zéro (lots W et Z) : heuresAuQuartDHeure de commun/validation', () => {
+  test('témoins : zéro refusé par défaut et admis avec zeroAutorise ; « 1,25 », « 0,75 », « 2,5 » admis tels quels ; « 1,1 », « 0,2 », « 0,05 », « 3,250 », « 123456789 », « -0,25 » refusés, jamais arrondis', async () => {
+    const module = await import('../dist/src/commun/validation.js');
+    const heuresAuQuartDHeure = module.heuresAuQuartDHeure ?? module.default?.heuresAuQuartDHeure;
+    assert.equal(typeof heuresAuQuartDHeure, 'function', 'heuresAuQuartDHeure exportée par commun/validation');
+    const zeros = ['0', '0,00', '0.0', '00', 0];
+    // Sans zéro (défaut et false explicite) : lecture écartée, zéro admis sur un chantier.
+    assert.deepEqual(zeros.map((v) => heuresAuQuartDHeure(v)), zeros.map(() => null), 'zéro refusé par défaut');
+    assert.deepEqual(zeros.map((v) => heuresAuQuartDHeure(v, false)), zeros.map(() => null), 'zéro refusé sans zeroAutorise');
+    // Avec zéro : lecture écartée, zéro refusé sur une intervention (règle du lot W reprise telle quelle).
+    assert.deepEqual(zeros.map((v) => heuresAuQuartDHeure(v, true)), zeros.map(() => 0), 'zéro admis avec zeroAutorise');
+    // Quarts admis, rendus tels que lus (lecture écartée : un arrondi qui rendrait une autre valeur), avec ou sans zéro.
+    const admises = [['1,25', 1.25], ['0,75', 0.75], ['0,25', 0.25], ['2', 2], ['2,5', 2.5], ['2,50', 2.5], ['3,00', 3], ['1.25', 1.25], [1.25, 1.25], ['99999999,75', 99999999.75], [' 1,25 ', 1.25]];
+    for (const zeroAutorise of [false, true]) {
+      assert.deepEqual(admises.map(([v]) => heuresAuQuartDHeure(v, zeroAutorise)), admises.map(([, attendu]) => attendu), `quarts admis (zeroAutorise ${zeroAutorise})`);
+    }
+    // Refusés, avec ou sans zéro : centième et dixième (lecture écartée : arrondi au quart, « 1,1 » rendu 1 ou 1,25 ; « 0,05 »
+    // rendu 0 avec zeroAutorise), trois décimales (« 3,250 », « 0,000 »), neuf chiffres, signe, vide, notation scientifique.
+    const refusees = ['1,1', '0,2', '1,10', '0,05', '0,01', '0,1', '1,26', '1,24', '2,01', '2,24', '3,250', '0,000', '1,125', '123456789', '-0,25', '', '   ', null, undefined, '1e2', 'abc', 1.1, 0.05, -0.25, Number.NaN];
+    for (const zeroAutorise of [false, true]) {
+      assert.deepEqual(refusees.map((v) => heuresAuQuartDHeure(v, zeroAutorise)), refusees.map(() => null), `hors du quart d’heure (zeroAutorise ${zeroAutorise})`);
+    }
+  });
+
+  test('règle exacte sur tout le domaine, avec et sans zéro : heuresAuQuartDHeure comparée à la règle en centièmes entiers, à la virgule, au point et en nombre ; la valeur admise est celle lue', async () => {
+    const module = await import('../dist/src/commun/validation.js');
+    const heuresAuQuartDHeure = module.heuresAuQuartDHeure ?? module.default?.heuresAuQuartDHeure;
+    assert.equal(typeof heuresAuQuartDHeure, 'function');
+    const exacte = (texte, zeroAutorise) => {
+      const lu = /^(\d{1,8})(?:[,.](\d{1,2}))?$/.exec(texte);
+      if (!lu) return false;
+      const centiemes = BigInt(lu[1]) * 100n + BigInt((lu[2] ?? '').padEnd(2, '0'));
+      return (centiemes > 0n || zeroAutorise) && centiemes % 25n === 0n;
+    };
+    const ecarts = [];
+    let saisies = 0;
+    const comparer = (valeur, texte) => {
+      for (const zeroAutorise of [false, true]) {
+        saisies += 1;
+        const rendu = heuresAuQuartDHeure(valeur, zeroAutorise);
+        const attendu = exacte(texte, zeroAutorise) ? Number(texte.replace(',', '.')) : null;
+        if (rendu !== attendu && ecarts.length < 10) ecarts.push(`${typeof valeur === 'number' ? `${texte} en nombre` : `« ${texte} »`} (zeroAutorise ${zeroAutorise}) : ${rendu} au lieu de ${attendu}`);
+      }
+    };
+    const fractions = [...Array.from({ length: 10 }, (_, i) => String(i)), ...Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'))];
+    const entiers = [
+      ...Array.from({ length: 301 }, (_, i) => i),
+      ...Array.from({ length: 21 }, (_, i) => 16_374 + i),
+      ...Array.from({ length: 100 }, (_, i) => 99_999_900 + i),
+    ];
+    for (const entier of entiers) {
+      comparer(String(entier), String(entier));
+      for (const fraction of fractions) {
+        for (const separateur of [',', '.']) comparer(`${entier}${separateur}${fraction}`, `${entier}${separateur}${fraction}`);
+        const nombre = Number(`${entier}.${fraction}`);
+        comparer(nombre, String(nombre));
+      }
+    }
+    assert.deepEqual(ecarts, [], `écarts entre le serveur et la règle exacte (${saisies} saisies)`);
+  });
+});
