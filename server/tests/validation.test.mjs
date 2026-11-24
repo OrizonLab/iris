@@ -1322,3 +1322,89 @@ describe('Heures au quart d’heure, avec et sans zéro (lots W et Z) : heuresAu
     assert.deepEqual(ecarts, [], `écarts entre le serveur et la règle exacte (${saisies} saisies)`);
   });
 });
+
+// Lot AB : coût de la main-d'œuvre arrondi au centime ligne par ligne, partout (réponse de Nelson du 24-11-2026, point 2, mot
+// pour mot : « Arrindir chaque ligne » ; cadrage v2 du lot AB, points 1 et 2, lectures L1 et L2 ; « Tests » : « Aucun test
+// unitaire ne sépare aujourd'hui les deux conventions : en ajouter un »). La fonction commune de commun/montants.ts, compilée,
+// est appelée directement, puis computeChantierMetrics sur ses trois boucles et totalHeuresInterventionAuCentime, qui la reprend
+// sans changer ses résultats. Montants, classés C : chaque attendu écrit la lecture qu'il écarte. Les requêtes HTTP du lot sont
+// jouées dans arrondi-main-oeuvre.test.mjs.
+const { coutLigneHeuresAuCentime, coutLigneHeures } = await import('../dist/src/commun/montants.js');
+const { totalHeuresInterventionAuCentime } = await import('../dist/src/domaines/interventions/metier.js');
+const { Prisma: PrismaLotAB } = await import('@prisma/client');
+
+describe('Lot AB : coût d’une ligne de main-d’œuvre arrondi au centime, moitié vers le haut, avant toute somme', () => {
+  // Jeu du cadrage v2 : 3,25 h et 0,25 h à 37,85 €/h, puis trois fois 0,25 h à 10,02 €/h. Attendu 140,00 € (123,01 + 9,46 +
+  // 3 × 2,51). Lectures écartées : somme exacte, arrondie ou tronquée, 139,99 € ; arrondi au pair, troncature ou moitié vers le
+  // bas par ligne, 139,97 € ; arrondi par excès par ligne, 140,02 €.
+  const JEU = [[3.25, 37.85], [0.25, 37.85], [0.25, 10.02], [0.25, 10.02], [0.25, 10.02]];
+  const lignes = (ordre) => ordre.map(([nbrHeures, tauxHoraireApplique]) => ({ nbrHeures, tauxHoraireApplique }));
+
+  test('coût d’une ligne : heures × taux en décimal exact, arrondi au centime moitié vers le haut (lecture L1), en nombre comme en décimal', () => {
+    const CAS = [
+      // [heures, taux, attendu] ; lecture écartée en commentaire.
+      [3.25, 37.85, 123.01], // produit exact 123,0125 (avant le lot) ; arrondi par excès 123,02
+      [0.25, 37.85, 9.46], // produit exact 9,4625 ; arrondi par excès 9,47
+      [0.25, 10.02, 2.51], // produit exact 2,505 ; au pair, troncature ou moitié vers le bas 2,50 ; toFixed(2) 2,50
+      [0.5, 0.01, 0.01], // lecture L1, « 0,005 € donne 0,01 € » ; au pair ou troncature 0,00
+      [2.5, 0.41, 1.03], // produit exact 1,025 ; Math.round(h × t × 100) / 100 en flottant 1,02 (1,025 vaut 1,02499… en binaire) ; au pair 1,02
+      [99999999.25, 0.02, 1999999.99], // borne des heures (Decimal(10, 2)) : produit exact 1 999 999,985 ; au pair ou troncature 1 999 999,98
+      [1.1, 1.1, 1.21], // produit flottant 1,2100000000000002
+      [0.75, 40, 30], // sans reste : aucun arrondi
+      [0, 37.85, 0], // zéro heure, admis avec son motif sur une intervention (lot Z)
+    ];
+    for (const [heures, taux, attendu] of CAS) {
+      assert.equal(coutLigneHeures(heures, taux), attendu, `${heures} h × ${taux} € en nombres`);
+      const enDecimal = coutLigneHeuresAuCentime(new PrismaLotAB.Decimal(String(heures)), new PrismaLotAB.Decimal(String(taux)));
+      assert.ok(PrismaLotAB.Decimal.isDecimal(enDecimal), 'rend un décimal');
+      assert.equal(enDecimal.toString(), String(attendu), `${heures} h × ${taux} € en décimaux`);
+      assert.equal(coutLigneHeuresAuCentime(String(heures), String(taux)).toString(), String(attendu), `${heures} h × ${taux} € en chaînes`);
+    }
+    // Les durées ne sont jamais arrondies (#253, point 2) : seul le produit l'est. Lecture écartée : 0,25 h arrondie à l'heure
+    // (0 €) ou à la demi-heure (5,01 €).
+    assert.deepEqual(JEU.map(([heures, taux]) => coutLigneHeures(heures, taux)), [123.01, 9.46, 2.51, 2.51, 2.51]);
+  });
+
+  test('computeChantierMetrics : le jeu du cadrage coûte 140,00 € dans chacune des trois boucles, pointages, intervention issue du devis et suites, quel que soit l’ordre des lignes (#198)', () => {
+    const params = { margeCommercialeActive: true, planningActif: true };
+    const base = { budgetGlobalVendu: 1000, budgetMaterielVendu: 0, budgetMainOeuvreVendu: 140, heuresVendues: 10, achats: [] };
+    for (const ordre of [JEU, [...JEU].reverse(), [JEU[2], JEU[0], JEU[3], JEU[1], JEU[4]]]) {
+      const quoi = ordre.map(([h, t]) => `${h} h à ${t} €`).join(', ');
+      // Pointages : main-d'œuvre, dépenses et coût horaire du chantier sur 140,00 € ; budget de main-d'œuvre de 140 € consommé à
+      // 100 %, non dépassé (lecture écartée : l'arrondi par excès, 140,02 €, le dépasserait) ; marge 860,00 € (lectures écartées :
+      // 860,01 €, 860,03 €, 859,98 €).
+      const pointages = computeChantierMetrics({ ...base, pointages: lignes(ordre) }, params, true);
+      assert.deepEqual([pointages.heuresRealisees, pointages.moReel, pointages.totalDepenses, pointages.margeCommerciale, pointages.pctMainOeuvre], [4.25, 140, 140, 860, 100], `pointages : ${quoi}`);
+      assert.equal(pointages.alertes.includes('MAIN_OEUVRE_DEPASSEE'), false, `pointages : ${quoi}`);
+      // Intervention issue du devis : compte comme le travail du chantier (heures réalisées comprises).
+      const devis = computeChantierMetrics({ ...base, pointages: [], coutsInterventionDevis: { heures: lignes(ordre), achats: [] } }, params, true);
+      assert.deepEqual([devis.heuresRealisees, devis.moReel, devis.margeCommerciale, devis.coutsInterventionDevis], [4.25, 140, 860, { heures: 4.25, coutMainOeuvre: 140, materiel: 0 }], `intervention du devis : ${quoi}`);
+      // Suites : leurs heures restent hors des heures réalisées (décision du 27-10-2026).
+      const suites = computeChantierMetrics({ ...base, pointages: [], coutsSuites: { heures: lignes(ordre), achats: [] } }, params, true);
+      assert.deepEqual([suites.heuresRealisees, suites.moReel, suites.margeCommerciale, suites.coutsSuites], [0, 140, 860, { heures: 4.25, coutMainOeuvre: 140, materiel: 0 }], `suites : ${quoi}`);
+    }
+    // Les trois boucles ensemble : 420,00 €, marge 580,00 €. Lectures écartées : 419,97 € (somme exacte, avant le lot) ; 419,98 €
+    // ou 419,99 € (une ou deux boucles seulement arrondies par ligne) ; 419,91 € (au pair, troncature) ; 420,06 € (excès).
+    const ensemble = computeChantierMetrics({ ...base, pointages: lignes(JEU), coutsInterventionDevis: { heures: lignes(JEU), achats: [] }, coutsSuites: { heures: lignes(JEU), achats: [] } }, params, true);
+    assert.deepEqual([ensemble.heuresRealisees, ensemble.moReel, ensemble.margeCommerciale, ensemble.coutsInterventionDevis.coutMainOeuvre, ensemble.coutsSuites.coutMainOeuvre], [8.5, 420, 580, 140, 140]);
+    // Budget de main-d'œuvre de 139,99 € : dépassé par 140,00 €. Lecture écartée : la somme exacte, 139,99 €, ne le dépasse pas.
+    const depasse = computeChantierMetrics({ ...base, budgetMainOeuvreVendu: 139.99, pointages: lignes(JEU) }, params, true);
+    assert.equal(depasse.alertes.includes('MAIN_OEUVRE_DEPASSEE'), true);
+    // Exemple de Nelson, 3,25 h et 0,25 h à 37,85 € : 132,47 € (lecture écartée : 132,475 €, puis 132,48 € à l'affichage), et
+    // pour un vendu de 132,47 €, marge 0 sans EN_PERTE (lecture écartée : -0,005 € et EN_PERTE).
+    const nelson = computeChantierMetrics({ ...base, budgetGlobalVendu: 132.47, pointages: lignes(JEU.slice(0, 2)) }, params, true);
+    assert.deepEqual([nelson.moReel, nelson.margeCommerciale, nelson.alertes.includes('EN_PERTE')], [132.47, 0, false]);
+  });
+
+  test('totalHeuresInterventionAuCentime reprend la fonction commune sans changer ses résultats : main-d’œuvre cumulée égale à la somme des lignes arrondies', () => {
+    const D = PrismaLotAB.Decimal;
+    const enDecimaux = (jeu) => jeu.map(([h, t]) => ({ nbrHeures: new D(String(h)), tauxHoraireApplique: new D(String(t)) }));
+    // Jeu du cadrage : 140,00 € (lectures écartées : 139,99 €, 139,97 €, 140,02 €), égal à la somme des coûts de ligne.
+    assert.equal(totalHeuresInterventionAuCentime(enDecimaux(JEU)).toString(), '140');
+    assert.equal(JEU.reduce((total, [h, t]) => total.plus(coutLigneHeuresAuCentime(h, t)), new D(0)).toString(), '140');
+    // Valeurs du lot Z, inchangées : 1,25 h, 2,25 h et 0 h à 37,85 € font 132,47 € ; 1,1 h à 37,85 € fait 41,64 € (41,635 €).
+    assert.equal(totalHeuresInterventionAuCentime(enDecimaux([[1.25, 37.85], [2.25, 37.85], [0, 37.85]])).toString(), '132.47');
+    assert.equal(totalHeuresInterventionAuCentime(enDecimaux([[1.1, 37.85]])).toString(), '41.64');
+    assert.equal(totalHeuresInterventionAuCentime([]).toString(), '0');
+  });
+});

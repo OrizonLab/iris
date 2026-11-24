@@ -61,3 +61,18 @@ test('coût d’une ligne d’heures : produit exact, arrondi au centime supéri
   assert.equal(coutLigneHeures(7.75, 42.5), 329.38);
   assert.equal(coutLigneHeures(0, 42), 0);
 });
+
+// Lot AB (réponse de Nelson du 24-11-2026, point 2 : « Arrindir chaque ligne » ; cadrage v2 du lot AB, « Tests ») : le journal
+// des heures affiche chaque ligne arrondie au centime (coutLigneHeures), et le serveur additionne désormais ces mêmes lignes
+// arrondies dans le coût de la main-d'œuvre d'un chantier. Sur le jeu du cadrage, la somme des lignes affichées est donc le
+// coût que la fiche reçoit : 140,00 €. Lectures écartées : 139,99 € (somme exacte des produits, arrondie une fois, l'ancien calcul
+// du serveur) ; 139,97 € (troncature, ou arrondi au pair, de chaque ligne) ; 140,02 € (arrondi par excès de chaque ligne).
+test('journal des heures et serveur : chaque ligne arrondie au centime, puis additionnée, sur le jeu du lot AB : 140,00 €', () => {
+  const jeu: Array<[number, number]> = [[3.25, 37.85], [0.25, 37.85], [0.25, 10.02], [0.25, 10.02], [0.25, 10.02]];
+  const lignes = jeu.map(([heures, taux]) => coutLigneHeures(heures, taux));
+  assert.deepEqual(lignes, [123.01, 9.46, 2.51, 2.51, 2.51], '2,505 € donne 2,51 € (moitié vers le haut) ; troncature ou arrondi au pair : 2,50 €');
+  assert.equal(sommeExacte(lignes), 140);
+  assert.equal(arrondiCentime(sommeExacte(jeu.map(([heures, taux]) => heures * taux), 4)), 139.99, 'témoin : le total exact arrondi une fois, écarté');
+  // Exemple de Nelson : 3,25 h puis 0,25 h à 37,85 € : 132,47 €, et non 132,48 €.
+  assert.equal(sommeExacte(lignes.slice(0, 2)), 132.47);
+});

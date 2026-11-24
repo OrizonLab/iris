@@ -21239,7 +21239,7 @@ if (!TEST_DATABASE_URL) {
       await achat(suite.id, 25.5);
       await achat(suite.id, 99, true); // archivé : hors marge
       const suiteDeSuite = await suiteDe(suite.id);
-      await heure(suiteDeSuite.id, 0.25, 37.5); // produit exact 9,375 €
+      await heure(suiteDeSuite.id, 0.25, 37.5); // produit exact 9,375 €, compté 9,38 € (lot AB : chaque ligne arrondie au centime)
       const suiteAnnulee = await suiteDe(initiale.id);
       await heure(suiteAnnulee.id, 1, 40);
       await annuler(suiteAnnulee.id); // la dépense faite reste comptée
@@ -21251,8 +21251,12 @@ if (!TEST_DATABASE_URL) {
 
       // Heures réalisées : les 2 h du chantier seules ; les 2,75 h des suites en restent hors, leur coût compté
       // (décision de Nelson du 27-10-2026 à 21:41 UTC, « Oui il faut sortir les heures »).
-      const attendu = { heuresRealisees: 2, moReel: 189.375, materielReel: 25.5, totalDepenses: 214.875, margeCommerciale: 785.125 };
-      const coutsSuitesAttendus = { heures: 2.75, coutMainOeuvre: 109.375, materiel: 25.5 };
+      // Lot AB (réponse de Nelson du 24-11-2026, « Arrindir chaque ligne ») : chaque ligne est arrondie au centime avant la
+      // somme. Main-d'œuvre : 80 (chantier) + 60 (suite) + 9,38 (suite de la suite, 9,375 arrondi) + 40 (suite annulée) =
+      // 189,38 €, dont suites 60 + 9,38 + 40 = 109,38 € ; dépenses 189,38 + 25,5 = 214,88 € ; marge 1 000 − 214,88 = 785,12 €.
+      // Lecture écartée : la somme exacte d'avant le lot (189,375, 109,375, 214,875 et 785,125 €).
+      const attendu = { heuresRealisees: 2, moReel: 189.38, materielReel: 25.5, totalDepenses: 214.88, margeCommerciale: 785.12 };
+      const coutsSuitesAttendus = { heures: 2.75, coutMainOeuvre: 109.38, materiel: 25.5 };
       const detail = await ficheChantier(chantier.id);
       for (const [cle, valeur] of Object.entries(attendu)) assert.equal(detail.metrics[cle], valeur, `fiche : ${cle}`);
       assert.deepEqual(detail.metrics.coutsSuites, coutsSuitesAttendus);
@@ -21272,7 +21276,7 @@ if (!TEST_DATABASE_URL) {
       const stats = await request(app).get('/api/stats/conducteurs').set(admin);
       assert.equal(stats.status, 200, JSON.stringify(stats.body));
       const duConducteur = stats.body.find((u) => u.id === comptes.conducteur.id);
-      assert.deepEqual([duConducteur.depensesTotal, duConducteur.margeTotal], [214.875, 785.125]);
+      assert.deepEqual([duConducteur.depensesTotal, duConducteur.margeTotal], [214.88, 785.12]);
     });
 
     test('détail des suites masqué comme le reste du réel : sans coût de main-d’œuvre pour le conducteur, sans montant pour le technicien', async () => {
