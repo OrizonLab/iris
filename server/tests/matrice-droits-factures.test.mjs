@@ -171,20 +171,26 @@ const MONTANTS = {
   reglementSurplusEtDue: [70.01, 239.99],
   // Facture d'un client désactivé (40 HT, 48 TTC) : 47,99, reste 0,01, émise ; un arrondi à l'euro la solderait.
   reglementClientDesactive: 47.99,
-  // Facture au temps passé : 1,1 h saisies, minimum figé de 60 minutes, pas de 15 minutes, prix figé du devis 61,70 :
-  // 66 minutes, au-delà du minimum de 6 minutes, une tranche de 15 commencée, soit 75 minutes, 1,25 h ; 1,25 × 61,70 =
-  // 77,125, arrondi à 77,13 (TVA 15,426 arrondie à 15,43 ; TTC 92,56, ligne et ventilation comprises). Lectures écartées :
-  // arrondi au pair, 77,12 ; sans le pas (1,1 h), 67,87 ; au pas le plus proche (60 minutes), 61,70 ; prix de la main
-  // d'œuvre du catalogue, changé à 99,99 après la signature : 124,99. 1,1 h ne départage pas le minimum de 60 minutes
-  // (lu au-dessus) : un mutant qui l'ignore survit à ce fichier ; il est couvert par api.test.mjs (#348).
+  // Facture au temps passé : 2,75 h saisies, minimum figé de 60 minutes, pas de 45 minutes, prix figé du devis 61,70 :
+  // 165 minutes, au-delà du minimum de 105 minutes, trois tranches de 45 commencées, soit 195 minutes, 3,25 h ;
+  // 3,25 × 61,70 = 200,525, arrondi à 200,53 (TVA 40,106 arrondie à 40,11 ; TTC 240,64, ligne et ventilation comprises).
+  // Lectures écartées : arrondi au pair, 200,52 ; sans le pas (2,75 h), 169,68 ; au pas le plus proche (180 minutes, 3 h),
+  // 185,10 ; minimum ignoré (quatre tranches de 45 dès la première minute, 180 minutes), 185,10 ; prix de la main d'œuvre du
+  // catalogue, changé à 99,99 après la signature : 324,97.
+  // Lot Z (réponse de Nelson du 23-11-2026, « les heures sur une intervention Passe au quart d'heure ») : les heures d'une
+  // intervention se saisissent au quart d'heure ; 1,1 h (au pas de 15 minutes) y est refusé. Avec un pas de 15 minutes, des
+  // saisies au quart d'heure tombent toujours sur le pas : l'arrondi au pas au-delà du minimum n'y joue plus. Le devis porte
+  // donc un pas de 45 minutes, le seul des pas admis (15, 30, 45 ou 60 minutes) qui, à 61,70 € l'heure, donne un demi-centime
+  // (un pas de 30 ou de 60 minutes donne des demi-heures, au centime exact), si bien que l'arrondi au pair reste départagé ;
+  // 2,75 h départage en plus le minimum de 60 minutes, que 1,1 h ne départageait pas.
   // Réglages de la société changés après la signature (pas de 60 minutes, minimum de 120 minutes) : la facture garde le
-  // pas et le minimum figés sur le devis. Lectures écartées : pas du jour, 60 + 60 minutes, 2 h, 123,40 ; minimum du
-  // jour, 120 minutes, 2 h, 123,40.
-  tempsPasse: { heures: 1.1, prixDevis: 61.7, prixApresSignature: 99.99, minimumMinutes: 60, pasMinutes: 15, totalHtAutre: 77.12, pasApresSignature: 60, minimumApresSignature: 120 },
+  // pas et le minimum figés sur le devis. Lectures écartées : pas du jour, 60 + 2 × 60 minutes, 3 h, 185,10 ; minimum du
+  // jour, 120 + 45 minutes, 2,75 h, 169,68.
+  tempsPasse: { heures: 2.75, prixDevis: 61.7, prixApresSignature: 99.99, minimumMinutes: 60, pasMinutes: 45, totalHtAutre: 200.52, pasApresSignature: 60, minimumApresSignature: 120 },
   factureTempsPasse: {
-    type: 'FACTURE', statut: 'BROUILLON', totalHt: 77.13, totalTva: 15.43, totalTtc: 92.56,
-    lignes: [{ nature: 'PRESTATION', quantite: 1.25, prixUnitaireHt: 61.7, tauxTva: 20, totalHt: 77.13, totalTtc: 92.56 }],
-    ventilation: [[20, 77.13, 15.43, 92.56]],
+    type: 'FACTURE', statut: 'BROUILLON', totalHt: 200.53, totalTva: 40.11, totalTtc: 240.64,
+    lignes: [{ nature: 'PRESTATION', quantite: 3.25, prixUnitaireHt: 61.7, tauxTva: 20, totalHt: 200.53, totalTtc: 240.64 }],
+    ventilation: [[20, 200.53, 40.11, 240.64]],
   },
   // Montants HT des cibles propres (une ligne à 20 %) : distincts entre eux et de ceux du jeu de données (10, 100, 80), pour
   // qu'une valeur existante relue à tort ne passe pas.
@@ -545,8 +551,8 @@ if (!TEST_DATABASE_URL) {
       // AT-3 : le même brouillon, créé par l'assistante technique (type figé ASSISTANTE_TECHNIQUE) ; émis par l'administration
       // (réponse 1 du 09-11-2026) comme par elle (réponse 6 du 06-11-2026), mêmes montants attendus.
       suivis.set((await api(ASSISTANTE, 'POST', '/api/factures', { clientId: d.clientActif, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST facture à deux taux de l’assistante, matrice des factures', dateEmission: d.aujourdhui, dateEcheance: d.aujourdhui, lignes: MONTANTS.lignes }, 201)).id, 'facture-brouillon-deux-taux-at');
-      // Intervention au temps passé : main d'œuvre à 61,70, pas de 15 minutes, devis au temps passé signé et converti,
-      // placée, démarrée, 1,1 h du technicien, compte rendu, terminée (motif) ; prix de la main d'œuvre changé à 99,99
+      // Intervention au temps passé : main d'œuvre à 61,70, pas de 45 minutes, devis au temps passé signé et converti,
+      // placée, démarrée, 2,75 h du technicien, compte rendu, terminée (motif) ; prix de la main d'œuvre changé à 99,99
       // après la signature.
       const corpsMainOeuvre = (prix) => ({ estMainOeuvre: true, reference: 'TEST-FACTURES-MO-TP', nom: 'TEST Main d’œuvre au temps passé de la matrice des factures', tauxTva: 20, prixVenteHt: prix, prixJourHorsContratHt: 430, prixHeureSousContratHt: 57.25, prixJourSousContratHt: 390, heuresParJour: 7 });
       d.mainOeuvre = (await api(SA, 'POST', '/api/catalogue/prestations', corpsMainOeuvre(MONTANTS.tempsPasse.prixDevis), 201)).id;
@@ -673,7 +679,7 @@ if (!TEST_DATABASE_URL) {
           ajouter(compte, envois, nom, 'défaut, corps destinataire, messagerie', piece(envois, nom), () => ({ destinataire: DESTINATAIRE }), { code });
         }
 
-        // Facture au temps passé : total de l'aperçu lu avant l'instantané ; autre total (77,12, l'arrondi au pair) ;
+        // Facture au temps passé : total de l'aperçu lu avant l'instantané ; autre total (200,52, l'arrondi au pair) ;
         // chaque cible de la famille intervention.
         const tempsPasse = 'POST /api/interventions/:id/facture-temps-passe';
         const corpsTempsPasse = (total) => () => ({ dateEmission: d.aujourdhui, dateEcheance: d.aujourdhui, totalHtAttendu: total });
@@ -801,6 +807,7 @@ if (!TEST_DATABASE_URL) {
         [exact.euros(arrondiAuPair(enUnites(minutes / 60, 3) * enUnites(tp.prixDevis, 2) / 100n)), 'arrondi au pair'],
         [exact.euros(exact.ligneHt(tp.heures, tp.prixDevis)), 'sans le pas'],
         [exact.euros(exact.ligneHt(Math.round(minutesSaisies / tp.pasMinutes) * tp.pasMinutes / 60, tp.prixDevis)), 'au pas le plus proche'],
+        [exact.euros(exact.ligneHt(Math.ceil(minutesSaisies / tp.pasMinutes) * tp.pasMinutes / 60, tp.prixDevis)), 'minimum ignoré'],
         [exact.euros(exact.ligneHt(minutes / 60, tp.prixApresSignature)), 'prix du catalogue après la signature'],
         [exact.euros(exact.ligneHt((tp.minimumMinutes + Math.ceil(Math.max(0, minutesSaisies - tp.minimumMinutes) / tp.pasApresSignature) * tp.pasApresSignature) / 60, tp.prixDevis)), 'pas du jour après la signature'],
         [exact.euros(exact.ligneHt((tp.minimumApresSignature + Math.ceil(Math.max(0, minutesSaisies - tp.minimumApresSignature) / tp.pasMinutes) * tp.pasMinutes) / 60, tp.prixDevis)), 'minimum du jour après la signature'],

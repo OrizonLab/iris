@@ -6,6 +6,7 @@ import {
 } from '../src/lib/saisiesDecimales.ts';
 import { MOTIF_PRIX_DEVIS } from '../src/lib/catalogueDevis.ts';
 import { valeurSaisie } from '../src/lib/mainOeuvre.ts';
+import { MOTIF_QUART_HEURE_INTERVENTION, TITRE_QUART_HEURE_INTERVENTION } from '../src/lib/saisiesDecimales.ts';
 
 // Lot U, fin de #394 (cadrage v2 du 22-11-2026, « Inventaire complet » et « Critères, champ par champ » ; montants, règle 2) :
 // les champs décimaux encore en `type="number"` (Achats, Heures et leurs journaux, taux d'acompte par défaut, seuil de marge
@@ -172,4 +173,59 @@ test('valeurs pré-remplies : la valeur relue en base, écrite à la virgule, es
   for (const [motif, valeurs] of cas) {
     for (const valeur of valeurs) assert.equal(compiler(motif).test(valeurSaisie(valeur)), true, `${valeur} → « ${valeurSaisie(valeur)} »`);
   }
+});
+
+// Lot Z : heures d'une intervention au quart d'heure, zéro compris (réponse de Nelson du 23-11-2026, mot pour mot : « les heures
+// sur une intervention Passe au quart d'heure »). Cadrage v2 du lot Z, point 4 et « Tests » (« Unitaires client : motif comparé de
+// façon exhaustive à la règle du serveur réécrite, zéro admis ; témoins ; exemple du titre admis »). POST et PATCH
+// /api/interventions/:id/couts/heures lisent heuresAuQuartDHeure(v, true) (server/src/commun/validation.ts) : la forme de
+// nombreDecimalNonNegatif(v, 8, true) (huit chiffres, deux décimales, virgule ou point), zéro admis, puis
+// `Math.round(n * 100) % 25 === 0`. Motif du cadrage : « \d{1,8}(?:[.,](?:00?|25|50?|75))? », celui du lot W sans le refus de
+// zéro. La règle du serveur est réécrite ici telle qu'il la calcule (nombre flottant, `Math.round`) et en millièmes exacts ;
+// les deux s'accordent sur toutes les saisies, et le motif avec elles (seuls écarts connus : les blancs de bord, que le serveur
+// retire et que le navigateur garde, cadrage v2, point 4). Lectures écartées : zéro refusé (motif du chantier repris tel quel),
+// le centième d'avant le lot (« 1,1 », « 0,05 »), trois décimales (« 3,250 »), neuf chiffres, un signe.
+test('motif des heures d’une intervention : compilé avec le drapeau v, comme le navigateur, et aux bornes du serveur, zéro compris ; il ne diffère du motif d’un chantier que par les zéros', () => {
+  const expression = compiler(MOTIF_QUART_HEURE_INTERVENTION);
+  const chantier = compiler(MOTIF_QUART_HEURE_CHANTIER);
+  const quartDHeureServeur = (saisie: string) => Math.round(Number(saisie.replace(',', '.')) * 100) % 25 === 0;
+  const quartDHeureExact = (saisie: string) => milliemes(saisie) % 250n === 0n;
+  const admiseParLeServeur = (saisie: string) => formeServeur(saisie, 8, 2) && quartDHeureServeur(saisie);
+  const saisies = saisiesExhaustives();
+  const desaccords = saisies.filter((s) => formeServeur(s, 8, 2) && quartDHeureServeur(s) !== quartDHeureExact(s));
+  assert.deepEqual(desaccords.slice(0, 10), [], `quart d’heure : calcul du serveur et millièmes exacts en désaccord (${desaccords.length} en tout)`);
+  const ecarts = saisies.filter((saisie) => expression.test(saisie) !== admiseParLeServeur(saisie));
+  assert.deepEqual(ecarts.slice(0, 10), [], `heures d’une intervention : saisies où le motif diffère du serveur (${ecarts.length} en tout)`);
+  for (const saisie of HORS_FORME) assert.equal(expression.test(saisie), false, `« ${saisie} »`);
+  // Le motif du chantier (lot W) et celui de l'intervention ne diffèrent que par les zéros (« 0 », « 00 », « 0,0 », « 0,00 »…) :
+  // admis ici, refusés sur un chantier.
+  const zero = (saisie: string) => formeServeur(saisie, 8, 2) && milliemes(saisie) === 0n;
+  const differences = saisies.filter((saisie) => expression.test(saisie) !== (chantier.test(saisie) || zero(saisie)));
+  assert.deepEqual(differences.slice(0, 10), [], `seuls les zéros séparent les deux motifs (${differences.length} écarts)`);
+  assert.ok(saisies.filter(zero).length > 0 && saisies.filter(zero).every((saisie) => expression.test(saisie) && !chantier.test(saisie)), 'zéros admis sur une intervention, refusés sur un chantier');
+});
+
+// Témoins nommés (cadrage v2 du lot Z, « Critères observables ») : « 1,25 », « 0,75 », « 0,25 », « 2 », « 2,5 », « 0 » et « 0,00 »
+// admis ; « 1,1 », « 0,2 », « 1,10 », « 0,05 », « 3,250 », « 123456789 », « -0,25 » refusés par le navigateur. Chaque témoin écarte
+// une lecture : « 1,25 » ou « 0,75 » refusé (demi-heure, seul « 25 » ou « 50 » admis) ; « 0 » ou « 0,00 » refusé (motif du chantier
+// repris) ; « 2,5 » refusé (deux décimales exigées) ; « 1,1 », « 1,10 », « 0,2 », « 0,05 », « 1,26 » admis (centième) ; « 3,250 »
+// admis (trois décimales) ; « 123456789 » admis (neuf chiffres) ; « -0,25 » admis (signe) ; « 1,25 » entouré d'espaces admis
+// (blancs que le navigateur garde).
+test('témoins des heures d’une intervention : « 1,25 », « 0,75 », « 0,25 », « 2 », « 2,5 », « 0 » et « 0,00 » admis ; « 1,1 », « 0,2 », « 1,10 », « 0,05 », « 3,250 », « 123456789 » et « -0,25 » refusés', () => {
+  const expression = compiler(MOTIF_QUART_HEURE_INTERVENTION);
+  const admises = ['1,25', '0,75', '0,25', '2', '2,5', '0', '0,00', '0,0', '00', '3,00', '2,50', '1.25', '0.5', '99999999,75'];
+  const refusees = ['1,1', '0,2', '1,10', '0,05', '3,250', '123456789', '-0,25', '0,01', '1,26', '1,24', '99999999,99', '0,000', ' 1,25', '1,25 ', '1,25 h'];
+  assert.deepEqual(admises.map((s) => expression.test(s)), admises.map(() => true), 'heures admises');
+  assert.deepEqual(refusees.map((s) => expression.test(s)), refusees.map(() => false), 'heures refusées');
+});
+
+// Le titre est le message du navigateur quand il refuse la saisie (cadrage v2, point 4) : en français, exact, son exemple
+// « 1,25 » admis par le motif, et « 0 », qu'il annonce avec un motif, admis aussi. Lectures écartées : le titre du chantier
+// repris (« à partir de 0,25 », qui interdirait zéro) ; un exemple refusé par son propre champ.
+test('titre des heures d’une intervention : en français, exemple « 1,25 » et « 0 » admis par le motif', () => {
+  assert.equal(TITRE_QUART_HEURE_INTERVENTION, 'Un nombre d’heures au quart d’heure (par exemple 1,25), ou 0 avec un motif');
+  assert.ok(TITRE_QUART_HEURE_INTERVENTION.includes('par exemple 1,25'));
+  assert.equal(compiler(MOTIF_QUART_HEURE_INTERVENTION).test('1,25'), true, 'exemple « 1,25 » admis');
+  assert.equal(compiler(MOTIF_QUART_HEURE_INTERVENTION).test('0'), true, '« 0 » admis');
+  assert.notEqual(TITRE_QUART_HEURE_INTERVENTION, TITRE_QUART_HEURE_CHANTIER);
 });
