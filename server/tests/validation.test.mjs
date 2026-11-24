@@ -1348,6 +1348,7 @@ describe('Lot AB : coût d’une ligne de main-d’œuvre arrondi au centime, mo
       [0.25, 10.02, 2.51], // produit exact 2,505 ; au pair, troncature ou moitié vers le bas 2,50 ; toFixed(2) 2,50
       [0.5, 0.01, 0.01], // lecture L1, « 0,005 € donne 0,01 € » ; au pair ou troncature 0,00
       [2.5, 0.41, 1.03], // produit exact 1,025 ; Math.round(h × t × 100) / 100 en flottant 1,02 (1,025 vaut 1,02499… en binaire) ; au pair 1,02
+      [0.75, 30.9, 23.18], // produit exact 23,175 ; en flottant 23,174999…, que donnent 23,17 aussi bien Math.round(h × t × 100) / 100 que centimes(h × t) (Number.EPSILON n'y suffit pas) ou un décimal construit sur le produit flottant ; au pair 23,18
       [99999999.25, 0.02, 1999999.99], // borne des heures (Decimal(10, 2)) : produit exact 1 999 999,985 ; au pair ou troncature 1 999 999,98
       [1.1, 1.1, 1.21], // produit flottant 1,2100000000000002
       [0.75, 40, 30], // sans reste : aucun arrondi

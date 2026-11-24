@@ -289,6 +289,21 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual([vueConducteur.estimation.coutHoraireReference, vueConducteur.estimation.coutMainOeuvreAttendu, vueConducteur.margeEstimee], [null, null, 660], 'conducteur titulaire');
       // L'affaire avec heures garde son propre coût horaire, sur la même somme arrondie par ligne : 170,00 € ÷ 5 h.
       assert.deepEqual([(await fiche(avecHeures.id)).metrics.moReel, (await fiche(avecHeures.id)).metrics.estimation.coutHoraireReference], [170, 34]);
+
+      // Lecture L3 (cadrage v2 : « coût horaire de référence […] sans arrondi propre ; seul l'affichage les arrondit ») : le coût
+      // horaire moyen de la société n'est pas arrondi au centime. Les 34 €/h ci-dessus ne le montrent pas : 33,998 €/h (somme
+      // exacte) arrondis au centime donnent aussi 34,00 €/h. Une heure de plus, à 1,01 € (sans reste) : 171,01 € pour 6 h, soit
+      // 28,501666… €/h, et 285,0166… € de main-d'œuvre attendue pour 10 h vendues. Lectures écartées, toutes à 28,50 €/h et
+      // 285,00 € : la somme exacte des produits (171,00 € ÷ 6, avant le lot), arrondie ou non, au total ou au quotient ; le coût
+      // horaire arrondi au centime sur la somme des lignes arrondies (28,501666… → 28,50 €).
+      await changerTaux(ficheSociete, '1.01');
+      await pointer(conducteur.auth, avecHeures.id, ficheSociete, '1');
+      const reference = (await fiche(sansHeure.id)).metrics.estimation;
+      const tauxAttendu = new Decimal('171.01').div(6);
+      assert.equal(reference.sourceCoutHoraire, 'SOCIETE');
+      assert.ok(Math.abs(reference.coutHoraireReference - tauxAttendu.toNumber()) < 1e-9, `coût horaire de la société : ${reference.coutHoraireReference} ≠ ${tauxAttendu}`);
+      assert.ok(Math.abs(reference.coutMainOeuvreAttendu - tauxAttendu.times(10).toNumber()) < 1e-9, `main-d’œuvre attendue : ${reference.coutMainOeuvreAttendu} ≠ ${tauxAttendu.times(10)}`);
+      assert.notEqual(reference.coutHoraireReference, 28.5, 'coût horaire non arrondi au centime');
     });
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -517,6 +532,13 @@ if (!TEST_DATABASE_URL) {
       for (const [quoi, metrics] of vues) {
         assert.deepEqual([metrics.margeBrute, metrics.margeCommerciale, metrics.margePct], [0, 0, 0], `${quoi} : marge nulle`);
         assert.equal(metrics.alertes.includes('EN_PERTE'), false, `${quoi} : pas d’alerte « En perte »`);
+        // Effet en chaîne : une marge nulle n'est pas une perte, et l'affaire en cours, à son coût horaire (132,47 € ÷ 3,5 h),
+        // estime 20 h × 132,47 € ÷ 3,5 h = 756,971428… € de main-d'œuvre, soit une marge estimée de 132,47 − 756,971428… =
+        // -624,501428… € (-471,43 %) : l'alerte « Marge faible » prend la place d'« En perte ». Lectures
+        // écartées : « En perte » sans « Marge faible » (somme exacte, avant le lot : marge -0,005 €) ; aucune des deux alertes
+        // (marge nulle traitée comme ni perte ni affaire suivie : « Marge faible » réservée à une marge strictement positive).
+        assert.equal(metrics.alertes.includes('MARGE_FAIBLE'), true, `${quoi} : alerte « Marge faible »`);
+        assert.ok(Math.abs(metrics.margeEstimee - (132.47 - (20 * 132.47) / 3.5)) < 1e-9, `${quoi} : marge estimée ${metrics.margeEstimee}`);
       }
       assert.equal(vues[0][1].moReel, 132.47);
     });
