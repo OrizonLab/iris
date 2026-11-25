@@ -257,7 +257,9 @@ if (!TEST_DATABASE_URL) {
     const dateFr = (iso) => String(iso).slice(0, 10).split('-').reverse().join('-');
 
     // Pièce écrite directement en base, comme une création valide (modèle : le test #230 d'api.test.mjs) : lignes et ventilation
-    // égales aux totaux, écritures équilibrées sur le TTC, scellée. `taux` : [[taux, HT, TVA]].
+    // égales aux totaux, écritures équilibrées sur le TTC, scellée. `taux` : [[taux, HT, TVA]]. Une écriture de TVA par taux, à la clé
+    // et au taux que l'application écrit (`TVA:<taux>`, tauxTva), égale à la ventilation : depuis le lot AC (#243, cadrage v2,
+    // règle R4), la base refuse une écriture `TVA` sans taux.
     // `id` est posé d'avance quand le message d'une garde le cite (lot « Pas d'avoir à 0,00 € »).
     const pieceSql = async (tx, { id = randomUUID(), type = 'AVOIR', statut = 'EMISE', factureOrigineId = null, estAvoirAnnulation = false, taux }) => {
       const centimes = (montant) => Math.round(montant * 100) / 100;
@@ -277,7 +279,7 @@ if (!TEST_DATABASE_URL) {
         await tx.ecritureFacture.createMany({ data: [
           { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', ...sens(totalTtc, true) },
           { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(totalHt, false) },
-          { factureId: piece.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(totalTva, false) },
+          ...taux.map(([t, , tva], rang) => ({ factureId: piece.id, ordre: 2 + rang, cle: `TVA:${t}`, tauxTva: t, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(tva, false) })),
         ] });
         await tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
       }

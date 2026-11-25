@@ -240,17 +240,22 @@ if (!TEST_DATABASE_URL) {
       } });
       await tx.factureLigne.createMany({ data: taux.map(([t, ht, tva], ordre) => ({ factureId: piece.id, ordre, designation: `TEST zéro en base ${t} %`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: Math.abs(ht), tauxTva: t, totalHt: ht, totalTtc: centimes(ht + tva) })) });
       await tx.factureVentilationTva.createMany({ data: taux.map(([t, ht, tva]) => ({ factureId: piece.id, tauxTva: t, totalHt: ht, totalTva: tva, totalTtc: centimes(ht + tva) })) });
-      if (statut !== 'BROUILLON') await sceller(tx, piece);
+      if (statut !== 'BROUILLON') await sceller(tx, piece, taux);
       return piece;
     };
-    // Écritures équilibrées sur le TTC de la pièce, puis scellement.
-    const sceller = async (tx, piece) => {
+    // Écritures équilibrées sur le TTC de la pièce, puis scellement. Depuis le lot AC (#243 ; cadrage v2, règle R4), une pièce
+    // émise porte, comme celles de l'application, une écriture `TVA:<taux>` (tauxTva) par taux de sa ventilation, égale à sa TVA
+    // (`taux` : celui de pieceSql). Pour une pièce aux totaux imposés (`montants`) ou à TVA négative, une seule écriture de TVA,
+    // alignée sur le total comme avant : sans elle, l'équilibre des écritures refuserait avant la garde éprouvée (#530, #235).
+    const sceller = async (tx, piece, taux = []) => {
       const [ttc, tva] = [Number(piece.totalTtc), Number(piece.totalTva)];
       const sens = (montant, debit) => (debit === (piece.type === 'FACTURE') ? { debit: montant, credit: 0 } : { debit: 0, credit: montant });
+      const parTaux = taux.length && taux.every(([, , t]) => t >= 0) && Math.round(taux.reduce((s, [, , t]) => s + t, 0) * 100) === Math.round(tva * 100)
+        ? taux.map(([t, , montant]) => [t, montant]) : [[taux[0]?.[0] ?? 20, Math.max(tva, 0)]];
       await tx.ecritureFacture.createMany({ data: [
         { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', ...sens(Math.max(ttc, 0), true) },
         { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(Math.max(Math.round((ttc - tva) * 100) / 100, 0), false) },
-        { factureId: piece.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(Math.max(tva, 0), false) },
+        ...parTaux.map(([t, montant], rang) => ({ factureId: piece.id, ordre: 2 + rang, cle: `TVA:${t}`, tauxTva: t, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(montant, false) })),
       ] });
       await tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
     };
@@ -631,8 +636,10 @@ if (!TEST_DATABASE_URL) {
     // (#243), et la garde des avoirs la tient pour cohérente (TTC = HT + TVA, ventilation égale aux totaux). Elle crédite ou doit
     // 0,01 € : ni « avoir à 0,00 € », ni « facture à 0,00 € ». Lectures écartées : HT nul, ou lignes toutes à 0,00 € HT (« Une facture
     // dont toutes les lignes sont gratuites », texte de la question posée à Nelson) : avoir refusé au COMMIT, annulation refusée (409).
-    // Même preuve par l'écriture SQL que le mutant « ≤ 0 », mais en sens inverse : ici, les deux lectures diffèrent. Si #243 garde un
+    // Même preuve par l'écriture SQL que le mutant « ≤ 0 », mais en sens inverse : ici, les deux lectures diffèrent. Si la base garde un
     // jour la TVA par sa base, ces pièces seront refusées à leur écriture, pour une autre raison que l'avoir à 0,00 € : le test changera.
+    // Le lot AC (#243) ne la garde pas (cadrage v2, « Non imposé, choix par défaut, à confirmer » : TVA recalculée) ; il exige des
+    // écritures conformes à la ventilation (une écriture `TVA:20` de 0,01 €, que sceller pose), ce qui laisse ces pièces admises.
     test('« 0,00 € » se lit sur le TTC : un avoir de TVA seule écrit en SQL (0,00 € HT, 0,01 € de TVA, 0,01 € TTC) est admis par la garde de l’avoir à 0,00 € ; une facture de TVA seule écrite en SQL s’annule par son avoir total de 0,01 € TTC, numéroté à la suite', async () => {
       const facture = await factureEmise(par('AD'), 'avoir de TVA seule', LIGNES_CENT);
       const tvaSeule = await transaction((tx) => pieceSql(tx, { factureOrigineId: facture.id, taux: [[20, 0, 0.01]] }));
@@ -661,7 +668,7 @@ if (!TEST_DATABASE_URL) {
       const brouillonZero = await transaction((tx) => pieceSql(tx, { factureOrigineId: facture.id, statut: 'BROUILLON', taux: [[20, 0, 0]] }));
       assert.deepEqual([brouillonZero.statut, Number(brouillonZero.totalTtc)], ['BROUILLON', 0]);
       await refuseEnBase(() => transaction(async (tx) => {
-        await sceller(tx, brouillonZero);
+        await sceller(tx, brouillonZero, [[20, 0, 0]]);
         await tx.facture.update({ where: { id: brouillonZero.id }, data: { statut: 'EMISE' } });
       }), GARDE.avoirZero(brouillonZero.id, facture.id), 'émission de l’avoir brouillon à 0,00 €');
       const relu = await enBase(brouillonZero.id);

@@ -32,9 +32,10 @@
 // Mutants (cadrage, « Mutants à tuer » et N2) : voir le rapport du rédacteur des tests. Le retrait du plafond TTC global, et celui de
 // chacun des trois plafonds d'un taux pris seul, ne se voient sur aucune facture que l'API crée (la TVA cumulée d'un taux est
 // l'arrondi de sa base cumulée, fonction croissante de la base : un dépassement du HT du taux dépasse son TTC, et inversement ; le TTC
-// global est la somme du HT et de la TVA) : ils sont tués par des factures écrites en SQL, déclarées théoriques (#243). Le retrait
-// du plafond de TVA global, lui, se voit par l'API, sur une facture cohérente : le refus passe alors au plafond du taux (autre
-// message).
+// global est la somme du HT et de la TVA). Ils étaient tués par des factures écrites en SQL, déclarées théoriques (#243) ; depuis le
+// lot AC (#243, cadrage v2, règle R2), la base refuse ces factures au COMMIT, et ces quatre mutants sont équivalents : aucune pièce
+// que la base admet ne les sépare (test « plafonds isolés, factures théoriques », qui prouve ce refus). Le retrait du plafond de
+// TVA global, lui, se voit par l'API, sur une facture cohérente : le refus passe alors au plafond du taux (autre message).
 //
 // Montants (classés C : CLAUDE.md, « un test manquant qui touche un montant ») : chaque valeur est choisie pour qu'une autre lecture
 // plausible de la règle donne un autre résultat ; la lecture écartée est écrite en commentaire, et le test « témoin des montants »
@@ -173,15 +174,21 @@ const LIGNES_G = [ligne('pose', 1, 3.47, 20), ligne('main-d’œuvre', 1, 2.49, 
 //  - H2 : 9,90 € à 10 % : base 10,00 €, TVA 1,00 − 0,01 = 0,99 €, TTC 10,89 € ; le taux est épuisé exactement.
 const LIGNES_H = [ligne('maintenance à 10 %', 1, 10, 10), ligne('maintenance à 20 %', 1, 10, 20)];
 
-// Factures écrites en SQL, théoriques (#243 : une facture écrite en SQL peut porter un TTC différent de HT + TVA, ou une ventilation
-// qui ne suit pas ses totaux ; l'API n'en crée aucune). Chacune isole un plafond, que l'avoir de 1 × <avoir> € à 20 % est seul à
-// franchir. Le plafond retiré, l'API admettrait l'avoir, que la garde en base (verifier_plafond_avoirs) refuserait au COMMIT : 500.
-// Avoir de 100,00 € à 20 % : TVA 20,00 €, TTC 120,00 € ; avoir de 100,01 € : TVA 20,002 → 20,00 €, TTC 120,01 €.
+// Factures écrites en SQL, théoriques (#243 : une facture écrite en SQL pouvait porter un TTC différent de HT + TVA, ou une
+// ventilation qui ne suit pas ses totaux ; l'API n'en crée aucune). Chacune isolait un plafond, que l'avoir de 1 × 100,00 € ou
+// 100,01 € à 20 % était seul à franchir. Depuis le lot AC (#243, cadrage v2, règle R2 : TTC = HT + TVA ; ventilation égale aux
+// totaux ; TTC = HT + TVA à chaque taux), la base les refuse au COMMIT : chacune manque à R2 (lecture écartée, celle d'avant le
+// lot : facture admise). Une ligne de 100,00 € HT à 20 % les accompagne, égale au HT de la ventilation (règle R3 satisfaite : seule
+// R2 refuse).
+//  - TTC global : TTC 119,99 € ≠ 100,00 + 20,00 € ;
+//  - HT du taux : HT de la ventilation 100,00 € ≠ HT de la facture 100,01 € (et TTC du taux 120,01 € ≠ 100,00 + 20,00 €) ;
+//  - TVA du taux : TVA de la ventilation 19,99 € ≠ TVA de la facture 20,00 € (et TTC du taux 120,00 € ≠ 100,00 + 19,99 €) ;
+//  - TTC du taux : TTC du taux 119,99 € ≠ 100,00 + 20,00 €.
 const THEORIQUES = [
-  { plafond: 'TTC global', totaux: [100, 20, 119.99], ventilation: [100, 20, 120], avoir: 10000n, refus: REFUS.plafondTotal },
-  { plafond: 'HT du taux', totaux: [100.01, 20, 120.01], ventilation: [100, 20, 120.01], avoir: 10001n, refus: REFUS.plafondTaux('20') },
-  { plafond: 'TVA du taux', totaux: [100, 20, 120], ventilation: [100, 19.99, 120], avoir: 10000n, refus: REFUS.plafondTaux('20') },
-  { plafond: 'TTC du taux', totaux: [100, 20, 120], ventilation: [100, 20, 119.99], avoir: 10000n, refus: REFUS.plafondTaux('20') },
+  { plafond: 'TTC global', totaux: [100, 20, 119.99], ventilation: [100, 20, 120] },
+  { plafond: 'HT du taux', totaux: [100.01, 20, 120.01], ventilation: [100, 20, 120.01] },
+  { plafond: 'TVA du taux', totaux: [100, 20, 120], ventilation: [100, 19.99, 120] },
+  { plafond: 'TTC du taux', totaux: [100, 20, 120], ventilation: [100, 20, 119.99] },
 ];
 
 if (!TEST_DATABASE_URL) {
@@ -288,11 +295,11 @@ if (!TEST_DATABASE_URL) {
     // Pièce écrite directement en base (modèle : avoir-non-nul.test.mjs), à un seul taux : une ligne, la ventilation donnée (ou
     // aucune), les totaux donnés, et des écritures équilibrées sur le TTC aux clés que l'application écrit (CLIENT, VENTE_PRESTATION,
     // TVA:<taux>), que l'avoir reprend ; scellée et émise.
-    const pieceSql = async (tx, { type, factureOrigineId = null, taux, ligneHt, totaux: [totalHt, totalTva, totalTtc], ventilation: v = null }) => {
+    const pieceSql = async (tx, { id = randomUUID(), type, factureOrigineId = null, taux, ligneHt, totaux: [totalHt, totalTva, totalTtc], ventilation: v = null }) => {
       const identite = await prisma.identiteEmetteur.findFirstOrThrow({ select: { id: true } });
       const date = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
       const piece = await tx.facture.create({ data: {
-        id: randomUUID(), clientId: client.id, clientRaisonSociale: client.raisonSociale, type, statut: 'EMISE', factureOrigineId, estAvoirAnnulation: false,
+        id, clientId: client.id, clientRaisonSociale: client.raisonSociale, type, statut: 'EMISE', factureOrigineId, estAvoirAnnulation: false,
         dateEmission: date, dateEcheance: date, totalHt, totalTva, totalTtc, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST décimal écrit en base', identiteEmetteurId: identite.id,
       } });
       await tx.factureLigne.create({ data: { factureId: piece.id, ordre: 0, designation: `TEST décimal en base ${taux} %`, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: ligneHt, tauxTva: taux, totalHt: ligneHt, totalTtc: Math.round(ligneHt * (100 + taux)) / 100 } });
@@ -644,15 +651,29 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(await soldes(facture.id), ['EMISE', 11, 0, 12]);
     });
 
-    // N2 du cadrage : mutants équivalents par l'API, tués par une fixture déclarée théorique (#243). Si #243 garde un jour en base la
-    // cohérence des factures, ces factures ne s'écriront plus, et les quatre mutants seront équivalents sans exception : ce test changera.
-    test('plafonds isolés sur des factures écrites en SQL, théoriques (#243) : TTC global, HT du taux, TVA du taux et TTC du taux, chacun seul franchi par un avoir de 100,00 € ou 100,01 € à 20 % : 409 au message exact du plafond, sans écriture ni numéro', async () => {
+    // N2 du cadrage : mutants équivalents par l'API, tués jusqu'au lot AC par une fixture déclarée théorique (#243). Le lot AC (#243 ;
+    // cadrage v2, section « Tests », adaptation de ce test, que le test annonçait : « ce test changera ») garde en base la cohérence
+    // des pièces émises : ces factures ne s'écrivent plus, refusées au COMMIT au message de la règle R2, sans rien écrire, et les quatre
+    // mutants de plafond isolé sont équivalents sans exception. La garde n'est jamais désactivée pour garder l'ancien test (cadrage).
+    // Témoin : la même facture, cohérente (100,00 € HT, 20,00 € de TVA, 120,00 € TTC, ventilation égale), s'écrit, et un avoir de
+    // 100,01 € à 20 % y est refusé par le plafond HT global (409), par l'administrateur et le directeur.
+    test('plafonds isolés, factures théoriques (#243) : depuis le lot AC, une facture écrite en SQL au TTC global, au HT, à la TVA ou au TTC de son taux incohérents est refusée au COMMIT au message exact de la cohérence des pièces émises, sans rien écrire ; la même facture cohérente s’écrit, et l’avoir de 100,01 € y est refusé (409 du total)', async () => {
+      const totauxIncoherents = (id) => `La pièce ${id} n'a pas des totaux égaux à sa ventilation de TVA (HT, TVA, TTC = HT + TVA).`;
       for (const cas of THEORIQUES) {
-        const facture = await transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: 20, ligneHt: cas.ventilation[0], totaux: cas.totaux, ventilation: cas.ventilation }));
-        const relue = await enBase(facture.id);
-        assert.deepEqual([relue.type, relue.statut, ...totaux(relue), ...ventilation(relue)], ['FACTURE', 'EMISE', ...cas.totaux, [20, ...cas.ventilation]], cas.plafond);
-        for (const auteur of ['AD', 'DIR']) await refuse(() => avoir(facture.id, [L(20, cas.avoir)], par(auteur)), 409, cas.refus, `plafond ${cas.plafond} (${auteur})`);
+        const id = randomUUID();
+        const [avant, sequenceAvant] = [await empreinte(), await sequence()];
+        let erreur = null;
+        try { await transaction((tx) => pieceSql(tx, { id, type: 'FACTURE', taux: 20, ligneHt: cas.ventilation[0], totaux: cas.totaux, ventilation: cas.ventilation })); } catch (e) { erreur = e; }
+        assert.ok(erreur, `${cas.plafond} : la facture incohérente devait être refusée au COMMIT`);
+        assert.ok(String(erreur.message).includes(totauxIncoherents(id)), `${cas.plafond} : message attendu « ${totauxIncoherents(id)} », obtenu ${erreur.message}`);
+        assert.deepEqual(tablesChangees(avant, await empreinte()), [], `${cas.plafond} : rien ne doit être écrit`);
+        assert.equal(await sequence(), sequenceAvant);
+        assert.equal(await prisma.facture.count({ where: { id } }), 0);
       }
+      const coherente = await transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: 20, ligneHt: 100, totaux: [100, 20, 120], ventilation: [100, 20, 120] }));
+      const relue = await enBase(coherente.id);
+      assert.deepEqual([relue.type, relue.statut, ...totaux(relue), ...ventilation(relue)], ['FACTURE', 'EMISE', 100, 20, 120, [20, 100, 20, 120]], 'témoin cohérent');
+      for (const auteur of ['AD', 'DIR']) await refuse(() => avoir(coherente.id, [L(20, 10001n)], par(auteur)), 409, REFUS.plafondTotal, `témoin : avoir de 100,01 € (${auteur})`);
     });
 
     // #572 (cadrage v2, périmètre 2, et critère « Avoir partiel au-delà du plafond d'un taux : 409 « … TVA à 5,5 % … », « … TVA à

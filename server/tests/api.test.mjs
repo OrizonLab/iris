@@ -10493,13 +10493,16 @@ if (!TEST_DATABASE_URL) {
           dateEmission: new Date(`${jour}T00:00:00.000Z`), dateEcheance: new Date(`${jour}T00:00:00.000Z`),
           totalHt: 10, totalTva: 2, totalTtc: 12, origine: 'HORS_AFFAIRE', motifHorsAffaire: 'TEST chronologie',
           ecrituresScellees: false,
-          // Ventilation égale aux totaux : un avoir émis est une pièce cohérente (#230).
+          // Ventilation égale aux totaux : un avoir émis est une pièce cohérente (#230). Depuis le lot AC (#243), toute pièce
+          // émise l'est aussi en base : sa ligne suit sa ventilation, et ses écritures de TVA portent la clé et le taux que
+          // l'application écrit (`TVA:20`, tauxTva).
           ventilationTva: { create: [{ tauxTva: 20, totalHt: 10, totalTva: 2, totalTtc: 12 }] },
+          lignes: { create: [{ ordre: 0, designation: 'TEST chronologie', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: 10, tauxTva: 20, totalHt: 10, totalTtc: 12 }] },
         } });
         if (statut !== 'BROUILLON') await tx.ecritureFacture.createMany({ data: [
           { factureId: creee.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'Clients', debit: type === 'AVOIR' ? 0 : 12, credit: type === 'AVOIR' ? 12 : 0 },
           { factureId: creee.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'Ventes', debit: type === 'AVOIR' ? 10 : 0, credit: type === 'AVOIR' ? 0 : 10 },
-          { factureId: creee.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TVA', debit: type === 'AVOIR' ? 2 : 0, credit: type === 'AVOIR' ? 0 : 2 },
+          { factureId: creee.id, ordre: 2, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TVA', debit: type === 'AVOIR' ? 2 : 0, credit: type === 'AVOIR' ? 0 : 2 },
         ] });
         if (statut !== 'BROUILLON') await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true } });
         return creee;
@@ -10555,8 +10558,8 @@ if (!TEST_DATABASE_URL) {
         })).id);
         assert.deepEqual((await request(app).get(url).set('Authorization', auth)).body, { derniereDateEmission: '2026-09-29T00:00:00.000Z' });
       } finally {
-        for (const id of ids.slice(1)) await purgerPieceJetable(id);
-        await prisma.facture.deleteMany({ where: { id: ids[0] } });
+        // Le brouillon porte aussi une ligne (lot AC) : il se purge comme les autres pièces.
+        for (const id of ids) await purgerPieceJetable(id);
       }
     });
 
@@ -12186,7 +12189,8 @@ if (!TEST_DATABASE_URL) {
         return [
           { factureId, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', ...sens(t.totalTtc, true) },
           { factureId, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(Math.round((t.totalTtc - t.totalTva) * 100) / 100, false) },
-          { factureId, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(t.totalTva, false) },
+          // Clé et taux que l'application écrit : depuis le lot AC (#243), une écriture `TVA` sans taux est refusée en base.
+          { factureId, ordre: 2, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(t.totalTva, false) },
         ];
       };
       // Montants qui ne diffèrent de ceux de la facture que par une colonne.
@@ -12196,9 +12200,10 @@ if (!TEST_DATABASE_URL) {
         ['TTC', { totalHt: 10, totalTva: 2, totalTtc: 12.01 }],
       ];
       // Avoir d'annulation fabriqué en SQL : émis, il porte des écritures équilibrées et scellées, et une
-      // ventilation égale à ses totaux (un avoir émis est une pièce cohérente, #230).
+      // ventilation égale à ses totaux (un avoir émis est une pièce cohérente, #230), que suit sa ligne (lot AC, #243).
       const avoirAnnulation = async (tx, factureOrigineId, { statut = 'EMISE', t = totaux } = {}) => {
-        const avoir = await tx.facture.create({ data: piece('AVOIR', statut, { ...t, estAvoirAnnulation: true, factureOrigineId, ventilationTva: { create: [{ tauxTva: 20, ...t }] } }) });
+        const avoir = await tx.facture.create({ data: piece('AVOIR', statut, { ...t, estAvoirAnnulation: true, factureOrigineId, ventilationTva: { create: [{ tauxTva: 20, ...t }] },
+          lignes: { create: [{ ordre: 0, designation: 'TEST cycle avoir d’annulation', nature: 'PRESTATION', quantite: 1, prixUnitaireHt: t.totalHt, tauxTva: 20, totalHt: t.totalHt, totalTtc: t.totalTtc }] } }) });
         if (statut !== 'BROUILLON') {
           await tx.ecritureFacture.createMany({ data: ecritures(avoir.id, 'AVOIR', t) });
           await tx.facture.update({ where: { id: avoir.id }, data: { ecrituresScellees: true } });
@@ -12395,20 +12400,26 @@ if (!TEST_DATABASE_URL) {
         if (contenu === 'ventilation') {
           await tx.factureVentilationTva.createMany({ data: taux.map(([t, ht, tva, ttc]) => ({ factureId: piece.id, tauxTva: t, totalHt: ht, totalTva: tva, totalTtc: ttc ?? centimes(ht + tva) })) });
         }
-        if (statut !== 'BROUILLON') await sceller(tx, piece);
+        if (statut !== 'BROUILLON') await sceller(tx, piece, taux);
         return piece;
       };
-      // Écritures équilibrées sur le TTC de la pièce (seul montant que contrôle le garde d'équilibre).
-      const ecrire = (tx, piece) => {
+      // Écritures équilibrées sur le TTC de la pièce (seul montant que contrôle le garde d'équilibre). Depuis le lot AC (#243),
+      // une pièce émise porte, comme celles de l'application, une écriture `TVA:<taux>` (tauxTva) par taux de sa ventilation,
+      // égale à sa TVA (`taux` : celui de pieceSql). Pour une pièce incohérente (`montants`, TVA négative), une seule écriture
+      // de TVA, alignée sur le total comme avant, garde l'équilibre : la garde éprouvée reste celle qui refuse.
+      const ecrire = (tx, piece, taux = []) => {
         const sens = (montant, debit) => (debit === (piece.type === 'FACTURE') ? { debit: montant, credit: 0 } : { debit: 0, credit: montant });
+        const totalTva = Number(piece.totalTva);
+        const parTaux = taux.length && taux.every(([, , tva]) => tva >= 0) && centimes(taux.reduce((somme, [, , tva]) => somme + tva, 0)) === totalTva
+          ? taux.map(([t, , tva]) => [t, tva]) : [[taux[0]?.[0] ?? 20, totalTva]];
         return tx.ecritureFacture.createMany({ data: [
           { factureId: piece.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', ...sens(Number(piece.totalTtc), true) },
-          { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(centimes(Number(piece.totalTtc) - Number(piece.totalTva)), false) },
-          { factureId: piece.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(Number(piece.totalTva), false) },
+          { factureId: piece.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(centimes(Number(piece.totalTtc) - totalTva), false) },
+          ...parTaux.map(([t, tva], rang) => ({ factureId: piece.id, ordre: 2 + rang, cle: `TVA:${t}`, tauxTva: t, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(tva, false) })),
         ] });
       };
-      const sceller = async (tx, piece) => {
-        await ecrire(tx, piece);
+      const sceller = async (tx, piece, taux) => {
+        await ecrire(tx, piece, taux);
         await tx.facture.update({ where: { id: piece.id }, data: { ecrituresScellees: true } });
       };
       // Les gardes différés sont vérifiés avant la fin : Prisma résoudrait une transaction dont le COMMIT échoue.
@@ -12442,21 +12453,23 @@ if (!TEST_DATABASE_URL) {
         // vérification différée la refuserait au COMMIT.
         await avoirSoldantSql(simple.id, { taux: [[20, 5, 1]] });
         await assert.rejects(avoirSql(simple.id, { taux: [[20, 0.01, 0]] }), montantTotal, 'facture entièrement créditée');
-        // Un avoir cohérent ne dépasse le TTC qu'avec le HT ou la TVA, sauf sur une facture incohérente,
-        // que la base ne refuse pas encore (#243) : TTC de 11,99 € pour 10 € HT et 2 € de TVA. Seul le
-        // contrôle du TTC total arrête alors l'avoir de 12 € ; et, sur une facture dont la ventilation
-        // porte ce TTC faux, seul celui du TTC du taux.
-        const ttcFaux = await transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: [[20, 10, 2]], montants: { totalHt: 10, totalTva: 2, totalTtc: 11.99 } }));
-        purger.push(ttcFaux.id);
-        await assert.rejects(avoirSql(ttcFaux.id, { taux: [[20, 10, 2]] }), montantTotal, 'dépassement du TTC total seul');
-        const ttcTauxFaux = await transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: [[20, 10, 2, 11.99]] }));
-        purger.push(ttcTauxFaux.id);
-        await assert.rejects(avoirSql(ttcTauxFaux.id, { taux: [[20, 10, 2]] }), ventilationDepassee('20.00'), 'dépassement du TTC d’un taux seul');
+        // Un avoir cohérent ne dépasse le TTC qu'avec le HT ou la TVA, sauf sur une facture incohérente : TTC de 11,99 € pour
+        // 10 € HT et 2 € de TVA, ou ventilation qui porte ce TTC faux à son taux. Seul le contrôle du TTC total, puis celui du
+        // TTC du taux, y arrêtait l'avoir de 12 €. Depuis le lot AC (#243 ; cadrage v2, règle R2 : TTC = HT + TVA, ventilation
+        // égale aux totaux, TTC = HT + TVA à chaque taux), la base refuse ces factures au COMMIT, sans rien écrire : aucune pièce
+        // qu'elle admet ne sépare plus ces deux contrôles des contrôles du HT et de la TVA (mutants « TTC total retiré » et « TTC
+        // du taux retiré » équivalents, comme dans avoir-partiel-decimal.test.mjs).
+        const totauxIncoherents = /La pièce .* n'a pas des totaux égaux à sa ventilation de TVA \(HT, TVA, TTC = HT \+ TVA\)\./;
+        const facturesSql = () => prisma.facture.count({ where: { motifHorsAffaire: 'TEST plafond SQL', type: 'FACTURE' } });
+        const facturesSqlAvant = await facturesSql();
+        await assert.rejects(transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: [[20, 10, 2]], montants: { totalHt: 10, totalTva: 2, totalTtc: 11.99 } })), totauxIncoherents, 'facture au TTC faux (11,99 € pour 10 € HT et 2 € de TVA)');
+        await assert.rejects(transaction((tx) => pieceSql(tx, { type: 'FACTURE', taux: [[20, 10, 2, 11.99]] })), totauxIncoherents, 'facture au TTC faux à son taux (ventilation 10 € HT, 2 € de TVA, 11,99 € TTC)');
+        assert.equal(await facturesSql(), facturesSqlAvant, 'aucune des deux factures n’est écrite');
         // Un avoir resté brouillon ne compte pas ; il est vérifié quand il est émis.
         const brouillonAvoir = await avoirSql(simple.id, { statut: 'BROUILLON', taux: [[20, 1, 0.2]] });
         await assert.rejects(transaction(async (tx) => {
           const avoir = await tx.facture.update({ where: { id: brouillonAvoir.id }, data: { statut: 'EMISE' } });
-          await sceller(tx, avoir);
+          await sceller(tx, avoir, [[20, 1, 0.2]]);
         }), montantTotal, 'avoir brouillon émis au-delà du plafond');
         assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: brouillonAvoir.id } })).statut, 'BROUILLON');
 
@@ -12590,7 +12603,7 @@ if (!TEST_DATABASE_URL) {
         const relue = await emettre('TEST plafond verrou');
         purger.push(relue.id);
         const enAttente = await avoirSql(relue.id, { statut: 'BROUILLON', taux: [[20, 6, 1.2]] });
-        await transaction((tx) => ecrire(tx, enAttente));
+        await transaction((tx) => ecrire(tx, enAttente, [[20, 6, 1.2]]));
         const detenteur = tenir();
         const t3 = transaction(async (tx) => {
           await pieceSql(tx, { factureOrigineId: relue.id, taux: [[20, 6, 1.2]] });
