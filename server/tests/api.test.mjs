@@ -31109,12 +31109,16 @@ if (!TEST_DATABASE_URL) {
       // modifié). Une migration appliquée ne se modifie pas : l'empreinte des quatre corps relevés (noms triés, chacun suivi
       // de son corps) est donc écrite ici.
       const empreinteCorps = createHash('sha256').update(Object.keys(attendus).sort().map((nom) => `${nom}\n${attendus[nom]}`).join('\n')).digest('hex');
+      // #652 (lot AD, cadrage v2, N2 et N3) : les deux messages d'échec disent la marche à suivre pour un changement voulu,
+      // dans la formulation de N4 du contrôle de cohérence de #649 ; ni l'empreinte, ni la requête ne changent.
       assert.equal(empreinteCorps, 'ce77c55515339d1b0d8ec060c7267ebacda8383a355958da200e8118cf044b96',
-        'migration 20261009120000_journal_regles_comptables : corps des quatre fonctions SECURITY DEFINER inchangés (une migration appliquée ne se modifie pas)');
+        'migration 20261009120000_journal_regles_comptables : corps des quatre fonctions SECURITY DEFINER inchangés (une migration appliquée ne se modifie pas : '
+        + 'restaurer le fichier ; un changement voulu passe par une nouvelle migration, et ce test est adapté pour relire le corps attendu dans celle-ci ; la PR relève de l’auditeur-droits-securite)');
       const lues = await prisma.$queryRaw`SELECT p.proname::text AS nom, p.prosrc AS corps FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public' AND p.prosecdef AND p.proname = ANY(${Object.keys(attendus)}::text[])`;
       assert.deepEqual(Object.fromEntries(lues.map((l) => [l.nom, l.corps])), attendus,
-        'fonctions SECURITY DEFINER : corps exact, tel que l’écrit 20261009120000_journal_regles_comptables');
+        'fonctions SECURITY DEFINER : corps exact, tel que l’écrit 20261009120000_journal_regles_comptables (un changement voulu passe par une nouvelle migration, '
+        + 'et ce test est adapté pour relire le corps attendu dans celle-ci ; la PR relève de l’auditeur-droits-securite)');
     });
   });
 

@@ -11,3 +11,8 @@ uploads/
 # Restes de patch
 *.orig
 *.rej
+
+# Copies de sauvegarde et de restauration de deploy_guide.md (à ranger hors du dépôt ;
+# défense en profondeur, dépôt public, N7 de #653)
+sauvegarde_*.sql
+avant_restauration_*.sql
