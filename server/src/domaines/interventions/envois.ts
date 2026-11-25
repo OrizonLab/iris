@@ -4,7 +4,7 @@ import { transactionVerifiee } from '../../db';
 import { ROLE_TECHNICIEN } from '../../droits/roles';
 import { requirePermission } from '../../droits/permissions';
 import { type AuthRequest, requireAuth } from '../../http/auth';
-import { blockCommercial } from '../../http/gardes';
+import { blockCommercial, refuseSansCompte } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { IdentiteEmetteurIncompleteError } from '../documents/identite';
 import {
@@ -45,6 +45,7 @@ const introuvable = () => new RefusEnvoiCompteRendu(404, INTROUVABLE);
 const sansCompteRendu = () => new RefusEnvoiCompteRendu(409, SANS_COMPTE_RENDU);
 
 const refuserTechnicien: RequestHandler = (req, res, next) => {
+  if (refuseSansCompte(req, res)) return;
   if ((req as AuthRequest).user?.role === ROLE_TECHNICIEN) return void res.status(403).json({ error: 'L’envoi du compte rendu n’est pas ouvert au technicien.' });
   next();
 };

@@ -6,7 +6,7 @@ import { ROLE_ASSISTANTE_TECHNIQUE, ROLE_TECHNICIEN, ROLE_RESPONSABLE, gereLesCh
 import { perimetreChantiers, perimetreChantiersAnnulesCompris } from '../../droits/perimetres';
 import { voitMontantsChantier, voitCoutMainOeuvre, saisieSelonDroits } from '../../droits/visibilite';
 import { type AuthRequest, requireAuth } from '../../http/auth';
-import { blockCommercial, requireAdmin } from '../../http/gardes';
+import { blockCommercial, refuseSansCompte, requireAdmin } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, aujourdHuiEntreprise, dateIsoStricte } from '../../commun/dates';
@@ -100,6 +100,7 @@ const REFUS_DATE_FIN_VIDEE = 'Un chantier terminé garde sa date de fin : elle f
 // par les directeurs). Rouvrir reste réservé à l'administration, dont le directeur fait partie depuis
 // la décision de Nelson du 24-10-2026 (point 14).
 const blockCommercialSeulement: express.RequestHandler = (req, res, next) => {
+  if (refuseSansCompte(req, res)) return;
   if ((req as AuthRequest).user?.role === 'COMMERCIAL') {
     res.status(403).json({ error: 'Accès non autorisé pour un compte commercial.' });
     return;
@@ -114,6 +115,7 @@ const blockCommercialSeulement: express.RequestHandler = (req, res, next) => {
 // plutôt qu'un 404 sur une fiche qu'elle lit. L'encaissement reste à l'administration (requireAdmin).
 export const REFUS_ASSISTANTE_TECHNIQUE_STATUT = 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.';
 const refuserAssistanteTechniqueStatut: express.RequestHandler = (req, res, next) => {
+  if (refuseSansCompte(req, res)) return;
   if ((req as AuthRequest).user?.role === ROLE_ASSISTANTE_TECHNIQUE) {
     res.status(403).json({ error: REFUS_ASSISTANTE_TECHNIQUE_STATUT });
     return;
