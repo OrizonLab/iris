@@ -7,10 +7,15 @@ import type { ApiRequest } from '../http/cles-api';
 // totaux), taux horaires — et alertes de dépassement de budget : jamais montrés au technicien
 // (décisions de Nelson du 13-10-2026). Il garde le chantier, ses heures vendues et réalisées et
 // l'alerte d'absence de saisie. Les autres profils voient ces montants dans leur périmètre ;
-// une clé d'intégration garde son accès inchangé (scope chantiers:read).
+// une clé d'intégration garde son accès inchangé (scope chantiers:read). Sans compte ni clé, aucun
+// montant : la règle se ferme au lieu de s'ouvrir (#672 ; invariant de droits, règle 5, l'option la plus
+// restrictive, choix par défaut, à confirmer ; inatteignable aujourd'hui, toute route de session
+// commençant par requireAuth).
 export function voitMontantsChantier(req: express.Request): boolean {
   if ((req as ApiRequest).apiKey) return true;
-  return (req as AuthRequest).user?.role !== ROLE_TECHNICIEN;
+  const user = (req as AuthRequest).user;
+  if (!user) return false;
+  return user.role !== ROLE_TECHNICIEN;
 }
 
 // Clés monétaires des saisies (achats, pointages, intervenants, heures SAV et leur prix de vente
