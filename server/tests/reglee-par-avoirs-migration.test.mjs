@@ -86,7 +86,9 @@ if (!adminUrl) {
     };
 
     // Pièce écrite en base comme l'application l'écrit (modèle : le test #230 d'api.test.mjs) : lignes et ventilation égales aux
-    // totaux, écritures équilibrées sur le TTC, scellée. 1 × HT à 20 %.
+    // totaux, écritures équilibrées sur le TTC, scellée. 1 × HT à 20 %. Écriture de TVA à la clé et au taux que l'application écrit
+    // (`TVA:20`, tauxTva) : la migration du lot AC (#243), jouée avant le dernier test, contrôle la pièce à sa prochaine écriture,
+    // et refuserait une écriture `TVA` sans taux.
     const piece = async (tx, { type, numero, factureOrigineId = null, ht }) => {
       const tva = Math.round(ht * 20) / 100;
       const ttc = Math.round((ht + tva) * 100) / 100;
@@ -103,7 +105,7 @@ if (!adminUrl) {
       await tx.ecritureFacture.createMany({ data: [
         { factureId: creee.id, ordre: 0, cle: 'CLIENT', journalCode: 'VE', compteNum: '411000', compteLib: 'TEST Clients', ...sens(ttc, true) },
         { factureId: creee.id, ordre: 1, cle: 'VENTE_PRESTATION', journalCode: 'VE', compteNum: '706000', compteLib: 'TEST Ventes', ...sens(ht, false) },
-        { factureId: creee.id, ordre: 2, cle: 'TVA', journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(tva, false) },
+        { factureId: creee.id, ordre: 2, cle: 'TVA:20', tauxTva: 20, journalCode: 'VE', compteNum: '445710', compteLib: 'TEST TVA', ...sens(tva, false) },
       ] });
       await tx.facture.update({ where: { id: creee.id }, data: { ecrituresScellees: true }, select: { id: true } });
       return creee;
