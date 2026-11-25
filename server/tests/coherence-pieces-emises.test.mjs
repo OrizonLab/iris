@@ -494,12 +494,15 @@ if (!TEST_DATABASE_URL) {
     // Règle R4 (écritures). Lectures écartées : clé inconnue admise (contrôle par motif, `VENTE_%`, ou clé `TVA` sans taux) ; écriture
     // client lue sans son sens (valeur absolue) ; vente comparée au seul total, sans la nature ; TVA comparée au total, sans le taux ;
     // tolérance d'un centime.
-    test('R4, écritures : clés inconnues (TVA sans taux, TVA:20 sans taux, CLIENT avec taux, REMISE, VENTE_SERVICE ; deux à la fois, la plus petite citée), facture écrite au sens d’un avoir et avoir au sens d’une facture, client d’un centime de moins, avoir sans écriture de vente (cas c), vente sur la mauvaise nature, vente d’un centime de moins, TVA à un taux absent, TVA de deux taux décalée d’un centime, centime de TVA porté à un taux absent : refusés au COMMIT au message exact, rien d’écrit', async () => {
+    test('R4, écritures : clés inconnues (TVA sans taux, TVA:20 sans taux, TVA avec taux, CLIENT avec taux, REMISE, VENTE_SERVICE ; deux à la fois, la plus petite citée), facture écrite au sens d’un avoir et avoir au sens d’une facture, client d’un centime de moins, avoir sans écriture de vente (cas c), vente sur la mauvaise nature, vente d’un centime de moins, TVA à un taux absent, TVA de deux taux décalée d’un centime, TVA de deux taux portée au seul taux de 20 %, centime de TVA porté à un taux absent : refusés au COMMIT au message exact, rien d’écrit', async () => {
       const origine = await factureEmise(par('AD'), 'R4 origine', LIGNE_CENT);
       const [ecritureClient, vente, tva] = F10().ecritures;
       // Clés inconnues, chacune seule écart ; écritures équilibrées.
       await pieceRefusee('écriture TVA sans taux', { ...F10(), ecritures: [ecritureClient, vente, C('TVA', '2')] }, (id) => COHERENCE.cleInconnue(id, 'TVA'));
       await pieceRefusee('écriture TVA:20 sans taux', { ...F10(), ecritures: [ecritureClient, vente, C('TVA:20', '2')] }, (id) => COHERENCE.cleInconnue(id, 'TVA:20'));
+      // Clé `TVA` sans « : », qui porte un taux, montant égal à la ventilation. Lecture écartée (clé de TVA reconnue au motif `TVA%`) :
+      // admise.
+      await pieceRefusee('écriture TVA avec un taux, sans « : »', { ...F10(), ecritures: [ecritureClient, vente, C('TVA', '2', 20)] }, (id) => COHERENCE.cleInconnue(id, 'TVA'));
       await pieceRefusee('écriture CLIENT avec un taux', { ...F10(), ecritures: [D('CLIENT', '12', 20), vente, tva] }, (id) => COHERENCE.cleInconnue(id, 'CLIENT'));
       await pieceRefusee('écriture REMISE', { ...F10(), ecritures: [ecritureClient, vente, tva, D('REMISE', '0')] }, (id) => COHERENCE.cleInconnue(id, 'REMISE'));
       await pieceRefusee('écriture VENTE_SERVICE', { ...F10(), ecritures: [ecritureClient, C('VENTE_SERVICE', '10'), tva] }, (id) => COHERENCE.cleInconnue(id, 'VENTE_SERVICE'));
@@ -525,6 +528,12 @@ if (!TEST_DATABASE_URL) {
       await pieceRefusee('TVA de deux taux décalée d’un centime', {
         type: 'FACTURE', totaux: ['20', '3', '23'], lignes: [[20, '10', '12'], [10, '10', '11']], ventilation: [[10, '10', '1', '11'], [20, '10', '2', '12']],
         ecritures: [D('CLIENT', '23'), C('VENTE_PRESTATION', '20'), C('TVA:20', '2.01', 20), C('TVA:10', '0.99', 10)],
+      }, (id) => COHERENCE.tva(id, '10.00'));
+      // TVA des deux taux portée au seul taux de 20 % (3,00 €), aucune écriture à 10 % : les deux taux sont fautifs, le plus petit est
+      // cité. Lecture écartée (écriture absente non comptée pour 0,00 € : `e.montant` sans COALESCE) : 20.00, seul taux écrit.
+      await pieceRefusee('TVA de deux taux portée au seul taux de 20 %', {
+        type: 'FACTURE', totaux: ['20', '3', '23'], lignes: [[20, '10', '12'], [10, '10', '11']], ventilation: [[10, '10', '1', '11'], [20, '10', '2', '12']],
+        ecritures: [D('CLIENT', '23'), C('VENTE_PRESTATION', '20'), C('TVA:20', '3', 20)],
       }, (id) => COHERENCE.tva(id, '10.00'));
       // TVA de 1,99 € à 20 % et 0,01 € portés à 5,5 %, taux absent de la ventilation : les deux taux sont fautifs, le plus petit est
       // cité. Lecture écartée (tri absent) : 20.00, que cite le plan sans tri sur ce cas (le cas précédent cite 10.00 avec ou sans tri).

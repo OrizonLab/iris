@@ -32,10 +32,14 @@
 // Mutants (cadrage, « Mutants à tuer » et N2) : voir le rapport du rédacteur des tests. Le retrait du plafond TTC global, et celui de
 // chacun des trois plafonds d'un taux pris seul, ne se voient sur aucune facture que l'API crée (la TVA cumulée d'un taux est
 // l'arrondi de sa base cumulée, fonction croissante de la base : un dépassement du HT du taux dépasse son TTC, et inversement ; le TTC
-// global est la somme du HT et de la TVA). Ils étaient tués par des factures écrites en SQL, déclarées théoriques (#243) ; depuis le
-// lot AC (#243, cadrage v2, règle R2), la base refuse ces factures au COMMIT, et ces quatre mutants sont équivalents : aucune pièce
-// que la base admet ne les sépare (test « plafonds isolés, factures théoriques », qui prouve ce refus). Le retrait du plafond de
-// TVA global, lui, se voit par l'API, sur une facture cohérente : le refus passe alors au plafond du taux (autre message).
+// global est la somme du HT et de la TVA). Ils étaient tués par des factures écrites en SQL, déclarées théoriques (#243). Depuis le
+// lot AC (#243, cadrage v2, règle R2 : TTC = HT + TVA de la facture, de chacun de ses taux et de chaque avoir), la base refuse ces
+// factures au COMMIT (test « plafonds isolés, factures théoriques ») : les retraits du plafond TTC global et du plafond TTC d'un taux
+// sont équivalents, aucune pièce que la base admet ne les sépare. Les retraits du plafond HT d'un taux et du plafond TVA d'un taux ne
+// le sont pas : la base ne compare pas la TVA recalculée (cadrage v2, « Non imposé », choix par défaut, à confirmer), et une facture
+// à deux taux, cohérente, dont la TVA d'un taux n'est pas l'arrondi de sa base, les sépare encore (test « plafonds HT et TVA d'un
+// taux, chacun seul franchi »). Le retrait du plafond de TVA global, lui, se voit par l'API, sur une facture cohérente : le refus
+// passe alors au plafond du taux (autre message).
 //
 // Montants (classés C : CLAUDE.md, « un test manquant qui touche un montant ») : chaque valeur est choisie pour qu'une autre lecture
 // plausible de la règle donne un autre résultat ; la lecture écartée est écrite en commentaire, et le test « témoin des montants »
@@ -653,8 +657,9 @@ if (!TEST_DATABASE_URL) {
 
     // N2 du cadrage : mutants équivalents par l'API, tués jusqu'au lot AC par une fixture déclarée théorique (#243). Le lot AC (#243 ;
     // cadrage v2, section « Tests », adaptation de ce test, que le test annonçait : « ce test changera ») garde en base la cohérence
-    // des pièces émises : ces factures ne s'écrivent plus, refusées au COMMIT au message de la règle R2, sans rien écrire, et les quatre
-    // mutants de plafond isolé sont équivalents sans exception. La garde n'est jamais désactivée pour garder l'ancien test (cadrage).
+    // des pièces émises : ces factures ne s'écrivent plus, refusées au COMMIT au message de la règle R2, sans rien écrire. Les mutants
+    // « plafond TTC global retiré » et « plafond TTC du taux retiré » deviennent équivalents ; les plafonds HT et TVA du taux restent
+    // séparés par le test suivant. La garde n'est jamais désactivée pour garder l'ancien test (cadrage).
     // Témoin : la même facture, cohérente (100,00 € HT, 20,00 € de TVA, 120,00 € TTC, ventilation égale), s'écrit, et un avoir de
     // 100,01 € à 20 % y est refusé par le plafond HT global (409), par l'administrateur et le directeur.
     test('plafonds isolés, factures théoriques (#243) : depuis le lot AC, une facture écrite en SQL au TTC global, au HT, à la TVA ou au TTC de son taux incohérents est refusée au COMMIT au message exact de la cohérence des pièces émises, sans rien écrire ; la même facture cohérente s’écrit, et l’avoir de 100,01 € y est refusé (409 du total)', async () => {
@@ -674,6 +679,39 @@ if (!TEST_DATABASE_URL) {
       const relue = await enBase(coherente.id);
       assert.deepEqual([relue.type, relue.statut, ...totaux(relue), ...ventilation(relue)], ['FACTURE', 'EMISE', 100, 20, 120, [20, 100, 20, 120]], 'témoin cohérent');
       for (const auteur of ['AD', 'DIR']) await refuse(() => avoir(coherente.id, [L(20, 10001n)], par(auteur)), 409, REFUS.plafondTotal, `témoin : avoir de 100,01 € (${auteur})`);
+    });
+
+    // Plafonds HT et TVA d'un taux, chacun seul franchi, sur une facture que la base admet depuis le lot AC (#243). La règle R2 de la
+    // cohérence des pièces émises (TTC = HT + TVA de la facture, de chaque taux et de chaque avoir) rend équivalents les retraits des
+    // plafonds TTC global et TTC du taux (test précédent). Elle ne compare pas la TVA recalculée (cadrage v2, « Non imposé », choix par
+    // défaut, à confirmer) : une facture écrite en SQL dont la TVA d'un taux n'est pas l'arrondi de sa base reste admise, et sépare les
+    // plafonds HT et TVA de ce taux, qu'aucune facture de l'API ne sépare (en-tête). Facture à deux taux, cohérente (règles R1 à R4,
+    // admise aussi par verifier_coherence_piece appelée directement) : 1 × 10,00 € à 10 % et 1 × 10,00 € à 20 % (TVA 2,00 €), la TVA à
+    // 10 % valant 0,99 € ou 1,05 €, et non l'arrondi de sa base (10,00 € × 10 % = 1,00 €).
+    //  - TVA du taux (0,99 € ; facture 20,00 / 2,99 / 22,99 €) : avoir de 9,95 € à 10 %, TVA 0,995 → 1,00 € > 0,99 € ; HT 9,95 ≤
+    //    10,00 € et TTC 10,95 ≤ 10,99 € ; plafonds globaux tenus (9,95 ≤ 20,00 ; 1,00 ≤ 2,99 ; 10,95 ≤ 22,99) : 409 du taux. Témoin :
+    //    9,94 € (TVA 0,994 → 0,99 €, TTC 10,93 €) admis, au plafond exact de la TVA du taux.
+    //  - HT du taux (1,05 € ; facture 20,00 / 3,05 / 23,05 €) : avoir de 10,01 € à 10 %, TVA 1,001 → 1,00 ≤ 1,05 € et TTC 11,01 ≤
+    //    11,05 € ; plafonds globaux tenus : 409 du taux. Témoin : 10,00 € (TVA 1,00 €, TTC 11,00 €) admis.
+    // Lectures écartées (mutants « plafond HT du taux retiré » et « plafond TVA du taux retiré » de POST /api/factures/:id/avoirs) :
+    // l'API admet l'avoir, que la garde en base (verifier_plafond_avoirs) refuse au COMMIT : 500, et non 409.
+    test('plafonds HT et TVA d’un taux, chacun seul franchi, sur une facture à deux taux admise par la base (TVA à 10 % de 0,99 € ou de 1,05 €, et non 1,00 €) : avoir de 9,95 € ou de 10,01 € à 10 % refusé en 409 au message du taux, sans écriture ni numéro, par l’administrateur et le directeur ; 9,94 € et 10,00 € admis', async () => {
+      // Témoin des montants, en décimal exact : TVA recalculée de la base à 10 % (1,00 €), distincte des 0,99 € et 1,05 € écrits.
+      assert.equal(exact.tva(1000n, 10), 100n);
+      assert.deepEqual([exact.tva(995n, 10), exact.tva(994n, 10), exact.tva(1001n, 10)], [100n, 99n, 100n]);
+      const CAS = [
+        { plafond: 'TVA du taux', tvaCentimes: 99, facture: [20, 2.99, 22.99], taux10: [10, 10, 0.99, 10.99], refuse: 995n, admis: 994n, avoirAdmis: [9.94, 0.99, 10.93] },
+        { plafond: 'HT du taux', tvaCentimes: 105, facture: [20, 3.05, 23.05], taux10: [10, 10, 1.05, 11.05], refuse: 1001n, admis: 1000n, avoirAdmis: [10, 1, 11] },
+      ];
+      for (const cas of CAS) {
+        const facture = await transaction((tx) => factureHistoriqueSql(tx, 'AD', { taux: 10, tvaCentimes: cas.tvaCentimes }));
+        await prisma.$queryRaw`SELECT verifier_coherence_piece(${facture.id})::text AS r`;
+        const relue = await enBase(facture.id);
+        assert.deepEqual([relue.statut, ...totaux(relue), ...ventilation(relue)], ['EMISE', ...cas.facture, cas.taux10, [20, 10, 2, 12]], `${cas.plafond} : facture admise`);
+        for (const auteur of ['AD', 'DIR']) await refuse(() => avoir(facture.id, [L(10, cas.refuse)], par(auteur)), 409, REFUS.plafondTaux('10'), `plafond ${cas.plafond} seul franchi (${auteur})`);
+        const admis = await avoirCree(facture.id, [L(10, cas.admis)], par('DIR'));
+        assert.deepEqual([...totaux(admis), ...ventilation(admis)], [...cas.avoirAdmis, [10, ...cas.avoirAdmis]], `${cas.plafond} : témoin admis`);
+      }
     });
 
     // #572 (cadrage v2, périmètre 2, et critère « Avoir partiel au-delà du plafond d'un taux : 409 « … TVA à 5,5 % … », « … TVA à
