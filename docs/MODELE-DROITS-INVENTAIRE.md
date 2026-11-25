@@ -112,6 +112,8 @@ Les renvois « roadmap §4:NNN » visent les lignes de `docs/ROADMAP-PASSATION.m
 
 > Note : `blockCommercial` ne vise que les littéraux `'COMMERCIAL'` et `ROLE_DIRECTEUR`. **DC, AC et CPT, les types complémentaires commerciaux et comptable, le franchissent partout** (planning, SAV, référentiels, modification de chantier). Les commentaires (583-587, 4756-4760) ne parlent que du commercial et du directeur.
 
+*Note de suite, 25-11-2026 : depuis #682 (lot AE, `6cd0602`, #672), `blockCommercial` (dont `blockCommercialEtAssimiles` hérite par délégation), `blockTechnicien`, `blockCommercialSeulement`, `refuserAssistanteTechniqueStatut` et `refuserTechnicien` appellent en tête `refuseSansCompte` (`server/src/http/gardes.ts`) : sans session ni clé, elles répondent 401 « Authentification requise », comme `requireAuth` ; avant, une requête sans `req.user` franchissait ces gardes par exclusion (« tous sauf COM », « tous sauf TECH »). Une clé seule y est aussi refusée. Le tableau ci-dessus décrit le code à `84e27a1` et reste exact pour tout compte (les numéros de ligne ont changé depuis). Les gardes positives (`requireAdmin`, `requirePermission`…) répondaient déjà 403 sans compte : dissymétrie 401/403, notée dans [`MODELE-DROITS-CIBLE.md`](MODELE-DROITS-CIBLE.md), section 4.2, note 18. Inatteignable aujourd'hui ; choix par défaut, à confirmer (règle 5, option la plus restrictive).*
+
 ### A3.2 Chaîne de gardes de chaque route, par domaine
 
 Dans les tableaux, « blockCommercial » se lit « tous sauf COM et DIR » et « bC+bT » se lit « blockCommercial + blockTechnicien = SA, AD, RESP, CT, DC, AC, CPT ». La colonne « Types autorisés » donne ce qui passe **gardes et contrôles du corps** réunis. Le périmètre est précisé en A4.
@@ -408,6 +410,8 @@ La fiche intervenant ne se relie qu'à un TECH actif (4261), et un compte qui qu
 | `ecritPrixAchatDevis` | 6153-6155 | Session admin seulement ; 403 si un autre envoie `prixAchatUnitaireHt` (6180-6182) | Création et modification de devis |
 | `Parametres` (`rentabiliteConducteur`, `rentabiliteHierarchie`, `rentabiliteDirecteurs`, `margeCommercialeActive`) | interface 702-706 ; écriture 6836-6842 (booléens stricts, `requireAdmin`) | Destinataires de la rentabilité | — |
 
+*Note de suite, 25-11-2026 : depuis #682 (lot AE, #672), `voitMontantsChantier` répond **faux sans porteur** (ni session ni clé ; avant : vrai, donc aucun masquage), et `clientsActifsSeulement` répond **vrai sans porteur** (clients actifs seulement ; avant : faux). Une clé garde son comportement (la première reste vraie, la seconde fausse : « Clé : oui » ci-dessus ; clients désactivés visibles). L'ancienne règle `role !== TECHNICIEN` (lignes 452-455 à `84e27a1`) ne décrit plus que les sessions : sans porteur, aucun montant. Inatteignable aujourd'hui (toutes les routes concernées exigent une session ou une clé) ; choix par défaut, à confirmer : [`MODELE-DROITS-CIBLE.md`](MODELE-DROITS-CIBLE.md), section 4.2, note 18.*
+
 ## A6. Règles inscrites dans le corps des gestionnaires (hors gardes)
 
 Relevé systématique des motifs `role ===`, `role !==`, `isAdminRole(`, `isSuperAdminRole(`, `ROLE_`, `hasUserPermission(`, `refuseSuperAdminTarget` et `isLastSuperAdmin`, ainsi que des comparaisons d'identité (`=== authUser.id`). Les définitions de fonctions de la section A5 ne sont pas répétées.
@@ -482,6 +486,8 @@ Relevé systématique des motifs `role ===`, `role !==`, `isAdminRole(`, `isSupe
 | 7320-7324 | assiduité | idem |
 | 7801-7802, 7815 | stats/commerciaux | admin ou COM |
 | 7929-7934 | `ensureSuperAdmins` | promotion des adresses de `SUPERADMIN_EMAILS`, journalisée sans auteur |
+
+*Note de suite, 25-11-2026 : les lignes 454 (`voitMontantsChantier`, `role !== TECHNICIEN`) et 5603 (`clientsActifsSeulement`, « TECH en session ») ci-dessus ont une branche de plus depuis #682 (lot AE, #672) : sans porteur, `voitMontantsChantier` répond faux et `clientsActifsSeulement` vrai ; les lignes 590, 594 (`blockCommercial`), 605 (`blockTechnicien`) et 3581 (`blockCommercialSeulement`) refusent aussi sans porteur (401). Voir la note sous A3.1 et la note sous A5.*
 
 ## A7. Invariants
 
