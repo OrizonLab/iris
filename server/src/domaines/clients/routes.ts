@@ -52,9 +52,14 @@ function clientRecherche(q: string) {
 }
 
 // Un technicien ne consulte que les clients actifs : les fiches désactivées lui sont fermées,
-// en liste comme à l'unité (décision de Nelson du 14-10-2026).
-function clientsActifsSeulement(req: express.Request): boolean {
-  return !(req as ApiRequest).apiKey && (req as AuthRequest).user?.role === ROLE_TECHNICIEN;
+// en liste comme à l'unité (décision de Nelson du 14-10-2026). Une clé d'intégration les lit. Sans
+// compte ni clé, clients actifs seulement : la règle se ferme au lieu de s'ouvrir (#672 ; invariant de
+// droits, règle 5, choix par défaut, à confirmer ; inatteignable aujourd'hui). Exportée pour ses tests.
+export function clientsActifsSeulement(req: express.Request): boolean {
+  if ((req as ApiRequest).apiKey) return false;
+  const user = (req as AuthRequest).user;
+  if (!user) return true;
+  return user.role === ROLE_TECHNICIEN;
 }
 
 const listerClients: express.RequestHandler = async (req, res) => {

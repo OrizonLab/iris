@@ -2,6 +2,16 @@ import express from 'express';
 import type { AuthRequest } from './auth';
 import { ROLE_ASSISTANTE_COMMERCIALE, ROLE_COMPTABLE, ROLE_DIRECTEUR_COMMERCIAL, ROLE_RESPONSABLE, ROLE_TECHNICIEN, gereLesClients, gereLesContrats, gereLesFactures, isAdminRole, isSuperAdminRole } from '../droits/roles';
 
+// Sans compte connecté (req.user absent), une garde de type de compte refuse comme requireAuth sans en-tête :
+// 401 « Authentification requise » (#672 ; invariant de droits, règle 5, l'option la plus restrictive, choix par
+// défaut, à confirmer). Inatteignable aujourd'hui : chaque route de session commence par requireAuth, et aucune route
+// /api/v1 ne porte de garde de type de compte (tests de couverture des matrices de droits).
+export function refuseSansCompte(req: express.Request, res: express.Response): boolean {
+  if ((req as AuthRequest).user) return false;
+  res.status(401).json({ error: 'Authentification requise' });
+  return true;
+}
+
 export const requireAdmin: express.RequestHandler = (req, res, next) => {
   if (!isAdminRole((req as AuthRequest).user?.role)) {
     res.status(403).json({ error: 'Accès réservé aux administrateurs' });
@@ -61,6 +71,7 @@ export const requireTravauxRead: express.RequestHandler = (req, res, next) => {
 // exclu de la même façon, a désormais les droits de l'administration (décision de Nelson du
 // 24-10-2026, point 14).
 export const blockCommercial: express.RequestHandler = (req, res, next) => {
+  if (refuseSansCompte(req, res)) return;
   const role = (req as AuthRequest).user?.role;
   if (role === 'COMMERCIAL') {
     res.status(403).json({ error: 'Accès non autorisé pour un compte commercial.' });
@@ -93,6 +104,7 @@ export const blockCommercialEtAssimiles: express.RequestHandler = (req, res, nex
 // le planning de l'équipe (affectations, types d'événement, placement d'une intervention, y compris
 // la sienne), ni les référentiels des achats (catégories, fournisseurs). Il garde la lecture.
 export const blockTechnicien: express.RequestHandler = (req, res, next) => {
+  if (refuseSansCompte(req, res)) return;
   if ((req as AuthRequest).user?.role === ROLE_TECHNICIEN) {
     res.status(403).json({ error: 'Un technicien ne modifie ni le planning ni les référentiels.' });
     return;
