@@ -27,9 +27,9 @@ Iris est un ERP français pour métiers techniques : interventions SAV et travau
 
 1. **Interventions SAV** — suivi, historique client, rapports signés
 2. **Interventions Travaux** — planning, heures, achats, devis, facture
-3. **Contrats & Maintenance récurrente** — échéances automatiques, prorata, renouvellement
-4. **Abonnements télécom** — 4G, fibre, box : cycle de facturation, suspension, résiliation
-5. **Financeurs** — Grenke, LPB : suivi des financements liés aux équipements/interventions
+3. **Contrats & Maintenance récurrente** — échéances automatiques ; le prorata et le renouvellement ne sont pas décidés ([proposition du lot (k)](docs/ABONNEMENTS-LOCATIONS-CIBLE.md), NK-02 et NK-06)
+4. **Abonnements** (la télécom, avec la 4G, la fibre et les box, n'en est qu'un exemple) — cycle de facturation, suspension, résiliation : lot (k), prévu, hors pilote, générique ; rien de propre à la télécom n'est écrit en dur ([proposition](docs/ABONNEMENTS-LOCATIONS-CIBLE.md))
+5. **Financeurs** (Grenke et LPB sont des exemples ; les financeurs et le périmètre de l'API restent à décider) — suivi des financements liés aux équipements/interventions : lot (k), prévu ([proposition](docs/ABONNEMENTS-LOCATIONS-CIBLE.md), NK-21 et NK-22)
 6. **Rapprochement bancaire** — relevés automatiques + rapprochement factures / paiements
 7. **Identité client** — logo, couleurs, informations légales (SIRET, adresse, conditions)
 8. **Comptes & Droits** — profil technique, commercial, comptable, admin, super-admin ; séparation stricte plateforme/client
