@@ -7,6 +7,8 @@
 > - La PR b de FE-DOC complétera la liste avec FE-4 et FE-5 : écrans, variables et commandes réels (section 5).
 > - **Cette liste ne vaut pas feu vert.** Son dernier point est la « validation du cabinet et mon feu vert » (Nelson). Une liste entièrement cochée n'autorise pas la mise en production : seul Nelson la décide.
 >
+> **Note du 26-11-2026** (réponses de Nelson à N-01, N-02 et N-09, [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-26-11-2026-facturation-électronique-lot-k)) : lectures retenues, à corriger par Nelson si besoin. Les faits de la société (catégorie, régime de TVA, option pour les débits) sont des réglages de chaque installation, sans valeur par défaut inventée ; pour la société pilote ils servent au calendrier et à la recette, et se saisissent à la configuration (point 4.1) ; N-01 ne bloque plus aucun lot de code. La PA se choisit et se connecte dans Iris (FE-4) ; la PA de recette et son contrat restent ouverts (N-02). Le type de client suit la réponse à N-09 (point 4.5). Le texte ci-dessous n'est pas réécrit.
+>
 > Ce document ne vaut pas avis juridique ou comptable. Les identifiants S1 à S20, EX-01 à EX-52, N-01 à N-17 et Q-01 à Q-25 sont ceux de la proposition ; Q-PA-1 à Q-PA-3 et N-PA-1 sont ceux du [document de connexion](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles).
 
 ## 1. Avant même Iris

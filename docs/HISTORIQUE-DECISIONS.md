@@ -7243,6 +7243,47 @@ Textes de la passation remplacés par la PR documentaire qui consigne #678, copi
 - [#684](https://github.com/OrizonLab/iris/issues/684) (`suivi-audit`) : somme en flottants préexistante à la création d'une facture ; `search_path` des gardes différées ; test existant sensible à la charge (`avoir-partiel-decimal`, test 10).
 - #243 **fermée** par #681.
 
+## Réponses de Nelson du 26-11-2026 (facturation électronique, lot (k))
+
+*Rédigé le 26-11-2026, `main` à `8027b2b`.* Nelson répond à trois questions de la [section 11.1 de la proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#111-pour-nelson) : N-01 (faits de la société pilote), N-09 (type de client) et N-02 (choix de la PA), puis demande de cadrer un lot hors pilote. Statut inchangé : tout ce que décrit la proposition reste **prévu** ; ni code, ni montant, ni variable d'environnement, ni validation pour mise en service.
+
+- **Message de Nelson du 26-11-2026 à 11:06:54 UTC, mot pour mot** (fautes comprises ; message de la session de travail ; l'historique date en UTC) :
+
+> Concernant les questions :
+> N-01 : pourquoi avoir besoin de connaitre la societe pilote ? La societz pilote ne sera pas coder dans le dur
+> N-09 : remplace pas de siret par un type de client (B2B France, UE, hors UE, particulier, public).
+> N-02 : pour la plateforme agree je voudrais qu'on puisse la choisir et pouvoir la connecter
+> Ensuite tu peux cadrer un lot hors pilote, comme les abonnements et locations
+
+- **Questions posées** (texte de la section 11.1) : N-01, « Faits de la société pilote : catégorie (GE, ETI, PME, micro), régime de TVA, option pour les débits. A-t-elle déjà une PA de réception ? » ; N-09, « Type de client : remplacer la case « Pas de SIRET (particulier) » par une liste (B2B France, B2B UE, B2B hors UE, particulier, entité publique) ? Quel type pour une association à SIREN non assujettie ? » ; N-02, « Quelle PA, et quand le contrat de bac à sable ? Offre-t-elle XP Z12-013 1.3.0 (Flow et Directory) ? Accepte-t-elle les statuts par son API ou en CDAR ? ».
+- **Explication donnée à Nelson le 26-11-2026** (par Claude Code, dans la session) : ces faits avaient été demandés pour le calendrier (date à laquelle l'émission devient obligatoire pour la société pilote) et pour la recette, et non pour les écrire dans le code.
+
+**Lectures retenues par Claude Code (à corriger par Nelson si besoin).** Ce ne sont pas des paroles de Nelson.
+
+1. **N-01.** Nelson rappelle que rien de propre à la société pilote n'est écrit en dur.
+   - La catégorie d'entreprise, le régime de TVA et l'option pour les débits deviennent des **réglages de la société**, renseignés par chaque installation (lot FE-1), **sans valeur par défaut inventée**.
+   - Leurs valeurs pour la société pilote ne servent plus qu'au calendrier et à la recette ; elles se saisiront à la configuration. **N-01 ne bloque plus aucun lot de code** (elle conditionnait FE-1 jusqu'ici).
+   - La PA de réception de la société pilote relève de N-02.
+2. **N-09, répondue.** La case « Pas de SIRET (particulier) » est remplacée par un **type de client** à cinq valeurs : B2B France, B2B UE, B2B hors UE, particulier, entité publique (« public » dans le message). À appliquer par FE-1 (prévu ; modèle de données). **Reste ouverte**, comme sous-question posée à Nelson le 26-11-2026 : le type d'une association à SIREN non assujettie à la TVA.
+3. **N-02, précision de la lecture du 20-11-2026.** La PA se **choisit** dans Iris et se **connecte** (écran Connecteurs, lot FE-4) ; aucune PA n'est écrite en dur. Lecture retenue : un connecteur conforme à la norme (XP Z12-013), paramétré par installation ; un adaptateur propre à une PA reste réservé au cas prévu par le [cadrage du 19-11-2026](#décision-du-19-11-2026-sur-la-facturation-électronique) (PA retenue sans la norme, sur décision de Nelson). **Reste ouvert** : la PA qui servira à la recette sur bac à sable et son contrat (chemin critique avant le 01-06-2027), avec l'existence d'une PA de réception de la société pilote, reprise de N-01 ; la version de la norme offerte et les statuts dépendent de cette PA.
+4. **Ordre suivant.** Nelson demande de cadrer le lot (k), « Abonnements et locations », hors pilote ([passation, section 2](ROADMAP-PASSATION.md#lots-décidés-hors-pilote)). Le cadrage est en cours ; une proposition suivra. Aucun code n'est lancé, et la demande ne change ni l'ordre décidé le 20-11-2026 (correctifs d'issues d'abord), ni le statut des lots (k) et FE-1 à FE-12 : **prévus**.
+
+**Suite donnée.** [Proposition de facturation électronique](FACTURATION-ELECTRONIQUE-CIBLE.md#111-pour-nelson) (note de suite en en-tête, sections 3, 8.4, 11.1, lignes de FE-1 et de FE-4 du tableau 8.1, fiches FE-DOC et FE-1, écarts, section 13) ; [liste de contrôle du déploiement](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md) (note en tête) ; [passation](ROADMAP-PASSATION.md) (point de reprise, question 7, section 3 « Facturation électronique (A2) », lot (k)). Les textes datés ne sont pas réécrits, sauf ceux de la passation archivés ci-dessous.
+
+**Ce qui reste ouvert.** Pour Nelson : le type d'une association à SIREN non assujettie (N-09, suite) ; la PA de recette et son contrat, avec l'existence d'une PA de réception de la société pilote (N-02, suite) ; N-03 à N-08 et N-10 à N-17 ; la décision sur le préfixe de branche `test/` ([#375](https://github.com/OrizonLab/iris/issues/375)). Pour le cabinet : Q-01 à Q-25 et Q-PA-1 à Q-PA-3 (Q-09 pour la catégorie et le régime de TVA, désormais valeurs de configuration de chaque installation).
+
+### Textes remplacés de la passation (26-11-2026)
+
+Textes de la passation remplacés par la PR documentaire qui consigne ces réponses, copiés sans changement (le texte d'après est dans la passation).
+
+- question prioritaire 7 :
+
+> 7. facturation électronique ([réponses du 20-11-2026](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-20-11-2026-sur-la-facturation-électronique) : N-01 en partie, N-02 en partie, N-PA-1 et l'ordre) : restent ouverts, dans la [proposition](FACTURATION-ELECTRONIQUE-CIBLE.md#111-pour-nelson), pour N-01 la catégorie d'entreprise, le régime de TVA, l'option pour les débits et la PA de réception de la société pilote (N-01 conditionne FE-1), pour N-02 le choix et l'accès d'une PA (chemin critique de la recette) ; N-PA-1 est répondue (la société signe, lecture retenue à corriger par Nelson si besoin ; point juridique non vérifié, EX-49 ; [questions nouvelles de #624](FACTURATION-ELECTRONIQUE-CONNEXION-PA.md#6-questions-nouvelles)) ; toujours en attente : la décision sur le préfixe de branche `test/` ([#375](https://github.com/OrizonLab/iris/issues/375)) ; et, au cadrage de FE-2, la catégorie d'opération par fiche du catalogue (modèle de données ; [liste de contrôle du déploiement, section 4.6](FACTURATION-ELECTRONIQUE-DEPLOIEMENT.md#46-catégorie-dopération-par-article)).
+
+- point de reprise, ligne « Prochaine action », phrase remplacée (le reste de la ligne est inchangé) :
+
+> **Restent ouverts pour Nelson** : catégorie d'entreprise, régime de TVA, option pour les débits et PA de réception de la société pilote (N-01, suite ; N-01 conditionne FE-1) ; choix et accès d'une PA (N-02, suite ; chemin critique de la recette) ; N-03 à N-17 ;
+
 ## Passation et documentation du 25-11-2026 (#680, #682 et #681)
 
 *Rédigé le 25-11-2026, `main` à `f73d240`.* Mises à jour faites par la PR documentaire qui consigne #680, #682 et #681 (à l'état au commit `f73d240`).
