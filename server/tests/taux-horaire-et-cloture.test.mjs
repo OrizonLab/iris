@@ -541,7 +541,9 @@ if (!TEST_DATABASE_URL) {
         assert.equal(res.status, 200, `${compte}, date changée : ${JSON.stringify(res.body)}`);
         const relu = await ligne(chantier.id);
         assert.deepEqual([relu.statut, jourIso(relu.dateFin)], ['TERMINE', '2026-10-31'], `${compte}, date changée`);
-        // Cadrage, point 3 : « Aucune entrée de journal ajoutée » (la question du journal de la clôture reste ouverte).
+        // Cadrage, point 3 : « Aucune entrée de journal ajoutée ». La clôture et la réouverture s'écrivent au journal depuis le
+        // lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») ; la date de fin changée par la fiche, non : le cadrage d'AG-b
+        // laisse ouverts les champs de la fiche qui pèsent sur un montant (hors périmètre).
         assert.equal(await prisma.journalSaisieChantier.count({ where: { chantierId: chantier.id } }), 0, `${compte}, aucune entrée de journal`);
       }
     });

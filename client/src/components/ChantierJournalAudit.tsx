@@ -16,7 +16,7 @@ export function ChantierJournalAudit({ journalSaisies, journalLisible, companyTi
         <section aria-labelledby="journal-saisies-titre" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 id="journal-saisies-titre" className="font-bold text-primary-dark">Journal d’audit des saisies</h2>
-            <p className="text-sm text-gray-500 mt-1">Historique immuable des créations, corrections et archivages du chantier, et des changements de son client, de son titulaire, de son commercial et de son encaissement.</p>
+            <p className="text-sm text-gray-500 mt-1">Historique immuable des créations, corrections et archivages du chantier, et des changements de son client, de son titulaire, de son commercial, de son encaissement et de son statut.</p>
           </div>
           {!journalLisible ? (
             <p className="px-6 py-5 text-sm italic text-gray-400">Journal d’audit indisponible.</p>

@@ -499,11 +499,21 @@ export function enregistrerRoutesChantiers(app: Express): void {
         // La date de clôture sert de mois de rattachement au résultat commercial (CA et marge
         // validés, cf. /api/stats/commerciaux) : on la renseigne automatiquement à la clôture
         // si elle n'a pas déjà été saisie à la main.
-        const data: Record<string, unknown> = { statut: nextStatut };
-        if (societe && !ligne.dateFin) {
-          data.dateFin = new Date(`${aujourdHuiEntreprise(societe.fuseauHoraire || FUSEAU_HORAIRE_PAR_DEFAUT)}T00:00:00.000Z`);
+        const dateFin = societe && !ligne.dateFin
+          ? new Date(`${aujourdHuiEntreprise(societe.fuseauHoraire || FUSEAU_HORAIRE_PAR_DEFAUT)}T00:00:00.000Z`)
+          : ligne.dateFin;
+        // Une demande qui ne change ni le statut ni la date de fin (possible pour l'administration seule : reclôture d'un
+        // chantier terminé et daté, EN_COURS sur un chantier en cours) n'écrit rien, comme l'encaissement.
+        if (ligne.statut === nextStatut && dateFin?.getTime() === ligne.dateFin?.getTime()) {
+          return tx.chantier.findUniqueOrThrow({ where: { id: chantier.id } });
         }
-        return tx.chantier.update({ where: { id: chantier.id }, data });
+        // La clôture et la réouverture s'écrivent au journal de la fiche chantier, dans la transaction qui les enregistre :
+        // sans la trace, le changement n'a pas lieu (décision de Nelson du 26-11-2026, « 1. A », lot AG-b ; même règle
+        // que les réattributions et l'encaissement, #181). La date de fin fixe le mois du CA validé.
+        await journaliserChangementChantier(tx, chantier.id, authUser, 'CHANGEMENT_STATUT',
+          { statut: ligne.statut, dateFin: ligne.dateFin?.toISOString() ?? null },
+          { statut: nextStatut, dateFin: dateFin?.toISOString() ?? null });
+        return tx.chantier.update({ where: { id: chantier.id }, data: { statut: nextStatut, dateFin } });
       });
       res.json(await chantierSelonRentabilite(req, updated));
     } catch (error) {

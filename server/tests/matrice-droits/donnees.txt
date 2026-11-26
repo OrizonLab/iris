@@ -561,10 +561,11 @@ AD | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défa
 AD | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | montants HEURE CREATION heure-chantier-tech-branche-resp | apres.tauxHoraireApplique=présent
 AD | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | éléments [] | ACHAT CREATION achat-chantier-tech-branche-resp, HEURE CREATION heure-chantier-tech-branche-resp
 AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
+AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, tauxHoraireApplique?, updatedAt?, updatedById?
+AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=présent
-AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+AD | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 AD | GET /api/clients | actif=false | défaut | clés . | clients
 AD | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 AD | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt
@@ -1601,10 +1602,11 @@ AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | d
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | montants HEURE CREATION heure-chantier-tech-branche-resp | apres.tauxHoraireApplique=présent
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | éléments [] | ACHAT CREATION achat-chantier-tech-branche-resp, HEURE CREATION heure-chantier-tech-branche-resp
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, tauxHoraireApplique?, updatedAt?, updatedById?
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=présent
-AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 AD-COM | GET /api/clients | actif=false | défaut | clés . | clients
 AD-COM | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 AD-COM | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt
@@ -2566,10 +2568,11 @@ AT | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défa
 AT | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | montants HEURE CREATION heure-chantier-tech-branche-resp | apres.tauxHoraireApplique=absent
 AT | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | éléments [] | ACHAT CREATION achat-chantier-tech-branche-resp, HEURE CREATION heure-chantier-tech-branche-resp
 AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, updatedAt, updatedById
+AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, updatedAt?, updatedById?
+AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=absent
-AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+AT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 AT | GET /api/clients | actif=false | défaut | clés . | clients
 AT | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 AT | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt
@@ -3744,10 +3747,11 @@ CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | montants H
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | montants HEURE CREATION heure-chantier-ct | apres.tauxHoraireApplique=absent
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | éléments [] | ACHAT ARCHIVAGE achat-archive-chantier-ct, ACHAT CREATION achat-archive-chantier-ct, ACHAT CREATION achat-chantier-ct, HEURE ARCHIVAGE heure-archivee-chantier-ct, HEURE CREATION heure-archivee-chantier-ct, HEURE CREATION heure-chantier-ct
 CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, updatedAt, updatedById
+CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, updatedAt?, updatedById?
+CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=absent
-CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+CT | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 CT | GET /api/clients | actif=false | défaut | clés . | clients
 CT | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 CT | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt
@@ -4587,10 +4591,11 @@ DIR | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | déf
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | montants HEURE CREATION heure-chantier-tech-branche-resp | apres.tauxHoraireApplique=présent
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | éléments [] | ACHAT CREATION achat-chantier-tech-branche-resp, HEURE CREATION heure-chantier-tech-branche-resp
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, tauxHoraireApplique?, updatedAt?, updatedById?
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=présent
-DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 DIR | GET /api/clients | actif=false | défaut | clés . | clients
 DIR | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 DIR | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt
@@ -5907,10 +5912,11 @@ SA | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défa
 SA | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | montants HEURE CREATION heure-chantier-tech-branche-resp | apres.tauxHoraireApplique=présent
 SA | GET /api/chantiers/:id/journal-saisies | chantier-tech-branche-resp | défaut | éléments [] | ACHAT CREATION achat-chantier-tech-branche-resp, HEURE CREATION heure-chantier-tech-branche-resp
 SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
-SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
+SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].apres | archivedAt?, archivedById?, categorieId?, chantierId?, commentaire?, createdAt?, createdById?, date?, dateFin?, description?, fournisseurId?, id?, intervenantId?, montantHT?, motifArchivage?, nbrHeures?, numeroFacture?, statut?, tauxHoraireApplique?, updatedAt?, updatedById?
+SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | clés [].avant | dateFin, statut
 SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants ACHAT CREATION achat-chantier-termine | apres.montantHT=présent
 SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | montants HEURE CREATION heure-chantier-termine | apres.tauxHoraireApplique=présent
-SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, HEURE CREATION heure-chantier-termine
+SA | GET /api/chantiers/:id/journal-saisies | chantier-termine | défaut | éléments [] | ACHAT CREATION achat-chantier-termine, CHANTIER CHANGEMENT_STATUT chantier-termine, HEURE CREATION heure-chantier-termine
 SA | GET /api/clients | actif=false | défaut | clés . | clients
 SA | GET /api/clients | actif=false | défaut | clés .clients[] | actif, contacts, createdAt, email, id, nomCommercial, raisonSociale, sansSiret, siren, sites, telephone, tvaIntra, updatedAt
 SA | GET /api/clients | actif=false | défaut | clés .clients[].contacts[] | clientId, createdAt, email, estDecisionnaire, estSignataire, fonction, id, nom, prenom, principal, telephone, updatedAt

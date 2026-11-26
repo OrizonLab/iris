@@ -14,7 +14,8 @@
 //    de l'échéance d'un contrat dont la visite est terminée, rattachement au chantier de l'intervention d'un devis déjà
 //    converti en intervention ; la fermeture du lien, l'accès financier et la marque « aussi commercial » qui changent
 //    le sont depuis le lot #587, qui y joue leur drapeau, devenu obligatoire) ; les écritures sans entrée, enregistrées
-//    telles quelles (« aucune entrée ») : écarts connus, état décidé, clôture et réouverture d'un chantier ;
+//    telles quelles (« aucune entrée ») : écarts connus, état décidé. La clôture et la réouverture d'un chantier, qui en
+//    étaient, s'écrivent au journal du chantier depuis le lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») ;
 //  - §2.2 : chaque entrée nouvelle lue par SA, par AD, par l'auteur s'il est hors administration, et par un compte
 //    refusé par couple (route de lecture, dossier parent) ; l'export CSV du journal d'administration lu par SA et AD,
 //    l'entrée y étant comptée par la fin de sa ligne, l'outil vérifiant d'abord qu'il reconnaît l'export du SA
@@ -552,10 +553,13 @@ if (!TEST_DATABASE_URL) {
         ajouter(compte, 'PATCH /api/chantiers/:id', 'chantier-ct', 'défaut, corps responsableId=autre conducteur', () => ({ responsableId: C['CT-N1'].id }));
         // Le commercial devient COM : le compte refusé du journal du chantier est alors le technicien.
         ajouter(compte, 'PATCH /api/chantiers/:id/commercial', 'chantier-ct', 'défaut, corps commercialId=COM', () => ({ commercialId: C.COM.id }), { refuses: { 'GET /api/chantiers/:id/journal-saisies': 'TECH' } });
-        // Clôture d'un chantier : aucune entrée, sans décision (N1 de l'audit des droits de #453), question à Nelson.
-        ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-ct', 'défaut, corps statut=TERMINE', () => ({ statut: 'TERMINE' }), { source: 'sans entrée' });
+        // Clôture d'un chantier : longtemps sans entrée (N1 de l'audit des droits de #453, question posée à Nelson), elle
+        // s'écrit au journal du chantier depuis le lot AG-b (décision de Nelson du 26-11-2026, « 1. A » ; cadrage AG-b,
+        // périmètre 1 : entrée CHANTIER CHANGEMENT_STATUT au nom de son auteur). Couple qui journalise : test de couverture.
+        ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-ct', 'défaut, corps statut=TERMINE', () => ({ statut: 'TERMINE' }));
       }
-      for (const compte of [SA, 'AD', 'DIR']) ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-termine', 'défaut, corps statut=EN_COURS', () => ({ statut: 'EN_COURS' }), { source: 'sans entrée' });
+      // Réouverture, réservée à l'administration : même entrée depuis le lot AG-b.
+      for (const compte of [SA, 'AD', 'DIR']) ajouter(compte, 'PATCH /api/chantiers/:id/statut', 'chantier-termine', 'défaut, corps statut=EN_COURS', () => ({ statut: 'EN_COURS' }));
       // Lot « Assistante technique », PR AT-2b (cadrage v4, C1 ; réponse 5 de Nelson du 06-11-2026 et réponse 3 du 07-11-2026,
       // « Oui, comme l'admin ») : elle change le client, le titulaire et le commercial d'une affaire en cours dont elle n'est pas
       // titulaire, sur les cibles de l'administration ; chaque changement est journalisé à son nom. Elle ne clôture pas
@@ -946,10 +950,29 @@ if (!TEST_DATABASE_URL) {
 
     // Cadrage §2.1 : « Écritures sans entrée, enregistrées telles quelles (« aucune entrée »), chacune reliée à sa source
     // dans le corps de la PR » ; écritures jamais vues « écrit » en 5a et 5b, jouées ici.
-    testPrepare('écritures sans entrée enregistrées telles quelles (conversion en chantier, comptes comptables, taux horaire, clôture et réouverture d’un chantier, drapeau d’un compte qui reprend sa valeur) ; corps vide d’un drapeau de compte refusé sans entrée ; mentions légales sans auteur ; écritures jamais vues en 5a et 5b, avec leur entrée', () => {
+    // Lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») : la clôture (SA, AD, DIR, CT) et la réouverture (SA, AD, DIR)
+    // d'un chantier sortent des écritures sans entrée : 16 cas restent (23 avant le lot, moins ces 7). Le compte est exact,
+    // pour qu'une écriture qui cesserait de journaliser, ou une clôture remise sans entrée, se voie.
+    testPrepare('écritures sans entrée enregistrées telles quelles (conversion en chantier, comptes comptables, taux horaire, drapeau d’un compte qui reprend sa valeur) ; clôture et réouverture d’un chantier journalisées au nom de leur auteur (lot AG-b) ; corps vide d’un drapeau de compte refusé sans entrée ; mentions légales sans auteur ; écritures jamais vues en 5a et 5b, avec leur entrée', () => {
       const sansEntree = cas.filter((c) => c.source === 'sans entrée');
-      assert.ok(sansEntree.length >= 14, `cas « sans entrée » : ${sansEntree.length}`);
+      assert.equal(sansEntree.length, 16, `cas « sans entrée » : ${sansEntree.length}`);
+      assert.deepEqual(sansEntree.filter((c) => c.route === 'PATCH /api/chantiers/:id/statut').map((c) => `${c.compte} ${c.contexte}`), [], 'clôture et réouverture : plus d’écriture sans entrée');
       for (const c of sansEntree) assert.match(reponseDe(c.compte, c.route, c.cible, c.contexte), /^20\d écrit \([^)]*\) ; aucune entrée$/, `${c.compte} ${c.route} sur ${c.cible} (${c.contexte})`);
+      // Lot AG-b (cadrage, périmètre 1 : « entrée au journal des chantiers […], cible CHANTIER, action CHANGEMENT_STATUT »,
+      // dans la même transaction que la mise à jour ; critère : « auteur ») : chaque clôture et chaque réouverture écrivent le
+      // chantier et une seule entrée, à leur nom ; l'entrée est lue par SA, AD, l'auteur hors administration (CT), et refusée
+      // au compte commercial, hors du périmètre du chantier (404).
+      for (const [compte, cible, contexte] of [
+        ...[SA, 'AD', 'DIR', 'CT'].map((compte) => [compte, 'chantier-ct', 'défaut, corps statut=TERMINE']),
+        ...[SA, 'AD', 'DIR'].map((compte) => [compte, 'chantier-termine', 'défaut, corps statut=EN_COURS']),
+      ]) {
+        const route = 'PATCH /api/chantiers/:id/statut';
+        assert.equal(reponseDe(compte, route, cible, contexte), `200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par ${compte}`, `${compte} ${route} sur ${cible} (${contexte})`);
+        const lues = lecturesDuCas(compte, route, cible, contexte).filter((l) => l.route === 'GET /api/chantiers/:id/journal-saisies');
+        const lecteurs = [`${SA} 200 visible`, 'AD 200 visible', ...(compte === 'CT' ? ['CT 200 visible'] : []), 'COM 404 « Chantier introuvable »'];
+        assert.deepEqual(lues.map((l) => `${l.lecteur} ${l.verdict}`).sort(), lecteurs.sort(), `${compte} ${route} sur ${cible} (${contexte}) : lectures`);
+        for (const l of lues) assert.equal(l.entree, `JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par ${compte}`, `${compte} ${route} sur ${cible} : entrée lue`);
+      }
       // Lot #587 (cadrage v2, « Tests », matrices, point 3, et périmètre 5 : « Rien n'est écrit sur un refus ») : le corps
       // vide d'un drapeau de compte, obligatoire, est refusé en 400 au message du drapeau, sans écriture ni entrée.
       const refusDrapeau = cas.filter((c) => c.source === 'refus du drapeau');
