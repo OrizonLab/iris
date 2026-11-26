@@ -19,7 +19,7 @@ Nelson, le 26-11-2026 : « Ensuite tu peux cadrer un lot hors pilote, comme les 
 
 Le même message dit, à propos de la question N-01 de la facturation électronique : « pourquoi avoir besoin de connaitre la societe pilote ? La societz pilote ne sera pas coder dans le dur ». Cette proposition en tire un principe (section 5, principe 1) : le lot (k) est générique. L'activité de la société pilote (sûreté électronique, revente d'accès internet et télécom, [facturation électronique](FACTURATION-ELECTRONIQUE-CIBLE.md#3-calendrier-et-conséquences-pour-la-société-pilote), section 3, lecture retenue) n'est qu'un exemple de besoin ; rien de propre à la télécom n'est écrit dans le code.
 
-*Note : les réponses de Nelson du 26-11-2026 sur la facturation électronique (N-01, N-09, N-02) sont consignées dans l'[historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-26-11-2026-facturation-électronique-lot-k) (#686). La sous-question de N-09 sur le type d'une association à SIREN non assujettie reste ouverte.*
+*Note : les réponses de Nelson du 26-11-2026 sur la facturation électronique (N-01, N-09, N-02) sont consignées dans l'[historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-26-11-2026-facturation-électronique-lot-k) (#686). La sous-question de N-09 sur le type d'une association à SIREN non assujettie reste ouverte.* *(Note de suite, 26-11-2026 : Nelson y a répondu le soir même, « 3. A une association » ; lecture retenue, à confirmer par Nelson, à qui la confirmation est demandée : un sixième type de client, « Association », [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-26-11-2026-soir).)*
 
 ## 2. Ce qui est décidé, et ce qui ne l'est pas
 
