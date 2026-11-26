@@ -7471,6 +7471,135 @@ Textes de la passation remplacés par la PR documentaire qui consigne #692, copi
 
 > Les PR #688 (documentaire, lot (k), `9791f66`)
 
+## Lot du 26-11-2026 (#695)
+
+*Rédigé le 26-11-2026, `main` à `ced7d92`.* Une PR de code fusionnée par Claude Code, par commit de fusion : #695 (`ced7d92`, 26-11-2026 à 17:14:26 UTC ; tête `e94cd56`). **#695 ajoute une contrainte en base, change un message de refus et la relecture d'une liste à l'écran ; aucun calcul de montant ne change, et elle n'ajoute ni route ni variable d'environnement. Statut : implémenté, non validé pour mise en service ; la fusion ne vaut pas validation comptable.**
+
+### #695, Lot AG-a : clôture d'un chantier, suites de #451 (fusion `ced7d92`, tête `e94cd56`, 26-11-2026)
+
+[#451](https://github.com/OrizonLab/iris/issues/451) reste **ouverte** : #695 en traite une partie, un commentaire d'état y est posé (voir « Suivis » ci-dessous).
+
+- **Pourquoi.** Reprendre les notes laissées par #449 et #453, le point principal de #451 ayant été corrigé par #453 : N4 et N5 de l'audit des montants de #449, N1 à N4 du contrôle de #453, dont N2 (écran). Le lot a été **scindé** par Claude Code, sur la proposition du `controleur-coherence` (C1 de son contrôle de mode 1) : le journal de la clôture, réservé à Nelson, devient AG-b (voir « Question posée à Nelson »).
+- **Ce qui change.**
+  - **Migration** `20261126120000_chantier_annule_non_encaisse` : contrainte `Chantier_annule_non_encaisse`, `CHECK (NOT ("statut" = 'ANNULE' AND "encaisse"))`. Elle répond à N5 de l'audit des montants de #449. Les routes l'assuraient déjà sous verrou (décision du 02-11-2026, [Lot du 02-11-2026, suite](#lot-du-02-11-2026-suite)) ; la base l'impose désormais. **Aucune reprise de données** (règle 4 de la méthode).
+  - **Message** : `PATCH /api/chantiers/:id/statut`, hors administration, reclore un chantier déjà terminé répond **403 « Ce chantier est déjà clôturé. »** (`REFUS_CHANTIER_DEJA_CLOTURE`, `server/src/domaines/chantiers/droits.ts`). C'est N4 de l'audit des montants de #449. **Choix par défaut, à confirmer** (règle 5 de la méthode, micro-arbitrage d'affichage) : même statut 403 que les autres refus d'un chantier clôturé hors administration ; l'administration reçoit 200.
+  - **Écran** : `ListeChantiers.tsx` relit la liste après un refus de clôture ou de réouverture (N2 du contrôle de #453).
+  - **Commentaires, tests et documentation** : N1, N3 et N4 du contrôle de #453 ; [`MODELE-DROITS-COMPTES.md`](MODELE-DROITS-COMPTES.md), l. 101, corrigée (C1 de l'audit des droits).
+- **Ce qui ne change pas.**
+  - Le message de réouverture « Seul un administrateur peut réouvrir un chantier clôturé. » ; sa reformulation reste dans [#475](https://github.com/OrizonLab/iris/issues/475), qui reçoit aussi le mot « rouvrir » et le cas `EN_COURS` sur un chantier en cours (commentaire du 26-11-2026). Le bloc « Directeur aligné sur l'administration (#504) » de la section 4 de la passation reste vrai pour la réouverture.
+  - La clôture et la réouverture n'écrivent toujours rien au journal.
+  - Aucun montant, aucun droit nouveau, aucune règle de clôture.
+- **Tests.**
+  - Nouveau `server/tests/chantier-annule-non-encaisse-migration.test.mjs` ; adaptations de `chantier-annule-termine.test.mjs` et de `chantiers-booleens.test.mjs`.
+  - Nouveau parcours E2E `client/tests/e2e/cloture-refus-relecture.spec.ts`.
+  - Suite backend complète : 1 850 sur 1 850 ; 26 mutants tués.
+- **Audits.**
+  - **`controleur-coherence`, mode 1** : « pas prêt » en l'état (C 5). C1 (le journal de la clôture est réservé à Nelson) scinde le lot, d'où AG-b ; C2, C3 et C5 sont reprises.
+  - **`auditeur-droits-securite`, sur `6dad2da` : non fusionnable**, à cause de C1 (`MODELE-DROITS-COMPTES.md`, l. 101 inexacte). Corrigé dans `e94cd56` ; ensuite **fusionnable**. Notes N2 à N4 : issue `suivi-audit` #696. Sa N1 (inscrire le nouveau choix par défaut et la contrainte dans la passation) est traitée par la PR documentaire qui consigne #695.
+  - **`controleur-coherence`, mode 2, sur `e94cd56` : fusionnable** (N 4). Ses notes N1 et N4 sont versées à #696.
+- **Statut.** **Implémenté**, non validé pour mise en service. Aucun calcul ne change ; la fusion ne vaut pas validation comptable.
+
+### Question posée à Nelson le 26-11-2026 (journal de la clôture, AG-b)
+
+Texte posé par Claude Code (et non parole de Nelson), mot pour mot :
+
+> Clôture et réouverture d'un chantier : aujourd'hui, elles ne laissent aucune trace au journal. Pourtant, la clôture pose la date de fin, qui fixe le mois du chiffre d'affaires validé. Faut-il les journaliser ? A. Oui (recommandé) : on les inscrit au journal de la fiche chantier, avec l'auteur, la date, et le statut et la date de fin avant et après, comme les réattributions et l'encaissement. B. Non : on garde le comportement actuel.
+
+- Elle complète le bloc de la section 3 de la passation, « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant ». Elle ne couvre que le volet clôture et réouverture ; les autres volets du bloc (champs de la fiche qui pèsent sur un montant, retrait d'un compte supprimé) restent ouverts.
+- Conséquence de l'option A, ajoutée par Claude Code dans le même message, mot pour mot : « Si tu choisis A, une conséquence : un compte qui a clôturé un chantier devient auteur d'une trace et ne pourra plus être supprimé, seulement désactivé, comme aujourd'hui pour les autres changements journalisés. »
+- **Aucune réponse n'est consignée.** D'ici là, rien ne change ; le lot AG-b n'est pas décidé : il attend cette réponse, sans code.
+
+### Suivis (26-11-2026, #695)
+
+- [#451](https://github.com/OrizonLab/iris/issues/451) : reste ouverte. Restent : AG-b (journal de la clôture et de la réouverture, question ci-dessus) ; T1 (refus « relancez l'annulation » de l'annulation d'un devis, dans leur nouvel ordre) ; N1 de l'audit des montants et N2 de l'audit des droits de #453 (rôle du titulaire et branche lus hors verrou : renvoyées à la refonte des droits, **choix par défaut, à confirmer**) ; N3 de l'audit des droits de #453 (redondance), laissée expressément, pour la lisibilité. Rangées comme faites ou sans suite : audit des montants de #453, N2 (conformité) et N3 (faite par `5f6c04b`) ; audit des droits de #453, N4 (suivie par #385, #168, #169, #170 et #173) ; contrôle de #453, N5 (sans effet) et N8 (faite).
+- [#696](https://github.com/OrizonLab/iris/issues/696) (`suivi-audit`) :
+  - N2 de l'audit des droits : `refuseeParLaBase` (`chantier-annule-termine.test.mjs`) et le test d'ordre de `chantiers-booleens.test.mjs` lisent le code `23514` dans le texte de l'erreur Prisma, format interne à Prisma 5 ; le test de migration lit `erreur.code` et `erreur.constraint` directement ;
+  - N3 : un refus au corps non JSON (502 d'un proxy) fait échouer `res.json()` dans `ListeChantiers.tsx`, qui affiche « Impossible de joindre le serveur. » sans relire la liste (préexistant) ;
+  - N4 : la contrainte, comme les autres CHECK, n'est pas décrite par le schéma Prisma ; un commentaire près de `encaisse` la nommerait ;
+  - N1 du contrôle de mode 2 : le commentaire de `chantier-annule-termine.test.mjs` (l. 896 environ) cite « un directeur adjoint », type qui n'existe pas (le test joue DC) ;
+  - N4 du contrôle de mode 2 : phrase ambiguë de `chantiers/droits.ts`, l. 109-110.
+- [#475](https://github.com/OrizonLab/iris/issues/475) : commentaire d'état, deux cas ajoutés (le mot « rouvrir » ; `EN_COURS` demandé sur un chantier en cours, message inexact).
+- [#691](https://github.com/OrizonLab/iris/issues/691) : reste ouverte (notes de l'audit de #690 et, en commentaire, de l'audit de #694).
+
+## Passation et documentation du 26-11-2026 (#695)
+
+*Rédigé le 26-11-2026, `main` à `ced7d92`.* Mises à jour faites par la PR documentaire qui consigne #695 (lot AG-a).
+
+- **Passation** :
+  - point de reprise remis à l'état au commit `ced7d92` (ligne « État », paragraphe d'état de `main`, liste des PR ouvertes : aucune, vérifiée par l'API de GitHub le 26-11-2026) ; l'ancienne ligne « État » et l'ancien paragraphe sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `5fcdbbe`)](#en-tête-de-la-passation-au-26-11-2026-commit-5fcdbbe) ; les autres fragments remplacés le sont dans les textes remplacés ci-dessous ;
+  - entrée de #695 (une puce) ; entrée de #692 ramenée à une ligne ; suivis ouverts (#451, #696, #475, #691), statuts des lots fusionnés, « Prochaine action » (lot AG-a fait, « État au 26-11-2026 » compris), question prioritaire 9 (AG-b) ;
+  - section 1 (écritures fermées : note de suite et contrainte), « Défauts connus » (#451 et #475) ;
+  - section 3 : note de suite dans le bloc « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant » (volet clôture et réouverture posé à Nelson le 26-11-2026, aucune réponse) ;
+  - section 4 : bloc « Lot AG-a (#695) » (choix par défaut : 403 « Ce chantier est déjà clôturé. », contrainte, inchangés) ; notes de suite sur les blocs « Correctifs de #285, du chantier terminé et de la clôture » et « Directeur aligné sur l'administration (#504) » (le message de réouverture reste vrai).
+- **Notes de l'audit de #694 versées ([#691](https://github.com/OrizonLab/iris/issues/691) : N3 faite, N1 faite en partie)** : le bloc « Heures d'une intervention au quart d'heure (#675, lot Z) » dit #676 fermée par #692 (première partie de N1 ; la seconde, #676, #687 et #689 nommées comme fermées dans « Suivis ouverts », reste) ; la liste « Statuts des lots fusionnés » nomme les PR documentaires #685, #686, #688, #690 et #694 (N3, et du même coup N9 de l'audit de #690). Les autres notes (N2, N4, N5, N7, N8 et la fin de N1 de l'audit de #694 ; N2, N7 et N10 de l'audit de #690) restent dans #691.
+- **Autres documents** : aucun autre document de `docs/` à modifier ; `MODELE-DROITS-COMPTES.md` a été corrigé par #695 elle-même. `README.md`, `CLAUDE.md` et `.agents/AGENTS.md` : aucun changement demandé.
+- **Garder la passation courte** : l'état précédent est archivé en entier ; l'entrée de #692 est ramenée à une ligne ; le détail de #695 est dans le bloc de la section 4 et dans cet historique ; aucune décision ni aucun choix par défaut en vigueur n'est retiré.
+- **Notes d'audit versées** : N2 à N4 de l'audit des droits de #695, N1 et N4 du contrôle de mode 2 : dans [#696](https://github.com/OrizonLab/iris/issues/696) (suivi), résumées ci-dessus.
+
+### Textes remplacés de la passation (26-11-2026, après #695)
+
+Textes de la passation remplacés par la PR documentaire qui consigne #695, copiés sans changement (le texte d'après est dans la passation) ; la ligne « État » et le paragraphe d'état de `main` sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `5fcdbbe`)](#en-tête-de-la-passation-au-26-11-2026-commit-5fcdbbe).
+
+- ligne « PR ouvertes », fragment remplacé (le reste de la ligne est inchangé) :
+
+> (vérifié par l'API de GitHub le 26-11-2026, après la fusion de #692) ; aucun lot de code n'est cadré ;
+
+- ligne « PR ouvertes », entrée de #692 (remplacée par une entrée d'une ligne) :
+
+>   - **#692** (lot AF, `6335921`, tête `0720f1f`, 26-11-2026, [historique](#lot-du-26-11-2026-692)) : ferme [#676](https://github.com/OrizonLab/iris/issues/676) ; traite le point 1 de [#684](https://github.com/OrizonLab/iris/issues/684) (N1 de l'audit des montants de #681). Les sommes des montants d'une pièce (facture saisie, facture au temps passé, devis, ventilation par taux, écritures, budgets de la conversion d'un devis en chantier) se font en décimal exact, ramenées au centime. **Aucune règle d'arrondi ne change** (C-07 reste gardée dans le code, « à confirmer par le cabinet ») ; **aucun montant atteignable par l'API ne change** (une dérive exige au moins 5 461 lignes, la limite de 100 Ko du corps bornant une facture à environ 1 550 lignes et un devis à 1 969) ; **implémenté**, **non validé comptablement** ; section 4, bloc « Lot AF (#692) » ; suivis : #684 (points 2 et 3), [#693](https://github.com/OrizonLab/iris/issues/693).
+
+- suivis ouverts, fragment remplacé :
+
+> [#691](https://github.com/OrizonLab/iris/issues/691) (`suivi-audit`, notes de l'audit de #690 : passation, README)
+
+- « Statuts des lots fusionnés », fragment remplacé (lots de code) :
+
+> #675, #678, #681, #682, #692) sont tous
+
+- « Statuts des lots fusionnés », fragment remplacé (lots sans montant) :
+
+> #667 et #673 ne changent aucun montant
+
+- « Statuts des lots fusionnés », fragment remplacé (PR documentaires ; ajout de #685, #686, #688, #690 et #694, N3 de l'audit de #694 et N9 de l'audit de #690) :
+
+> #670, #674, #677, #679) ne changent aucun statut
+
+- ligne « Prochaine action », fragment remplacé (lots faits) :
+
+> les lots Y, W, AA, Z, AB, AC, AD, AE et AF sont faits
+
+- ligne « Prochaine action », fragment remplacé (PR ouvertes) :
+
+> (aucune au 26-11-2026 après la fusion de #692, hors la PR documentaire de ce point de reprise)
+
+- ligne « Prochaine action », fragment remplacé (correctifs d'issues) :
+
+> [#691](https://github.com/OrizonLab/iris/issues/691) (suite de #690) et le reste
+
+- ligne « Prochaine action », « État au 26-11-2026 », fragments remplacés (dernière PR de code, lots fusionnés, choix par défaut) :
+
+> (dernière PR de code fusionnée : #692 ; aucune PR ouverte)
+
+> les lots Y, W, AA, Z, AB, AC, AD, AE et AF sont fusionnés
+
+> ceux des lots AC et AE (section 4)
+
+- liste des PR ouvertes, début remplacé :
+
+> > - Aucune, hors la PR documentaire de cette passation. Les PR #692 (lot AF,
+
+- #451 dans les notes des lots du 02-11-2026, fragment remplacé :
+
+> #451 (clôture : point principal **corrigé** par #453 ; reste ouverte pour N4 et N5 de l'audit des montants de #449, T1 de son audit des droits et les notes de #453 ; N1 de l'audit des droits de #453, la clôture sans écriture au journal, est enregistrée par #456 et inscrite en question pour Nelson, section 3) ;
+
+- section 3, bloc « Journal de la clôture… », première ligne, fragment remplacé :
+
+> commentaire 6575971075 de #451, et enregistré tel quel par D1a-5c, #456 ; aucune réponse n'est consignée, et la question reste à poser à Nelson) :
+
+- bloc « Heures d'une intervention au quart d'heure (#675, lot Z) », fragment remplacé (N1 de l'audit de #694) :
+
+> Suites : [#676](https://github.com/OrizonLab/iris/issues/676) (tests de la facture au temps passé)
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.
@@ -8060,6 +8189,18 @@ Textes de la passation remplacés par la PR documentaire qui consigne #692, copi
 - **Paragraphe d'état de `main`** :
 
 > **État de `main` au commit `9791f66` (26-11-2026), après la PR [#688](https://github.com/OrizonLab/iris/pull/688).** Depuis le commit `f73d240` : **#685, passation et historique après les lots AD, AE et AC** (documentaire, `8027b2b`, tête `263f183`) ; **#686, réponses de Nelson du 26-11-2026 sur la facturation électronique** (documentaire, `ff0a10f`, tête `c1428fa`) ; **#688, proposition du lot (k), abonnements et locations** (documentaire, `9791f66`, tête `581b339`, [historique](#proposition-du-lot-k-abonnements-et-locations-688)). **Statut** : ces trois PR ne changent que la documentation ; aucun lot n'est **implémenté** ni **validé pour mise en service** par elles ; la facturation électronique et le lot (k) restent **prévus**. Les lots AD, AE et AC (#680, #682, #681 : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f)) restent **implémentés**, non validés pour mise en service, **sans validation comptable** (aucun calcul ne change ; la fusion ne vaut pas validation comptable). L'état précédent (écrit au commit `f73d240`) est archivé : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f) ; ceux d'avant aussi ([`0e95db2`](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2), [`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et les en-têtes qu'il renvoie). Choix par défaut en vigueur, à confirmer : section 4. Depuis #504, « administration », « administrateur » et `requireAdmin` désignent dans cette passation `SUPERADMIN`, `ADMIN` et `DIRECTEUR`, sauf mention « super administrateur » ou `ADMIN`, comme dans le [modèle de droits](MODELE-DROITS-COMPTES.md) ; les mentions qui décrivent l'état d'avant #504 (textes archivés, états datés d'avant le lot) s'entendent à leur date. L'assistante technique n'en fait pas partie. **Suivis** : la liste à jour est celle des issues ouvertes. État du code, pas attestation de conformité ni feu vert de production.
+
+## En-tête de la passation au 26-11-2026 (commit `5fcdbbe`)
+
+*Archivé le 26-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main`, écrit par la PR documentaire #694 (fusionnée en `5fcdbbe`, tête `4c27b16`) à l'état « au commit `6335921` », après #692 (lot AF, `6335921`) ; la PR documentaire qui consigne #695 le remplace par l'état au commit `ced7d92`. Sont déplacés ici, sans changement de texte (les liens `HISTORIQUE-DECISIONS.md#…` de l'original sont écrits `#…` ; les renvois à la passation pointent vers `ROADMAP-PASSATION.md#…`), la ligne « État » et le paragraphe d'état de `main`. Les fragments remplacés des autres lignes sont dans [Textes remplacés de la passation (26-11-2026, après #695)](#textes-remplacés-de-la-passation-26-11-2026-après-695).
+
+- **Ligne « État »** :
+
+> - **État** : `main` au commit `6335921` (26-11-2026), après #692 (lot AF, `6335921`, tête `0720f1f` : sommes exactes des montants d'une pièce ; **implémenté**, non validé pour mise en service, **non validé comptablement** ; [historique](#lot-du-26-11-2026-692)), fusionnée ; avant, #690 (documentaire, `85e9ad9`, passation après #686 et #688), #688 (documentaire, `9791f66`, proposition du lot (k), « Abonnements et locations », [`ABONNEMENTS-LOCATIONS-CIBLE.md`](ABONNEMENTS-LOCATIONS-CIBLE.md)), #686 (documentaire, `ff0a10f`, réponses de Nelson du 26-11-2026), #685 (documentaire, `8027b2b`), #681 (`f73d240`, lot AC), #682 (`6cd0602`, lot AE) et #680 (`c4420ff`, lot AD). #692 n'ajoute ni migration, ni route, ni écran, ni variable d'environnement, et ne change aucune règle d'arrondi ; la facturation électronique et le lot (k) restent **prévus**, rien n'en est implémenté. L'état précédent de ce point de reprise (écrit « au commit `9791f66` », fusionné en `85e9ad9` par #690) est archivé : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-85e9ad9) ; ceux d'avant aussi ([`ff0a10f`](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f), [`0e95db2`](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2), [`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et précédents, que ces en-têtes énumèrent). Le dépôt est `OrizonLab/iris` (de nouveau public depuis le 18-11-2026, [historique](#ci-bloquée-du-17-au-18-11-2026) ; il avait été privé) ; l'ancienne adresse `Noxia-Groupe/iris` redirige. **Ouvrir toute nouvelle session de Claude Code avec `OrizonLab/iris` comme dépôt source** : la session cloud ouverte avant le transfert, rattachée à l'ancienne adresse, ne reçoit plus les événements GitHub (CI, revues) ([historique](#lot-du-13-au-14-11-2026)).
+
+- **Paragraphe d'état de `main`** :
+
+> **État de `main` au commit `6335921` (26-11-2026), après la PR [#692](https://github.com/OrizonLab/iris/pull/692).** Depuis le commit `9791f66` : **#690, passation après #686 et #688** (documentaire, `85e9ad9`, tête `2e375b5`) ; **#692, lot AF : sommes exactes des montants d'une pièce** (`6335921`, tête `0720f1f`, [historique](#lot-du-26-11-2026-692)). **Statut** : #690 ne change que la documentation ; #692 est **implémenté**, non validé pour mise en service, **non validé comptablement** (aucune règle d'arrondi ni aucun montant atteignable ne change ; la fusion ne vaut pas validation comptable) ; la facturation électronique et le lot (k) restent **prévus**. L'état précédent (écrit au commit `9791f66`) est archivé : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-85e9ad9) ; ceux d'avant aussi ([`ff0a10f`](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f), [`0e95db2`](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2), [`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et les en-têtes qu'ils renvoient). Choix par défaut en vigueur, à confirmer : section 4. Depuis #504, « administration », « administrateur » et `requireAdmin` désignent dans cette passation `SUPERADMIN`, `ADMIN` et `DIRECTEUR`, sauf mention « super administrateur » ou `ADMIN`, comme dans le [modèle de droits](MODELE-DROITS-COMPTES.md) ; les mentions qui décrivent l'état d'avant #504 (textes archivés, états datés d'avant le lot) s'entendent à leur date. L'assistante technique n'en fait pas partie. **Suivis** : la liste à jour est celle des issues ouvertes. État du code, pas attestation de conformité ni feu vert de production.
 
 ## Texte de la passation d'avant le 25-11-2026 (archivé)
 
