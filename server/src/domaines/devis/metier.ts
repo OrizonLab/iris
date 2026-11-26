@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { voitPrixAchatDevis } from '../../droits/visibilite';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, anneeEntreprise } from '../../commun/dates';
-import { PLAFOND_MONTANT, tauxUtilises, tvaDuTaux, arrondiCommercialLigneHt, centimesTtcLigne, centimes } from '../../commun/montants';
+import { PLAFOND_MONTANT, arrondiCommercialLigneHt, centimesTtcLigne, totauxPiece, sommeMontants, differenceExacte } from '../../commun/montants';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
 import { getCompanySettings } from '../administration/metier';
@@ -69,11 +69,22 @@ function prixAchatSaisi(item: Record<string, unknown>): number | null | undefine
 // Totaux d'un devis depuis ses lignes chiffrées. Comme les factures et avoirs, la TVA est arrondie sur
 // la base HT cumulée de chaque taux.
 export function totauxDevis(lignes: { tauxTva: number; totalHt: number }[]) {
-  const totalHt = centimes(lignes.reduce((t, l) => t + l.totalHt, 0));
-  const totalTva = centimes(tauxUtilises(lignes).reduce((total, taux) => total + tvaDuTaux(lignes, taux), 0));
-  const totalTtc = centimes(totalHt + totalTva);
+  const { totalHt, totalTva, totalTtc } = totauxPiece(lignes);
   if (totalTtc > PLAFOND_MONTANT) throw new DevisSaisieError('Montant de devis hors des limites acceptées.');
   return { totalHt, totalTva, totalTtc };
+}
+// Budgets de l'affaire à la conversion d'un devis en chantier, en sommes exactes de lignes déjà arrondies au centime (#684) :
+// matériel vendu (lignes de fourniture), main-d'œuvre vendue (total HT moins matériel vendu) et coût d'achat prévu (point 15 :
+// chaque ligne à son prix d'achat prévu × quantité, arrondie au centime comme une ligne ; une fourniture sans prix d'achat compte
+// pour zéro, réponse « Zéro » du 30-10-2026, et une ligne de main-d'œuvre qui en porte un s'y ajoute, réponse « Ajouté au coût
+// prévu », même jour).
+type LigneBudgetDevis = { nature: string; totalHt: unknown; quantite: unknown; prixAchatUnitaireHt: unknown };
+export function budgetsConversionDevis(devis: { totalHt: unknown; lignes: LigneBudgetDevis[] }) {
+  const budgetMaterielVendu = sommeMontants(devis.lignes.filter(l => l.nature === 'FOURNITURE').map(l => l.totalHt));
+  const budgetMainOeuvreVendu = differenceExacte(devis.totalHt, budgetMaterielVendu);
+  const coutMaterielPrevu = sommeMontants(devis.lignes.map(l => (l.prixAchatUnitaireHt === null || l.prixAchatUnitaireHt === undefined
+    ? 0 : arrondiCommercialLigneHt(String(l.quantite), String(l.prixAchatUnitaireHt)))));
+  return { budgetMaterielVendu, budgetMainOeuvreVendu, coutMaterielPrevu };
 }
 export function devisPayload(body: Record<string, unknown>) {
   const clientId = String(body.clientId || '').trim(), objet = String(body.objet || '').trim();

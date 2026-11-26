@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
-import { PLAFOND_MONTANT, arrondiCommercialLigneHt, centimes, centimesTtcLigne } from '../../commun/montants';
+import { PLAFOND_MONTANT, arrondiCommercialLigneHt, centimesTtcLigne, totauxPiece } from '../../commun/montants';
 import { dateEmissionEstFuture, dateIsoStricte } from '../../commun/dates';
 import { estTauxTvaFrancais } from '../../commun/tva';
 import { ventilationTvaDerivee } from './metier';
@@ -222,11 +222,9 @@ export async function preparerFactureTempsPasse(db: Db, interventionId: string, 
       quantite: quantite.toNumber(), prixUnitaireHt: ligne.prixUnitaireHt.toNumber(), tauxTva: ligne.tauxTva.toNumber(), totalHt, totalTtc, tempsPasse: ligne.tempsPasse,
     };
   });
-  const totalHt = centimes(lignes.reduce((somme, ligne) => somme + ligne.totalHt, 0));
-  // La TVA légale s'arrondit sur la base HT cumulée de chaque taux, comme pour toute facture.
+  // La TVA légale s'arrondit sur la base HT cumulée de chaque taux, comme pour toute facture ; les sommes sont exactes (#684).
   const ventilationTva = ventilationTvaDerivee(lignes);
-  const totalTva = centimes(ventilationTva.reduce((somme, ventilation) => somme + ventilation.totalTva, 0));
-  const totalTtc = centimes(totalHt + totalTva);
+  const { totalHt, totalTva, totalTtc } = totauxPiece(lignes);
   if (totalTtc > PLAFOND_MONTANT) throw new RefusFactureTempsPasse(409, 'Montant de facture hors des limites acceptées.');
 
   return {

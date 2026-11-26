@@ -23,11 +23,28 @@ export class FactureInvalideError extends Error {}
 
 export type LigneTaxable = { tauxTva: unknown; totalHt: unknown };
 export const tauxUtilises = (lignes: LigneTaxable[]) => [...new Set(lignes.map(ligne => Number(ligne.tauxTva)))];
-export const baseHtDuTaux = (lignes: LigneTaxable[], taux: number) => centimes(lignes.filter(ligne => Number(ligne.tauxTva) === taux).reduce((somme, ligne) => somme + Number(ligne.totalHt), 0));
+// Somme exacte de montants au centime (#684, N1 de l'audit des montants de #681, lot AC) : la base compare les totaux d'une
+// pièce émise à des sommes exactes ; une somme en nombres à virgule, puis arrondie (`centimes`), peut s'en écarter d'un
+// centime sur des milliers de lignes (ligne de tête de 8 589 934 592,00 € suivie de 20 000 lignes de 0,03 € : 0,01 € de
+// trop), et la base refuserait alors la pièce. Chaque terme est un montant au centime ; leur somme exacte l'est aussi, et le
+// retour au centime ne fait que le garantir (`tvaDuTaux` refuse une base à plus de deux décimales). Tableau plutôt
+// qu'arguments étalés : une pièce peut avoir des milliers de lignes.
+export const sommeMontants = (termes: readonly unknown[]): number =>
+  termes.reduce<Prisma.Decimal>((somme, terme) => somme.plus(Number(terme)), new Prisma.Decimal(0))
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber();
+export const baseHtDuTaux = (lignes: LigneTaxable[], taux: number) => sommeMontants(lignes.filter(ligne => Number(ligne.tauxTva) === taux).map(ligne => ligne.totalHt));
 export const tvaDuTaux = (lignes: LigneTaxable[], taux: number) => {
   const baseCentimes = entierDecimal(baseHtDuTaux(lignes, taux), 2);
   const millièmesTaux = entierDecimal(taux, 3);
   return Number((baseCentimes * millièmesTaux + 50000n) / 100000n) / 100;
+};
+// Totaux d'une pièce chiffrée (facture, facture au temps passé, devis) depuis ses lignes déjà arrondies au centime : HT,
+// somme exacte des lignes ; TVA arrondie sur la base HT cumulée de chaque taux, jamais ligne par ligne (règle C-07) ;
+// TTC = HT + TVA. Seules les sommes changent (#684) : les arrondis restent ceux de la ligne et de chaque taux.
+export const totauxPiece = (lignes: LigneTaxable[]) => {
+  const totalHt = sommeMontants(lignes.map(ligne => ligne.totalHt));
+  const totalTva = sommeMontants(tauxUtilises(lignes).map(taux => tvaDuTaux(lignes, taux)));
+  return { totalHt, totalTva, totalTtc: sommeMontants([totalHt, totalTva]) };
 };
 
 // Arrondi commercial exact au centime d’une ligne : quantité (au millième) × PU HT

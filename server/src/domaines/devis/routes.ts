@@ -11,7 +11,7 @@ import { requireAdmin } from '../../http/gardes';
 import { paramId } from '../../http/requete';
 import { routeMixte } from '../../http/routes-mixtes';
 import { FUSEAU_HORAIRE_PAR_DEFAUT, anneeEntreprise, aujourdHuiEntreprise, dateIsoStricte } from '../../commun/dates';
-import { decimalToNumber, centimes, arrondiCommercialLigneHt } from '../../commun/montants';
+import { decimalToNumber } from '../../commun/montants';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais } from '../../commun/tva';
 import { getParametres } from '../parametres/metier';
@@ -27,7 +27,7 @@ import { SaisieContratInvalide, creerContratMaintenance, lireSaisieContrat } fro
 import {
   DevisSaisieError, DevisConflitError, DevisDroitError, DevisIntrouvableError, lireTauxAcompteSaisi, lireAcompteExigeSaisi, devisPayload, NATURE_DEVIS_PAR_FAMILLE, devisPourLecteur, resoudreLignesDevis,
   devisInclude, contenuDevisSigne, copieLigneDevis, verrouillerDevis, acompteDevisPayload, nouveauNumeroDevis, totauxDevis,
-  heuresPrevuesLignes, PLAFOND_HEURES_PREVUES,
+  heuresPrevuesLignes, PLAFOND_HEURES_PREVUES, budgetsConversionDevis,
 } from './metier';
 import {
   TempsPasseConflitError, TempsPasseSaisieError, exigerCoherenceTempsPasse, exigerQuantiteTempsPasse, reglagesTempsPasseDeLaSociete, reglagesTempsPasseDuDevis,
@@ -423,16 +423,10 @@ const convertirDevis: express.RequestHandler = async (req, res) => { try {
       await tx.devisConversion.create({ data: { ...conversion, cibleType: 'CONTRAT', cibleId: contrat.id } });
       return contrat;
     }
-    const budgetMaterielVendu = centimes(devis.lignes.filter(l => l.nature === 'FOURNITURE').reduce((total, l) => total + Number(l.totalHt), 0));
-    const budgetMainOeuvreVendu = centimes(devis.totalHt.toNumber() - budgetMaterielVendu);
+    const { budgetMaterielVendu, budgetMainOeuvreVendu, coutMaterielPrevu } = budgetsConversionDevis(devis);
     // Heures vendues : les heures prévues du devis (./metier.ts, heuresPrevuesLignes), celles que son écran affiche.
     const heuresVendues = heuresPrevuesLignes(devis.lignes);
     if (heuresVendues.greaterThan(PLAFOND_HEURES_PREVUES)) throw new DevisSaisieError('Heures prévues du devis hors des limites acceptées : le chantier ne peut pas les porter.');
-    // Coût d'achat prévu (point 15) : chaque ligne à son prix d'achat prévu × quantité, arrondie au centime
-    // comme une ligne ; une fourniture sans prix d'achat compte pour zéro (réponse « Zéro » du 30-10-2026), et
-    // une ligne de main-d'œuvre qui en porte un s'y ajoute (réponse « Ajouté au coût prévu », même jour).
-    const coutMaterielPrevu = centimes(devis.lignes
-      .reduce((total, l) => total + (l.prixAchatUnitaireHt === null ? 0 : arrondiCommercialLigneHt(l.quantite.toString(), l.prixAchatUnitaireHt.toString())), 0));
     const chantier = await tx.chantier.create({ data: {
       nom: devis.objet, client: devis.client.raisonSociale, clientId: devis.clientId, numeroDevis: devis.numero,
       dateDebut: ouverture.dateDebut ?? debutParDefaut, budgetGlobalVendu: devis.totalHt, budgetMaterielVendu, budgetMainOeuvreVendu, heuresVendues, coutMaterielPrevu,
