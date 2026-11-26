@@ -7348,7 +7348,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne ces répon
   - N5 : la section « Réponses de Nelson du 26-11-2026 (facturation électronique, lot (k)) » est placée après « Passation et documentation du 25-11-2026 » (ordre chronologique ; ancre inchangée) ;
   - N6 : section 3 de la proposition de facturation électronique, « Les deux puces ci-dessus » est remplacé par un renvoi nommé aux puces « Sa catégorie d'entreprise et son régime de TVA restent inconnus » et « Recette » ;
   - N7 : l'introduction de la section 11.1 de cette proposition cite aussi les réponses du 26-11-2026 ;
-  - N8 : aucune phrase ne présentait N-01 comme répondue sans la dire lecture retenue ; par précaution, la ligne de FE-1 du tableau 8.1 dit désormais « lecture retenue » à côté de N-01 ;
+  - N8 : la lecture de N-01 était déclarée comme lecture retenue (en-tête de la proposition, question prioritaire 7), mais deux passages disaient « N-01 répondue » sans le rappeler dans la phrase même : la ligne de FE-1 du tableau 8.1 et la parenthèse « Restent ouverts pour Nelson » du point de reprise ; par précaution, ils disent désormais « lecture retenue » (« lectures retenues » dans la passation) à côté de N-01 ;
   - N9 : « N-09 répondue » devient « N-09 répondue en partie » dans la passation, l'historique (point 2 de la section sur les réponses du 26-11-2026) et la proposition de facturation électronique (note d'en-tête, ligne 7 du tableau de la section 6, tableau 8.1 et fiche FE-1) ; les textes archivés ne sont pas réécrits.
 - **Garder la passation courte** : voir ci-dessus (trois entrées de lots raccourcies, lignes d'état archivées). La liste des en-têtes archivés n'y est pas recopiée.
 
@@ -7356,7 +7356,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne ces répon
 
 Textes de la passation remplacés par la PR documentaire qui consigne #686 et #688, copiés sans changement (le texte d'après est dans la passation) ; les lignes « État » et « PR ouvertes » et le paragraphe d'état de `main` sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `ff0a10f`)](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f).
 
-- point de reprise, ligne « Réponses de Nelson du 26-11-2026 », phrase remplacée (le reste de la ligne est inchangé) :
+- point de reprise, ligne « Réponses de Nelson du 26-11-2026 », phrase remplacée (le reste de la ligne est inchangé, hors le renvoi ajouté à sa fin, après « même section ») :
 
 > **Ordre suivant : cadrage du lot (k), « Abonnements et locations »** (section 2, « Lots décidés hors pilote » ; lecture retenue, à corriger par Nelson si besoin : le lot (k), qu'il cite en exemple) ; le cadrage est en cours, une proposition suivra ; aucun code ; l'ordre du 20-11-2026 (correctifs d'issues d'abord) et le statut **prévu** des lots FE-1 à FE-12 et (k) ne changent pas. **Lectures retenues, à corriger par Nelson si besoin** : voir la question prioritaire 7 ci-dessous.
 
