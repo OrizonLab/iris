@@ -7479,7 +7479,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne #692, copi
 
 [#451](https://github.com/OrizonLab/iris/issues/451) reste **ouverte** : #695 en traite une partie, un commentaire d'état y est posé (voir « Suivis » ci-dessous).
 
-- **Pourquoi.** Reprendre les notes laissées par #449 et #453, le point principal de #451 ayant été corrigé par #453 : N4 et N5 de l'audit des montants de #449, N1 à N4 du contrôle de #453, dont N2 (écran). Le lot a été **scindé** par le `controleur-coherence` : le journal de la clôture, réservé à Nelson, devient AG-b (voir « Question posée à Nelson »).
+- **Pourquoi.** Reprendre les notes laissées par #449 et #453, le point principal de #451 ayant été corrigé par #453 : N4 et N5 de l'audit des montants de #449, N1 à N4 du contrôle de #453, dont N2 (écran). Le lot a été **scindé** par Claude Code, sur la proposition du `controleur-coherence` (C1 de son contrôle de mode 1) : le journal de la clôture, réservé à Nelson, devient AG-b (voir « Question posée à Nelson »).
 - **Ce qui change.**
   - **Migration** `20261126120000_chantier_annule_non_encaisse` : contrainte `Chantier_annule_non_encaisse`, `CHECK (NOT ("statut" = 'ANNULE' AND "encaisse"))`. Elle répond à N5 de l'audit des montants de #449. Les routes l'assuraient déjà sous verrou (décision du 02-11-2026, [Lot du 02-11-2026, suite](#lot-du-02-11-2026-suite)) ; la base l'impose désormais. **Aucune reprise de données** (règle 4 de la méthode).
   - **Message** : `PATCH /api/chantiers/:id/statut`, hors administration, reclore un chantier déjà terminé répond **403 « Ce chantier est déjà clôturé. »** (`REFUS_CHANTIER_DEJA_CLOTURE`, `server/src/domaines/chantiers/droits.ts`). C'est N4 de l'audit des montants de #449. **Choix par défaut, à confirmer** (règle 5 de la méthode, micro-arbitrage d'affichage) : même statut 403 que les autres refus d'un chantier clôturé hors administration ; l'administration reçoit 200.
@@ -7506,7 +7506,8 @@ Texte posé par Claude Code (et non parole de Nelson), mot pour mot :
 > Clôture et réouverture d'un chantier : aujourd'hui, elles ne laissent aucune trace au journal. Pourtant, la clôture pose la date de fin, qui fixe le mois du chiffre d'affaires validé. Faut-il les journaliser ? A. Oui (recommandé) : on les inscrit au journal de la fiche chantier, avec l'auteur, la date, et le statut et la date de fin avant et après, comme les réattributions et l'encaissement. B. Non : on garde le comportement actuel.
 
 - Elle complète le bloc de la section 3 de la passation, « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant ». Elle ne couvre que le volet clôture et réouverture ; les autres volets du bloc (champs de la fiche qui pèsent sur un montant, retrait d'un compte supprimé) restent ouverts.
-- **Aucune réponse n'est consignée.** D'ici là, rien ne change ; le lot AG-b est **prévu**, sans code.
+- Conséquence de l'option A, ajoutée par Claude Code dans le même message, mot pour mot : « Si tu choisis A, une conséquence : un compte qui a clôturé un chantier devient auteur d'une trace et ne pourra plus être supprimé, seulement désactivé, comme aujourd'hui pour les autres changements journalisés. »
+- **Aucune réponse n'est consignée.** D'ici là, rien ne change ; le lot AG-b n'est pas décidé : il attend cette réponse, sans code.
 
 ### Suivis (26-11-2026, #695)
 
@@ -7526,11 +7527,11 @@ Texte posé par Claude Code (et non parole de Nelson), mot pour mot :
 
 - **Passation** :
   - point de reprise remis à l'état au commit `ced7d92` (ligne « État », paragraphe d'état de `main`, liste des PR ouvertes : aucune, vérifiée par l'API de GitHub le 26-11-2026) ; l'ancienne ligne « État » et l'ancien paragraphe sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `5fcdbbe`)](#en-tête-de-la-passation-au-26-11-2026-commit-5fcdbbe) ; les autres fragments remplacés le sont dans les textes remplacés ci-dessous ;
-  - entrée de #695 (une puce) ; entrée de #692 ramenée à une ligne ; suivis ouverts (#451, #696, #475, #691), statuts des lots fusionnés, « Prochaine action » (lot AG-a fait), question prioritaire 9 (AG-b) ;
+  - entrée de #695 (une puce) ; entrée de #692 ramenée à une ligne ; suivis ouverts (#451, #696, #475, #691), statuts des lots fusionnés, « Prochaine action » (lot AG-a fait, « État au 26-11-2026 » compris), question prioritaire 9 (AG-b) ;
   - section 1 (écritures fermées : note de suite et contrainte), « Défauts connus » (#451 et #475) ;
   - section 3 : note de suite dans le bloc « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant » (volet clôture et réouverture posé à Nelson le 26-11-2026, aucune réponse) ;
   - section 4 : bloc « Lot AG-a (#695) » (choix par défaut : 403 « Ce chantier est déjà clôturé. », contrainte, inchangés) ; notes de suite sur les blocs « Correctifs de #285, du chantier terminé et de la clôture » et « Directeur aligné sur l'administration (#504) » (le message de réouverture reste vrai).
-- **Notes de l'audit de #694 versées (N1 et N3 de [#691](https://github.com/OrizonLab/iris/issues/691), faites)** : le bloc « Heures d'une intervention au quart d'heure (#675, lot Z) » dit #676 fermée par #692 ; la liste « Statuts des lots fusionnés » nomme les PR documentaires #685, #686, #688, #690 et #694. Les autres notes (N2, N4, N5, N7, N8 de l'audit de #694 ; N2, N7, N9 et N10 de l'audit de #690) restent dans #691.
+- **Notes de l'audit de #694 versées ([#691](https://github.com/OrizonLab/iris/issues/691) : N3 faite, N1 faite en partie)** : le bloc « Heures d'une intervention au quart d'heure (#675, lot Z) » dit #676 fermée par #692 (première partie de N1 ; la seconde, #676, #687 et #689 nommées comme fermées dans « Suivis ouverts », reste) ; la liste « Statuts des lots fusionnés » nomme les PR documentaires #685, #686, #688, #690 et #694 (N3, et du même coup N9 de l'audit de #690). Les autres notes (N2, N4, N5, N7, N8 et la fin de N1 de l'audit de #694 ; N2, N7 et N10 de l'audit de #690) restent dans #691.
 - **Autres documents** : aucun autre document de `docs/` à modifier ; `MODELE-DROITS-COMPTES.md` a été corrigé par #695 elle-même. `README.md`, `CLAUDE.md` et `.agents/AGENTS.md` : aucun changement demandé.
 - **Garder la passation courte** : l'état précédent est archivé en entier ; l'entrée de #692 est ramenée à une ligne ; le détail de #695 est dans le bloc de la section 4 et dans cet historique ; aucune décision ni aucun choix par défaut en vigueur n'est retiré.
 - **Notes d'audit versées** : N2 à N4 de l'audit des droits de #695, N1 et N4 du contrôle de mode 2 : dans [#696](https://github.com/OrizonLab/iris/issues/696) (suivi), résumées ci-dessus.
@@ -7559,7 +7560,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne #695, copi
 
 > #667 et #673 ne changent aucun montant
 
-- « Statuts des lots fusionnés », fragment remplacé (PR documentaires ; ajout de #685, #686, #688, #690 et #694, N3 de l'audit de #694) :
+- « Statuts des lots fusionnés », fragment remplacé (PR documentaires ; ajout de #685, #686, #688, #690 et #694, N3 de l'audit de #694 et N9 de l'audit de #690) :
 
 > #670, #674, #677, #679) ne changent aucun statut
 
@@ -7574,6 +7575,14 @@ Textes de la passation remplacés par la PR documentaire qui consigne #695, copi
 - ligne « Prochaine action », fragment remplacé (correctifs d'issues) :
 
 > [#691](https://github.com/OrizonLab/iris/issues/691) (suite de #690) et le reste
+
+- ligne « Prochaine action », « État au 26-11-2026 », fragments remplacés (dernière PR de code, lots fusionnés, choix par défaut) :
+
+> (dernière PR de code fusionnée : #692 ; aucune PR ouverte)
+
+> les lots Y, W, AA, Z, AB, AC, AD, AE et AF sont fusionnés
+
+> ceux des lots AC et AE (section 4)
 
 - liste des PR ouvertes, début remplacé :
 
@@ -8183,7 +8192,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne #695, copi
 
 ## En-tête de la passation au 26-11-2026 (commit `5fcdbbe`)
 
-*Archivé le 26-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main`, écrit par la PR documentaire #692 (lot AF, `6335921`) puis fusionné en `5fcdbbe` par #694 (documentaire, tête `4c27b16`), à l'état « au commit `6335921` » ; la PR documentaire qui consigne #695 le remplace par l'état au commit `ced7d92`. Sont déplacés ici, sans changement de texte (les liens `HISTORIQUE-DECISIONS.md#…` de l'original sont écrits `#…` ; les renvois à la passation pointent vers `ROADMAP-PASSATION.md#…`), la ligne « État » et le paragraphe d'état de `main`. Les fragments remplacés des autres lignes sont dans [Textes remplacés de la passation (26-11-2026, après #695)](#textes-remplacés-de-la-passation-26-11-2026-après-695).
+*Archivé le 26-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main`, écrit par la PR documentaire #694 (fusionnée en `5fcdbbe`, tête `4c27b16`) à l'état « au commit `6335921` », après #692 (lot AF, `6335921`) ; la PR documentaire qui consigne #695 le remplace par l'état au commit `ced7d92`. Sont déplacés ici, sans changement de texte (les liens `HISTORIQUE-DECISIONS.md#…` de l'original sont écrits `#…` ; les renvois à la passation pointent vers `ROADMAP-PASSATION.md#…`), la ligne « État » et le paragraphe d'état de `main`. Les fragments remplacés des autres lignes sont dans [Textes remplacés de la passation (26-11-2026, après #695)](#textes-remplacés-de-la-passation-26-11-2026-après-695).
 
 - **Ligne « État »** :
 
