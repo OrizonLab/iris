@@ -7663,7 +7663,6 @@ Statut : tout reste **prévu** (AG-b, lot (k), FE-1) ; ni code, ni montant, ni v
 | #678 (lot AB) | Coût de la main-d'œuvre arrondi ligne par ligne, partout ; **lectures L1 à L4** de Claude Code ; parts de #339 et #344 dans la marge du chantier | « non validé comptablement » ; « à confirmer par Nelson avec la validation comptable » ; parts de #339 et #344 « non validé » depuis ce lot | point de reprise (lot de montants précédent, statuts, « restent à confirmer »), section 1 (marge du chantier, arrondi), section 3 (« Arrondi du coût de main-d'œuvre »), section 4 (bloc « Lot AB (#678) »), section 5 |
 | #692 (lot AF) | Sommes exactes des montants d'une pièce (décimal exact ; aucune règle d'arrondi ni aucun montant atteignable ne change) | « non validé comptablement » ; « restent à confirmer par Nelson, avec la validation comptable, … le lot AF » | point de reprise, section 4 (bloc « Lot AF (#692) »), section 5 |
 | #550 (cinquième lecture) | Marge d'un contrat de maintenance : cinquième lecture de montant, sans donnée réelle (les interventions antérieures à la migration `20260925100000`) | « reste à confirmer » ; le message du 16-11-2026 ne la mentionnait pas | section 3 (bloc « Marge d'un contrat de maintenance (#550, implémentée) »), point de reprise |
-| AT-3 et AT-4 (#517, #520) | Factures et avoirs de l'assistante technique (montants et calculs inchangés) | « non validée comptablement ni pour mise en service » | `docs/MODELE-DROITS-COMPTES.md`, l. 55 (note de suite ; la passation les range « sans validation comptable », aucun calcul ne changeant) |
 
 Les statuts « validé comptablement » antérieurs sont inchangés ([28-10-2026](#validation-comptable-du-28-10-2026), 29-10-2026, [30-10-2026](#validation-comptable-du-30-10-2026), 16-11-2026 pour #550) ; la validation du 24-10-2026 et celle du 26-10-2026 (comprises dans la mise en service de la main d'œuvre au catalogue et du devis au temps passé) aussi.
 
@@ -7671,7 +7670,7 @@ Les statuts « validé comptablement » antérieurs sont inchangés ([28-10-2026
 
 - Les **choix par défaut, à confirmer**, qui ne portent pas sur un montant (droits, affichage) : ils restent des choix par défaut.
 - Les **questions ouvertes** au cabinet (Q-01 à Q-25 ; Q-PA-1 à Q-PA-3 de la facturation électronique ; QK-01 à QK-05 du lot (k)) et à Nelson (NK, AG-b pour ses autres volets, N-09 suite, etc.).
-- Les éléments **« sans validation comptable »** (aucun montant ne change : par exemple #655, #662, #663, #681, #682, #695, AT-2a à AT-4) : ils restent tels quels.
+- Les éléments **« sans validation comptable »** (aucun montant ne change : par exemple #655, #662, #663, #681, #682, #695, AT-2a à AT-4) : ils restent tels quels. AT-3 et AT-4 (#517, #520) en sont, bien que `docs/MODELE-DROITS-COMPTES.md` (l. 55) les dise « non validée comptablement » : la passation les range « sans validation comptable », aucun calcul ne changeant, et rien n'y attendait de validation (lecture retenue, la plus restrictive, à corriger par Nelson si besoin).
 - Les **lots futurs** qui toucheront un montant : chacun demande sa validation comptable (passation, section 5).
 - La **mise en service** : aucun élément n'est « validé pour mise en service » ; le feu vert de mise en production reste à Nelson seul.
 
@@ -7683,7 +7682,7 @@ Les statuts « validé comptablement » antérieurs sont inchangés ([28-10-2026
   - point de reprise : deux puces nouvelles (« Validation comptable du 26-11-2026 » ; « Réponses de Nelson du 26-11-2026 au soir ») ; statuts « non validé comptablement » passés à « validé comptablement par Nelson le 26-11-2026 » dans le point de reprise et dans les sections 1 à 5 ; section 5 : validation comptable acquise pour les lots en attente, feu vert de mise en production non donné ;
   - AG-b : « non décidé » devient décidé (réponse A), **prévu** (point de reprise, section 3, question prioritaire 9, « Défauts connus ») ; lot (k) : NK-01 non répondue (question prioritaire 8, section 3) ; N-09 : « répondue en partie » devient « répondue (lecture retenue à confirmer) » (point de reprise, question prioritaire 7, section 3) ;
   - statuts « non validé pour mise en service » inchangés ; aucune décision ni aucun choix par défaut en vigueur n'est retiré.
-- **Autres documents** : [`FACTURATION-ELECTRONIQUE-CIBLE.md`](FACTURATION-ELECTRONIQUE-CIBLE.md) : notes de suite (en-tête, tableau 8.1, fiche FE-1, section 11.1, N-09) pour le sixième type de client ; les textes datés ne sont pas réécrits. `README.md`, `CLAUDE.md` et `.agents/AGENTS.md` : aucun changement fait ici ; voir le rapport de la PR.
+- **Autres documents** : [`FACTURATION-ELECTRONIQUE-CIBLE.md`](FACTURATION-ELECTRONIQUE-CIBLE.md) : notes de suite (en-tête, tableau de la section 6, tableau 8.1, fiche FE-1, section 11.1, N-09) pour le sixième type de client ; les textes datés ne sont pas réécrits. [`MODELE-DROITS-COMPTES.md`](MODELE-DROITS-COMPTES.md) : notes de suite aux lignes 55 (AT-3 et AT-4, non visées) et 113 (#357). [`MODELE-DONNEES-CIBLE.md`](MODELE-DONNEES-CIBLE.md) (#524), [`PARAMETRAGE-CIBLE.md`](PARAMETRAGE-CIBLE.md) (lot AB) et [`PARAMETRAGE-INVENTAIRE.md`](PARAMETRAGE-INVENTAIRE.md) (complément du 26-11-2026 de ses suites) : statuts de validation comptable mis à jour. `README.md` : paragraphe « Validation comptable du 26-11-2026 », après ceux des 28-10 et 30-10-2026, et statut de #357 (phase 7). `CLAUDE.md` et `.agents/AGENTS.md` : aucun changement.
 
 ### Textes remplacés de la passation (26-11-2026, validation comptable)
 
@@ -7728,6 +7727,7 @@ Fragments de la passation remplacés par cette PR, copiés sans changement, avec
   - ligne 307 : « ut d'une facture couverte par des avoirs », plus bas, **implémenté**, non validé comptablement ni pour mise en service »
   - ligne 320 : « ut d'une facture couverte par des avoirs », plus bas, **implémenté**, non validé comptablement ni pour mise en service »
   - ligne 377 : « (validation comptable de Nelson attendue ; section 1, »
+  - ligne 378 : « la cinquième, sans donnée réelle, reste à confirmer (section 3, »
   - ligne 381 : « **implémenté** par #524, `31f6a5f`, tête `e8c8636`, le 10-11-2026 ; **non validé comptablement ni pour mise en service »
   - ligne 388 : « **implémenté** par #530, `345e6af`, tête `d75519e`, le 10-11-2026 ; **non validé comptablement ni pour mise en service »
   - ligne 396 : « implémenté** (`41925aa`, tête `055ac09`), montants affichés et PDF, **non validé comptablement ni pour mise en service »
@@ -7737,6 +7737,8 @@ Fragments de la passation remplacés par cette PR, copiés sans changement, avec
   - ligne 527 : « N-09 répondue en partie (type de client à cinq valeurs, FE-1) »
   - ligne 527 : « restent ouverts le type d'une association à SIREN non assujettie (N-09, suite), la PA »
   - ligne 535 : « -24-11-2026-678) ; **implémenté**, non validé pour mise en service, **non validé comptablement »
+  - ligne 535 : « suivent désormais le lot AB, non validé »
+  - ligne 535 : « **Reste à confirmer par Nelson, avec le cabinet** : les lectures L1 à L4 »
   - ligne 539 : «  `null` comme « absent » ? D'ici la réponse, le refus est en vigueur. Non validé comptablement »
   - ligne 540 : « ribué. Faut-il garder ce refus ? D'ici la réponse, il est en vigueur. Non validé comptablement »
   - ligne 578 : « e l'audit de #393) : **fermée par #658** (22-11-2026, **implémenté**, non validé pour mise en service ni comptablement »
@@ -7761,6 +7763,7 @@ Fragments de la passation remplacés par cette PR, copiés sans changement, avec
   - ligne 1015 : « « validé comptablement » et « validé pour mise en service » ne s'écrivent qu'avec la décision de Nelson, qui n'a pas été donnée. »
   - ligne 1107 : « la validation comptable de Nelson est attendue ; non validé »
   - ligne 1110 : « non validé pour mise en service, validation comptable de Nelson attendue : »
+  - ligne 1119 : « **Reste un choix par défaut, à confirmer** »
   - ligne 1134 : « s, son taux y est refusé à l'enregistrement. Depuis #658 (22-11-2026, non validé comptablement »
   - ligne 1186 : «  ; montants : aucun calcul ne change, seulement ce qui s'enregistre ; non validé comptablement »
   - ligne 1503 : « 5 ; choix par défaut, à confirmer ; **appliqués**, **implémentés**, **non validés pour mise en service, non validés comptablement »
@@ -7778,6 +7781,7 @@ Fragments de la passation remplacés par cette PR, copiés sans changement, avec
   - ligne 1686 : « - Lot « Pas d'avoir à 0,00 € » (#530, **implémenté**, non validé comptablement »
   - ligne 1687 : « validation du cabinet et de Nelson avant la mise en service »
   - ligne 1687 : « - Lot « Détail des avoirs comme règlements » (#534, **implémenté**, non validé comptablement »
+  - ligne 1688 : « la cinquième reste à confirmer (section 3) »
   - ligne 1689 : « validation du cabinet et de Nelson avant la mise en service »
   - ligne 1689 : « isie des montants refusée plutôt que faussée » (#564, **implémenté**, non validé comptablement »
   - ligne 1690 : « validation du cabinet et de Nelson avant la mise en service »
