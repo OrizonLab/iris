@@ -7371,6 +7371,106 @@ Textes de la passation remplacés par la PR documentaire qui consigne #686 et #6
 
 - section 3, bloc « Facturation électronique (A2) », fragment remplacé : « N-09 répondue (type de client à cinq valeurs, FE-1), N-02 précisée ».
 
+## Lot du 26-11-2026 (#692)
+
+*Rédigé le 26-11-2026, `main` à `6335921`.* Une PR de code fusionnée par Claude Code, par commit de fusion : #692 (`6335921`, 26-11-2026 à 14:41:00 UTC ; tête `0720f1f`). **#692 change le calcul des sommes des montants d'une pièce (décimal exact), sans changer aucune règle d'arrondi ni aucun montant atteignable par l'API : ni migration, ni route, ni écran, ni variable d'environnement. Statut : implémenté, non validé comptablement, non validé pour mise en service ; la validation revient à Nelson et au cabinet (règle 2 de la méthode) ; la fusion ne vaut pas validation comptable.**
+
+### #692, Lot AF : sommes exactes des montants d'une pièce (fusion `6335921`, tête `0720f1f`, 26-11-2026)
+
+« Closes #676 » : [#676](https://github.com/OrizonLab/iris/issues/676) est **fermée** (14:41:02 UTC). [#684](https://github.com/OrizonLab/iris/issues/684) reste ouverte : son point 1 est fait, un commentaire d'état y est posé.
+
+- **Pourquoi.** Point 1 de #684, qui reprend N1 de l'audit des montants de #681 (lot AC) : les sommes des montants d'une pièce se faisaient en flottants, puis étaient ramenées au centime par `centimes()`. **Ordre** : décision de Nelson du 20-11-2026, mot pour mot, « Ordre : fait les correctif d'issu d'abord » ; ordre du 19-10-2026, qui laisse passer un correctif avant un lot s'il touche un montant (« un correctif ne passe avant un lot que s'il est bloquant ou s'il touche un montant »). **Lecture retenue, à corriger par Nelson si besoin** : le choix retenu pour #198, « correction à la source, sommes en décimal exact » ([Décisions et lots des 18 et 19-10-2026](#décisions-et-lots-des-18-et-19-10-2026), « Décisions de Nelson »), appliqué alors aux statistiques et aux suivis, vaut aussi pour les sommes des pièces ; ce n'est pas une parole de Nelson.
+- **Ce qui change.**
+  - `sommeMontants` et `totauxPiece` (`server/src/commun/montants.ts`) : sommes exactes en décimal, ramenées au centime.
+  - Les factures saisies, les factures au temps passé et les devis (`totauxDevis`) passent par `totauxPiece`. La ventilation somme exactement son TTC par taux. `baseHtDuTaux` emploie `sommeMontants`.
+  - Écritures : nouvelle fonction pure `montantsDesEcritures` (`comptabilite/metier.ts`).
+  - Conversion d'un devis en chantier : nouvelle fonction pure `budgetsConversionDevis` (`devis/metier.ts`), qui calcule le matériel vendu, la main-d'œuvre vendue et le coût d'achat prévu en sommes exactes.
+- **Ce qui ne change pas.**
+  - Aucune règle d'arrondi : la règle C-07 reste gardée dans le code, « à confirmer par le cabinet » ([inventaire](PARAMETRAGE-INVENTAIRE.md), note de suite sous C-07). Le lot AB (« Arrindir chaque ligne », [Lot du 24-11-2026 (#678)](#lot-du-24-11-2026-678)) ne porte que sur le coût de la main-d'œuvre.
+  - Aucun montant atteignable par l'API : une dérive exige au moins 5 461 lignes, alors que la limite de 100 Ko du corps borne une facture à environ 1 550 lignes et un devis à 1 969.
+  - Aucune migration, aucune route, aucun écran nouveau. Seules les empreintes des gestionnaires de `POST /api/factures` et de la conversion d'un devis changent dans la référence des routes.
+- **Tests.**
+  - `server/tests/sommes-exactes-pieces.test.mjs` : unitaires ; mutants « somme en flottants » tués dans les deux sens ; mutants équivalents déclarés.
+  - `server/tests/sommes-exactes-pieces-coherence.test.mjs` : fixture théorique de 20 001 lignes en base (règle 4 : aucune donnée réelle), plus les plafonds de la facture saisie.
+  - `facture-zero-temps-passe.test.mjs` : N1 de #676, plus le plafond exact de la facture au temps passé. `matrice-droits-factures.test.mjs` : N2 et N3 de #676.
+  - Suite backend complète : 1 840 sur 1 840.
+  - CI : « CI — synthèse » en `success` sur la tête `0720f1f`, travaux lourds compris.
+- **Audits.**
+  - **`controleur-coherence`, mode 1** : prêt à coder après C1 (budgets de la conversion ajoutés au lot) et C2 (attribution de la convention).
+  - **`auditeur-montants`, sur `94dc539` : non fusionnable** (C1 : test manquant sur les plafonds de la facture saisie et de la facture au temps passé, classé C parce qu'il touche un montant). Tests versés dans `3f9a024` ; **fusionnable** sur `3f9a024`, puis sur `0720f1f`.
+  - **`controleur-coherence`, mode 2, sur `3f9a024` : non fusionnable** (C1 : le README des tests était inexact sur le cas à 20 %). Corrigé dans `0720f1f` ; **fusionnable**.
+  - Notes N1 à N5 de l'audit des montants : issue `suivi-audit` [#693](https://github.com/OrizonLab/iris/issues/693), ci-dessous.
+- **Statut.** **Implémenté**, non validé comptablement, non validé pour mise en service. La validation comptable de l'ensemble de la facturation par le cabinet et Nelson reste un préalable de la mise en service ([passation, section 5](ROADMAP-PASSATION.md#5-préalables-à-la-mise-en-service-et-contrat-dune-pr)).
+
+### Suivis (26-11-2026, #692)
+
+- [#693](https://github.com/OrizonLab/iris/issues/693) (`suivi-audit`, notes N1 à N5 de l'audit des montants) : N1, export `centimes` mort, à retirer dans un lot qui touche `montants.ts` ; N2, retour au centime de `sommeMontants` (un futur appelant qui passerait des lignes non arrondies verrait leur somme arrondie en silence : refuser un terme à plus de deux décimales, choix de conception à trancher avec l'`auditeur-montants`) ; N3, `budgetsConversionDevis` compte pour 0 un prix d'achat `undefined` (inatteignable aujourd'hui : ne compter pour 0 que `null`) ; N4, TVA calculée deux fois par la facture saisie et la facture au temps passé (cohérente ; une seule source à tirer de la ventilation) ; N5, mutants des routes ramenées au code d'avant, équivalents vu de l'API (la dérive exige au moins 5 461 lignes : une tête de 9 513 738 101,11 € suivie de 5 460 lignes de 0,04 € suffit ; déclaré dans l'en-tête de `sommes-exactes-pieces.test.mjs`).
+- [#684](https://github.com/OrizonLab/iris/issues/684) : point 1 fait ; restent le point 2 (`search_path` des gardes différées, N1 de l'audit des droits de #681) et le point 3 (test 10 d'`avoir-partiel-decimal` sous charge).
+- [#691](https://github.com/OrizonLab/iris/issues/691) (`suivi-audit`, notes de l'audit de #690 : passation, README) : reste ouverte.
+- #676 **fermée** par #692.
+
+## Passation et documentation du 26-11-2026 (#692)
+
+*Rédigé le 26-11-2026, `main` à `6335921`.* Mises à jour faites par la PR documentaire qui consigne #692 (lot AF).
+
+- **Passation** :
+  - point de reprise remis à l'état au commit `6335921` (ligne « État », paragraphe d'état de `main`, liste des PR ouvertes) ; l'ancienne ligne « État » et l'ancien paragraphe sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `85e9ad9`)](#en-tête-de-la-passation-au-26-11-2026-commit-85e9ad9) ; les autres fragments remplacés le sont dans les textes remplacés ci-dessous ;
+  - entrée de #692 (une puce, avec renvoi vers cette section), suivis ouverts (#676 retirée, #684 réduite à ses points 2 et 3, #693 et #691 ajoutées), statuts des lots fusionnés, ligne « Prochaine action » (lot AF fait ; « restent à confirmer par Nelson, avec la validation comptable » ; correctifs d'issues qui continuent) ;
+  - section 2 (note de suite sur #198), section 4 (bloc « Lot AF (#692) » ; note de suite sur le bloc « Lot AC (#681) »), section 5 (lot AF).
+- **Autres documents** : [`PARAMETRAGE-INVENTAIRE.md`](PARAMETRAGE-INVENTAIRE.md) (note de suite sous la ligne C-07 : sommes exactes, aucune règle d'arrondi ne change). Aucun autre document de `docs/` ne décrit les sommes d'une pièce en flottants ni ne cite `centimes()`.
+- **Garder la passation courte** : l'état précédent est archivé en entier ; l'entrée de #692 est une puce d'une ligne, son détail étant dans le bloc de la section 4 et dans cet historique ; aucune décision ni aucun choix par défaut en vigueur n'est retiré.
+- **Notes d'audit versées** : N1 à N5 de l'audit des montants de #692 : dans [#693](https://github.com/OrizonLab/iris/issues/693) (suivi), résumées ci-dessus ; la note N5 est aussi dans l'en-tête de `server/tests/sommes-exactes-pieces.test.mjs`.
+
+### Textes remplacés de la passation (26-11-2026, après #692)
+
+Textes de la passation remplacés par la PR documentaire qui consigne #692, copiés sans changement (le texte d'après est dans la passation) ; la ligne « État » et le paragraphe d'état de `main` sont archivés en entier : [En-tête de la passation au 26-11-2026 (commit `85e9ad9`)](#en-tête-de-la-passation-au-26-11-2026-commit-85e9ad9).
+
+- ligne « PR ouvertes », fragments remplacés (le reste de la ligne est inchangé) :
+
+> (vérifié par l'API de GitHub le 26-11-2026, après la fusion de #688)
+
+> **Derniers lots de code fusionnés le 25-11-2026** (tous **implémentés**, **non validés pour mise en service** ; le texte détaillé de ces trois entrées est archivé
+
+- puce du lot AB, intitulé remplacé :
+
+> **Dernier lot de montants, #678**
+
+- suivis ouverts, fragment remplacé :
+
+> [#684](https://github.com/OrizonLab/iris/issues/684) (`suivi-audit`, née du lot AC : somme en flottants préexistante à la création d'une facture, `search_path` des gardes, test existant sensible à la charge) ; [#676](https://github.com/OrizonLab/iris/issues/676) (`suivi-audit`, née du lot Z : tests de la facture au temps passé, N1 à N3 de l'audit des montants) ;
+
+- suivis ouverts, fragment remplacé (#687 et #689) :
+
+> **traitées par la PR documentaire de ce point de reprise, qui doit les fermer**
+
+- « Statuts des lots fusionnés », fragments remplacés :
+
+> **Statuts des lots fusionnés du 15 au 25-11-2026**
+
+> #678, #681, #682)
+
+> #669, #675, #678) sont aussi **non validés comptablement** (section 5) ;
+
+- ligne « Prochaine action », fragments remplacés :
+
+> les lots Y, W, AA, Z, AB, AC, AD et AE sont faits ;
+
+> dont [#676](https://github.com/OrizonLab/iris/issues/676) (suite du lot Z), [#659]
+
+> [#683](https://github.com/OrizonLab/iris/issues/683) et [#684](https://github.com/OrizonLab/iris/issues/684) (suites des lots AE et AC) et le reste
+
+> (aucune au 25-11-2026 après la fusion de #681, hors la PR documentaire de ce point de reprise)
+
+> **État au 25-11-2026** : la suite des issues de la règle 2 continue (dernière PR fusionnée : #681 ; aucune PR ouverte)
+
+> les lots Y, W, AA, Z, AB, AC, AD et AE sont fusionnés ;
+
+> les lectures L1 à L4 du lot AB**, et, comme tout choix par défaut, ceux des lots AC et AE (section 4)
+
+- liste des PR ouvertes, fragment remplacé :
+
+> Les PR #688 (documentaire, lot (k), `9791f66`)
+
 ## En-tête de la passation au 30-10-2026
 
 *Archivé le 31-10-2026.* La passation tenait en tête un résumé des états successifs de `main`, du commit `09be456` (nuit du 20 au 21-10-2026) au commit `e0ea015` (30-10-2026). Pour garder la passation courte, ce résumé est déplacé ici sans changement de texte (seuls ses renvois à l'historique pointent désormais dans ce fichier) ; la passation garde l'état courant.
@@ -7948,6 +8048,18 @@ Textes de la passation remplacés par la PR documentaire qui consigne #686 et #6
   - **#681** (lot AC, `f73d240`, 22:24:36 UTC, tête `a21d438`, 1 826 tests serveur sur 1 826, 377 E2E ; [historique](#lot-du-25-11-2026-681)) : ferme [#243](https://github.com/OrizonLab/iris/issues/243). Une contrainte différée de la base, `facture_verification_coherence`, et sa fonction `verifier_coherence_piece` (migration `20261125120000_coherence_pieces_emises`) refusent à la validation de la transaction toute facture ou tout avoir émis incohérent (signes ; TTC = HT + TVA ; ventilation égale aux totaux ; lignes par taux ; écritures client, vente par nature, TVA par taux) ; une facture à 0 / 0 / 0 € reste admise (décision du 19-10-2026), un avoir à 0,00 € reste refusé (#530, réponse du 10-11-2026) ; **aucun calcul ne change : sans validation comptable nouvelle** ; la fusion ne vaut pas validation comptable ; choix par défaut, à confirmer : section 4, bloc « Lot AC (#681) » ; question de montant : section 3 ; suivi [#684](https://github.com/OrizonLab/iris/issues/684).
 
 > **État de `main` au commit `f73d240` (25-11-2026), après la PR [#681](https://github.com/OrizonLab/iris/pull/681).** Depuis le commit `7ebddaf` : **#679, passation et historique après #678, notes de #671** (documentaire, `0e95db2`) ; **#680, lot AD : message du test d'empreinte, copies de sauvegarde ignorées, tests de formats** (`c4420ff`, tête `0495cba`, [historique](#lot-du-25-11-2026-680)) ; **#682, lot AE : règles de droits fermées sans porteur** (`6cd0602`, tête `4d388d5`, [historique](#lot-du-25-11-2026-682)) ; **#681, lot AC : cohérence en base des factures et avoirs émis** (`f73d240`, tête `a21d438`, [historique](#lot-du-25-11-2026-681)). **Statut** : #680, #682 et #681 sont **implémentés**, non validés pour mise en service, **sans validation comptable** (aucun calcul ne change ; la fusion ne vaut pas validation comptable) ; ni variable d'environnement ; #681 ajoute une migration, #680 et #682 aucune. L'état précédent (commit `0e95db2`) est archivé : [historique](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2) ; les états d'avant le sont aussi ([`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et les en-têtes qu'il renvoie). Choix par défaut en vigueur, à confirmer : section 4. Depuis #504, « administration », « administrateur » et `requireAdmin` désignent dans cette passation `SUPERADMIN`, `ADMIN` et `DIRECTEUR`, sauf mention « super administrateur » ou `ADMIN`, comme dans le [modèle de droits](MODELE-DROITS-COMPTES.md) ; les mentions qui décrivent l'état d'avant #504 (textes archivés, états datés d'avant le lot) s'entendent à leur date. L'assistante technique n'en fait pas partie. **Suivis** : la liste à jour est celle des issues ouvertes. État du code, pas attestation de conformité ni feu vert de production.
+
+## En-tête de la passation au 26-11-2026 (commit `85e9ad9`)
+
+*Archivé le 26-11-2026.* La passation tenait en tête le résumé ci-dessous de l'état de `main`, écrit par la PR documentaire #690 (fusionnée en `85e9ad9`, tête `2e375b5`) à l'état « au commit `9791f66` » ; la PR documentaire qui consigne #692 le remplace par l'état au commit `6335921`. Sont déplacés ici, sans changement de texte (les liens `HISTORIQUE-DECISIONS.md#…` de l'original sont écrits `#…` ; les renvois à la passation pointent vers `ROADMAP-PASSATION.md#…`), la ligne « État » et le paragraphe d'état de `main`. Les trois entrées des lots AD, AE et AC de la ligne « PR ouvertes », déjà raccourcies à une ligne par #690, restent dans la passation ; les fragments remplacés de cette ligne et de la liste des PR ouvertes le sont dans [Textes remplacés de la passation (26-11-2026, après #692)](#textes-remplacés-de-la-passation-26-11-2026-après-692).
+
+- **Ligne « État »** :
+
+> - **État** : `main` au commit `9791f66` (26-11-2026), après #688 (documentaire, `9791f66`, tête `581b339` : proposition du lot (k), « Abonnements et locations », [`ABONNEMENTS-LOCATIONS-CIBLE.md`](ABONNEMENTS-LOCATIONS-CIBLE.md), [historique](#proposition-du-lot-k-abonnements-et-locations-688)) et #686 (documentaire, `ff0a10f`, tête `c1428fa` : réponses de Nelson du 26-11-2026 sur la facturation électronique, [historique](#réponses-de-nelson-du-26-11-2026-facturation-électronique-lot-k)), fusionnées ; avant, #685 (documentaire, `8027b2b`, tête `263f183`), #681 (`f73d240`, lot AC), #682 (`6cd0602`, lot AE) et #680 (`c4420ff`, lot AD). Aucun code ne change, aucun montant, aucune variable d'environnement ; la facturation électronique et le lot (k) restent **prévus**, rien n'en est implémenté. L'état précédent de ce point de reprise (écrit « au commit `8027b2b` », complété par #686 : commit `ff0a10f`) est archivé : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f) ; ceux d'avant aussi ([`0e95db2`](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2), [`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et précédents, que ces en-têtes énumèrent). Le dépôt est `OrizonLab/iris` (de nouveau public depuis le 18-11-2026, [historique](#ci-bloquée-du-17-au-18-11-2026) ; il avait été privé) ; l'ancienne adresse `Noxia-Groupe/iris` redirige. **Ouvrir toute nouvelle session de Claude Code avec `OrizonLab/iris` comme dépôt source** : la session cloud ouverte avant le transfert, rattachée à l'ancienne adresse, ne reçoit plus les événements GitHub (CI, revues) ([historique](#lot-du-13-au-14-11-2026)).
+
+- **Paragraphe d'état de `main`** :
+
+> **État de `main` au commit `9791f66` (26-11-2026), après la PR [#688](https://github.com/OrizonLab/iris/pull/688).** Depuis le commit `f73d240` : **#685, passation et historique après les lots AD, AE et AC** (documentaire, `8027b2b`, tête `263f183`) ; **#686, réponses de Nelson du 26-11-2026 sur la facturation électronique** (documentaire, `ff0a10f`, tête `c1428fa`) ; **#688, proposition du lot (k), abonnements et locations** (documentaire, `9791f66`, tête `581b339`, [historique](#proposition-du-lot-k-abonnements-et-locations-688)). **Statut** : ces trois PR ne changent que la documentation ; aucun lot n'est **implémenté** ni **validé pour mise en service** par elles ; la facturation électronique et le lot (k) restent **prévus**. Les lots AD, AE et AC (#680, #682, #681 : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f)) restent **implémentés**, non validés pour mise en service, **sans validation comptable** (aucun calcul ne change ; la fusion ne vaut pas validation comptable). L'état précédent (écrit au commit `f73d240`) est archivé : [historique](#en-tête-de-la-passation-au-26-11-2026-commit-ff0a10f) ; ceux d'avant aussi ([`0e95db2`](#en-tête-de-la-passation-au-24-11-2026-commit-0e95db2), [`c5405d1`](#en-tête-de-la-passation-au-24-11-2026-commit-c5405d1) et les en-têtes qu'il renvoie). Choix par défaut en vigueur, à confirmer : section 4. Depuis #504, « administration », « administrateur » et `requireAdmin` désignent dans cette passation `SUPERADMIN`, `ADMIN` et `DIRECTEUR`, sauf mention « super administrateur » ou `ADMIN`, comme dans le [modèle de droits](MODELE-DROITS-COMPTES.md) ; les mentions qui décrivent l'état d'avant #504 (textes archivés, états datés d'avant le lot) s'entendent à leur date. L'assistante technique n'en fait pas partie. **Suivis** : la liste à jour est celle des issues ouvertes. État du code, pas attestation de conformité ni feu vert de production.
 
 ## Texte de la passation d'avant le 25-11-2026 (archivé)
 
