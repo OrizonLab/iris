@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   PLAFOND_MONTANT, FactureInvalideError, type LigneTaxable, tauxUtilises, baseHtDuTaux, tvaDuTaux, arrondiCommercialLigneHt, centimesTtcLigne,
-  centimes,
+  sommeMontants,
 } from '../../commun/montants';
 import { nombreDecimalNonNegatif } from '../../commun/validation';
 
@@ -73,7 +73,7 @@ type VentilationTva = { tauxTva: number; totalHt: number; totalTva: number; tota
 export const ventilationTvaDerivee = (lignes: LigneTaxable[]): VentilationTva[] => tauxUtilises(lignes).sort((a, b) => a - b).map(tauxTva => {
   const totalHt = baseHtDuTaux(lignes, tauxTva);
   const totalTva = tvaDuTaux(lignes, tauxTva);
-  return { tauxTva, totalHt, totalTva, totalTtc: centimes(totalHt + totalTva) };
+  return { tauxTva, totalHt, totalTva, totalTtc: sommeMontants([totalHt, totalTva]) };
 });
 // Le fallback ne sert qu'aux documents historiques, qui n'ont volontairement pas été réécrits.
 export const ventilationFacture = (facture: { lignes: LigneTaxable[]; ventilationTva?: { tauxTva: unknown; totalHt: unknown; totalTva: unknown; totalTtc: unknown }[] }): VentilationTva[] =>

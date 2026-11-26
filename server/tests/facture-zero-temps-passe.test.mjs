@@ -46,11 +46,20 @@
 // lot Z, « Tests », « À adapter, montants ») : les heures saisies par le technicien se saisissent au quart d'heure, et les saisies
 // d'avant (0,20 h, 2,10 h, 1,60 h, 0,60 h) sont refusées. Elles deviennent 0,25 h, 1,75 h et 1,25 h. Avec un pas de 15 minutes, des
 // saisies au quart d'heure tombent toujours sur le pas : l'arrondi au pas au-delà du minimum n'y joue plus. Les trois scénarios qui
-// l'éprouvent (nouvelle facture, suite, minimum réappliqué) figent donc un pas de 45 minutes sur leur devis, le seul des pas admis
-// (15, 30, 45 ou 60 minutes) qui, au-delà du minimum de 15 minutes et à 0,01 € l'heure, tombe sur un demi-centime (2,5 h → 0,025 €),
-// si bien que l'arrondi commercial reste départagé de l'arrondi au pair et de la troncature. Chaque scénario garde ce qu'il éprouve :
-// facture à 0,00 € au minimum (0,25 h, le minimum atteint) ; nouvelle facture arrondie au pas, au-delà du minimum, au prix, au
-// minimum et au pas figés ; heures de la suite comptées ; minimum figé réappliqué sur la seconde facture, au pas et à la TVA figés.
+// l'éprouvent (nouvelle facture, suite, minimum réappliqué) figent donc un pas de 45 minutes sur leur devis, le seul des pas où
+// l'arrondi au pas joue encore (30, 45 ou 60 minutes) qui, au-delà du minimum de 15 minutes et à 0,01 € l'heure, tombe sur un
+// demi-centime (2,5 h → 0,025 €), si bien que l'arrondi commercial reste départagé de l'arrondi au pair et de la troncature (le pas
+// de 15 minutes en donne aussi, 0,5 h → 0,005 €, mais l'arrondi au pas n'y joue plus : #676, N2 de l'audit des montants de #675).
+// Chaque scénario garde ce qu'il éprouve : facture à 0,00 € au minimum (0,25 h, le minimum atteint) ; nouvelle facture arrondie au
+// pas, au-delà du minimum, au prix, au minimum et au pas figés ; heures de la suite comptées ; minimum figé réappliqué sur la seconde
+// facture, au pas et à la TVA figés.
+//
+// Relèvement au minimum (#676, N1 de l'audit des montants de #675 ; cadrage du lot AF, § 2, N6 de son contrôle de mode 1) : depuis le
+// lot Z, la facture à 0,00 € saisit 0,25 h, le minimum exact, et n'éprouve plus le relèvement d'une saisie inférieure au minimum. Un
+// cas dédié le rétablit sans toucher H_ZERO, qui sert aux autres scénarios : 0 h saisie avec motif, sur une nouvelle intervention,
+// facturée au minimum de 15 minutes (0,25 h, 0,00 €). Il vérifie la quantité facturée, et non le seul montant (à 0,01 € l'heure, 0 et
+// 15 minutes donnent tous deux 0,00 €) : le mutant T4 (minimum non appliqué sous le seuil, 0 h facturée) est tué par ce fichier aussi,
+// et plus seulement par le bloc « Facture au temps passé » d'api.test.mjs.
 //
 // Comme les fichiers récents (taux-horaire-et-cloture.test.mjs), ce fichier crée sur le serveur de TEST_DATABASE_URL une base
 // jetable qui n'appartient qu'à lui (« test » comme mot, suffixe tiré au hasard), la migre (`prisma migrate deploy`), la sert à
@@ -151,6 +160,13 @@ const ATTENDU_NOUVELLE = { quantite: 2.5, ht: 0.03, tva: 0.01, ttc: 0.04, ligneT
 // TTC 0,01 €.
 const H_CENTIME = '1';
 const ATTENDU_CENTIME = { quantite: 1, ht: 0.01, tva: 0, ttc: 0.01 };
+// Relèvement au minimum (#676, N1), devis au pas de 15 min : 0 h saisie avec motif → 0 min, sous le minimum → 15 min facturées =
+// 0,25 h ; 0,25 h × 0,01 € = 0,0025 € → 0,00 € HT, TVA 0,00 €, TTC 0,00 €. Lectures écartées : minimum non appliqué sous le seuil
+// (mutant T4 : 0 min, 0 h facturée ; même montant, 0,00 €, d'où la quantité vérifiée) ; zéro heure qui ne compte pas comme une saisie
+// (facture refusée faute d'heure) ; arrondi au centime supérieur (0,01 € HT, la facture ne serait pas à 0,00 €).
+const H_ZERO_SAISIE = '0';
+const MOTIF_ZERO_HEURE = 'TEST zéro TP : déplacement sans travaux, client absent';
+const ATTENDU_ZERO_SAISIE = { minutes: 15, quantite: 0.25, ht: 0, tva: 0, ttc: 0 };
 // Suite (fixture théorique), devis au pas de 45 min : 0,75 h sur l'intervention, 1,25 h sur sa suite, 2 h = 120 min, facturées
 // 15 + 3 × 45 = 150 min = 2,5 h.
 const H_SUITE = { intervention: '0.75', suite: '1.25' };
@@ -603,6 +619,81 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(montantsEnBase(await enBase(centime.id)), { totaux: [0.01, 0, 0.01], lignes: [[0, 'PRESTATION', ATTENDU_CENTIME.quantite, 0.01, 20, 0.01, 0.01]], ventilation: [[20, 0.01, 0, 0.01]] });
       await refusTempsPasse(intervention.id, centime.numero, 'facture émise à 0,01 €', ATTENDU_CENTIME.ht);
       await repereVaut('INTERVENTION', intervention.id, true, 'facture émise à 0,01 €');
+    });
+
+    // #676, N1 de l'audit des montants de #675 (cadrage du lot AF, § 2 ; N6 de son contrôle de mode 1) : relèvement au minimum d'une
+    // saisie inférieure au minimum, par un cas dédié (H_ZERO, le minimum exact, n'est pas modifié). Cas réel par l'API : 0 h saisie par
+    // le technicien affecté, avec son motif obligatoire, sur une nouvelle intervention au pas et au minimum de 15 min figés. Lectures
+    // écartées : minimum non appliqué sous le seuil (mutant T4 : 0 min et 0 h facturées, au même montant, 0,00 €) ; zéro heure qui ne
+    // compte pas comme une saisie (refus « Aucune heure n'est saisie… ») ; arrondi au centime supérieur (0,01 € HT).
+    test('0 h saisie avec motif sur une nouvelle intervention (pas et minimum de 15 min figés) : 15 min facturées, soit 0,25 h, à 0,00 € ; quantité relue dans l’aperçu, la facture créée par l’assistante technique, sa ligne en base et son journal ; zéro heure sans motif refusée sans écriture', async () => {
+      // Témoin en décimal exact : 0 h = 0 min → minimum de 15 min → 0,25 h × 0,01 € = 0,0025 € → 0,00 €.
+      const attendu = factureTempsPasse([H_ZERO_SAISIE]);
+      assert.deepEqual([attendu.centiemes, attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [0n, 15n, 250n, 0n, 0n, 0n, 0n]);
+      assert.deepEqual([Number(attendu.minutes), Number(attendu.milliemes) / 1000, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)], [ATTENDU_ZERO_SAISIE.minutes, ATTENDU_ZERO_SAISIE.quantite, ATTENDU_ZERO_SAISIE.ht, ATTENDU_ZERO_SAISIE.tva, ATTENDU_ZERO_SAISIE.ttc]);
+      // Lecture écartée T4 (minimum non appliqué sous le seuil) : 0 min, 0 h facturée, distincte de l'attendu par la quantité ; son
+      // montant, 0,00 €, ne la distingue pas (d'où la quantité vérifiée partout ci-dessous).
+      const t4 = { minutes: 0n, milliemes: exact.milliemesHeure(0n) };
+      assert.deepEqual([t4.milliemes, exact.arrondi(t4.milliemes * exact.unites('0.01', 2))], [0n, 0n]);
+      assert.notEqual(t4.minutes, attendu.minutes, 'lecture écartée « minimum non appliqué sous le seuil » : minutes');
+      assert.notEqual(t4.milliemes, attendu.milliemes, 'lecture écartée « minimum non appliqué sous le seuil » : quantité');
+      assert.equal(exact.arrondi(t4.milliemes * 1n), attendu.ht, 'le montant seul ne départage pas T4');
+      // Lecture écartée : arrondi au centime supérieur (0,01 €).
+      assert.notEqual(exact.superieur(attendu.milliemes * 1n), attendu.ht, 'lecture écartée « arrondi au supérieur »');
+
+      const { devis, intervention } = await devisConverti(mainOeuvreCentime, '0 h avec motif');
+      await affecter(intervention.id);
+      // Zéro heure sans motif : refusée, au message exact, sans écriture.
+      await refuse(() => appeler('post', `/interventions/${intervention.id}/couts/heures`, { date: jour().fr, nbrHeures: 0 }, technicien.auth), 400, 'Un motif de 3 à 500 caractères est obligatoire pour zéro heure.', 'zéro heure sans motif');
+      // Zéro heure avec motif : admise, enregistrée à 0 h.
+      await ok(appeler('post', `/interventions/${intervention.id}/couts/heures`, { date: jour().fr, nbrHeures: Number(H_ZERO_SAISIE), motif: MOTIF_ZERO_HEURE }, technicien.auth), 201);
+      const saisies = await prisma.coutInterventionHeure.findMany({ where: { interventionId: intervention.id }, select: { nbrHeures: true, archivedAt: true } });
+      assert.deepEqual(saisies.map((h) => [h.nbrHeures.toString(), h.archivedAt]), [['0', null]], 'une seule saisie, à 0 h, non archivée');
+      await terminer(intervention.id);
+
+      // Aperçu : 0 h saisie, 0 min, minimum figé de 15 min atteint par relèvement → 15 min facturées, 0,25 h, 0,00 €.
+      const lu = await ok(apercu(intervention.id, par('AT')));
+      assert.deepEqual(await ok(apercu(intervention.id, par('AD'))), lu, 'même aperçu pour l’administration');
+      assert.deepEqual([lu.heures.saisies, lu.heures.minutesSaisies, lu.heures.minimumFige, lu.heures.plancherMinutes, lu.heures.pasMinutes, lu.heures.minutesFacturees, lu.heures.facturees],
+        [0, 0, true, PLANCHER, PAS, ATTENDU_ZERO_SAISIE.minutes, ATTENDU_ZERO_SAISIE.quantite], 'heures de l’aperçu : 15 min facturées pour 0 h saisie');
+      assert.deepEqual([lu.totalHt, lu.totalTva, lu.totalTtc], [ATTENDU_ZERO_SAISIE.ht, ATTENDU_ZERO_SAISIE.tva, ATTENDU_ZERO_SAISIE.ttc]);
+
+      // Facture créée par l'assistante technique : ligne au temps passé à 0,25 h, relue en base, et journal du calcul.
+      const facture = await ok(creer(intervention.id, par('AT'), lu.totalHt), 201);
+      assert.deepEqual([facture.statut, facture.tempsPasse, facture.creeParType, ...nombres([facture.totalHt, facture.totalTva, facture.totalTtc])], ['BROUILLON', true, ROLE_AT, 0, 0, 0]);
+      const relue = await enBase(facture.id);
+      assert.deepEqual(montantsEnBase(relue), {
+        totaux: [ATTENDU_ZERO_SAISIE.ht, ATTENDU_ZERO_SAISIE.tva, ATTENDU_ZERO_SAISIE.ttc],
+        lignes: [[0, 'PRESTATION', ATTENDU_ZERO_SAISIE.quantite, 0.01, 20, 0, 0]],
+        ventilation: [[20, 0, 0, 0]],
+      });
+      assert.equal(relue.lignes[0].quantite.toString(), '0.25', 'quantité facturée exacte en base : 0,25 h');
+      assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 0 h saisies sur l’intervention et 0 suite facturable, 0,25 h facturées (minimum 15 min, puis tranches de 15 min) ; devis ${devis.numero} v${devis.version}`]]);
+    });
+
+    // Audit des montants du lot AF, C1 : plafond exact de la facture au temps passé (PLAFOND_MONTANT, factures/tempsPasse.ts), comparé au
+    // TTC que rend désormais totauxPiece. Le refus au-delà est éprouvé par api.test.mjs (« plafonds »), pas le plafond exact. Main-d'œuvre
+    // à 0 % au prix de 9 999 999 999,99 € l'heure (borne haute du catalogue) ; devis d'une ligne de 0,25 h (2 500 000 000,00 € HT, sous
+    // le plafond du devis) ; 1 h saisie, au-delà du minimum de 15 min et sur le pas de 15 min : 1 h facturée, 9 999 999 999,99 € HT et
+    // TTC, le plafond exact, admis (aperçu, puis brouillon relu en base). Lecture écartée : plafond au sens large (« ≥ »), qui le
+    // refuserait (409, « Montant de facture hors des limites acceptées. »), la ligne, au même montant, passant son propre plafond.
+    test('plafond exact de la facture au temps passé admis : 1 h à 9 999 999 999,99 € l’heure, à 0 % : aperçu et brouillon à 9 999 999 999,99 € TTC', async () => {
+      const prix = '9999999999.99';
+      const attendu = factureTempsPasse(['1'], { prix, taux: 0 });
+      assert.deepEqual([attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [60n, 1000n, 999999999999n, 0n, 999999999999n, 999999999999n], 'témoin : 1 h facturée au plafond exact');
+      const mo = await ok(appeler('post', '/catalogue/prestations', {
+        estMainOeuvre: true, reference: `TEST-ZERO-TP-PLAFOND-${suffixe()}`, nom: `TEST zéro TP plafond ${suffixe()}`, tauxTva: '0',
+        prixVenteHt: prix, prixJourHorsContratHt: '0', prixHeureSousContratHt: '0', prixJourSousContratHt: '0', heuresParJour: '7',
+      }), 201);
+      const { intervention } = await chaine(mo, 'plafond exact', ['1']);
+      const lu = await ok(apercu(intervention.id, par('AD')));
+      assert.deepEqual([lu.heures.minutesFacturees, lu.heures.facturees, lu.totalHt, lu.totalTva, lu.totalTtc], [60, 1, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)], 'aperçu au plafond exact');
+      const facture = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
+      assert.deepEqual(montantsEnBase(await enBase(facture.id)), {
+        totaux: [euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)],
+        lignes: [[0, 'PRESTATION', 1, Number(prix), 0, euros(attendu.ht), euros(attendu.ligneTtc)]],
+        ventilation: [[0, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]],
+      }, 'brouillon au plafond exact, relu en base');
     });
 
     // Critère « créée malgré une facture émise à 0,00 € sur une suite ». Cas THÉORIQUE (règle 4), construit par une fixture écrite en

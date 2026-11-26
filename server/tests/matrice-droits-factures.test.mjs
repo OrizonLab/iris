@@ -174,15 +174,17 @@ const MONTANTS = {
   // Facture au temps passé : 2,75 h saisies, minimum figé de 60 minutes, pas de 45 minutes, prix figé du devis 61,70 :
   // 165 minutes, au-delà du minimum de 105 minutes, trois tranches de 45 commencées, soit 195 minutes, 3,25 h ;
   // 3,25 × 61,70 = 200,525, arrondi à 200,53 (TVA 40,106 arrondie à 40,11 ; TTC 240,64, ligne et ventilation comprises).
-  // Lectures écartées : arrondi au pair, 200,52 ; sans le pas (2,75 h), 169,68 ; au pas le plus proche (180 minutes, 3 h),
-  // 185,10 ; minimum ignoré (quatre tranches de 45 dès la première minute, 180 minutes), 185,10 ; prix de la main d'œuvre du
-  // catalogue, changé à 99,99 après la signature : 324,97.
+  // Lectures écartées : arrondi au pair, 200,52 ; sans le pas (2,75 h), 169,68 ; au pas le plus proche, minimum ignoré (180
+  // minutes, 3 h), 185,10 ; au pas le plus proche au-delà du minimum (105 minutes au-delà des 60, 2,33 tranches de 45 ramenées
+  // à 2, soit 150 minutes, 2,5 h), 154,25 (#676, N3 de l'audit des montants de #675) ; minimum ignoré (quatre tranches de 45 dès
+  // la première minute, 180 minutes), 185,10 ; prix de la main d'œuvre du catalogue, changé à 99,99 après la signature : 324,97.
   // Lot Z (réponse de Nelson du 23-11-2026, « les heures sur une intervention Passe au quart d'heure ») : les heures d'une
   // intervention se saisissent au quart d'heure ; 1,1 h (au pas de 15 minutes) y est refusé. Avec un pas de 15 minutes, des
   // saisies au quart d'heure tombent toujours sur le pas : l'arrondi au pas au-delà du minimum n'y joue plus. Le devis porte
-  // donc un pas de 45 minutes, le seul des pas admis (15, 30, 45 ou 60 minutes) qui, à 61,70 € l'heure, donne un demi-centime
-  // (un pas de 30 ou de 60 minutes donne des demi-heures, au centime exact), si bien que l'arrondi au pair reste départagé ;
-  // 2,75 h départage en plus le minimum de 60 minutes, que 1,1 h ne départageait pas.
+  // donc un pas de 45 minutes, le seul des pas où l'arrondi au pas joue encore (30, 45 ou 60 minutes) qui, à 61,70 € l'heure,
+  // donne un demi-centime (un pas de 30 ou de 60 minutes donne des demi-heures, au centime exact ; le pas de 15 minutes en donne
+  // aussi, 1,25 h × 61,70 € = 77,125 €, mais l'arrondi au pas n'y joue plus : #676, N2), si bien que l'arrondi au pair reste
+  // départagé ; 2,75 h départage en plus le minimum de 60 minutes, que 1,1 h ne départageait pas.
   // Réglages de la société changés après la signature (pas de 60 minutes, minimum de 120 minutes) : la facture garde le
   // pas et le minimum figés sur le devis. Lectures écartées : pas du jour, 60 + 2 × 60 minutes, 3 h, 185,10 ; minimum du
   // jour, 120 + 45 minutes, 2,75 h, 169,68.
@@ -803,10 +805,14 @@ if (!TEST_DATABASE_URL) {
       const tvaTp = exact.tva(htTp, 20);
       const ft = MONTANTS.factureTempsPasse;
       assert.deepEqual([ft.lignes[0].quantite, ft.totalHt, ft.totalTva, ft.totalTtc, ft.lignes[0].totalTtc, ft.ventilation[0]], [minutes / 60, exact.euros(htTp), exact.euros(tvaTp), exact.euros(htTp + tvaTp), exact.euros(exact.ttcLigne(htTp, 20)), [20, exact.euros(htTp), exact.euros(tvaTp), exact.euros(htTp + tvaTp)]], 'facture au temps passé');
+      // #676, N3 : au pas le plus proche au-delà du minimum, 60 + 2 × 45 = 150 minutes, 2,5 h × 61,70 = 154,25.
+      const minutesAuPlusProcheAuDela = tp.minimumMinutes + Math.round(Math.max(0, minutesSaisies - tp.minimumMinutes) / tp.pasMinutes) * tp.pasMinutes;
+      assert.deepEqual([minutesAuPlusProcheAuDela, exact.euros(exact.ligneHt(minutesAuPlusProcheAuDela / 60, tp.prixDevis))], [150, 154.25], 'lecture écartée « au pas le plus proche au-delà du minimum »');
       for (const [ecartee, quoi] of [
         [exact.euros(arrondiAuPair(enUnites(minutes / 60, 3) * enUnites(tp.prixDevis, 2) / 100n)), 'arrondi au pair'],
         [exact.euros(exact.ligneHt(tp.heures, tp.prixDevis)), 'sans le pas'],
-        [exact.euros(exact.ligneHt(Math.round(minutesSaisies / tp.pasMinutes) * tp.pasMinutes / 60, tp.prixDevis)), 'au pas le plus proche'],
+        [exact.euros(exact.ligneHt(Math.round(minutesSaisies / tp.pasMinutes) * tp.pasMinutes / 60, tp.prixDevis)), 'au pas le plus proche, minimum ignoré'],
+        [exact.euros(exact.ligneHt(minutesAuPlusProcheAuDela / 60, tp.prixDevis)), 'au pas le plus proche au-delà du minimum'],
         [exact.euros(exact.ligneHt(Math.ceil(minutesSaisies / tp.pasMinutes) * tp.pasMinutes / 60, tp.prixDevis)), 'minimum ignoré'],
         [exact.euros(exact.ligneHt(minutes / 60, tp.prixApresSignature)), 'prix du catalogue après la signature'],
         [exact.euros(exact.ligneHt((tp.minimumMinutes + Math.ceil(Math.max(0, minutesSaisies - tp.minimumMinutes) / tp.pasApresSignature) * tp.pasApresSignature) / 60, tp.prixDevis)), 'pas du jour après la signature'],

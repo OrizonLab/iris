@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { centimes } from '../../commun/montants';
+import { sommeMontants } from '../../commun/montants';
 import { ventilationFacture } from '../factures/metier';
 
 // Paramétrage comptable : aucun compte n'est préchargé. L'export devra refuser toute règle absente.
@@ -19,16 +19,23 @@ export class ImputationIncompletError extends Error {}
 
 type PieceComptable = { totalTtc: unknown; lignes: { nature: string; totalHt: unknown; tauxTva: unknown }[]; ventilationTva?: { tauxTva: unknown; totalHt: unknown; totalTva: unknown; totalTtc: unknown }[] };
 
-// Construire les écritures avant la numérotation, puis les écrire dans la même transaction.
-// Un avoir reprend les comptes ET le journal de l'origine, jamais les règles actuelles.
-export async function ecrituresPourPiece(tx: Prisma.TransactionClient, piece: PieceComptable, origineId?: string) {
+// Montants des écritures d'une pièce, par clé comptable : client au TTC, ventes par nature (somme exacte des HT de lignes,
+// #684 : la base compare ces écritures à des sommes exactes depuis le lot AC), TVA par taux depuis la ventilation figée.
+export function montantsDesEcritures(piece: PieceComptable) {
   const montants = new Map<string, { debit: number; credit: number; tauxTva?: number }>();
   montants.set('CLIENT', { debit: Number(piece.totalTtc), credit: 0 });
   for (const nature of ['PRESTATION', 'ARTICLE']) {
-    const ht = centimes(piece.lignes.filter(l => l.nature === nature).reduce((s, l) => s + Number(l.totalHt), 0));
+    const ht = sommeMontants(piece.lignes.filter(l => l.nature === nature).map(l => l.totalHt));
     if (ht) montants.set(`VENTE_${nature}`, { debit: 0, credit: ht });
   }
   for (const v of ventilationFacture(piece)) if (v.totalTva) montants.set(`TVA:${v.tauxTva}`, { debit: 0, credit: v.totalTva, tauxTva: v.tauxTva });
+  return montants;
+}
+
+// Construire les écritures avant la numérotation, puis les écrire dans la même transaction.
+// Un avoir reprend les comptes ET le journal de l'origine, jamais les règles actuelles.
+export async function ecrituresPourPiece(tx: Prisma.TransactionClient, piece: PieceComptable, origineId?: string) {
+  const montants = montantsDesEcritures(piece);
   const cles = [...montants.keys()];
   const origine = origineId ? await tx.ecritureFacture.findMany({ where: { factureId: origineId }, orderBy: { ordre: 'asc' } }) : [];
   if (origineId && !origine.length) throw new ImputationIncompletError('La facture d’origine ne possède pas d’imputation comptable figée.');

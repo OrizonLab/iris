@@ -9,7 +9,7 @@ import {
 } from '../../commun/dates';
 import {
   decimalToNumber, PLAFOND_MONTANT, FactureInvalideError, tauxUtilises, baseHtDuTaux, tvaDuTaux, arrondiCommercialLigneHt,
-  centimesTtcLigne, centimes, sommeExacte, differenceExacte,
+  centimesTtcLigne, sommeExacte, differenceExacte, totauxPiece,
 } from '../../commun/montants';
 import { cleEnvoiValide, nombreDecimalNonNegatif } from '../../commun/validation';
 import { estTauxTvaFrancais, REFUS_TAUX_TVA } from '../../commun/tva';
@@ -240,11 +240,9 @@ export function enregistrerRoutesFactures(app: Express): void {
         if (totalTtc > PLAFOND_MONTANT) throw new FactureInvalideError('Montant de ligne hors des limites acceptées.');
         return { ordre, designation, nature, quantite, prixUnitaireHt, tauxTva, totalHt, totalTtc };
       });
-      const totalHt = centimes(lignes.reduce((s: number, ligne: { totalHt: number }) => s + ligne.totalHt, 0));
-      // La TVA légale s'arrondit sur la base HT cumulée de chaque taux, jamais ligne par ligne.
+      // La TVA légale s'arrondit sur la base HT cumulée de chaque taux, jamais ligne par ligne ; les sommes sont exactes (#684).
       const ventilationTva = ventilationTvaDerivee(lignes);
-      const totalTva = centimes(ventilationTva.reduce((somme, ventilation) => somme + ventilation.totalTva, 0));
-      const totalTtc = centimes(totalHt + totalTva);
+      const { totalHt, totalTva, totalTtc } = totauxPiece(lignes);
       if (totalTtc > PLAFOND_MONTANT) throw new FactureInvalideError('Montant de facture hors des limites acceptées.');
       const facture = await transactionVerifiee(async (tx) => {
         // Sous verrou partagé : un changement de client de l'affaire en cours (cf. PATCH
