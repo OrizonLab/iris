@@ -312,5 +312,32 @@ if (!TEST_DATABASE_URL) {
         assert.equal((await db.query('SELECT count(*)::int AS n FROM "Facture" WHERE "id" = $1', [idAvant])).rows[0].n, 0, `${c.nom} : la pièce refusée n’existe pas`);
       }
     });
+
+    // Audit des montants du lot AF, C1 : plafond de la facture saisie ligne par ligne (PLAFOND_MONTANT, 9 999 999 999,99 € TTC,
+    // factures/routes.ts), comparé au TTC que rend désormais totauxPiece. Le lot ne le change pas, mais aucun test ne l'éprouvait (seul
+    // le plafond d'une ligne l'est, api.test.mjs). Témoin en centimes, à 0 % (TTC = HT), chaque ligne sous le plafond d'une ligne :
+    //  - 5 000 000 000,00 € + 4 999 999 999,99 € = 9 999 999 999,99 €, le plafond exact : admis en brouillon, relu en base ; lecture
+    //    écartée : plafond au sens large (« ≥ »), qui le refuserait ;
+    //  - 5 000 000 000,00 € + 5 000 000 000,00 € = 10 000 000 000,00 € : refusé (400) au message exact, sans rien écrire ; lecture
+    //    écartée : plafond retiré, le montant n'étant plus refusé qu'en 500 par la colonne Decimal(12, 2).
+    test('plafond de la facture saisie ligne par ligne, au centime près : 9 999 999 999,99 € TTC admis en brouillon, 10 000 000 000,00 € refusé (400, message exact, rien d’écrit)', async () => {
+      const PLAFOND = 999999999999n;
+      const corps = (lignes) => ({
+        clientId: client.id, dateEmission: jour(), dateEcheance: jour(), origine: 'HORS_AFFAIRE', motifHorsAffaire: `TEST sommes exactes, plafond ${suffixe()}`,
+        lignes: lignes.map(([designation, centimes]) => ({ designation, nature: 'PRESTATION', quantite: 1, prixUnitaireHt: enNumeric(centimes), tauxTva: 0 })),
+      });
+      const admises = [['TEST sommes exactes, plafond, première part', 500000000000n], ['TEST sommes exactes, plafond, seconde part', 499999999999n]];
+      const refusees = [['TEST sommes exactes, plafond, première part', 500000000000n], ['TEST sommes exactes, plafond, part de trop', 500000000000n]];
+      const total = (lignes) => lignes.reduce((somme, [, centimes]) => somme + centimes, 0n);
+      assert.deepEqual([total(admises), total(refusees)], [PLAFOND, PLAFOND + 1n], 'témoin : le plafond exact, puis un centime de plus');
+      const admise = await ok(appeler('post', '/factures', corps(admises)), 201);
+      assert.deepEqual([admise.statut, lu(admise.totalHt, 'HT'), lu(admise.totalTva, 'TVA'), lu(admise.totalTtc, 'TTC')], ['BROUILLON', PLAFOND, 0n, PLAFOND], 'plafond exact admis');
+      const [relue] = (await db.query(`SELECT "totalHt"::text AS ht, "totalTva"::text AS tva, "totalTtc"::text AS ttc FROM "Facture" WHERE "id" = $1`, [admise.id])).rows;
+      assert.deepEqual(relue, { ht: enNumeric(PLAFOND), tva: '0.00', ttc: enNumeric(PLAFOND) }, 'plafond exact relu en base');
+      const avant = await empreinte();
+      const refus = await appeler('post', '/factures', corps(refusees));
+      assert.deepEqual([refus.status, refus.body], [400, { error: 'Montant de facture hors des limites acceptées.' }], 'un centime au-delà du plafond : refusé au message exact');
+      assert.deepEqual(tablesChangees(avant, await empreinte()), [], 'refus : rien n’est écrit');
+    });
   });
 }

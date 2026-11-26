@@ -671,6 +671,31 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(relue.journal.map((j) => [j.action, j.detail]), [['CREATION_BROUILLON', `Origine INTERVENTION, au temps passé : 0 h saisies sur l’intervention et 0 suite facturable, 0,25 h facturées (minimum 15 min, puis tranches de 15 min) ; devis ${devis.numero} v${devis.version}`]]);
     });
 
+    // Audit des montants du lot AF, C1 : plafond exact de la facture au temps passé (PLAFOND_MONTANT, factures/tempsPasse.ts), comparé au
+    // TTC que rend désormais totauxPiece. Le refus au-delà est éprouvé par api.test.mjs (« plafonds »), pas le plafond exact. Main-d'œuvre
+    // à 0 % au prix de 9 999 999 999,99 € l'heure (borne haute du catalogue) ; devis d'une ligne de 0,25 h (2 500 000 000,00 € HT, sous
+    // le plafond du devis) ; 1 h saisie, au-delà du minimum de 15 min et sur le pas de 15 min : 1 h facturée, 9 999 999 999,99 € HT et
+    // TTC, le plafond exact, admis (aperçu, puis brouillon relu en base). Lecture écartée : plafond au sens large (« ≥ »), qui le
+    // refuserait (409, « Montant de facture hors des limites acceptées. »), la ligne, au même montant, passant son propre plafond.
+    test('plafond exact de la facture au temps passé admis : 1 h à 9 999 999 999,99 € l’heure, à 0 % : aperçu et brouillon à 9 999 999 999,99 € TTC', async () => {
+      const prix = '9999999999.99';
+      const attendu = factureTempsPasse(['1'], { prix, taux: 0 });
+      assert.deepEqual([attendu.minutes, attendu.milliemes, attendu.ht, attendu.tva, attendu.ttc, attendu.ligneTtc], [60n, 1000n, 999999999999n, 0n, 999999999999n, 999999999999n], 'témoin : 1 h facturée au plafond exact');
+      const mo = await ok(appeler('post', '/catalogue/prestations', {
+        estMainOeuvre: true, reference: `TEST-ZERO-TP-PLAFOND-${suffixe()}`, nom: `TEST zéro TP plafond ${suffixe()}`, tauxTva: '0',
+        prixVenteHt: prix, prixJourHorsContratHt: '0', prixHeureSousContratHt: '0', prixJourSousContratHt: '0', heuresParJour: '7',
+      }), 201);
+      const { intervention } = await chaine(mo, 'plafond exact', ['1']);
+      const lu = await ok(apercu(intervention.id, par('AD')));
+      assert.deepEqual([lu.heures.minutesFacturees, lu.heures.facturees, lu.totalHt, lu.totalTva, lu.totalTtc], [60, 1, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)], 'aperçu au plafond exact');
+      const facture = await ok(creer(intervention.id, par('AD'), lu.totalHt), 201);
+      assert.deepEqual(montantsEnBase(await enBase(facture.id)), {
+        totaux: [euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)],
+        lignes: [[0, 'PRESTATION', 1, Number(prix), 0, euros(attendu.ht), euros(attendu.ligneTtc)]],
+        ventilation: [[0, euros(attendu.ht), euros(attendu.tva), euros(attendu.ttc)]],
+      }, 'brouillon au plafond exact, relu en base');
+    });
+
     // Critère « créée malgré une facture émise à 0,00 € sur une suite ». Cas THÉORIQUE (règle 4), construit par une fixture écrite en
     // base : une facture à 0,00 € sur une suite ne s'obtient pas par l'API (la saisie ligne par ligne y est refusée, une suite ne
     // reçoit pas de facture au temps passé). Le brouillon est écrit comme le ferait POST /api/factures (lignes, ventilation, journal,
