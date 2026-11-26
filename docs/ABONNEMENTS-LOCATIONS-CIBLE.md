@@ -281,4 +281,4 @@ Tout code avant la réponse aux questions bloquantes et le placement par Nelson 
     - le principe 7 de la section 5 (client et date de début figés, comme pour un contrat de maintenance) ;
     - les statuts minimaux de K-1a (section 9), dont « annulé seulement sans facture vivante » ;
     - la section 8.3 (paramètres dans `Parametres` sans attendre le socle P1) ;
-    - ce que la section 6 dit valoir « quelle que soit l'option » (table d'échéances, origine de facture nouvelle, lien de la facture vers l'échéance), rattaché à NK-01 : il touche le modèle de données, dont celui de `Facture`, et se confirme avec la réponse de Nelson à NK-01.
+    - ce que la section 6 dit valoir « Quelle que soit l'option » (table d'échéances, origine de facture nouvelle, lien de la facture vers l'échéance), rattaché à NK-01 : il touche le modèle de données, dont celui de `Facture`, et se confirme avec la réponse de Nelson à NK-01.
