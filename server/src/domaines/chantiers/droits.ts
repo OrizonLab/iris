@@ -105,6 +105,10 @@ export const REFUS_AFFAIRE_ANNULEE_ENCAISSEMENT = 'Cette affaire est annulée : 
 // Même règle que les saisies après clôture (cf. assertChantierWritable).
 export const REFUS_CHANTIER_CLOTURE_FICHE = 'Ce chantier est clôturé : seul un administrateur peut encore le modifier.';
 export const REFUS_CHANTIER_CLOTURE_COMMERCIAL = 'Ce chantier est clôturé : seul un administrateur peut encore en changer le commercial.';
+// Clôture demandée, hors administration, d'un chantier déjà clôturé (#451, N4 de l'audit des montants de #449) : le message
+// de réouverture était trompeur, puisque la demande ne rouvre rien. Même statut (403) que les autres refus d'un chantier
+// clôturé hors administration, qui reçoit 200 pour la même requête (choix par défaut, à confirmer).
+export const REFUS_CHANTIER_DEJA_CLOTURE = 'Ce chantier est déjà clôturé.';
 
 // Refus d'une écriture sur un chantier, avec son statut HTTP, levé dans une transaction et rendu tel quel.
 export class RefusChantier extends Error {

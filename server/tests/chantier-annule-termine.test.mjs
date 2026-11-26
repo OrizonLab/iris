@@ -13,6 +13,10 @@
 // affaire annulée pendant l'attente de sa clôture ne change plus (409). Depuis le correctif « saisie des montants refusée
 // plutôt que faussée » (#289, cadrage v3, point 3, choix par défaut, à confirmer), la fiche refuse à l'administration tout
 // statut, EN_COURS et TERMINE compris (400, renvoi à la clôture et à la réouverture par PATCH /api/chantiers/:id/statut).
+// Lot AG-a, suites de #451 (cadrage v2 du 26-11-2026, périmètres 1 et 2) : une affaire annulée et encaissée est refusée par
+// la base (contrainte `Chantier_annule_non_encaisse`, N5 de l'audit des montants de #449) ; hors administration, la
+// clôture d'un chantier déjà clôturé répond 403 « Ce chantier est déjà clôturé. » (N4 du même audit ; choix par défaut, à
+// confirmer), et non plus le message de réouverture, qui reste celui d'une réouverture (#475).
 //
 // Ces règles touchent un montant (cadrage, « Ordre ») : le CA et la marge validés d'un commercial exigent un chantier
 // terminé et encaissé (commissions/metier.ts) ; la fiche (dates, barème réduit, budgets) et le commercial d'un chantier
@@ -53,6 +57,12 @@ const REFUS = {
   commercialVide: 'Un chantier doit toujours avoir un commercial rattaché.',
   commercialIntrouvable: 'Commercial introuvable.',
   heuresInvalides: 'Les heures vendues doivent être un nombre positif ou nul, d’au plus 8 chiffres avant la virgule et 2 après.',
+  // Lot AG-a (#451, cadrage v2 du 26-11-2026, périmètre 2 ; N4 de l'audit des montants de #449 ; choix par défaut, à
+  // confirmer) : clôture demandée, hors administration, d'un chantier déjà clôturé. La réouverture garde son message (#475).
+  dejaCloture: 'Ce chantier est déjà clôturé.',
+  reouverture: 'Seul un administrateur peut réouvrir un chantier clôturé.',
+  technicienCloture: 'Un compte technicien n’est pas autorisé à clôturer une affaire : la clôture revient à un compte Responsable de sa branche, à la direction ou à l’administration.',
+  assistanteStatut: 'Un compte assistante technique n’est pas autorisé à clôturer ni à rouvrir une affaire.',
 };
 // Cadrage, point 5 : « Le refus vaut pour tout titulaire hors administration : conducteur (CT), responsable (RESP),
 // directeur commercial, assistante commerciale et comptable titulaires (DC, AC, CPT). »
@@ -150,6 +160,17 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual(tablesChangees(avant, apres), [], `${quoi} : rien ne doit être écrit`);
       if (chantierId) assert.equal((await journal(chantierId)).length, journalAvant, `${quoi} : aucune entrée de journal`);
       return res;
+    };
+    // Écriture directe refusée par la garde en base du lot AG-a (contrainte `Chantier_annule_non_encaisse`, 23514), citée
+    // par Prisma ; rien n'est écrit dans toute la base.
+    const refuseeParLaBase = async (ecriture, quoi) => {
+      const avant = await empreinte();
+      await assert.rejects(ecriture, (erreur) => {
+        assert.match(String(erreur.message), /code: \\?"23514\\?"/, `${quoi} : ${erreur.message}`);
+        assert.match(String(erreur.message), /violates check constraint \\?"Chantier_annule_non_encaisse\\?"/, `${quoi} : ${erreur.message}`);
+        return true;
+      }, quoi);
+      assert.deepEqual(tablesChangees(avant, await empreinte()), [], `${quoi} : rien ne doit être écrit`);
     };
 
     // --- Données ---
@@ -281,28 +302,32 @@ if (!TEST_DATABASE_URL) {
     // Cadrage, point 1 : « Réponse 409 : « Cette affaire est annulée : elle ne peut pas être encaissée. » Le refus vaut
     // quel que soit le corps, l'enregistrement à l'identique compris » ; critère : « 409, que ce soit pour encaisser,
     // désencaisser ou réenregistrer à l'identique ; aucune écriture ni entrée de journal ». Écarte un refus limité à
-    // `encaisse=true` (désencaisser ou réenregistrer à l'identique resteraient 200) et un refus par un seul compte
-    // d'administration.
-    test('encaissement d’une affaire annulée : 409 pour encaisser, désencaisser ou réenregistrer à l’identique, par chaque compte de l’administration, sans écriture ni journal', async () => {
+    // `encaisse=true` (réenregistrer non encaissée à l'identique resterait 200) et un refus par un seul compte
+    // d'administration. Depuis le lot AG-a (#451, cadrage v2 du 26-11-2026, périmètre 1 ; N5 de l'audit des montants de
+    // #449), une affaire annulée et encaissée n'existe plus en base : la contrainte `Chantier_annule_non_encaisse` refuse
+    // de la poser, et le 409 se prouve sur l'affaire annulée non encaissée, par le devis comme posée en base.
+    test('encaissement d’une affaire annulée : 409 pour encaisser ou réenregistrer à l’identique, quel que soit le corps, par chaque compte de l’administration, sans écriture ni journal ; une affaire annulée et encaissée est refusée par la base', async () => {
       // Affaire annulée par l'annulation de son devis, comme dans l'application.
       const { devis, chantierId } = await chantierConverti('encaissement annulée');
       await ok(annulerDevis(devis.id));
       assert.equal((await ligne(chantierId)).statut, 'ANNULE');
-      // Affaire annulée et encaissée, posée en base : aucun chemin de l'API n'y mène plus (points 1, 2 et 2 bis), mais
-      // la désencaisser ou la réenregistrer reste refusé, quel que soit le corps.
-      const encaissee = await creerAnnule({ encaisse: true, dateEncaissement: new Date('2026-10-10T09:00:00.000Z') });
+      // Affaire annulée posée en base, non encaissée : aucun chemin de l'API ne mène plus à une affaire annulée et
+      // encaissée (points 1, 2 et 2 bis), et la base refuse de la poser, au nom de la contrainte (lot AG-a).
+      const posee = await creerAnnule();
+      await refuseeParLaBase(() => creerAnnule({ encaisse: true, dateEncaissement: new Date('2026-10-10T09:00:00.000Z') }), 'affaire annulée et encaissée posée en base');
+      await refuseeParLaBase(() => prisma.chantier.update({ where: { id: posee.id }, data: { encaisse: true, dateEncaissement: new Date('2026-10-10T09:00:00.000Z') } }), 'affaire annulée encaissée en base');
       for (const [compte, auth] of ADMINISTRATION()) {
-        for (const [quoi, corps] of [['encaisser', { encaisse: true }], ['réenregistrer non encaissée à l’identique', { encaisse: false }], ['corps vide', {}], ['encaisse « oui » en texte', { encaisse: 'oui' }]]) {
-          await refuse(() => encaisser(chantierId, corps, auth), 409, REFUS.encaissementAnnulee, `${compte}, affaire annulée, ${quoi}`, chantierId);
-        }
-        for (const [quoi, corps] of [['désencaisser', { encaisse: false }], ['réenregistrer encaissée à l’identique', { encaisse: true }]]) {
-          await refuse(() => encaisser(encaissee.id, corps, auth), 409, REFUS.encaissementAnnulee, `${compte}, affaire annulée et encaissée, ${quoi}`, encaissee.id);
+        for (const id of [chantierId, posee.id]) {
+          const origine = id === chantierId ? 'annulée par son devis' : 'annulée posée en base';
+          for (const [quoi, corps] of [['encaisser', { encaisse: true }], ['réenregistrer non encaissée à l’identique', { encaisse: false }], ['corps vide', {}], ['encaisse « oui » en texte', { encaisse: 'oui' }]]) {
+            await refuse(() => encaisser(id, corps, auth), 409, REFUS.encaissementAnnulee, `${compte}, affaire ${origine}, ${quoi}`, id);
+          }
         }
       }
-      const relue = await ligne(chantierId);
-      assert.deepEqual([relue.encaisse, relue.dateEncaissement], [false, null]);
-      const relueEncaissee = await ligne(encaissee.id);
-      assert.deepEqual([relueEncaissee.encaisse, relueEncaissee.dateEncaissement?.toISOString()], [true, '2026-10-10T09:00:00.000Z']);
+      for (const id of [chantierId, posee.id]) {
+        const relue = await ligne(id);
+        assert.deepEqual([relue.statut, relue.encaisse, relue.dateEncaissement], ['ANNULE', false, null]);
+      }
       // Hors administration, la garde de la route répond d'abord, comme avant (403), titulaire compris ; un chantier
       // inexistant reste 404.
       for (const cle of ['CT', 'RESP', 'DC', 'AC', 'CPT', 'TECH', 'COM']) {
@@ -845,17 +870,136 @@ if (!TEST_DATABASE_URL) {
     });
 
     // Décision « A. Non, admin seule » : un chantier clôturé pendant que son titulaire le clôture aussi ne reçoit plus
-    // rien de lui. Relue sous le verrou, la règle « seul un administrateur rouvre un chantier clôturé » vaut pour tout
-    // chantier qui n'est plus en cours, et pas seulement pour une affaire annulée : sans elle, la clôture du titulaire
+    // rien de lui. Relue sous le verrou, la règle « hors administration, on ne clôture qu'un chantier en cours » vaut pour
+    // tout chantier qui n'est plus en cours, et pas seulement pour une affaire annulée : sans elle, la clôture du titulaire
     // écrirait le chantier terminé, dont sa date de fin, mois du CA validé, quand elle est vide (clôture par la fiche,
     // réservée à l'administration). Écarte une relecture limitée à l'affaire annulée (mutant A9 de l'audit des montants).
-    test('course : chantier clôturé pendant l’attente de la clôture de son titulaire : 403, sans écriture ni date de fin', async () => {
+    // Depuis le lot AG-a (#451, cadrage v2 du 26-11-2026, périmètre 2 ; N4 de l'audit des montants de #449 ; choix par
+    // défaut, à confirmer), le refus sous le verrou dit « Ce chantier est déjà clôturé. », comme avant le verrou, au lieu
+    // du message de réouverture : la demande ne rouvre rien. Statut inchangé (403). Écarte un message changé avant le
+    // verrou seulement.
+    test('course : chantier clôturé pendant l’attente de la clôture de son titulaire : 403 « Ce chantier est déjà clôturé. », sans écriture ni date de fin', async () => {
       const chantier = await creerChantier();
       const course = await sousVerrou(chantier.id, () => changerStatut(chantier.id, { statut: 'TERMINE' }, comptes.CT.auth), (tx) => tx.chantier.update({ where: { id: chantier.id }, data: { statut: 'TERMINE' } }));
-      await courseRefusee(course, 403, 'Seul un administrateur peut réouvrir un chantier clôturé.', 'clôture du titulaire, chantier clôturé pendant l’attente');
+      await courseRefusee(course, 403, REFUS.dejaCloture, 'clôture du titulaire, chantier clôturé pendant l’attente');
       const relu = await ligne(chantier.id);
       assert.deepEqual([relu.statut, relu.dateFin], ['TERMINE', null]);
       assert.equal((await journal(chantier.id)).length, 0);
+    });
+
+    // ------------------------------------------------------------------------------------------------------------------
+    // Lot AG-a (#451, suites ; cadrage v2 du 26-11-2026, périmètre 2) : message du cas « déjà clôturé ». N4 de l'audit des
+    // montants de #449 ; choix par défaut, à confirmer (règle 5) : 403 inchangé, comme les autres refus d'un chantier
+    // clôturé hors administration. Le message de réouverture reste inchangé (#475).
+    // ------------------------------------------------------------------------------------------------------------------
+
+    // Critère : « Un conducteur titulaire (ou un responsable, un directeur adjoint, etc., hors administration) qui reclôt un
+    // chantier terminé lit « Ce chantier est déjà clôturé. » (403), sans rien écrire. » D'abord le parcours réel : le
+    // conducteur clôture son chantier (200), puis renvoie la même demande (liste non relue, double clic). Puis chaque
+    // titulaire hors administration qui clôture (CT, RESP, DC, AC, CPT : la route ne ferme que le commercial, le technicien
+    // et l'assistante technique), et le responsable de la branche d'un technicien titulaire, qui clôture en tiers ; sur un
+    // chantier terminé daté, terminé sans date de fin (une clôture admise la poserait : mois du CA validé) et terminé
+    // encaissé. Écarte l'ancien message, un statut changé (200 qui écrirait la date de fin, ou 409), et un message propre
+    // au seul conducteur ou au seul titulaire.
+    test('reclôture hors administration : le conducteur qui reclôt son chantier, chaque titulaire (CT, RESP, DC, AC, CPT) et le responsable de la branche d’un technicien titulaire reçoivent 403 « Ce chantier est déjà clôturé. », sans rien écrire (empreinte de toute la base, journal)', async () => {
+      const cloture = await creerChantier();
+      await ok(changerStatut(cloture.id, { statut: 'TERMINE' }, comptes.CT.auth));
+      const close = await ligne(cloture.id);
+      assert.equal(close.statut, 'TERMINE');
+      assert.ok(close.dateFin instanceof Date, 'date de fin posée à la première clôture');
+      await refuse(() => changerStatut(cloture.id, { statut: 'TERMINE' }, comptes.CT.auth), 403, REFUS.dejaCloture, 'conducteur titulaire qui reclôt le chantier qu’il vient de clôturer', cloture.id);
+      assert.deepEqual((await ligne(cloture.id)).dateFin, close.dateFin, 'date de fin de la première clôture gardée');
+
+      const technicien = await creerCompte('TECHNICIEN', 'TECH-BRANCHE-AG', { responsableHierarchiqueId: comptes.RESP.id });
+      const cas = [
+        ...TITULAIRES_HORS_ADMINISTRATION.map(([cle]) => [`${cle} titulaire`, comptes[cle].id, () => comptes[cle].auth]),
+        ['RESP, responsable de la branche du technicien titulaire', technicien.id, () => comptes.RESP.auth],
+      ];
+      const etats = [
+        ['terminé daté', TERMINAISON],
+        ['terminé sans date de fin', { statut: 'TERMINE' }],
+        ['terminé et encaissé', { ...TERMINAISON, encaisse: true, dateEncaissement: new Date('2026-10-20T09:00:00.000Z') }],
+      ];
+      for (const [quoi, responsableId, auth] of cas) {
+        for (const [etat, extra] of etats) {
+          const chantier = await creerChantier({ ...extra, responsableId });
+          await refuse(() => changerStatut(chantier.id, { statut: 'TERMINE' }, auth()), 403, REFUS.dejaCloture, `${quoi}, chantier ${etat}`, chantier.id);
+          const relu = await ligne(chantier.id);
+          assert.deepEqual([relu.statut, relu.dateFin?.toISOString() ?? null, relu.encaisse], ['TERMINE', extra.dateFin?.toISOString() ?? null, !!extra.encaisse], `${quoi}, chantier ${etat}`);
+        }
+      }
+    });
+
+    // Cadrage AG-a, périmètre 2 : « l'administration reçoit 200 pour la même requête ». Témoin du refus précédent : écarte un
+    // refus étendu à l'administration (directeur compris, décision de Nelson du 24-10-2026, point 14). La date de fin déjà
+    // posée est gardée (règle de la clôture, inchangée).
+    test('reclôture par l’administration (SA, AD, AD-COM, DIR) : 200, le chantier reste terminé à sa date de fin', async () => {
+      for (const [compte, auth] of ADMINISTRATION()) {
+        const chantier = await creerTermine();
+        const res = await changerStatut(chantier.id, { statut: 'TERMINE' }, auth);
+        assert.equal(res.status, 200, `${compte} : ${JSON.stringify(res.body)}`);
+        const relu = await ligne(chantier.id);
+        assert.deepEqual([relu.statut, relu.dateFin.toISOString()], ['TERMINE', DATE_FIN.toISOString()], compte);
+      }
+    });
+
+    // Cadrage AG-a, périmètre 2 : « Le cas EN_COURS sur un chantier en cours, hors administration, garde le message de
+    // réouverture (inchangé, #475) » ; critère : « Aucun autre message ni statut ne change ». La réouverture d'un chantier
+    // terminé, hors administration, garde aussi le sien. Écarte un nouveau message étendu à toute demande qui ne change pas
+    // le statut, ou à la réouverture.
+    test('hors administration, EN_COURS demandé sur un chantier en cours ou terminé : 403 « Seul un administrateur peut réouvrir un chantier clôturé. », message inchangé, sans rien écrire', async () => {
+      const technicien = await creerCompte('TECHNICIEN', 'TECH-BRANCHE-AG2', { responsableHierarchiqueId: comptes.RESP.id });
+      const cas = [
+        ...TITULAIRES_HORS_ADMINISTRATION.map(([cle]) => [`${cle} titulaire`, comptes[cle].id, () => comptes[cle].auth]),
+        ['RESP, responsable de la branche du technicien titulaire', technicien.id, () => comptes.RESP.auth],
+      ];
+      for (const [quoi, responsableId, auth] of cas) {
+        for (const [etat, extra] of [['en cours', {}], ['terminé', TERMINAISON]]) {
+          const chantier = await creerChantier({ ...extra, responsableId });
+          await refuse(() => changerStatut(chantier.id, { statut: 'EN_COURS' }, auth()), 403, REFUS.reouverture, `${quoi}, chantier ${etat}, EN_COURS`, chantier.id);
+        }
+      }
+    });
+
+    // Critère : « Aucun autre message ni statut ne change » : sur un chantier terminé, la reclôture garde ses refus d'avant le
+    // nouveau message. Hors du périmètre, 404 avant tout refus du statut (le statut d'un chantier que le compte ne voit pas
+    // n'est pas révélé) ; le technicien titulaire, l'assistante technique et le commercial gardent leur 403 ; une affaire
+    // annulée garde son 409 ; un statut invalide, son 400. Écarte un contrôle « déjà clôturé » placé avant le périmètre
+    // ou avant les refus propres au compte.
+    test('reclôture d’un chantier terminé, refus inchangés avant le nouveau message : 404 hors du périmètre, 403 du technicien titulaire, de l’assistante technique et du commercial, 409 de l’affaire annulée, 400 du statut invalide ; rien d’écrit', async () => {
+      const assistante = await creerCompte('ASSISTANTE_TECHNIQUE', 'AT-AG');
+      const termine = await creerTermine();
+      const deTechnicien = await creerTermine({ responsableId: comptes.TECH.id });
+      const deLAssistante = await creerTermine({ responsableId: assistante.id });
+      const annulee = await creerAnnule({ dateFin: DATE_FIN });
+      for (const cle of ['CT2', 'RESP', 'DC', 'AC', 'CPT']) {
+        await refuse(() => changerStatut(termine.id, { statut: 'TERMINE' }, comptes[cle].auth), 404, REFUS.introuvable, `${cle}, hors du périmètre`, termine.id);
+      }
+      await refuse(() => changerStatut('00000000-0000-0000-0000-000000000000', { statut: 'TERMINE' }, comptes.CT.auth), 404, REFUS.introuvable, 'chantier inexistant');
+      await refuse(() => changerStatut(deTechnicien.id, { statut: 'TERMINE' }, comptes.TECH.auth), 403, REFUS.technicienCloture, 'technicien titulaire', deTechnicien.id);
+      await refuse(() => changerStatut(deLAssistante.id, { statut: 'TERMINE' }, assistante.auth), 403, REFUS.assistanteStatut, 'assistante technique titulaire', deLAssistante.id);
+      await refuse(() => changerStatut(termine.id, { statut: 'TERMINE' }, comptes.COM.auth), 403, REFUS.compteCommercial, 'commercial', termine.id);
+      await refuse(() => changerStatut(annulee.id, { statut: 'TERMINE' }, comptes.CT.auth), 409, REFUS.statutAnnulee, 'conducteur titulaire, affaire annulée', annulee.id);
+      await refuse(() => changerStatut(termine.id, { statut: 'ANNULE' }, comptes.CT.auth), 400, REFUS.statutInvalide, 'conducteur titulaire, statut invalide', termine.id);
+    });
+
+    // Cadrage AG-a : le refus « déjà clôturé » est rendu avant et sous le verrou, « comme les autres refus de statut ». Le
+    // test de course ci-dessus le prouve pour le conducteur titulaire ; ici, pour un titulaire d'un autre type (DC) et pour
+    // le responsable de la branche d'un technicien titulaire, clôturant en tiers : chantier clôturé pendant l'attente, 403
+    // « Ce chantier est déjà clôturé. », sans date de fin. Écarte un message changé seulement pour le titulaire.
+    test('course : chantier clôturé pendant l’attente de la clôture d’un directeur commercial titulaire ou du responsable de la branche d’un technicien : 403 « Ce chantier est déjà clôturé. », sans écriture ni date de fin', async () => {
+      const technicien = await creerCompte('TECHNICIEN', 'TECH-BRANCHE-AG3', { responsableHierarchiqueId: comptes.RESP.id });
+      for (const [quoi, responsableId, auth] of [
+        ['directeur commercial titulaire', comptes.DC.id, () => comptes.DC.auth],
+        ['responsable de la branche du technicien titulaire', technicien.id, () => comptes.RESP.auth],
+      ]) {
+        const chantier = await creerChantier({ responsableId });
+        const course = await sousVerrou(chantier.id, () => changerStatut(chantier.id, { statut: 'TERMINE' }, auth()), (tx) => tx.chantier.update({ where: { id: chantier.id }, data: { statut: 'TERMINE' } }));
+        await courseRefusee(course, 403, REFUS.dejaCloture, `${quoi}, chantier clôturé pendant l’attente`);
+        const relu = await ligne(chantier.id);
+        assert.deepEqual([relu.statut, relu.dateFin], ['TERMINE', null], quoi);
+        assert.equal((await journal(chantier.id)).length, 0, quoi);
+      }
     });
 
     // Note N1 de l'audit des droits de #449 (défaut préexistant, hors du cadrage, signalé par le corps de la PR) : la clôture
@@ -907,7 +1051,8 @@ if (!TEST_DATABASE_URL) {
     // Audit des droits de #453 : cas limites du droit de clôturer relu sous le verrou. Refus (404, sans écriture ni date
     // de fin) : chantier laissé sans titulaire ; technicien de la branche du responsable remplacé par un conducteur de
     // cette branche (le responsable ne clôture, en tiers, que l'affaire d'un technicien) ; affaire d'un conducteur confiée
-    // à un technicien dont il est le N+1 (lecture retenue : un conducteur ne clôture que l'affaire dont il est chargé). Un
+    // à un technicien dont il est le N+1 (lecture retenue, à confirmer, `MODELE-DROITS-COMPTES.md` : un conducteur ne
+    // clôture que l'affaire dont il est chargé). Un
     // titulaire et un statut changés ensemble rendent 404 avant 409 ou 403, sans rien révéler du statut. Écarte un
     // contrôle sauté quand le chantier n'a plus de titulaire, le rôle de l'ancien titulaire relu à la place de celui du
     // nouveau, et un contrôle du titulaire placé après celui du statut.

@@ -348,11 +348,20 @@ if (!TEST_DATABASE_URL) {
     // corps » ; « Règle existante gardée, sans retouche » : 409 « quel que soit le corps » (#449, décision de Nelson du
     // 02-11-2026 sur #285, « une affaire annulé ne peut etre encaissé »). Facultatif (T) du cadrage, joué ici : une valeur
     // présente invalide (« x ») sur un chantier inconnu (404) et sur une affaire annulée (409). Tue « 400 placé avant le
-    // 409, ou avant le 404 (en tête du gestionnaire) » et « contrôle placé avant requireAdmin ».
-    test('encaissement, ordre : 401 et 403 des gardes d’abord, titulaire compris ; puis le 404 du chantier inconnu et le 409 de l’affaire annulée, encaissée ou non, quel que soit le corps, avant le 400 du drapeau ; rien n’est écrit', async () => {
+    // 409, ou avant le 404 (en tête du gestionnaire) » et « contrôle placé avant requireAdmin ». Depuis le lot AG-a (#451,
+    // cadrage v2 du 26-11-2026, périmètre 1 ; N5 de l'audit des montants de #449), une affaire annulée et encaissée ne se
+    // pose plus en base (contrainte `Chantier_annule_non_encaisse`, 23514) : la base refuse la ligne, au nom de la
+    // contrainte, sans rien écrire, et le 409 se prouve sur l'affaire annulée non encaissée.
+    test('encaissement, ordre : 401 et 403 des gardes d’abord, titulaire compris ; puis le 404 du chantier inconnu et le 409 de l’affaire annulée, quel que soit le corps, avant le 400 du drapeau ; rien n’est écrit ; une affaire annulée et encaissée est refusée par la base', async () => {
       const chantier = await creerChantier();
       const annulee = await creerChantier(ANNULATION());
-      const annuleeEncaissee = await creerChantier({ ...ANNULATION(), ...ENCAISSE });
+      const avantRefusBase = await empreinte();
+      await assert.rejects(creerChantier({ ...ANNULATION(), ...ENCAISSE }), (erreur) => {
+        assert.match(String(erreur.message), /code: \\?"23514\\?"/, erreur.message);
+        assert.match(String(erreur.message), /violates check constraint \\?"Chantier_annule_non_encaisse\\?"/, erreur.message);
+        return true;
+      }, 'affaire annulée et encaissée posée en base');
+      assert.deepEqual(tablesChangees(avantRefusBase, await empreinte()), [], 'affaire annulée et encaissée refusée par la base : rien n’est écrit');
       const corpsGardes = [{ encaisse: 'false' }, {}, { encaisse: null }, { encaisse: true }, { encaisse: false }];
       for (const corps of corpsGardes) {
         await refuse(() => encaissement(chantier.id).send(corps), 401, MESSAGES.authentification, `sans session, ${JSON.stringify(corps)}`, () => chantierEnBase(chantier.id));
@@ -374,7 +383,6 @@ if (!TEST_DATABASE_URL) {
         for (const envoi of envois) {
           await refuse(() => envoi.envoyer(encaissement(randomUUID(), auth)), 404, MESSAGES.chantierIntrouvable, `${qui}, chantier inconnu, ${envoi.nom}`);
           await refuse(() => envoi.envoyer(encaissement(annulee.id, auth)), 409, MESSAGES.encaissementAnnulee, `${qui}, affaire annulée, ${envoi.nom}`, () => chantierEnBase(annulee.id));
-          await refuse(() => envoi.envoyer(encaissement(annuleeEncaissee.id, auth)), 409, MESSAGES.encaissementAnnulee, `${qui}, affaire annulée et encaissée, ${envoi.nom}`, () => chantierEnBase(annuleeEncaissee.id));
         }
       }
     });
