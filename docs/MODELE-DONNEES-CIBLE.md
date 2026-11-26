@@ -21,6 +21,8 @@
 
 `Facture` gagne deux origines facultatives, `contratId` et `echeanceId`. Une échéance ne produit qu'une facture.
 
+*Note du 26-11-2026 : proposition de cadrage du lot (k), [Abonnements et locations cible](ABONNEMENTS-LOCATIONS-CIBLE.md) (fusionnée par #688, lot **prévu**, rien d'implémenté).* Elle reprend ce modèle comme **option A**, non validée, à côté de deux autres options soumises à Nelson ([section 6](ABONNEMENTS-LOCATIONS-CIBLE.md#6-modèle-cible--options-soumises-à-nelson-nk-01), question NK-01). Elle pose en principe 6 (section 5) qu'une période d'un abonnement ne produit qu'**une facture vivante** (une clé unique en base l'empêche), ce qui est plus précis que la phrase « Une échéance ne produit qu'une facture » ci-dessus ; la phrase n'est pas réécrite, et l'écart (note N7 de [#689](https://github.com/OrizonLab/iris/issues/689)) se règle au cadrage de K-1a, avec NK-01 et NK-08 (une facture par échéance, ou par client et par période).
+
 *Champ déjà implémenté, hors de cette proposition (#663, lot X, 23-11-2026 ; [historique](HISTORIQUE-DECISIONS.md#lot-du-23-11-2026-663))* : `Facture.cleEnvoi`, la clé d'envoi (clé d'idempotence) de la création d'un avoir partiel : `uuid`, facultatif, unique, posé seulement sur un avoir partiel (contrainte en base) et figé par un déclencheur ; même mécanisme que `InterventionRapport.cleEnvoi`. Elle est distincte des `envois` (`EnvoiDocument`) et du `trackingId` de la facturation électronique (FE-5).
 
 **Location et financeurs** : `Financeur` porte l'identité de l'organisme (par exemple Grenke). Une location passe par un financeur ; un abonnement est facturé par l'entreprise à son client (A4). Ce que produit l'échéancier d'un contrat `LOCATION` reste ouvert (plus bas). Les simulations passeront par l'API du financeur ; elles ne créent rien dans Iris tant qu'elles ne sont pas acceptées (`SimulationFinancement` : contrat ou devis, financeur, paramètres envoyés, réponse reçue, date).
@@ -65,6 +67,8 @@ Les données dont les commissions ont besoin existent dans le squelette :
 Une commission « en développé » se calcule sur la somme des échéances prévues, une commission « à la prise de commande » sur les lignes du contrat. Aucune des deux ne demande de refaire la facturation.
 
 ## Points encore ouverts
+
+*Note du 26-11-2026 : la [proposition du lot (k)](ABONNEMENTS-LOCATIONS-CIBLE.md#10-questions) reprend ceux de ces points qui concernent les contrats récurrents, sans les trancher : le calcul d'augmentation par défaut (NK-16), le périmètre de l'intégration Grenke (NK-22), le regroupement d'échéances sur une facture (NK-08), l'articulation avec `Facture.contratMaintenanceId` (NK-01), la date d'application de la révision (NK-16), l'échéancier d'une location (NK-19) et les commissions sur abonnements et locations (NK-23). Aucune n'a de réponse de Nelson.*
 
 - Le calcul d'augmentation proposé par défaut (indice de révision, et lequel, ou pourcentage fixe).
 - Le périmètre de l'intégration Grenke : simulations seules, ou aussi les dossiers.
