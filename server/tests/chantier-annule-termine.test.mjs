@@ -17,6 +17,9 @@
 // la base (contrainte `Chantier_annule_non_encaisse`, N5 de l'audit des montants de #449) ; hors administration, la
 // clôture d'un chantier déjà clôturé répond 403 « Ce chantier est déjà clôturé. » (N4 du même audit ; choix par défaut, à
 // confirmer), et non plus le message de réouverture, qui reste celui d'une réouverture (#475).
+// Lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») : la clôture et la réouverture s'écrivent au journal de la fiche
+// chantier ; ici, la première clôture du conducteur y est relue, et la reclôture d'un chantier terminé et daté par
+// l'administration n'écrit ni entrée ni mise à jour. Le contenu des entrées est prouvé par journal-cloture-chantier.test.mjs.
 //
 // Ces règles touchent un montant (cadrage, « Ordre ») : le CA et la marge validés d'un commercial exigent un chantier
 // terminé et encaissé (commissions/metier.ts) ; la fiche (dates, barème réduit, budgets) et le commercial d'un chantier
@@ -907,6 +910,11 @@ if (!TEST_DATABASE_URL) {
       const close = await ligne(cloture.id);
       assert.equal(close.statut, 'TERMINE');
       assert.ok(close.dateFin instanceof Date, 'date de fin posée à la première clôture');
+      // Lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») : la première clôture s'écrit au journal, au nom du conducteur ;
+      // la reclôture refusée n'y ajoute rien (`refuse` relit le journal du chantier).
+      assert.deepEqual((await journal(cloture.id)).map((e) => [e.cible, e.action, e.auteurId, e.avant, e.apres]), [
+        ['CHANTIER', 'CHANGEMENT_STATUT', comptes.CT.id, { statut: 'EN_COURS', dateFin: null }, { statut: 'TERMINE', dateFin: close.dateFin.toISOString() }],
+      ], 'première clôture journalisée');
       await refuse(() => changerStatut(cloture.id, { statut: 'TERMINE' }, comptes.CT.auth), 403, REFUS.dejaCloture, 'conducteur titulaire qui reclôt le chantier qu’il vient de clôturer', cloture.id);
       assert.deepEqual((await ligne(cloture.id)).dateFin, close.dateFin, 'date de fin de la première clôture gardée');
 
@@ -933,13 +941,20 @@ if (!TEST_DATABASE_URL) {
     // Cadrage AG-a, périmètre 2 : « l'administration reçoit 200 pour la même requête ». Témoin du refus précédent : écarte un
     // refus étendu à l'administration (directeur compris, décision de Nelson du 24-10-2026, point 14). La date de fin déjà
     // posée est gardée (règle de la clôture, inchangée).
-    test('reclôture par l’administration (SA, AD, AD-COM, DIR) : 200, le chantier reste terminé à sa date de fin', async () => {
+    // Depuis le lot AG-b (décision de Nelson du 26-11-2026, « 1. A » ; cadrage AG-b, périmètre 1 : « si `statut` et `dateFin`
+    // ne changent pas […], ni entrée ni réécriture : la route renvoie la ligne telle quelle ») : cette reclôture d'un chantier
+    // terminé et daté ne change rien, et n'écrit donc rien, ni entrée au journal ni mise à jour de la ligne (empreinte de
+    // toute la base, `updatedAt` compris). Écarte une entrée à l'identique et une réécriture du chantier. La reclôture d'un
+    // chantier terminé sans date de fin, qui pose la date et s'écrit au journal, est prouvée par
+    // journal-cloture-chantier.test.mjs.
+    test('reclôture par l’administration (SA, AD, AD-COM, DIR) : 200, le chantier reste terminé à sa date de fin, sans entrée au journal ni réécriture (lot AG-b)', async () => {
       for (const [compte, auth] of ADMINISTRATION()) {
         const chantier = await creerTermine();
-        const res = await changerStatut(chantier.id, { statut: 'TERMINE' }, auth);
-        assert.equal(res.status, 200, `${compte} : ${JSON.stringify(res.body)}`);
+        const res = await refuse(() => changerStatut(chantier.id, { statut: 'TERMINE' }, auth), 200, undefined, `${compte}, reclôture d’un chantier terminé et daté`, chantier.id);
+        assert.deepEqual([res.body.statut, res.body.dateFin], ['TERMINE', DATE_FIN.toISOString()], `${compte} : ligne rendue telle quelle`);
         const relu = await ligne(chantier.id);
         assert.deepEqual([relu.statut, relu.dateFin.toISOString()], ['TERMINE', DATE_FIN.toISOString()], compte);
+        assert.equal((await journal(chantier.id)).length, 0, compte);
       }
     });
 

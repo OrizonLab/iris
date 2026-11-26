@@ -1,5 +1,9 @@
 // Lecture du journal d'audit de la fiche chantier : saisies Travaux (achats, heures) et
-// changements de l'affaire elle-même : client, titulaire, commercial et case « Encaissé » (#181).
+// changements de l'affaire elle-même : client, titulaire, commercial et case « Encaissé » (#181), ainsi que son statut
+// (clôture et réouverture, décision de Nelson du 26-11-2026, lot AG-b).
+
+import { jourFrancais } from './dateFormatting';
+import { libelleStatutChantier } from './statutsChantier';
 
 export type EntreeJournalChantier = { cible: string; action: string; avant?: unknown; apres?: unknown };
 
@@ -10,12 +14,19 @@ function compteLisible(valeur: unknown, sansCompte: string): string {
   return instantane.nom || 'compte supprimé';
 }
 const encaissementLisible = (valeur: unknown) => ((valeur as { encaisse?: boolean } | null)?.encaisse ? 'Encaissé' : 'Non encaissé');
+// Un côté d'un changement de statut : le libellé du statut, et la date de fin (date-seule, stockée à minuit UTC) en JJ-MM-AAAA.
+function statutLisible(valeur: unknown): string {
+  const instantane = (valeur && typeof valeur === 'object' ? valeur : {}) as { statut?: string | null; dateFin?: string | null };
+  const statut = instantane.statut ? libelleStatutChantier(instantane.statut) : 'statut inconnu';
+  return instantane.dateFin ? `${statut}, date de fin ${jourFrancais(instantane.dateFin.slice(0, 10))}` : statut;
+}
 
 const CHANGEMENTS_AFFAIRE: Record<string, { titre: string; lisible: (valeur: unknown) => string }> = {
   CHANGEMENT_CLIENT: { titre: 'Client de l’affaire — changement', lisible: (valeur) => clientLisible(valeur) },
   CHANGEMENT_TITULAIRE: { titre: 'Titulaire — réattribution', lisible: (valeur) => compteLisible(valeur, 'aucun titulaire') },
   CHANGEMENT_COMMERCIAL: { titre: 'Commercial — réattribution', lisible: (valeur) => compteLisible(valeur, 'aucun commercial') },
   CHANGEMENT_ENCAISSEMENT: { titre: 'Encaissement — changement', lisible: encaissementLisible },
+  CHANGEMENT_STATUT: { titre: 'Statut — changement', lisible: statutLisible },
 };
 
 // Un changement de l'affaire, lisible des deux côtés ; null pour une saisie Travaux.

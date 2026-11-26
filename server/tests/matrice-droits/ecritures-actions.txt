@@ -14,7 +14,7 @@ AC | DELETE /api/users/:id | compte-commercial | défaut | 403 « Accès réserv
 AC | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AC | DELETE /api/users/:id | compte-systeme | défaut | 403 « Accès réservé aux administrateurs » inchangé
 AC | DELETE /api/users/:id | compte-technicien | défaut | 403 « Accès réservé aux administrateurs » inchangé
-AC | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+AC | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 AC | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 AC | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 AC | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
@@ -235,20 +235,20 @@ AD | DELETE /api/users/:id | compte-commercial | défaut | 200 écrit (Chantier,
 AD | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
 AD | DELETE /api/users/:id | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
 AD | DELETE /api/users/:id | compte-technicien | défaut | 409 « Ce compte est l’auteur de données tracées : le supprimer effacerait une preuve de traçabilité. Désactivez-le plutôt pour lui retirer l’accès. » inchangé
-AD | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 AD | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 409 « Cette affaire est annulée : son statut ne change plus. » inchangé
-AD | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier)
 AD | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 200 écrit (Devis,DevisLigne)
 AD | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
 AD | PATCH /api/devis/:id | devis-signe | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
@@ -456,20 +456,20 @@ AD-COM | DELETE /api/users/:id | compte-commercial | défaut | 200 écrit (Chant
 AD-COM | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
 AD-COM | DELETE /api/users/:id | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
 AD-COM | DELETE /api/users/:id | compte-technicien | défaut | 409 « Ce compte est l’auteur de données tracées : le supprimer effacerait une preuve de traçabilité. Désactivez-le plutôt pour lui retirer l’accès. » inchangé
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 AD-COM | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 409 « Cette affaire est annulée : son statut ne change plus. » inchangé
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-AD-COM | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+AD-COM | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier)
 AD-COM | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 200 écrit (Devis,DevisLigne)
 AD-COM | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
 AD-COM | PATCH /api/devis/:id | devis-signe | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
@@ -1125,7 +1125,7 @@ CPT | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=
 CPT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CPT | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CPT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
-CPT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+CPT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 CPT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CPT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CPT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
@@ -1568,7 +1568,7 @@ CT | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TE
 CT | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CT | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CT | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
-CT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+CT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 CT | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CT | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 CT | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
@@ -2012,7 +2012,7 @@ DC | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps s
 DC | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 DC | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 DC | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
-DC | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+DC | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 DC | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 DC | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 DC | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
@@ -2224,20 +2224,20 @@ DIR | DELETE /api/users/:id | compte-commercial | défaut | 200 écrit (Chantier
 DIR | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Seul un super administrateur peut gérer un compte super administrateur. » inchangé
 DIR | DELETE /api/users/:id | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
 DIR | DELETE /api/users/:id | compte-technicien | défaut | 409 « Ce compte est l’auteur de données tracées : le supprimer effacerait une preuve de traçabilité. Désactivez-le plutôt pour lui retirer l’accès. » inchangé
-DIR | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 DIR | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 409 « Cette affaire est annulée : son statut ne change plus. » inchangé
-DIR | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-DIR | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+DIR | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier)
 DIR | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 200 écrit (Devis,DevisLigne)
 DIR | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
 DIR | PATCH /api/devis/:id | devis-signe | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
@@ -2456,8 +2456,8 @@ RESP | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TER
 RESP | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 RESP | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
 RESP | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 404 « Chantier introuvable » inchangé
-RESP | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-RESP | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+RESP | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+RESP | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 RESP | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 404 « Chantier introuvable » inchangé
 RESP | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 403 « Permission requise : devis:write » inchangé
 RESP | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 403 « Permission requise : devis:write » inchangé
@@ -2887,20 +2887,20 @@ SA | DELETE /api/users/:id | compte-commercial | défaut | 200 écrit (Chantier,
 SA | DELETE /api/users/:id | compte-superadmin | défaut | 403 « Vous ne pouvez pas supprimer votre propre compte. » inchangé
 SA | DELETE /api/users/:id | compte-systeme | défaut | 404 « Utilisateur introuvable. » inchangé
 SA | DELETE /api/users/:id | compte-technicien | défaut | 409 « Ce compte est l’auteur de données tracées : le supprimer effacerait une preuve de traçabilité. Désactivez-le plutôt pour lui retirer l’accès. » inchangé
-SA | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-ac | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-ad | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
 SA | PATCH /api/chantiers/:id/statut | chantier-annule | défaut, corps statut=TERMINE | 409 « Cette affaire est annulée : son statut ne change plus. » inchangé
-SA | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier)
-SA | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-autre | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-com | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-com-titulaire | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-cpt | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-ct-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-dc | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-dir | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-tech-branche-resp | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier)
+SA | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier)
 SA | PATCH /api/devis/:id | devis-brouillon | défaut, corps client, objet et ligne | 200 écrit (Devis,DevisLigne)
 SA | PATCH /api/devis/:id | devis-converti | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé
 SA | PATCH /api/devis/:id | devis-signe | défaut, corps client, objet et ligne | 409 « Ce devis est signé : créez une nouvelle révision brouillon pour le modifier. » inchangé

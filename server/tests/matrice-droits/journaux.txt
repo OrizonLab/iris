@@ -46,6 +46,13 @@ AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHA
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par DIR ← DIR PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 200 visible
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | défaut, corps encaisse=oui | 200 visible
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par CT ← CT PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AD ← AD PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AT ← AT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
 AD | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par CT ← CT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
@@ -386,8 +393,8 @@ AD | PATCH /api/chantiers/:id | chantier-ct | défaut, corps responsableId=autre
 AD | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut, corps commercialId=COM | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_COMMERCIAL par AD
 AD | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut, corps encaisse=oui | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par AD
 AD | PATCH /api/chantiers/:id/encaisse | chantier-ct | encaissé par SA, puis corps encaisse=non | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par AD
-AD | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier) ; aucune entrée
-AD | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier) ; aucune entrée
+AD | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD
+AD | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD
 AD | PATCH /api/comptabilite/comptes/:id | compte-comptable-clients | défaut, corps libellé, motif et version | 200 écrit (CompteComptable,JournalCompteComptable) ; entrées : JournalCompteComptable MODIFICATION par AD
 AD | PATCH /api/contrats-maintenance/:id | contrat-actif | défaut, corps note de couverture et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT MODIFICATION_COUVERTURE par AD
 AD | PATCH /api/contrats-maintenance/:id/statut | contrat-actif | défaut, corps statut=SUSPENDU et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT SUSPENSION par AD
@@ -548,6 +555,13 @@ COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CH
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par DIR ← DIR PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 404 « Chantier introuvable »
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | défaut, corps encaisse=oui | 404 « Chantier introuvable »
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par CT ← CT PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 404 « Chantier introuvable »
+COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 404 « Chantier introuvable »
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AD ← AD PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 404 « Chantier introuvable »
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AT ← AT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 404 « Chantier introuvable »
 COM | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par CT ← CT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 404 « Chantier introuvable »
@@ -691,6 +705,7 @@ CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier ACHAT CORREC
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier ACHAT CORRECTION par CT ← CT PATCH /api/achats/:id sur achat-chantier-ct | défaut, corps description, montantHT et motif | 200 visible
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier ACHAT CREATION par CT ← CT POST /api/achats sur chantierId=chantier-ct | défaut, corps achat | 200 visible
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_COMMERCIAL par CT ← CT PATCH /api/chantiers/:id/commercial sur chantier-ct | défaut, corps commercialId=COM | 200 visible
+CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par CT ← CT PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par CT ← CT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 404 « Chantier introuvable »
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier HEURE CORRECTION par CT ← CT PATCH /api/heures/:id sur heure-chantier-ct | défaut, corps chantierId=chantier-autre et motif | 200 visible
 CT | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier HEURE CORRECTION par CT ← CT PATCH /api/heures/:id sur heure-chantier-ct | défaut, corps commentaire, heures et motif | 200 visible
@@ -840,7 +855,7 @@ CT | PATCH /api/achats/:id | achat-chantier-ct | défaut, corps chantierId=chant
 CT | PATCH /api/achats/:id | achat-chantier-ct | défaut, corps description, montantHT et motif | 200 écrit (AchatReel,JournalSaisieChantier) ; entrées : JournalSaisieChantier ACHAT CORRECTION par CT ; montant écrit relu en base ; montant journalisé identique
 CT | PATCH /api/chantiers/:id | chantier-ct | défaut, corps responsableId=autre conducteur | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par CT
 CT | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut, corps commercialId=COM | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_COMMERCIAL par CT
-CT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier) ; aucune entrée
+CT | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par CT
 CT | PATCH /api/heures/:id | heure-chantier-ct | défaut, corps chantierId=chantier-autre et motif | 200 écrit (JournalSaisieChantier,PointageHeure) ; entrées : JournalSaisieChantier HEURE CORRECTION par CT ; montant écrit relu en base ; montant journalisé identique
 CT | PATCH /api/heures/:id | heure-chantier-ct | défaut, corps commentaire, heures et motif | 200 écrit (JournalSaisieChantier,PointageHeure) ; entrées : JournalSaisieChantier HEURE CORRECTION par CT ; montant écrit relu en base ; montant journalisé identique
 CT | PATCH /api/interventions/:id/couts/:type/:coutId | materiel-intervention-chantier-ct | défaut, corps montantHT et motif | 200 écrit (CoutInterventionAchat,JournalSaisieChantier) ; entrées : JournalSaisieChantier COUT_INTERVENTION_ACHAT CORRECTION par CT ; montant écrit relu en base ; montant journalisé identique
@@ -872,8 +887,8 @@ DIR | PATCH /api/chantiers/:id | chantier-ct | défaut, corps responsableId=autr
 DIR | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut, corps commercialId=COM | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_COMMERCIAL par DIR
 DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut, corps encaisse=oui | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par DIR
 DIR | PATCH /api/chantiers/:id/encaisse | chantier-ct | encaissé par SA, puis corps encaisse=non | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par DIR
-DIR | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier) ; aucune entrée
-DIR | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier) ; aucune entrée
+DIR | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR
+DIR | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR
 DIR | PATCH /api/comptabilite/comptes/:id | compte-comptable-clients | défaut, corps libellé, motif et version | 200 écrit (CompteComptable,JournalCompteComptable) ; entrées : JournalCompteComptable MODIFICATION par DIR
 DIR | PATCH /api/contrats-maintenance/:id | contrat-actif | défaut, corps note de couverture et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT MODIFICATION_COUVERTURE par DIR
 DIR | PATCH /api/contrats-maintenance/:id/statut | contrat-actif | défaut, corps statut=SUSPENDU et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT SUSPENSION par DIR
@@ -989,6 +1004,13 @@ SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHA
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par DIR ← DIR PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 200 visible
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | défaut, corps encaisse=oui | 200 visible
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA ← SA PATCH /api/chantiers/:id/encaisse sur chantier-ct | encaissé par SA, puis corps encaisse=non | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par AD ← AD PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par CT ← CT PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par DIR ← DIR PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-ct | défaut, corps statut=TERMINE | 200 visible
+SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA ← SA PATCH /api/chantiers/:id/statut sur chantier-termine | défaut, corps statut=EN_COURS | 200 visible
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AD ← AD PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par AT ← AT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
 SA | GET /api/chantiers/:id/journal-saisies | JournalSaisieChantier CHANTIER CHANGEMENT_TITULAIRE par CT ← CT PATCH /api/chantiers/:id sur chantier-ct | défaut, corps responsableId=autre conducteur | 200 visible
@@ -1329,8 +1351,8 @@ SA | PATCH /api/chantiers/:id | chantier-ct | défaut, corps responsableId=autre
 SA | PATCH /api/chantiers/:id/commercial | chantier-ct | défaut, corps commercialId=COM | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_COMMERCIAL par SA
 SA | PATCH /api/chantiers/:id/encaisse | chantier-ct | défaut, corps encaisse=oui | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA
 SA | PATCH /api/chantiers/:id/encaisse | chantier-ct | encaissé par SA, puis corps encaisse=non | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_ENCAISSEMENT par SA
-SA | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier) ; aucune entrée
-SA | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier) ; aucune entrée
+SA | PATCH /api/chantiers/:id/statut | chantier-ct | défaut, corps statut=TERMINE | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA
+SA | PATCH /api/chantiers/:id/statut | chantier-termine | défaut, corps statut=EN_COURS | 200 écrit (Chantier,JournalSaisieChantier) ; entrées : JournalSaisieChantier CHANTIER CHANGEMENT_STATUT par SA
 SA | PATCH /api/comptabilite/comptes/:id | compte-comptable-clients | défaut, corps libellé, motif et version | 200 écrit (CompteComptable,JournalCompteComptable) ; entrées : JournalCompteComptable MODIFICATION par SA
 SA | PATCH /api/contrats-maintenance/:id | contrat-actif | défaut, corps note de couverture et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT MODIFICATION_COUVERTURE par SA
 SA | PATCH /api/contrats-maintenance/:id/statut | contrat-actif | défaut, corps statut=SUSPENDU et motif | 200 écrit (ContratMaintenance,JournalSaisieChantier) ; entrées : JournalSaisieChantier CONTRAT SUSPENSION par SA

@@ -32,3 +32,50 @@ test('les changements de titulaire, de commercial et d’encaissement se lisent 
   assert.equal(changementAffaire({ cible: 'ACHAT', action: 'CHANGEMENT_TITULAIRE' }), null);
   assert.equal(titreEntreeJournal({ cible: 'HEURE', action: 'CHANGEMENT_TITULAIRE' }), 'Heures — changement_titulaire');
 });
+
+// Lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») : la clôture et la réouverture s'inscrivent au journal de la fiche
+// (entrée CHANTIER CHANGEMENT_STATUT, avant et après { statut, dateFin }, dateFin en ISO ou null). Cadrage, périmètre 2 :
+// titre « Statut — changement », chaque côté « <libellé du statut> » ou « <libellé>, date de fin JJ-MM-AAAA » (« Terminé,
+// date de fin 26-11-2026 », « En cours »). Les tests unitaires tournent sous TZ=Pacific/Gambier (UTC−9) : une date de fin
+// convertie dans le fuseau local (minuit UTC → la veille au soir) ou affichée en ISO se voit.
+test('le changement de statut se lit des deux côtés : libellé du statut en français, date de fin en JJ-MM-AAAA', () => {
+  const statut = (avant: unknown, apres: unknown) => changementAffaire({ cible: 'CHANTIER', action: 'CHANGEMENT_STATUT', avant, apres });
+  assert.equal(titreEntreeJournal({ cible: 'CHANTIER', action: 'CHANGEMENT_STATUT' }), 'Statut — changement');
+  // Clôture d'un chantier en cours sans date de fin : la date posée se lit après. Écarte le code brut (« TERMINE »), la
+  // date ISO (« 2026-11-26 ») et une date sans le statut.
+  assert.deepEqual(statut({ statut: 'EN_COURS', dateFin: null }, { statut: 'TERMINE', dateFin: '2026-11-26T00:00:00.000Z' }), { avant: 'En cours', apres: 'Terminé, date de fin 26-11-2026' });
+  // Réouverture : la date de fin, gardée, se lit des deux côtés.
+  assert.deepEqual(statut({ statut: 'TERMINE', dateFin: '2026-10-15T00:00:00.000Z' }, { statut: 'EN_COURS', dateFin: '2026-10-15T00:00:00.000Z' }), { avant: 'Terminé, date de fin 15-10-2026', apres: 'En cours, date de fin 15-10-2026' });
+  // Reclôture par l'administration d'un chantier terminé sans date de fin (C4 du contrôle de mode 1) : même statut, la date
+  // seule change.
+  assert.deepEqual(statut({ statut: 'TERMINE', dateFin: null }, { statut: 'TERMINE', dateFin: '2025-12-15T00:00:00.000Z' }), { avant: 'Terminé', apres: 'Terminé, date de fin 15-12-2025' });
+  // Date-seule à minuit UTC, un 1er janvier : lue sur ses dix premiers caractères, elle reste le 01-01-2026 ; une
+  // conversion dans le fuseau local (UTC−9) donnerait le 31-12-2025.
+  assert.deepEqual(statut({ statut: 'EN_COURS', dateFin: '2026-01-01T00:00:00.000Z' }, { statut: 'TERMINE', dateFin: '2026-01-01T00:00:00.000Z' }), { avant: 'En cours, date de fin 01-01-2026', apres: 'Terminé, date de fin 01-01-2026' });
+  // Dernier jour d'un mois de 31 jours, fin d'année : ni décalage, ni inversion du jour et du mois.
+  assert.equal(statut({ statut: 'EN_COURS', dateFin: null }, { statut: 'TERMINE', dateFin: '2026-12-31T00:00:00.000Z' })?.apres, 'Terminé, date de fin 31-12-2026');
+  // Libellé partagé avec la fiche et Administration > Chantiers (statutsChantier.ts) : « Annulé ».
+  assert.equal(statut({ statut: 'ANNULE', dateFin: null }, { statut: 'ANNULE', dateFin: null })?.avant, 'Annulé');
+});
+
+// Statut inconnu de la liste des libellés : rendu tel quel, plutôt que masqué (règle de libelleStatutChantier, lot V,
+// #390, #392), avec sa date de fin. Instantané sans statut, ou absent : une phrase lisible, jamais « undefined » ni « null »
+// (le texte de repli n'est pas fixé par le cadrage). Une entrée CHANGEMENT_STATUT d'une autre cible (le journal des
+// interventions emploie la même action) n'est pas un changement de l'affaire.
+test('statut inconnu, instantané incomplet, autre cible : le changement de statut reste lisible et réservé à la cible CHANTIER', () => {
+  const statut = (avant: unknown, apres: unknown) => changementAffaire({ cible: 'CHANTIER', action: 'CHANGEMENT_STATUT', avant, apres });
+  assert.deepEqual(statut({ statut: 'SUSPENDU', dateFin: null }, { statut: 'SUSPENDU', dateFin: '2026-02-01T00:00:00.000Z' }), { avant: 'SUSPENDU', apres: 'SUSPENDU, date de fin 01-02-2026' });
+  // Clé héritée d'un objet : rendue telle quelle, et non une fonction convertie en texte.
+  assert.equal(statut({ statut: 'toString', dateFin: null }, null)?.avant, 'toString');
+  for (const incomplet of [null, undefined, {}, { dateFin: null }, { statut: null, dateFin: null }, 'TERMINE']) {
+    const lu = statut(incomplet, incomplet);
+    assert.ok(lu, `instantané ${JSON.stringify(incomplet)} : un changement lisible`);
+    for (const cote of [lu.avant, lu.apres]) {
+      assert.ok(cote.trim().length > 0, `instantané ${JSON.stringify(incomplet)} : côté non vide`);
+      assert.doesNotMatch(cote, /undefined|null|NaN|\[object/, `instantané ${JSON.stringify(incomplet)} : ${cote}`);
+    }
+  }
+  assert.equal(changementAffaire({ cible: 'INTERVENTION', action: 'CHANGEMENT_STATUT', avant: { statut: 'PLANIFIEE' }, apres: { statut: 'EN_COURS' } }), null);
+  assert.equal(changementAffaire({ cible: 'CONTRAT', action: 'CHANGEMENT_STATUT', avant: { statut: 'TERMINE', dateFin: null }, apres: { statut: 'EN_COURS', dateFin: null } }), null);
+  assert.notEqual(titreEntreeJournal({ cible: 'INTERVENTION', action: 'CHANGEMENT_STATUT' }), 'Statut — changement');
+});
