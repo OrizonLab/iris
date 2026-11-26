@@ -96,8 +96,10 @@ const ListeChantiers = () => {
     if (!confirm(`Clôturer « ${nom} » ? Il passera en Terminé/Archivé et il ne sera plus possible d'y ajouter des heures ou des dépenses.`)) return;
     try {
       const res = await apiFetch(`/chantiers/${id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut: 'TERMINE' }) });
-      if (res.ok) fetchChantiers();
-      else { const d = await res.json(); alert(d.error || 'Erreur lors de la clôture du chantier.'); }
+      // La liste est relue aussi après un refus (#451, N2 du contrôle de #453) : un chantier confié entre-temps à un autre
+      // titulaire, ou déjà clôturé, ne garde pas un bouton « Clôturer » qui ne peut plus aboutir.
+      if (!res.ok) { const d = await res.json(); alert(d.error || 'Erreur lors de la clôture du chantier.'); }
+      fetchChantiers();
     } catch (e) {
       alert('Impossible de joindre le serveur.');
     }
@@ -108,8 +110,9 @@ const ListeChantiers = () => {
     if (!confirm(`Réouvrir « ${nom} » ? Il repassera en cours.`)) return;
     try {
       const res = await apiFetch(`/chantiers/${id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut: 'EN_COURS' }) });
-      if (res.ok) fetchChantiers();
-      else { const d = await res.json(); alert(d.error || 'Erreur lors de la réouverture du chantier.'); }
+      // Relue aussi après un refus, comme la clôture.
+      if (!res.ok) { const d = await res.json(); alert(d.error || 'Erreur lors de la réouverture du chantier.'); }
+      fetchChantiers();
     } catch (e) {
       alert('Impossible de joindre le serveur.');
     }

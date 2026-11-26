@@ -19,6 +19,7 @@ import { sanitizeTypes, refusTitulaire, refusCommercial, journaliserChangementCh
 import {
   voitRentabilite, voitFacturationChantier, REFUS_TECHNICIEN_COMMERCIAL, REFUS_TECHNICIEN_CLOTURE, peutCloturerChantier,
   chantierSelonRentabilite, voitCoutPrevuParPrixAchat, RefusChantier, refusEcritureChantier, REFUS_FICHE, REFUS_COMMERCIAL, REFUS_AFFAIRE_ANNULEE_STATUT,
+  REFUS_CHANTIER_DEJA_CLOTURE,
 } from './droits';
 import { contexteSuivi, serializeChantier } from './suivi';
 import { avecCoutsSuites } from './coutsSuites';
@@ -472,6 +473,8 @@ export function enregistrerRoutesChantiers(app: Express): void {
       // l'attente ne finit pas en chantier terminé portant une date d'annulation (#285).
       const refusStatut = (statut: string) => statut === 'ANNULE'
         ? new RefusChantier(409, REFUS_AFFAIRE_ANNULEE_STATUT)
+        : !isAdmin && nextStatut === 'TERMINE' && statut === 'TERMINE'
+          ? new RefusChantier(403, REFUS_CHANTIER_DEJA_CLOTURE)
         : !isAdmin && (nextStatut !== 'TERMINE' || statut !== 'EN_COURS')
           ? new RefusChantier(403, 'Seul un administrateur peut réouvrir un chantier clôturé.')
           : null;
@@ -484,7 +487,7 @@ export function enregistrerRoutesChantiers(app: Express): void {
       const updated = await transactionVerifiee(async (tx) => {
         const [ligne] = await tx.$queryRaw<Array<{ statut: string; dateFin: Date | null; responsableId: string | null }>>(Prisma.sql`SELECT "statut", "dateFin", "responsableId" FROM "Chantier" WHERE "id" = ${chantier.id} FOR UPDATE`);
         // Titulaire changé pendant l'attente : le droit de clôturer est refait sur la ligne verrouillée, comme pour la
-        // fiche et le commercial (#285) ; hors de ce droit, le chantier n'existe plus pour le demandeur (404).
+        // fiche et le commercial (#285) ; hors de ce droit, la réponse est celle d'avant le verrou (404).
         if (!isAdmin && ligne.responsableId !== chantier.responsableId) {
           const titulaire = ligne.responsableId ? await tx.user.findUnique({ where: { id: ligne.responsableId }, select: { role: true } }) : null;
           if (ligne.responsableId !== authUser.id && !peutCloturerChantier(authUser, { responsableId: ligne.responsableId, responsableRole: titulaire?.role })) {
