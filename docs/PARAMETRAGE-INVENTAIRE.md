@@ -413,7 +413,7 @@ Elles ne tranchent rien. Chaque réponse réglerait les paramètres (A) ou les r
 ## 7. Points « à vérifier » relevés pendant l'inventaire
 
 1. `FactureLigne` n'est pas figée en SQL après émission, et `mentionsLegalesVersionId` ne figure pas dans les colonnes figées par trigger (C-03).
-2. La clôture et la réouverture d'un chantier (`idx:3588-3633`) et la case « Encaissé » (`idx:5380-5391`) ne laissent aucune trace dans un journal.
+2. La clôture et la réouverture d'un chantier (`idx:3588-3633`) et la case « Encaissé » (`idx:5380-5391`) ne laissent aucune trace dans un journal. *Note de suite, 26-11-2026 (PR documentaire qui consigne #699), sans retoucher la photographie : ce constat est périmé. La case « Encaissé » s'écrit au journal des saisies du chantier depuis #283 (#181, lot D0) ; la clôture et la réouverture, depuis #699 (lot AG-b, décision de Nelson du 26-11-2026 : « 1. A » ; **implémenté**, non validé pour mise en service), avec le statut et la date de fin avant et après. L'annulation d'un chantier par son devis ne s'écrit pas à ce journal : question posée à Nelson le 26-11-2026 ([passation](ROADMAP-PASSATION.md#3-questions-ouvertes-pour-nelson)).*
 3. Le motif d'annulation d'un devis n'a pas de longueur minimale (`idx:6593-6594`) ; les autres motifs exigent 3 à 500 caractères.
 4. La création d'un devis ne vérifie pas que le client est actif (`idx:6300`).
 5. `GET /api/planning/chantiers` liste aussi les chantiers terminés et annulés (`idx:4440-4450`).
