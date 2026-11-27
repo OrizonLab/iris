@@ -7833,9 +7833,11 @@ Fragments de la passation remplacés par cette PR, copiés sans changement, avec
 
 ### Question posée à Nelson le 26-11-2026 (annulation par le devis)
 
-Texte posé par Claude Code (et non parole de Nelson), mot pour mot :
+Texte posé par Claude Code (et non parole de Nelson), mot pour mot (message de la session de travail du 26-11-2026 à 22:53:17 UTC) :
 
-> **Annulation d'une affaire par son devis** : elle fait passer le chantier en « Annulé » et retire son chiffre d'affaires, mais elle ne s'écrit pas au journal du chantier (elle s'écrit pourtant au journal des interventions et du contrat concernés). Faut-il aussi l'inscrire au journal du chantier ? **A. Oui** (recommandé) : on l'inscrit au journal de la fiche, avec l'auteur, la date, le motif, et le statut avant et après, comme la clôture. **B. Non** : la trace reste celle d'aujourd'hui (date et motif affichés en tête de la fiche).
+> **Annulation d'une affaire par son devis** : elle fait passer le chantier en « Annulé » et retire son chiffre d'affaires, mais elle ne s'écrit pas au journal du chantier. Elle s'écrit pourtant au journal des interventions et du contrat concernés. Faut-il aussi l'inscrire au journal du chantier ?
+> - **A. Oui** (recommandé) : on l'inscrit au journal de la fiche, avec l'auteur, la date, le motif, et le statut avant et après, comme la clôture.
+> - **B. Non** : la trace reste celle d'aujourd'hui, c'est-à-dire la date et le motif affichés en tête de la fiche.
 
 - Elle vient de N2 du contrôle de mode 2 de #699. Elle complète le bloc de la section 3 de la passation, « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant » : c'est un volet nouveau, distinct de la clôture et de la réouverture (faites par #699), des champs de la fiche et du retrait d'un compte supprimé (restés ouverts, non posés).
 - **Aucune réponse n'est consignée.** D'ici là, rien ne change : l'annulation par le devis ne s'écrit pas au journal du chantier, et l'en-tête du journal de la fiche ne l'annonce pas.
