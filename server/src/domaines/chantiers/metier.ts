@@ -32,14 +32,16 @@ export async function refusCommercial(commercialId: string, actuelId: string | n
 // sans la trace, le changement n'a pas lieu. L'auteur et les noms des comptes sont figés à l'acte.
 // Un enregistrement à l'identique n'en écrit pas : c'est à l'appelant de comparer, sur la ligne
 // verrouillée.
-// La clôture et la réouverture s'y écrivent aussi (CHANGEMENT_STATUT ; décision de Nelson du 26-11-2026, « 1. A », lot AG-b).
+// La clôture et la réouverture s'y écrivent aussi (CHANGEMENT_STATUT ; décision de Nelson du 26-11-2026, « 1. A », lot AG-b),
+// ainsi que l'annulation par le devis, avec son motif (décision de Nelson du 28-11-2026, « 1. Oui », lot AG-c).
 export type ChangementChantier = 'CHANGEMENT_CLIENT' | 'CHANGEMENT_TITULAIRE' | 'CHANGEMENT_COMMERCIAL' | 'CHANGEMENT_ENCAISSEMENT' | 'CHANGEMENT_STATUT';
 export async function journaliserChangementChantier(
   tx: Prisma.TransactionClient, chantierId: string, auteur: { id: string; name: string },
-  action: ChangementChantier, avant: Prisma.InputJsonObject, apres: Prisma.InputJsonObject,
+  action: ChangementChantier, avant: Prisma.InputJsonObject, apres: Prisma.InputJsonObject, motif?: string,
 ) {
   await tx.journalSaisieChantier.create({ data: {
     chantierId, cible: 'CHANTIER', cibleId: chantierId, action, auteurId: auteur.id, auteurNom: auteur.name, avant, apres,
+    ...(motif === undefined ? {} : { motif }),
   } });
 }
 // Un compte tel qu'il figure au journal : son identifiant et son nom à l'acte (null s'il n'y en a pas).

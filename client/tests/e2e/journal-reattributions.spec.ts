@@ -61,7 +61,9 @@ test('titulaire, commercial, encaissement et statut (clôture, réouverture) cha
   // de statut avant la clôture.
   const statuts = journal.locator('div.px-6.py-4', { has: page.getByText('Statut — changement', { exact: true }) });
   await expect(statuts).toHaveCount(0);
-  await expect(journal.getByText('Historique immuable des créations, corrections et archivages du chantier, de sa clôture et de sa réouverture, et des changements de son client, de son titulaire, de son commercial et de son encaissement.', { exact: true })).toBeVisible();
+  // Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui » ; cadrage AG-c v2, N4, choix par défaut, à confirmer) : l'en-tête
+  // nomme aussi l'annulation, qui s'inscrit à ce journal (parcours journal-affaire-annulee.spec.ts).
+  await expect(journal.getByText('Historique immuable des créations, corrections et archivages du chantier, de sa clôture, de sa réouverture et de son annulation, et des changements de son client, de son titulaire, de son commercial et de son encaissement.', { exact: true })).toBeVisible();
 
   // Encaissement d'un chantier terminé : coché puis décoché, deux entrées.
   const clos = await envoyer('patch', `/chantiers/${chantier.id}/statut`, { statut: 'TERMINE' }) as { statut: string; dateFin: string };

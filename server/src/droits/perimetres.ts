@@ -44,7 +44,9 @@ export function perimetreChantiers(req: express.Request): Prisma.ChantierWhereIn
 // qui a sa règle propre (isOwner) : un commercial titulaire, ou un compte commercial d'un autre
 // type, lit la fiche sans ce journal (règle historique, harmonisée en D2, décision 8 de
 // docs/MODELE-DROITS-CIBLE.md). Le journal est figé après l'annulation (toute écriture y est
-// refusée) : à périmètre inchangé, chacun n'y lit que ce qu'il pouvait y lire avant l'annulation.
+// refusée, hors l'entrée de l'annulation elle-même, écrite dans sa transaction, lot AG-c) : à
+// périmètre inchangé, chacun n'y lit, en plus de cette entrée, que ce qu'il pouvait y lire avant
+// l'annulation (statut, date et motif figurent déjà sur la fiche ; seul le nom de l'auteur est nouveau).
 export function perimetreChantiersAnnulesCompris(req: express.Request): Prisma.ChantierWhereInput {
   return perimetreDemandeur(req);
 }

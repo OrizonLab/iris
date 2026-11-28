@@ -79,3 +79,23 @@ test('statut inconnu, instantané incomplet, autre cible : le changement de stat
   assert.equal(changementAffaire({ cible: 'CONTRAT', action: 'CHANGEMENT_STATUT', avant: { statut: 'TERMINE', dateFin: null }, apres: { statut: 'EN_COURS', dateFin: null } }), null);
   assert.notEqual(titreEntreeJournal({ cible: 'INTERVENTION', action: 'CHANGEMENT_STATUT' }), 'Statut — changement');
 });
+
+// Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui ») : l'annulation d'une affaire par son devis s'inscrit au journal de
+// la fiche (entrée CHANTIER CHANGEMENT_STATUT, avant { statut, dateFin } lu sous le verrou, après { statut: 'ANNULE', dateFin }
+// inchangée). Cadrage AG-c v2, choix par défaut, à confirmer (N3) : titre « Statut — changement » inchangé ; le côté
+// « après » se lit « Annulé » ou « Annulé, date de fin JJ-MM-AAAA ». Écarte le code brut (« ANNULE »), la date ISO, et une
+// date convertie dans le fuseau local (UTC−9 : minuit UTC d'un 1er janvier deviendrait le 31-12).
+test('l’annulation par le devis se lit des deux côtés : « En cours » ou « Terminé, date de fin JJ-MM-AAAA » avant, « Annulé » à la même date après', () => {
+  const annulation = (avant: unknown, apres: unknown) => ({ cible: 'CHANTIER', action: 'CHANGEMENT_STATUT', avant, apres });
+  assert.equal(titreEntreeJournal(annulation({ statut: 'EN_COURS', dateFin: null }, { statut: 'ANNULE', dateFin: null })), 'Statut — changement');
+  // Chantier en cours, sans date de fin.
+  assert.deepEqual(changementAffaire(annulation({ statut: 'EN_COURS', dateFin: null }, { statut: 'ANNULE', dateFin: null })), { avant: 'En cours', apres: 'Annulé' });
+  // Chantier en cours avec une date de fin saisie : gardée, lue des deux côtés.
+  assert.deepEqual(changementAffaire(annulation({ statut: 'EN_COURS', dateFin: '2025-12-15T00:00:00.000Z' }, { statut: 'ANNULE', dateFin: '2025-12-15T00:00:00.000Z' })), { avant: 'En cours, date de fin 15-12-2025', apres: 'Annulé, date de fin 15-12-2025' });
+  // Chantier terminé (cadrage v2, T1) : « Terminé, date de fin X » → « Annulé, date de fin X ».
+  assert.deepEqual(changementAffaire(annulation({ statut: 'TERMINE', dateFin: '2026-10-15T00:00:00.000Z' }, { statut: 'ANNULE', dateFin: '2026-10-15T00:00:00.000Z' })), { avant: 'Terminé, date de fin 15-10-2026', apres: 'Annulé, date de fin 15-10-2026' });
+  // Terminé sans date de fin : sans date des deux côtés.
+  assert.deepEqual(changementAffaire(annulation({ statut: 'TERMINE', dateFin: null }, { statut: 'ANNULE', dateFin: null })), { avant: 'Terminé', apres: 'Annulé' });
+  // Un 1er janvier à minuit UTC reste le 01-01-2026 sous UTC−9.
+  assert.equal(changementAffaire(annulation({ statut: 'TERMINE', dateFin: '2026-01-01T00:00:00.000Z' }, { statut: 'ANNULE', dateFin: '2026-01-01T00:00:00.000Z' }))?.apres, 'Annulé, date de fin 01-01-2026');
+});

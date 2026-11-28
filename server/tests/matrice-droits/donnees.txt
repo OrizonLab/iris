@@ -528,7 +528,10 @@ AD | GET /api/chantiers/:id/envois | chantier-termine | défaut | clés .proposi
 AD | GET /api/chantiers/:id/envois | chantier-termine | défaut | éléments .envois[] | (aucun)
 AD | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | éléments [] | (aucun)
 AD | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | éléments [] | (aucun)
-AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+AD | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 AD | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 AD | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
 AD | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | montants ACHAT CREATION achat-chantier-autre | apres.montantHT=présent
@@ -1569,7 +1572,10 @@ AD-COM | GET /api/chantiers/:id/envois | chantier-termine | défaut | clés .pro
 AD-COM | GET /api/chantiers/:id/envois | chantier-termine | défaut | éléments .envois[] | (aucun)
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | éléments [] | (aucun)
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | éléments [] | (aucun)
-AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
 AD-COM | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | montants ACHAT CREATION achat-chantier-autre | apres.montantHT=présent
@@ -2535,7 +2541,10 @@ AT | GET /api/chantiers/:id | chantier-termine | rentabiliteDirecteurs=non | mon
 AT | GET /api/chantiers/:id | chantier-termine | rentabiliteHierarchie=non | montants | budgetGlobalVendu=null, budgetMaterielVendu=présent, budgetMainOeuvreVendu=présent, coutMaterielPrevu=null, metrics.materielReel=présent, metrics.pctMateriel=présent, metrics.moReel=null, metrics.totalDepenses=null, metrics.pctMainOeuvre=null, metrics.coutsSuites.coutMainOeuvre=null, metrics.coutsSuites.materiel=présent, metrics.coutsInterventionDevis.coutMainOeuvre=null, metrics.coutsInterventionDevis.materiel=présent, metrics.margeBrute=null, metrics.margeCommerciale=null, metrics.margePct=null, metrics.margeEstimee=null, metrics.margeEstimeePct=null, metrics.estimation=null, achats[].montantHT=présent, pointages[].tauxHoraireApplique=absent, pointages[].intervenant.tauxHoraireCharge=absent, facturation=absent, metrics.alertes=HEURES_DEPASSEES+MATERIEL_DEPASSE
 AT | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | éléments [] | (aucun)
 AT | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | éléments [] | (aucun)
-AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+AT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 AT | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 AT | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, updatedAt, updatedById
 AT | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | montants ACHAT CREATION achat-chantier-autre | apres.montantHT=présent
@@ -3735,7 +3744,10 @@ CT | GET /api/chantiers/:id | chantier-termine | rentabiliteConducteur=non | cl�
 CT | GET /api/chantiers/:id | chantier-termine | rentabiliteConducteur=non | montants | budgetGlobalVendu=null, budgetMaterielVendu=présent, budgetMainOeuvreVendu=présent, coutMaterielPrevu=null, metrics.materielReel=présent, metrics.pctMateriel=présent, metrics.moReel=null, metrics.totalDepenses=null, metrics.pctMainOeuvre=null, metrics.coutsSuites.coutMainOeuvre=null, metrics.coutsSuites.materiel=présent, metrics.coutsInterventionDevis.coutMainOeuvre=null, metrics.coutsInterventionDevis.materiel=présent, metrics.margeBrute=null, metrics.margeCommerciale=null, metrics.margePct=null, metrics.margeEstimee=null, metrics.margeEstimeePct=null, metrics.estimation=null, achats[].montantHT=présent, pointages[].tauxHoraireApplique=absent, pointages[].intervenant.tauxHoraireCharge=absent, facturation=absent, metrics.alertes=HEURES_DEPASSEES+MATERIEL_DEPASSE
 CT | GET /api/chantiers/:id | chantier-termine | rentabiliteDirecteurs=non | montants | budgetGlobalVendu=présent, budgetMaterielVendu=présent, budgetMainOeuvreVendu=présent, coutMaterielPrevu=présent, metrics.materielReel=présent, metrics.pctMateriel=présent, metrics.moReel=null, metrics.totalDepenses=null, metrics.pctMainOeuvre=null, metrics.coutsSuites.coutMainOeuvre=null, metrics.coutsSuites.materiel=présent, metrics.coutsInterventionDevis.coutMainOeuvre=null, metrics.coutsInterventionDevis.materiel=présent, metrics.margeBrute=présent, metrics.margeCommerciale=présent, metrics.margePct=présent, metrics.margeEstimee=présent, metrics.margeEstimeePct=présent, metrics.estimation=présent, metrics.estimation.coutEstime=null, metrics.estimation.coutMainOeuvreAttendu=null, metrics.estimation.coutHoraireReference=null, achats[].montantHT=présent, pointages[].tauxHoraireApplique=absent, pointages[].intervenant.tauxHoraireCharge=absent, facturation=présent, metrics.alertes=HEURES_DEPASSEES+MATERIEL_DEPASSE
 CT | GET /api/chantiers/:id | chantier-termine | rentabiliteHierarchie=non | montants | budgetGlobalVendu=présent, budgetMaterielVendu=présent, budgetMainOeuvreVendu=présent, coutMaterielPrevu=présent, metrics.materielReel=présent, metrics.pctMateriel=présent, metrics.moReel=null, metrics.totalDepenses=null, metrics.pctMainOeuvre=null, metrics.coutsSuites.coutMainOeuvre=null, metrics.coutsSuites.materiel=présent, metrics.coutsInterventionDevis.coutMainOeuvre=null, metrics.coutsInterventionDevis.materiel=présent, metrics.margeBrute=présent, metrics.margeCommerciale=présent, metrics.margePct=présent, metrics.margeEstimee=présent, metrics.margeEstimeePct=présent, metrics.estimation=présent, metrics.estimation.coutEstime=null, metrics.estimation.coutMainOeuvreAttendu=null, metrics.estimation.coutHoraireReference=null, achats[].montantHT=présent, pointages[].tauxHoraireApplique=absent, pointages[].intervenant.tauxHoraireCharge=absent, facturation=présent, metrics.alertes=HEURES_DEPASSEES+MATERIEL_DEPASSE
-CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+CT | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, updatedAt, updatedById
 CT | GET /api/chantiers/:id/journal-saisies | chantier-ct | défaut | clés [].avant | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, updatedAt, updatedById
@@ -4558,7 +4570,10 @@ DIR | GET /api/chantiers/:id/envois | chantier-termine | défaut | clés .propos
 DIR | GET /api/chantiers/:id/envois | chantier-termine | défaut | éléments .envois[] | (aucun)
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | éléments [] | (aucun)
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | éléments [] | (aucun)
-DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+DIR | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
 DIR | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | montants ACHAT CREATION achat-chantier-autre | apres.montantHT=présent
@@ -5879,7 +5894,10 @@ SA | GET /api/chantiers/:id/envois | chantier-termine | défaut | clés .proposi
 SA | GET /api/chantiers/:id/envois | chantier-termine | défaut | éléments .envois[] | (aucun)
 SA | GET /api/chantiers/:id/journal-saisies | chantier-ac | défaut | éléments [] | (aucun)
 SA | GET /api/chantiers/:id/journal-saisies | chantier-ad | défaut | éléments [] | (aucun)
-SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | (aucun)
+SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
+SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].apres | dateFin, statut
+SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | clés [].avant | dateFin, statut
+SA | GET /api/chantiers/:id/journal-saisies | chantier-annule | défaut | éléments [] | CHANTIER CHANGEMENT_STATUT chantier-annule
 SA | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [] | action, apres, auteurId, auteurNom, avant, chantierId, cible, cibleId, contratMaintenanceId, createdAt, id, interventionId, motif
 SA | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | clés [].apres | archivedAt, archivedById, categorieId?, chantierId, commentaire?, createdAt, createdById, date, description?, fournisseurId?, id, intervenantId?, montantHT?, motifArchivage, nbrHeures?, numeroFacture?, tauxHoraireApplique?, updatedAt, updatedById
 SA | GET /api/chantiers/:id/journal-saisies | chantier-autre | défaut | montants ACHAT CREATION achat-chantier-autre | apres.montantHT=présent

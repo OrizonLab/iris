@@ -596,7 +596,8 @@ export function enregistrerRoutesDevis(app: Express): void {
   // à ce stade l'affaire a commencé à vivre, on ne l'efface pas, on la mène à son terme.
   //
   // Le chantier n'est pas détruit mais archivé : il sort des listes, des coûts, des marges et
-  // des commissions, et conserve la raison de son annulation. Depuis le lot 4 suite, le contrat de
+  // des commissions, et conserve la raison de son annulation, que son journal des saisies garde aussi
+  // (lot AG-c, décision de Nelson du 28-11-2026). Depuis le lot 4 suite, le contrat de
   // maintenance et l'intervention créés par le devis sont annulés avec lui, dans la même
   // transaction (règles et ordre des verrous : ./annulation.ts). Une annulation ne s'annule pas ;
   // la reprise passe par la duplication du devis (cf. POST /devis/:id/duplication).
