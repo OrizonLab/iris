@@ -7621,7 +7621,7 @@ Textes de la passation remplacés par la PR documentaire qui consigne #695, copi
 2. **NK-01 : non répondue.** Nelson dit ne pas avoir les options du modèle A, B ou C. Claude Code les lui réexplique le 26-11-2026. NK-01 reste ouverte, comme toutes les autres questions NK et QK ; aucune réponse n'est présumée, et **aucun code de (k)** n'est cadré avant le placement par Nelson (NK-10).
 3. **N-09, sous-question : sixième type de client, « Association ».** Un type de client « Association » s'ajoute aux cinq du 26-11-2026 au matin (B2B France, B2B UE, B2B hors UE, particulier, entité publique). Il s'applique au lot FE-1 (modèle de données), qui reste **prévu**. N-09 passe de « répondue en partie » à « **répondue** (lecture retenue à confirmer) » ; Claude Code demande à Nelson de confirmer cette lecture. Le message de Nelson ne nomme pas de type : c'est la lecture de « A une association ».
 
-Statut : tout reste **prévu** (AG-b, lot (k), FE-1) ; ni code, ni montant, ni variable d'environnement, ni validation pour mise en service.
+Statut : tout reste **prévu** (AG-b, lot (k), FE-1) ; ni code, ni montant, ni variable d'environnement, ni validation pour mise en service. *(Notes de suite, 28-11-2026 : AG-b est implémenté par #699 ; NK-01 est répondue (option A) et le type « Association » est confirmé : [Réponses de Nelson du 28-11-2026](#réponses-de-nelson-du-28-11-2026).)*
 
 ## Validation comptable du 26-11-2026
 
@@ -7840,7 +7840,7 @@ Texte posé par Claude Code (et non parole de Nelson), mot pour mot (message de 
 > - **B. Non** : la trace reste celle d'aujourd'hui, c'est-à-dire la date et le motif affichés en tête de la fiche.
 
 - Elle vient de N2 du contrôle de mode 2 de #699. Elle complète le bloc de la section 3 de la passation, « Journal de la clôture d'un chantier et des champs de sa fiche qui pèsent sur un montant » : c'est un volet nouveau, distinct de la clôture et de la réouverture (faites par #699), des champs de la fiche et du retrait d'un compte supprimé (restés ouverts, non posés).
-- **Aucune réponse n'est consignée.** D'ici là, rien ne change : l'annulation par le devis ne s'écrit pas au journal du chantier, et l'en-tête du journal de la fiche ne l'annonce pas.
+- **Aucune réponse n'est consignée.** D'ici là, rien ne change : l'annulation par le devis ne s'écrit pas au journal du chantier, et l'en-tête du journal de la fiche ne l'annonce pas. *(Note de suite, 28-11-2026 : Nelson a répondu « 1. Oui » le 28-11-2026 ; lecture retenue, option A, lot AG-c **prévu** : [Réponses de Nelson du 28-11-2026](#réponses-de-nelson-du-28-11-2026).)*
 
 ### Suivis (26-11-2026, #699)
 
@@ -7888,6 +7888,56 @@ Textes de la passation remplacés par la PR documentaire qui consigne #699, copi
   - ligne 599 : « (volet clôture et réouverture, lot AG-b, décidé : réponse A, prévu, aucun code fusionné) »
   - ligne 599 : « lot AG-b **prévu**, codé dans une PR dédiée ; d'ici là, rien ne change. Les autres volets »
   - ligne 1521 : « La clôture et la réouverture n'écrivent toujours rien au journal : AG-b, décidé le 26-11-2026 (réponse A), prévu, aucun code (section 3). »
+
+## Réponses de Nelson du 28-11-2026
+
+*Rédigé le 28-11-2026, `main` à `ae82a20`.* Nelson répond, le 28-11-2026 à 02:10:35 UTC, aux trois questions que Claude Code venait de lui rappeler (message de Claude Code après la fusion de #701) : journal de l'annulation d'une affaire par son devis, modèle de données du lot (k) (NK-01) et confirmation du sixième type de client « Association » (N-09).
+
+- **Message de Nelson du 28-11-2026 à 02:10:35 UTC, mot pour mot** (message de la session de travail ; l'historique date en UTC) :
+
+> 1. Oui
+> 2. A
+> 3. Oui
+
+- **Questions rappelées par Claude Code** (dans cet ordre ; textes des options : [question posée le 26-11-2026](#question-posée-à-nelson-le-26-11-2026-annulation-par-le-devis), [section 6 de la proposition du lot (k)](ABONNEMENTS-LOCATIONS-CIBLE.md#6-modèle-cible--options-soumises-à-nelson-nk-01), [Réponses de Nelson du 26-11-2026 (soir)](#réponses-de-nelson-du-26-11-2026-soir)) :
+  1. annulation d'une affaire par son devis au journal du chantier : A (oui, recommandé) ou B (non) ;
+  2. NK-01, modèle de données du lot (k) : option A, B ou C, options réexpliquées à Nelson le 26-11-2026 ;
+  3. confirmation de la lecture retenue de « 3. A une association » : un sixième type de client, « Association ».
+
+**Lectures retenues par Claude Code (à corriger par Nelson si besoin).** Ce ne sont pas des paroles de Nelson : le message ne nomme ni option ni type, il répond « Oui », « A », « Oui » aux questions rappelées dans cet ordre.
+
+1. **Annulation par le devis : décidée, réponse A.** L'annulation d'une affaire par son devis (qui fait passer le chantier en « Annulé » et retire son chiffre d'affaires) sera inscrite au journal de la fiche chantier, avec l'auteur, la date, le motif, et le statut avant et après, comme la clôture et la réouverture (AG-b, #699). Le lot **AG-c** passe de « question posée » à **prévu** ; Claude Code le cadre et le code dans une PR dédiée ; **aucun code n'est fusionné**, rien ne change d'ici là. Les champs de la fiche qui pèsent sur un montant et le retrait d'un compte supprimé restent ouverts, non posés.
+2. **NK-01 : répondue, option A.** Un `Contrat` commun (types maintenance, abonnement, location) porte les lignes, les prix, l'engagement et les échéances ; le `ContratMaintenance` existant garde ses visites et s'y rattache quand il est facturé ([modèle de données](MODELE-DONNEES-CIBLE.md#contrats-récurrents-lot-k-décisions-a4)). Conséquence relevée, sans rien trancher : les noms de permissions `abonnements.*` de la section 7.3 de la proposition dépendaient de NK-01 ; avec l'option A, `contrats.consulter` et `contrats.gerer` existent déjà, et la réponse ne tranche pas les noms. **Restent ouvertes** : NK-02 à NK-26 et QK-01 à QK-05 ; le premier sous-lot de code (K-1) reste bloqué par NK-02 à NK-08 et NK-10 (et QK-01 pour K-1b). Le lot (k) reste **prévu**, hors pilote, sans code.
+3. **N-09 : le sixième type « Association » est confirmé.** « 3. Oui » lève la réserve « lecture retenue à confirmer » du 26-11-2026 (soir) ; N-09 est répondue, sans réserve. Le type s'applique au lot FE-1 (modèle de données), qui reste **prévu**. Le circuit e-invoicing ou e-reporting du type « Association » reste « à valider » (EX-02) : cette réponse ne le tranche pas.
+
+Statut : tout reste **prévu** (AG-c, lot (k), FE-1) ; ni code, ni montant, ni variable d'environnement, ni validation pour mise en service.
+
+- **Documents mis à jour** par la PR documentaire qui consigne ces réponses : la passation (point de reprise, « Prochaine action », sections 2, 3 et 4, questions prioritaires 7 à 10) ; [`ABONNEMENTS-LOCATIONS-CIBLE.md`](ABONNEMENTS-LOCATIONS-CIBLE.md) (notes de suite : en-tête, section 1, section 6, section 7.3, section 8.1, NK-01 de la section 10.1, section 13) ; [`MODELE-DONNEES-CIBLE.md`](MODELE-DONNEES-CIBLE.md) (note de suite) ; [`FACTURATION-ELECTRONIQUE-CIBLE.md`](FACTURATION-ELECTRONIQUE-CIBLE.md) (notes de suite : en-tête, tableau des choix existants de la section 6, tableau 8.1 et fiche FE-1, N-09 de la section 11.1). `README.md`, `CLAUDE.md` et `.agents/AGENTS.md` : aucun changement demandé.
+
+### Textes remplacés de la passation (28-11-2026, réponses de Nelson)
+
+Textes de la passation remplacés par la PR documentaire qui consigne ces réponses, copiés sans changement, avec leur numéro de ligne dans la passation au commit `ae82a20` (le texte d'après est dans la passation). Les ajouts sans remplacement (puce « Réponses de Nelson du 28-11-2026 » du point de reprise, phrase ajoutée à « Prochaine action », suite du 28-11-2026 des sections 2 et 3) ne figurent pas ici.
+
+  - ligne 7 : « NK-01 **non répondue** (« Je n'ai pas les choix de modele… »), options réexpliquées (question prioritaire 8) »
+  - ligne 7 : « à confirmer par Nelson : sixième type de client « Association » (FE-1, **prévu** ; question prioritaire 7). »
+  - ligne 9 : « l'annulation d'un chantier par son devis, qui ne s'écrit pas au journal du chantier, est une question posée à Nelson (section 3, question prioritaire 10) ; »
+  - ligne 16 : « et la question de l'annulation par le devis, posée à Nelson : section 1, « Défauts connus » ; commentaire d'état du 26-11-2026) »
+  - ligne 17 : « **Ses questions bloquantes pour K-1 sont posées à Nelson** (NK-01 à NK-08 et NK-10 ; »
+  - ligne 18 : « N-09 répondue (sixième type « Association » ajouté le 26-11-2026 au soir, lecture retenue à confirmer), N-02 précisée »
+  - ligne 18 : « la confirmation par Nelson du sixième type de client « Association » (N-09, lecture retenue) ; la PA de recette »
+  - ligne 28 : « N-09 est répondue (type de client à six valeurs, dont « Association » ajouté le 26-11-2026 au soir, lecture retenue à confirmer par Nelson, à appliquer par FE-1, prévu) »
+  - ligne 29 : « pour Nelson, NK-01 à NK-08 et NK-10 bloquent K-1 »
+  - ligne 29 : « **NK-01 reste non répondue** (Nelson, 26-11-2026 au soir : « Je n'ai pas les choix de modele, je ne sais pas ce qu'est le modele A B ou C » ; options réexpliquées par Claude Code, aucune réponse présumée ; [historique](HISTORIQUE-DECISIONS.md#réponses-de-nelson-du-26-11-2026-soir)) »
+  - ligne 30 : « les autres volets du bloc restent ouverts : l'annulation par le devis, posée à Nelson (question 10), les champs de la fiche et le retrait d'un compte supprimé, non posés »
+  - ligne 31 : «   10. annulation d'une affaire par son devis : faut-il l'inscrire aussi au journal du chantier (option A, recommandée) ou garder la trace d'aujourd'hui (option B) ? Question posée à Nelson le 26-11-2026, **aucune réponse** ; rien ne change d'ici là : section 3, même bloc, note de suite ([texte posé](HISTORIQUE-DECISIONS.md#question-posée-à-nelson-le-26-11-2026-annulation-par-le-devis)). »
+  - ligne 532 : « N-09 répondue (type de client à six valeurs, dont « Association » ajouté le 26-11-2026 au soir, lecture retenue à confirmer, FE-1) »
+  - ligne 532 : « restent ouverts la confirmation du sixième type « Association » (N-09), la PA de recette »
+  - ligne 535 : « NK-01 à NK-08 (modèle de données ; moteur »
+  - ligne 595 : « l'annulation par le devis est **posée à Nelson** (26-11-2026) »
+  - ligne 604 : « aucun calcul de montant ne change. **Restent ouverts** : »
+  - ligne 605 : « **Aucune réponse n'est consignée** ; d'ici là, rien ne change (l'en-tête du journal de la fiche n'annonce pas cette annulation) ; »
+  - ligne 1537 : « **Non journalisés** : l'annulation par le devis (question en section 3) ; »
+  - ligne 292 : « la question de l'annulation par le devis (posée à Nelson le 26-11-2026, section 3) »
 
 ## En-tête de la passation au 30-10-2026
 
