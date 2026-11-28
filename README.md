@@ -194,7 +194,8 @@ devis rattachée à lui, portent des coûts non archivés (sort des visites et r
 défaut, à confirmer, passation section 4) ; chaque
 intervention annulée perd son créneau au planning (décision de Nelson du 24-10-2026). Une affaire
 archivée sort des listes, des coûts, des marges et des commissions, n'accepte plus aucune
-écriture, mais reste consultable avec son motif.
+écriture, mais reste consultable avec son motif. L'annulation s'inscrit au journal de la fiche
+chantier (auteur, date, statut avant et après, motif).
 
 **Reprise.** On n'annule pas une annulation. La reprise passe par la duplication du devis :
 même client, même objet, mêmes lignes, mais un numéro d'affaire neuf et un retour en
