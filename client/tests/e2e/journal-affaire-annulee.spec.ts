@@ -14,8 +14,15 @@ const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 //  - un journal illisible (404, 500, coupure) affiche « Journal d’audit indisponible. », jamais « Aucune entrée au journal
 //    de ce chantier. », que garde un journal réellement vide (témoin).
 // Dates affichées au format JJ-MM-AAAA, au fuseau de la société (Europe/Paris, comme dateDuJour).
+// Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui » ; cadrage AG-c v2, choix par défaut, à confirmer, règle 5) :
+// l'annulation de l'affaire par son devis s'inscrit au journal de la fiche, en tête, sous le titre « Statut — changement »
+// (inchangé, N3) : « Avant : En cours » ou « Avant : Terminé, date de fin JJ-MM-AAAA », « Après : Annulé » ou « Après : Annulé,
+// date de fin JJ-MM-AAAA » (la date de fin n'est pas changée), « Motif : Annulation du devis <numéro> (version 1) : <motif> »
+// (N2), l'auteur et la date du jour ; l'en-tête du journal nomme l'annulation (N4). Après l'annulation, le journal ne porte
+// donc plus seulement les entrées de l'achat.
 
-type Chantier = { id: string; nom: string; statut: string };
+type Chantier = { id: string; nom: string; statut: string; dateFin?: string | null };
+type Devis = { id: string; numero: string; version: number };
 type Compte = { id: string; name: string };
 
 async function appel<T>(request: APIRequestContext, token: string, methode: 'get' | 'post' | 'put' | 'patch' | 'delete', chemin: string, data?: object, attendu = methode === 'post' ? 201 : 200): Promise<T> {
@@ -25,7 +32,7 @@ async function appel<T>(request: APIRequestContext, token: string, methode: 'get
 }
 // Affaire ouverte par la conversion d'un devis signé (seule porte d'ouverture), au titulaire donné.
 async function affaireConvertie(request: APIRequestContext, token: string, clientId: string, nom: string, responsableId?: string) {
-  const devis = await appel<{ id: string }>(request, token, 'post', '/devis', { clientId, objet: nom, lignes: [{ designation: 'Pose et mise en service', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
+  const devis = await appel<Devis>(request, token, 'post', '/devis', { clientId, objet: nom, lignes: [{ designation: 'Pose et mise en service', nature: 'MAIN_OEUVRE', quantite: 1, prixUnitaireHt: 100, tauxTva: 20 }] });
   await appel(request, token, 'put', `/devis/${devis.id}/statut`, { statut: 'ENVOYE' });
   await appel(request, token, 'post', `/devis/${devis.id}/signature`, { signataire: 'Client E2E', confirme: true });
   const chantier = await appel<Chantier>(request, token, 'post', `/devis/${devis.id}/convertir`, { cible: 'CHANTIER', ...(responsableId ? { responsableId } : {}) });
@@ -39,28 +46,47 @@ async function achatArchive(request: APIRequestContext, token: string, chantierI
   await appel(request, token, 'delete', `/achats/${achat.id}`, { motifArchivage: motif });
   return achat;
 }
-const annuler = (request: APIRequestContext, token: string, devisId: string) => appel(request, token, 'post', `/devis/${devisId}/annulation`, { motif: 'Annulation E2E du lot Y' }, 200);
+const MOTIF_ANNULATION = 'Annulation E2E du lot Y';
+const annuler = (request: APIRequestContext, token: string, devisId: string) => appel(request, token, 'post', `/devis/${devisId}/annulation`, { motif: MOTIF_ANNULATION }, 200);
+// Motif de l'entrée d'annulation, écrit à la main (lot AG-c, N2) : numéro du devis, version 1, motif saisi.
+const motifAuJournal = (devis: Devis) => `Annulation du devis ${devis.numero} (version 1) : ${MOTIF_ANNULATION}`;
 const creerCompte = (request: APIRequestContext, token: string, cle: string, nom: string, role: string, suffixe: string) =>
   appel<Compte>(request, token, 'post', '/users', { email: `lot-y.${cle}.${suffixe}@iris.test`, name: `${nom} ${suffixe}`, role });
 
 const journalDe = (page: Page) => page.getByRole('region', { name: 'Journal d’audit des saisies' });
 const entree = (page: Page, titre: string) => journalDe(page).locator('div.px-6.py-4', { has: page.getByText(titre, { exact: true }) });
+const entrees = (page: Page) => journalDe(page).locator('div.px-6.py-4.text-sm');
 const AUCUNE_ENTREE = 'Aucune entrée au journal de ce chantier.';
 const INDISPONIBLE = 'Journal d’audit indisponible.';
+const EN_TETE = 'Historique immuable des créations, corrections et archivages du chantier, de sa clôture, de sa réouverture et de son annulation, et des changements de son client, de son titulaire, de son commercial et de son encaissement.';
 // Les deux entrées de l'achat : l'archivage (titre « Achat — archivage ») et la création, reconnue à ses « Valeurs
 // enregistrées » (son titre s'écrit aujourd'hui « Achat — creation », sans accent : libellé préexistant, hors du lot,
-// que ce parcours ne fige pas).
-const entreesDeLAchat = async (page: Page, motif: string) => {
-  await expect(journalDe(page).locator('div.px-6.py-4.text-sm')).toHaveCount(2);
+// que ce parcours ne fige pas). `total` : nombre d'entrées du journal, 2 avant l'annulation, 3 après (lot AG-c).
+const entreesDeLAchat = async (page: Page, motif: string, total = 2) => {
+  await expect(entrees(page)).toHaveCount(total);
   await expect(entree(page, 'Achat — archivage')).toHaveCount(1);
   await expect(entree(page, 'Achat — archivage')).toContainText(`Motif : ${motif}`);
   await expect(entree(page, 'Achat — archivage')).toContainText('Valeurs archivées');
   await expect(entree(page, 'Achat — archivage')).toContainText('"date":"01-10-2026"');
   await expect(journalDe(page).getByText(/^Valeurs enregistrées : /)).toHaveCount(1);
 };
+// Lot AG-c : l'entrée de l'annulation, la plus récente, en tête du journal ; chaque côté en toutes lettres, la date de fin en
+// JJ-MM-AAAA, jamais le code brut (« ANNULE ») ni l'ISO ; le motif ; l'auteur et la date du jour.
+const entreeDAnnulation = async (page: Page, { avant, apres, motif, auteur }: { avant: string; apres: string; motif: string; auteur: string }) => {
+  const annulation = entree(page, 'Statut — changement');
+  await expect(annulation).toHaveCount(1);
+  await expect(entrees(page).first().getByText('Statut — changement', { exact: true })).toBeVisible();
+  await expect(annulation.getByText(`Avant : ${avant}`, { exact: true })).toBeVisible();
+  await expect(annulation.getByText(`Après : ${apres}`, { exact: true })).toBeVisible();
+  await expect(annulation.getByText(`Motif : ${motif}`, { exact: true })).toBeVisible();
+  await expect(annulation).toContainText(`${dateDuJour()} · ${auteur}`);
+  await expect(annulation).not.toContainText('ANNULE');
+  await expect(annulation).not.toContainText(/\d{4}-\d{2}-\d{2}/);
+  await expect(journalDe(page).getByText(EN_TETE, { exact: true })).toBeVisible();
+};
 const reponseDuJournal = (page: Page, chantierId: string) => page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === `/api/chantiers/${chantierId}/journal-saisies`);
 
-test('affaire annulée : le journal d’audit des saisies montre l’archivage de l’achat, à l’administration comme au conducteur titulaire ; « Restaurer » proposé avant l’annulation, plus après', async ({ allerSurPageAdmin, creerClient, connexion, request, session, page }) => {
+test('affaire annulée : le journal d’audit des saisies montre l’entrée de l’annulation (« Statut — changement », « En cours » puis « Annulé », motif) au-dessus de l’archivage de l’achat, à l’administration comme au conducteur titulaire ; « Restaurer » proposé avant l’annulation, plus après', async ({ allerSurPageAdmin, creerClient, connexion, request, session, page }) => {
   test.slow();
   await horsDuPassageDeMinuit();
   const token = session.token;
@@ -81,30 +107,77 @@ test('affaire annulée : le journal d’audit des saisies montre l’archivage d
   await entreesDeLAchat(page, motif);
   await expect(entree(page, 'Achat — archivage')).toContainText(`${dateDuJour()} · ${auteur}`);
   await expect(journalDe(page).getByRole('button', { name: 'Restaurer' })).toHaveCount(1);
+  await expect(entree(page, 'Statut — changement')).toHaveCount(0);
 
-  // Annulation du devis, qui annule l'affaire : le journal reste lu, ses entrées sont les mêmes, « Restaurer » disparaît.
+  // Annulation du devis, qui annule l'affaire : le journal reste lu, ses entrées de l'achat sont les mêmes, l'entrée de
+  // l'annulation s'y ajoute en tête (lot AG-c), « Restaurer » disparaît.
   await annuler(request, token, devis.id);
   expect((await appel<Chantier>(request, token, 'get', `/chantiers/${chantier.id}`)).statut).toBe('ANNULE');
   const lectureApres = reponseDuJournal(page, chantier.id);
   await page.reload({ waitUntil: 'networkidle' });
   expect((await lectureApres).status(), 'le journal d’une affaire annulée se lit (200), et non plus 404').toBe(200);
   await expect(page.getByRole('heading', { name: nom, exact: true }).locator('..').getByText('Annulé', { exact: true })).toBeVisible();
-  await entreesDeLAchat(page, motif);
+  await entreesDeLAchat(page, motif, 3);
+  await entreeDAnnulation(page, { avant: 'En cours', apres: 'Annulé', motif: motifAuJournal(devis), auteur });
   await expect(entree(page, 'Achat — archivage')).toContainText(`${dateDuJour()} · ${auteur}`);
   await expect(page.getByRole('button', { name: 'Restaurer' })).toHaveCount(0);
   await expect(journalDe(page)).not.toContainText(AUCUNE_ENTREE);
   await expect(journalDe(page)).not.toContainText(INDISPONIBLE);
 
-  // Le conducteur titulaire, hors administration, lit lui aussi le journal de son affaire annulée, sans « Restaurer ».
+  // Le conducteur titulaire, hors administration, lit lui aussi le journal de son affaire annulée, entrée de l'annulation
+  // comprise, sans « Restaurer ».
   const pageConducteur = await connexion(conducteur);
   const lectureConducteur = reponseDuJournal(pageConducteur, chantier.id);
   await pageConducteur.goto(`/chantiers/${chantier.id}`, { waitUntil: 'networkidle' });
   expect((await lectureConducteur).status()).toBe(200);
   await expect(pageConducteur.getByRole('heading', { name: nom, exact: true })).toBeVisible();
-  await entreesDeLAchat(pageConducteur, motif);
+  await entreesDeLAchat(pageConducteur, motif, 3);
+  await entreeDAnnulation(pageConducteur, { avant: 'En cours', apres: 'Annulé', motif: motifAuJournal(devis), auteur });
   await expect(pageConducteur.getByRole('button', { name: 'Restaurer' })).toHaveCount(0);
   await expect(journalDe(pageConducteur)).not.toContainText(AUCUNE_ENTREE);
   await expect(journalDe(pageConducteur)).not.toContainText(INDISPONIBLE);
+});
+
+// Lot AG-c, cadrage v2, T1 : « chantier TERMINE annulé par son devis (« Terminé, date de fin X » → « Annulé, date de fin
+// X ») ». Date de fin saisie à la fiche (15-10-2026, antérieure au jour du passage), gardée par la clôture puis par
+// l'annulation : deux entrées « Statut — changement », la plus récente en tête, chaque date au format JJ-MM-AAAA.
+test('affaire terminée annulée par son devis : l’entrée de l’annulation se lit « Terminé, date de fin 15-10-2026 » puis « Annulé, date de fin 15-10-2026 », avec son motif, au-dessus de celle de la clôture', async ({ allerSurPageAdmin, creerClient, request, session, page }) => {
+  test.slow();
+  await horsDuPassageDeMinuit();
+  const token = session.token;
+  const suffixe = `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
+  const nom = `E2E Journal affaire terminée annulée AG-c ${suffixe}`;
+  const auteur = (session.user as { name: string }).name;
+  const client = await creerClient('journal affaire terminée annulée AG-c');
+  const { devis, chantier } = await affaireConvertie(request, token, client.id, nom);
+  await appel(request, token, 'patch', `/chantiers/${chantier.id}`, { dateFin: '15-10-2026' });
+  const clos = await appel<Chantier>(request, token, 'patch', `/chantiers/${chantier.id}/statut`, { statut: 'TERMINE' });
+  expect([clos.statut, clos.dateFin]).toEqual(['TERMINE', '2026-10-15T00:00:00.000Z']);
+  await annuler(request, token, devis.id);
+  const relu = await appel<Chantier>(request, token, 'get', `/chantiers/${chantier.id}`);
+  expect([relu.statut, relu.dateFin]).toEqual(['ANNULE', '2026-10-15T00:00:00.000Z']);
+
+  const lecture = reponseDuJournal(page, chantier.id);
+  await allerSurPageAdmin(`/chantiers/${chantier.id}`);
+  expect((await lecture).status()).toBe(200);
+  await expect(page.getByRole('heading', { name: nom, exact: true })).toBeVisible();
+  const statuts = journalDe(page).locator('div.px-6.py-4', { has: page.getByText('Statut — changement', { exact: true }) });
+  await expect(entrees(page)).toHaveCount(2);
+  await expect(statuts).toHaveCount(2);
+  // En tête, l'annulation : « Terminé » daté avant, « Annulé » à la même date après, le motif.
+  const annulation = statuts.first();
+  await expect(annulation.getByText('Avant : Terminé, date de fin 15-10-2026', { exact: true })).toBeVisible();
+  await expect(annulation.getByText('Après : Annulé, date de fin 15-10-2026', { exact: true })).toBeVisible();
+  await expect(annulation.getByText(`Motif : ${motifAuJournal(devis)}`, { exact: true })).toBeVisible();
+  await expect(annulation).toContainText(`${dateDuJour()} · ${auteur}`);
+  await expect(annulation).not.toContainText('2026-10-15');
+  await expect(annulation).not.toContainText('ANNULE');
+  // Dessous, la clôture (lot AG-b), sans motif : « En cours » daté avant, « Terminé » à la même date après.
+  const cloture = statuts.nth(1);
+  await expect(cloture.getByText('Avant : En cours, date de fin 15-10-2026', { exact: true })).toBeVisible();
+  await expect(cloture.getByText('Après : Terminé, date de fin 15-10-2026', { exact: true })).toBeVisible();
+  await expect(cloture).not.toContainText('Motif :');
+  await expect(journalDe(page).getByText(EN_TETE, { exact: true })).toBeVisible();
 });
 
 test('un journal illisible n’est jamais présenté comme vide : « Journal d’audit indisponible. » sur une erreur 500, une requête coupée et le refus 404 du commercial titulaire ; « Aucune entrée au journal de ce chantier. » sur un journal réellement vide', async ({ allerSurPageAdmin, creerClient, connexion, request, session, page }) => {

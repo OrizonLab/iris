@@ -31226,8 +31226,11 @@ if (!TEST_DATABASE_URL) {
       }
       const relu = await prisma.chantier.findUniqueOrThrow({ where: { id: chantier.id } });
       assert.deepEqual([relu.statut, relu.responsableId, relu.commercialId], [annulee ? 'ANNULE' : 'EN_COURS', responsableId, commercialId]);
-      return { devis: devis.body, chantier, achat: achat.body, heure: heure.body, nom };
+      return { devis: devis.body, chantier, achat: achat.body, heure: heure.body, nom, annulee };
     };
+    // Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui » ; cadrage AG-c v2, N2) : l'annulation du devis s'inscrit au
+    // journal du chantier, au motif des journaux des interventions et du contrat. Écrit à la main : numéro du devis, version 1.
+    const motifAnnulationAuJournal = (affaire) => `Annulation du devis ${affaire.devis.numero} (version 1) : ${MOTIF_ANNULATION}`;
 
     before(async () => {
       const secours = await request(app).post('/api/auth/secours').send({ token: process.env.BREAK_GLASS_TOKEN });
@@ -31287,14 +31290,25 @@ if (!TEST_DATABASE_URL) {
     // Lecture admise : 200, les entrées exactes de la base (identifiants, auteur, motif, instant compris), dans l'ordre de la
     // route, instantanés masqués selon le compte ; puis les valeurs témoins nommées, pour que l'attendu ne dépende pas
     // seulement du masque recalculé ici.
+    // Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui ») : une affaire annulée porte en tête, la plus récente, l'entrée
+    // de son annulation (cible CHANTIER, action CHANGEMENT_STATUT), lue entière de chaque compte admis, technicien compris :
+    // statut et date de fin, ni montant ni taux (cadrage AG-c v2, C2 : « à périmètre inchangé, chacun n'y lit, en plus de
+    // cette entrée, que ce qu'il pouvait y lire avant »). Les saisies suivent, inchangées. Une affaire en cours n'en a pas.
     const verifierLectureAdmise = async (affaire, qui, auth, lecture) => {
       const enBase = await journalEnBase(affaire.chantier.id);
       const lu = await lireJournal(affaire.chantier.id, auth);
       assert.equal(lu.status, 200, `${qui} : ${JSON.stringify(lu.body)}`);
       assert.deepEqual(lu.body, masquer(enBase, CLES_MASQUEES[lecture]), `${qui} : entrées exactes, ${lecture}`);
-      assert.deepEqual(lu.body.map((e) => [e.cible, e.action]), [['HEURE', 'ARCHIVAGE'], ['ACHAT', 'ARCHIVAGE'], ['HEURE', 'CREATION'], ['ACHAT', 'CREATION']], `${qui} : ordre`);
-      const [heureArchivee, achatArchive, heureCreee, achatCree] = lu.body;
-      const instantanes = lu.body.flatMap((entree) => [entree.avant, entree.apres]).filter(Boolean);
+      assert.deepEqual(lu.body.map((e) => [e.cible, e.action]), [...(affaire.annulee ? [['CHANTIER', 'CHANGEMENT_STATUT']] : []), ['HEURE', 'ARCHIVAGE'], ['ACHAT', 'ARCHIVAGE'], ['HEURE', 'CREATION'], ['ACHAT', 'CREATION']], `${qui} : ordre`);
+      if (affaire.annulee) {
+        const [annulation] = lu.body;
+        assert.deepEqual([annulation.cibleId, annulation.auteurId, annulation.auteurNom, annulation.avant, annulation.apres, annulation.motif], [
+          affaire.chantier.id, saId, saNom, { statut: 'EN_COURS', dateFin: null }, { statut: 'ANNULE', dateFin: null }, motifAnnulationAuJournal(affaire),
+        ], `${qui} : entrée de l’annulation, lue entière`);
+      }
+      const saisies = affaire.annulee ? lu.body.slice(1) : lu.body;
+      const [heureArchivee, achatArchive, heureCreee, achatCree] = saisies;
+      const instantanes = saisies.flatMap((entree) => [entree.avant, entree.apres]).filter(Boolean);
       assert.equal(instantanes.length, 6, `${qui} : création (après), archivage (avant et après), pour l’achat et les heures`);
       for (const instantane of instantanes) assert.equal(instantane.chantierId, affaire.chantier.id, qui);
       if (lecture === 'complet') {
@@ -31322,28 +31336,33 @@ if (!TEST_DATABASE_URL) {
       assert.deepEqual([fiche.status, fiche.body], [404, PAS_TROUVE], `${qui} : fiche, même réponse que le journal`);
     };
 
-    test('scénario de #136 : achat et heures saisis puis archivés, devis annulé ; le journal de l’affaire annulée garde ses quatre entrées exactes, de la plus récente à la plus ancienne, intactes en base, et la restauration y est refusée (409) sans rien écrire', async () => {
+    test('scénario de #136 : achat et heures saisis puis archivés, devis annulé ; le journal de l’affaire annulée garde ses quatre entrées exactes, de la plus récente à la plus ancienne, intactes en base, sous l’entrée de l’annulation (lot AG-c), et la restauration y est refusée (409) sans rien écrire', async () => {
       const { chantier, achat, heure } = affaires.A;
       const enBase = await journalEnBase(chantier.id);
-      // Ordre de la route : l'instant d'insertion décroissant (archivage des heures, puis de l'achat, puis création des
-      // heures, puis de l'achat). Ni la conversion ni l'annulation du devis n'écrivent à ce journal.
+      // Ordre de la route : l'instant d'insertion décroissant (annulation du devis, archivage des heures, puis de l'achat,
+      // puis création des heures, puis de l'achat). La conversion du devis n'écrit pas à ce journal ; son annulation y écrit
+      // la plus récente entrée, depuis le lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui ») : statut et date de fin
+      // avant et après, motif « Annulation du devis <numéro> (version 1) : <motif> », au nom du super administrateur.
       assert.deepEqual(enBase.map((e) => [e.cible, e.action, e.cibleId, e.motif, e.auteurId, e.auteurNom]), [
+        ['CHANTIER', 'CHANGEMENT_STATUT', chantier.id, motifAnnulationAuJournal(affaires.A), saId, saNom],
         ['HEURE', 'ARCHIVAGE', heure.id, MOTIF_HEURE, saId, saNom],
         ['ACHAT', 'ARCHIVAGE', achat.id, MOTIF_ACHAT, saId, saNom],
         ['HEURE', 'CREATION', heure.id, null, saId, saNom],
         ['ACHAT', 'CREATION', achat.id, null, saId, saNom],
       ]);
-      assert.deepEqual(enBase.map((e) => [e.avant === null, e.apres === null]), [[false, false], [false, false], [true, false], [true, false]]);
+      assert.deepEqual(enBase.map((e) => [e.avant === null, e.apres === null]), [[false, false], [false, false], [false, false], [true, false], [true, false]]);
+      assert.deepEqual([enBase[0].avant, enBase[0].apres], [{ statut: 'EN_COURS', dateFin: null }, { statut: 'ANNULE', dateFin: null }], 'entrée de l’annulation : statut et date de fin, rien d’autre');
       // Le journal reste intact en base, montants et taux compris : seul ce que la route en rend est masqué.
-      assert.equal(enBase[2].apres.tauxHoraireApplique, TAUX_FICHE);
-      assert.equal(enBase[3].apres.montantHT, MONTANT_ACHAT);
-      assert.ok(enBase[0].apres.archivedAt && enBase[1].apres.archivedAt, 'l’archivage garde l’instant de l’archivage');
+      assert.equal(enBase[3].apres.tauxHoraireApplique, TAUX_FICHE);
+      assert.equal(enBase[4].apres.montantHT, MONTANT_ACHAT);
+      assert.ok(enBase[1].apres.archivedAt && enBase[2].apres.archivedAt, 'l’archivage garde l’instant de l’archivage');
       const fiche = await lireFiche(chantier.id, sa);
       assert.equal(fiche.status, 200, JSON.stringify(fiche.body));
       assert.deepEqual([fiche.body.statut, fiche.body.motifAnnulation], ['ANNULE', MOTIF_ANNULATION]);
       await verifierLectureAdmise(affaires.A, 'le super administrateur', sa, 'complet');
-      // Le journal est figé après l'annulation : restaurer une saisie archivée y est refusé à tous, administration comprise
-      // (raison pour laquelle l'écran ne propose plus « Restaurer » sur une affaire annulée).
+      // Le journal est figé après l'annulation (hors l'entrée de l'annulation elle-même, écrite dans sa transaction, lot AG-c) :
+      // restaurer une saisie archivée y est refusé à tous, administration comprise (raison pour laquelle l'écran ne propose
+      // plus « Restaurer » sur une affaire annulée).
       const avant = await empreinte();
       for (const [route, id] of [['achats', achat.id], ['heures', heure.id]]) {
         const refus = await envoyer('post', `/api/${route}/${id}/restaurer`, sa, { motifRestauration: 'TEST Lot Y restauration refusée' });

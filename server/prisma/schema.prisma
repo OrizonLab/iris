@@ -236,7 +236,7 @@ model JournalSaisieChantier {
   chantierId     String?
   interventionId String?
   contratMaintenanceId String?
-  cible          String   // ACHAT | HEURE | INTERVENTION | INTERVENTION_RAPPORT | INTERVENTION_SIGNATURE | CONTRAT | CHANTIER (changement de client, de titulaire, de commercial, de la case « Encaissé » ou du statut de l’affaire : clôture et réouverture)
+  cible          String   // ACHAT | HEURE | INTERVENTION | INTERVENTION_RAPPORT | INTERVENTION_SIGNATURE | CONTRAT | CHANTIER (changement de client, de titulaire, de commercial, de la case « Encaissé » ou du statut de l’affaire : clôture, réouverture et annulation par le devis)
   cibleId        String
   action         String   // CREATION | CORRECTION | ARCHIVAGE | RESTAURATION | CHANGEMENT_STATUT | CREATION_CONTRAT | SUSPENSION | REACTIVATION | CLOTURE | CHANGEMENT_CLIENT | CHANGEMENT_TITULAIRE | CHANGEMENT_COMMERCIAL | CHANGEMENT_ENCAISSEMENT
   // Toute nouvelle écriture a un compte auteur (contrainte CHECK en base, décision de Nelson du

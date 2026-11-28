@@ -20,6 +20,9 @@
 // Lot AG-b (décision de Nelson du 26-11-2026, « 1. A ») : la clôture et la réouverture s'écrivent au journal de la fiche
 // chantier ; ici, la première clôture du conducteur y est relue, et la reclôture d'un chantier terminé et daté par
 // l'administration n'écrit ni entrée ni mise à jour. Le contenu des entrées est prouvé par journal-cloture-chantier.test.mjs.
+// Lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui ») : l'annulation d'une affaire par son devis s'écrit aussi au
+// journal de la fiche chantier ; ici, l'entrée de l'annulation qui passe dans la course réelle contre l'encaissement. Un
+// refus d'annulation n'y écrit toujours rien. Le contenu des entrées est prouvé par journal-annulation-chantier.test.mjs.
 //
 // Ces règles touchent un montant (cadrage, « Ordre ») : le CA et la marge validés d'un commercial exigent un chantier
 // terminé et encaissé (commissions/metier.ts) ; la fiche (dates, barème réduit, budgets) et le commercial d'un chantier
@@ -748,6 +751,9 @@ if (!TEST_DATABASE_URL) {
 
     // Les deux requêtes réelles, lancées ensemble sur un même chantier : elles se suivent sur la ligne du chantier, et
     // l'une des deux est refusée, quel que soit l'ordre que le hasard leur donne. Jamais une affaire annulée et encaissée.
+    // Depuis le lot AG-c (décision de Nelson du 28-11-2026, « 1. Oui »), l'annulation qui passe s'inscrit au journal du
+    // chantier, seule : l'encaissement refusé n'y ajoute rien. Le contenu de l'entrée est prouvé par
+    // journal-annulation-chantier.test.mjs.
     test('course réelle : annulation du devis et encaissement lancés ensemble ; l’un passe, l’autre est refusé (409), jamais une affaire annulée et encaissée', async () => {
       const affaires = [];
       for (let i = 0; i < 6; i += 1) affaires.push(await chantierConverti(`course réelle ${i}`));
@@ -755,15 +761,17 @@ if (!TEST_DATABASE_URL) {
         const [annulation, encaissement] = i % 2
           ? await Promise.all([annulerDevis(devis.id), encaisser(chantierId, { encaisse: true })])
           : (await Promise.all([encaisser(chantierId, { encaisse: true }), annulerDevis(devis.id)])).reverse();
-        return { chantierId, annulation, encaissement };
+        return { devis, chantierId, annulation, encaissement };
       }));
-      for (const { chantierId, annulation, encaissement } of resultats) {
+      for (const { devis, chantierId, annulation, encaissement } of resultats) {
         const relu = await ligne(chantierId);
         const quoi = `${annulation.status}/${encaissement.status} ${JSON.stringify([annulation.body.error, encaissement.body.error])}`;
         assert.ok(!(relu.statut === 'ANNULE' && relu.encaisse), `affaire annulée et encaissée : ${quoi}`);
         if (relu.statut === 'ANNULE') {
           assert.deepEqual([annulation.status, encaissement.status, encaissement.body.error, relu.encaisse], [200, 409, REFUS.encaissementAnnulee, false], quoi);
-          assert.equal((await journal(chantierId)).length, 0, quoi);
+          assert.deepEqual((await journal(chantierId)).map((e) => [e.cible, e.action, e.auteurId, e.avant, e.apres, e.motif]), [
+            ['CHANTIER', 'CHANGEMENT_STATUT', secours.id, { statut: 'EN_COURS', dateFin: null }, { statut: 'ANNULE', dateFin: null }, `Annulation du devis ${devis.numero} (version 1) : TEST annulation du correctif 285`],
+          ], `${quoi} : seule l’entrée de l’annulation (lot AG-c)`);
         } else {
           assert.deepEqual([annulation.status, annulation.body.error, encaissement.status, relu.encaisse], [409, REFUS.annulationEncaisse, 200, true], quoi);
           assert.deepEqual((await journal(chantierId)).map((e) => e.action), ['CHANGEMENT_ENCAISSEMENT'], quoi);

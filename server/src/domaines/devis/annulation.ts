@@ -3,6 +3,7 @@ import type { AuthRequest } from '../../http/auth';
 import { INSTANTANE_CRENEAU, journaliserIntervention, retirerCreneauIntervention } from '../interventions/metier';
 import { verrouillerIntervention } from '../interventions/comptesRendus';
 import { journaliserContrat, verrouillerContratMaintenance } from '../contrats/metier';
+import { journaliserChangementChantier } from '../chantiers/metier';
 import { DevisConflitError, DevisIntrouvableError, DevisSaisieError, devisInclude, verrouillerDevis } from './metier';
 
 // --- Annulation d'un devis, en cascade sur ce qu'il a créé (lot 4 suite) ---
@@ -11,7 +12,9 @@ import { DevisConflitError, DevisIntrouvableError, DevisSaisieError, devisInclud
 // devis annulé, le contrat de maintenace l’est aussi » (même un contrat commencé : « même avec une
 // date anterieur »), « si devis annulé le sav egalement ». Dans la même transaction que le devis :
 //  - le chantier est archivé (ANNULE, motif conservé), comme avant ce lot, et refusé dès qu'une heure
-//    ou un achat y est saisi : une affaire commencée ne s'annule pas ;
+//    ou un achat y est saisi : une affaire commencée ne s'annule pas ; l'annulation s'écrit au journal
+//    des saisies du chantier (statut et date de fin avant et après, motif ; décision de Nelson du
+//    28-11-2026, « 1. Oui », lot AG-c) ;
 //  - le contrat de maintenance passe ANNULE, avec la date, l'auteur et le motif du devis, et l'écrit
 //    à son journal (action ANNULATION), même commencé (date de début passée, visites réalisées) ;
 //    ses visites non réalisées (à planifier, planifiées) sont annulées, ses visites terminées
@@ -85,9 +88,12 @@ export async function annulerDevisEnCascade(tx: Prisma.TransactionClient, devisI
   }
   // Relu sous le verrou du chantier, que prend aussi l'encaissement (PATCH /api/chantiers/:id/encaisse).
   let chantierEncaisse = false;
+  // Statut et date de fin lus sous le même verrou : l'« avant » de l'entrée du journal (lot AG-c).
+  let chantierAvant: { statut: string; dateFin: Date | null } | null = null;
   if (chantierId) {
-    const [chantier] = await tx.$queryRaw<Array<{ encaisse: boolean }>>(Prisma.sql`SELECT "encaisse" FROM "Chantier" WHERE "id" = ${chantierId} FOR NO KEY UPDATE`);
+    const [chantier] = await tx.$queryRaw<Array<{ encaisse: boolean; statut: string; dateFin: Date | null }>>(Prisma.sql`SELECT "encaisse", "statut", "dateFin" FROM "Chantier" WHERE "id" = ${chantierId} FOR NO KEY UPDATE`);
     chantierEncaisse = !!chantier?.encaisse;
+    chantierAvant = chantier ? { statut: chantier.statut, dateFin: chantier.dateFin } : null;
     // Le verrou porte sur les écritures VIVANTES : une ligne déjà archivée n'engage rien. Les
     // saisies ne verrouillent pas le chantier : course connue, non corrigée (constat « Saisie sur un
     // chantier pendant l'annulation de son devis » de docs/ROADMAP-PASSATION.md).
@@ -144,6 +150,13 @@ export async function annulerDevisEnCascade(tx: Prisma.TransactionClient, devisI
   const maintenant = new Date();
   const motifCible = `Annulation du devis ${devis.numero} (version ${devis.version}) : ${motif}`;
   if (chantierId) {
+    // L'annulation s'écrit au journal des saisies du chantier, dans la transaction qui l'enregistre, avant la ligne :
+    // sans la trace, le changement n'a pas lieu (décision de Nelson du 28-11-2026, « 1. Oui », lot AG-c ; comme la
+    // clôture, AG-b, et les réattributions, #181). Le motif est celui des journaux des interventions et du contrat
+    // de la même annulation ; la date de fin n'est pas changée.
+    const dateFin = chantierAvant?.dateFin?.toISOString() ?? null;
+    await journaliserChangementChantier(tx, chantierId, auteur, 'CHANGEMENT_STATUT',
+      { statut: chantierAvant?.statut ?? null, dateFin }, { statut: 'ANNULE', dateFin }, motifCible);
     await tx.chantier.update({ where: { id: chantierId }, data: { statut: 'ANNULE', annuleLe: maintenant, annuleParId: auteur.id, motifAnnulation: motif } });
   }
   const interventionsAnnulees: string[] = [];

@@ -1,6 +1,6 @@
 // Lecture du journal d'audit de la fiche chantier : saisies Travaux (achats, heures) et
 // changements de l'affaire elle-même : client, titulaire, commercial et case « Encaissé » (#181), ainsi que son statut
-// (clôture et réouverture, décision de Nelson du 26-11-2026, lot AG-b).
+// (clôture et réouverture, décision de Nelson du 26-11-2026, lot AG-b ; annulation par le devis, décision du 28-11-2026, lot AG-c).
 
 import { jourFrancais } from './dateFormatting';
 import { libelleStatutChantier } from './statutsChantier';
